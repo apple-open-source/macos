@@ -2,15 +2,15 @@
 tarkvara nimega "Mailman". Loodetavasti lahendab see probleemid,
 mis selle listi haldamise ja kasutamisega varem seotud olid.
 
-Kuidas see muutus teid mõjutab?
+Kuidas see muutus sind mõjutab?
 
 1) Listi saadetavad kirjad tuleb saata aadressile:
 	%(listaddr)s.
 
-2) Teile genereeriti unikaalne parool, mille abil listserver
-identifitseerib teid meili teel saadetavate korraldustes.
+2) Sulle genereeriti unikaalne parool, mille abil listserver
+identifitseerib sind meili teel saadetavate korraldustes.
 Parool saadetakse eraldi kirjaga, mis võib olla juba varem laekunud.
-Juhuks kui peaksite parooli unustama, saadetakse nüüdsest alates see
+Juhuks kui peaksid parooli unustama, saadetakse nüüdsest alates see
 parool teile iga kuu uuesti meeldetuletusena.
 
 3) Kui teil on ligipääs WWW-le, siis saate seda parooli kasutada

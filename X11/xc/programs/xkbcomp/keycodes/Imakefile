@@ -1,0 +1,18 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:37 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/xkbcomp/keycodes/Imakefile,v 3.16 2003/02/15 22:22:44 dawes Exp $
+
+#define IHaveSubdirs
+
+    DATAFILES = README amiga ataritt fujitsu hp ibm macintosh sony sun \
+		xfree86 xfree98 powerpcps2 aliases
+      SUBDIRS = digital sgi
+
+all::
+
+MakeXkbDir($(LIBDIR)/xkb,keycodes)
+InstallMultiple($(DATAFILES),$(LIBDIR)/xkb/keycodes)
+DependSubdirs($(SUBDIRS))

@@ -196,7 +196,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IODVDStorageFamily;
-				MODULE_VERSION = 1.3;
+				MODULE_VERSION = 1.3.1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -222,7 +222,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IODVDStorageFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3, Copyright Apple Computer, Inc. 1998-2003</string>
+	<string>1.3.1, Copyright Apple Computer, Inc. 1998-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -234,11 +234,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3</string>
+	<string>1.3.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3</string>
+	<string>1.3.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IODVDBlockStorageDriver</key>
@@ -263,6 +263,8 @@
 			<integer>31000</integer>
 			<key>IOProviderClass</key>
 			<string>IODVDMedia</string>
+			<key>IOResourceMatch</key>
+			<string>IOBSD</string>
 		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>

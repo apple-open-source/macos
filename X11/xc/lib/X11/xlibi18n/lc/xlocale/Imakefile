@@ -1,0 +1,13 @@
+#include "../../Xi18nLib.conf"
+
+ EXTRA_INCLUDES = -I../../..
+      XI18NLIBNAME = xlocale
+           SRCS = lcEuc.c lcSjis.c lcJis.c
+           OBJS = ${SRCS:.c=.o}
+   REQUIREDLIBS = -L$(XENVLIBDIR) -lX11 -lc
+
+LinkSourceFile(lcEuc.c, ../../..)
+LinkSourceFile(lcSjis.c, ../../..)
+LinkSourceFile(lcJis.c, ../../..)
+
+Xi18nLibraryTarget(xlocale)

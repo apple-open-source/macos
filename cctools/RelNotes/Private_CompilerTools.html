@@ -1,21 +1,21 @@
 <HTML>
-<!--This file created 9/10/03 5:51 PM by Claris Home Page version 3.0-->
+<!--This file created 5/11/04 4:55 PM by Claris Home Page version 3.0-->
 <HEAD>
    <TITLE>Private Compiler Tools Release Notes</TITLE>
    <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
-   <X-CLARIS-WINDOW TOP=72 BOTTOM=839 LEFT=95 RIGHT=725>
+   <X-CLARIS-WINDOW TOP=68 BOTTOM=835 LEFT=113 RIGHT=743>
    <X-CLARIS-TAGVIEW MODE=minimal>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY BGCOLOR="#FFFFFF">
-<P><FONT SIZE="-1">Mac OS X 10.3 Release Copyright 2003 by Apple
+<P><FONT SIZE="-1">Mac OS X 10.3.4 Release Copyright 2004 by Apple
 Computer, Inc. All Rights Reserved.</FONT></P>
 
-<H2>Private Mac OS X 10.3 Release Notes:<BR>
-Compiler Tools (cctools-495)</H2>
+<H2>Private Mac OS X 10.3.4 Release Notes:<BR>
+Compiler Tools (cctools-495.8)</H2>
 
-<P>This file contains release notes for the 5.13 release of the
-Compiler Tools for the Mac OS X 10.3 Release. This file contains
+<P>This file contains release notes for the 5.13.2 release of the
+Compiler Tools for the Mac OS X 10.3.4 Release. This file contains
 information about the following topics:</P>
 
 <UL>
@@ -27,6 +27,87 @@ information about the following topics:</P>
    
    <LI>Mach-O object tools (<B>nm</B>, <B>otool</B>, and so
    on)&nbsp;</LI>
+</UL>
+
+<H2>Notes Specific to Release 5.13.2 (Mac OS X 10.3.4 Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-495.7 for
+the 5.13.1 Mac OS X 10.3.3 release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug that was caused by the changes to dyld in
+   cctools-495.3 for Radar bug #3622330 that would cause undefined
+   symbols errors. (Radar bug #3650224).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-495.6 for
+the 5.13.1 Mac OS X 10.3.3 release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug that was caused by the changes to dyld in
+   cctools-495.3 for Radar bug #3622330 that would not correctly
+   fully bind symbols and modules. (Radar bug #3629498).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-495.5 for
+the 5.13.1 Mac OS X 10.3.3 release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug that was caused by the changes to dyld in
+   cctools-495.3 for Radar bug #3622330 that would cause private
+   bundles to fail to load if they had mutiply defined symbols (Radar
+   bug #3626905).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-495.4 for
+the 5.13.1 Mac OS X 10.3.3 release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug that was caused by the changes to dyld in
+   cctools-495.3 for Radar bug #3622330 that would cause a crash in
+   apps that were built ld(1) -s and the un fixed bug 3534709. The
+   work around for this bug had a logic error (Radar bug
+   #3627380).</LI>
+   
+   <LI>Fixed a bug that was caused by the changes to dyld in
+   cctools-495.3 for Radar bug #3622330 that would cause a crash in
+   dyld when there were unused non-lazy symbols in a multi-module
+   dynamic library (Radar bug #3625797).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-495.3 for
+the 5.13.1 Mac OS X 10.3.3 release) </FONT></H5>
+
+<UL>
+   <LI>Changes were made to dyld that improve launch times. (Radar
+   bug #3622330).</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-495.2 for
+the 5.13.1 Mac OS X 10.3.3 release) </FONT></H5>
+
+<UL>
+   <LI>Added the <I>unprebind</I>(3) API to libredo_prebinding and
+   the <B>-u</B> option to the <I>redo_prebinding</I>(1) command.
+   (Radar bug #3176679).</LI>
+   
+   <LI>Added the <B>-seg1addr</B> <I>hex_addeess</I> option to to the
+   <I>redo_prebinding</I>(1) command to specify the address of a
+   dynamic shared library. (Radar bug #3176679).</LI>
+   
+   <LI>Added the <B>-s</B> option to to the <I>redo_prebinding</I>(1)
+   command to cause it to write its output to standard output, rather
+   than to an output file. (Radar bug #3176679).</LI>
+</UL>
+
+<H2>Notes Specific to Release 5.13.1 (Mac OS X 10.3.3 Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-495 for
+the 5.13 Mac OS X 10.3 release) </FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in dyld that was causing it not to trigger
+   fix_prebinding. (Radar bug #3489918).</LI>
 </UL>
 
 <H2>Notes Specific to Release 5.13 (Mac OS X 10.3)</H2>

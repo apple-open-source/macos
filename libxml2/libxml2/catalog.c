@@ -42,11 +42,17 @@
 #include <libxml/globals.h>
 
 #define MAX_DELEGATE	50
+#define MAX_CATAL_DEPTH	50
 
 /**
  * TODO:
  *
  * macro to flag unimplemented blocks
+ * XML_CATALOG_PREFER user env to select between system/public prefered
+ * option. C.f. Richard Tobin <richard@cogsci.ed.ac.uk>
+ *> Just FYI, I am using an environment variable XML_CATALOG_PREFER with
+ *> values "system" and "public".  I have made the default be "system" to
+ *> match yours.
  */
 #define TODO 								\
     xmlGenericError(xmlGenericErrorContext,				\
@@ -110,6 +116,7 @@ struct _xmlCatalogEntry {
     xmlChar *URL;  /* The expanded URL using the base */
     xmlCatalogPrefer prefer;
     int dealloc;
+    int depth;
 };
 
 typedef enum {
@@ -175,6 +182,48 @@ static xmlRMutexPtr xmlCatalogMutex = NULL;
  */
 static int xmlCatalogInitialized = 0;
 
+/************************************************************************
+ *									*
+ * 			Catalog error handlers				*
+ *									*
+ ************************************************************************/
+
+/**
+ * xmlCatalogErrMemory:
+ * @extra:  extra informations
+ *
+ * Handle an out of memory condition
+ */
+static void
+xmlCatalogErrMemory(const char *extra)
+{
+    __xmlRaiseError(NULL, NULL, NULL, NULL, NULL, XML_FROM_CATALOG,
+                    XML_ERR_NO_MEMORY, XML_ERR_ERROR, NULL, 0,
+		    extra, NULL, NULL, 0, 0,
+		    "Memory allocation failed : %s\n", extra);
+}
+
+/**
+ * xmlCatalogErr:
+ * @catal: the Catalog entry
+ * @node: the context node
+ * @msg:  the error message
+ * @extra:  extra informations
+ *
+ * Handle a catalog error
+ */
+static void
+xmlCatalogErr(xmlCatalogEntryPtr catal, xmlNodePtr node, int error,
+               const char *msg, const xmlChar *str1, const xmlChar *str2,
+	       const xmlChar *str3)
+{
+    __xmlRaiseError(NULL, NULL, NULL, catal, node, XML_FROM_CATALOG,
+                    error, XML_ERR_ERROR, NULL, 0,
+		    (const char *) str1, (const char *) str2,
+		    (const char *) str3, 0, 0,
+		    msg, str1, str2, str3);
+}
+
 
 /************************************************************************
  *									*
@@ -201,8 +250,7 @@ xmlNewCatalogEntry(xmlCatalogEntryType type, const xmlChar *name,
 
     ret = (xmlCatalogEntryPtr) xmlMalloc(sizeof(xmlCatalogEntry));
     if (ret == NULL) {
-	xmlGenericError(xmlGenericErrorContext,
-		"malloc of %d byte failed\n", sizeof(xmlCatalogEntry));
+        xmlCatalogErrMemory("allocating catalog entry");
 	return(NULL);
     }
     ret->next = NULL;
@@ -225,6 +273,7 @@ xmlNewCatalogEntry(xmlCatalogEntryType type, const xmlChar *name,
 	ret->URL = NULL;
     ret->prefer = prefer;
     ret->dealloc = 0;
+    ret->depth = 0;
     return(ret);
 }
 
@@ -328,8 +377,7 @@ xmlCreateNewCatalog(xmlCatalogType type, xmlCatalogPrefer prefer) {
 
     ret = (xmlCatalogPtr) xmlMalloc(sizeof(xmlCatalog));
     if (ret == NULL) {
-	xmlGenericError(xmlGenericErrorContext,
-		"malloc of %d byte failed\n", sizeof(xmlCatalog));
+        xmlCatalogErrMemory("allocating catalog");
 	return(NULL);
     }
     memset(ret, 0, sizeof(xmlCatalog));
@@ -366,6 +414,7 @@ xmlFreeCatalog(xmlCatalogPtr catal) {
  *									*
  ************************************************************************/
 
+#ifdef LIBXML_OUTPUT_ENABLED
 /**
  * xmlCatalogDumpEntry:
  * @entry:  the 
@@ -411,7 +460,7 @@ xmlCatalogDumpEntry(xmlCatalogEntryPtr entry, FILE *out) {
 	case SGML_CATA_DOCTYPE:
 	case SGML_CATA_LINKTYPE:
 	case SGML_CATA_NOTATION:
-	    fprintf(out, "%s", entry->name); break;
+	    fprintf(out, "%s", (const char *) entry->name); break;
 	case SGML_CATA_PUBLIC:
 	case SGML_CATA_SYSTEM:
 	case SGML_CATA_SGMLDECL:
@@ -579,6 +628,7 @@ BAD_CAST "http://www.oasis-open.org/committees/entity/release/1.0/catalog.dtd");
 
     return(ret);
 }
+#endif /* LIBXML_OUTPUT_ENABLED */
 
 /************************************************************************
  *									*
@@ -783,7 +833,7 @@ xmlParseCatalogFile(const char *filename) {
 	return(NULL);
     }
 
-    inputStream->filename = xmlMemStrdup(filename);
+    inputStream->filename = (char *) xmlCanonicPath((const xmlChar *)filename);
     inputStream->buf = buf;
     inputStream->base = inputStream->buf->buffer->content;
     inputStream->cur = inputStream->buf->buffer->content;
@@ -862,10 +912,9 @@ xmlLoadFileContent(const char *filename)
         return (NULL);
     }
 #endif
-    content = xmlMalloc(size + 10);
+    content = xmlMallocAtomic(size + 10);
     if (content == NULL) {
-        xmlGenericError(xmlGenericErrorContext,
-                        "malloc of %d byte failed\n", size + 10);
+        xmlCatalogErrMemory("allocating catalog data");
         return (NULL);
     }
 #ifdef HAVE_STAT
@@ -967,15 +1016,15 @@ xmlParseXMLCatalogOneNode(xmlNodePtr cur, xmlCatalogEntryType type,
     if (attrName != NULL) {
 	nameValue = xmlGetProp(cur, attrName);
 	if (nameValue == NULL) {
-	    xmlGenericError(xmlGenericErrorContext,
-		    "%s entry lacks '%s'\n", name, attrName);
+	    xmlCatalogErr(ret, cur, XML_CATALOG_MISSING_ATTR,
+			  "%s entry lacks '%s'\n", name, attrName, NULL);
 	    ok = 0;
 	}
     }
     uriValue = xmlGetProp(cur, uriAttrName);
     if (uriValue == NULL) {
-	xmlGenericError(xmlGenericErrorContext,
-		"%s entry lacks '%s'\n", name, uriAttrName);
+	xmlCatalogErr(ret, cur, XML_CATALOG_MISSING_ATTR,
+		"%s entry lacks '%s'\n", name, uriAttrName, NULL);
 	ok = 0;
     }
     if (!ok) {
@@ -999,7 +1048,7 @@ xmlParseXMLCatalogOneNode(xmlNodePtr cur, xmlCatalogEntryType type,
 	}
 	ret = xmlNewCatalogEntry(type, nameValue, uriValue, URL, prefer);
     } else {
-	xmlGenericError(xmlGenericErrorContext,
+	xmlCatalogErr(ret, cur, XML_CATALOG_ENTRY_BROKEN,
 		"%s entry '%s' broken ?: %s\n", name, uriAttrName, uriValue);
     }
     if (nameValue != NULL)
@@ -1044,8 +1093,9 @@ xmlParseXMLCatalogNode(xmlNodePtr cur, xmlCatalogPrefer prefer,
             } else if (xmlStrEqual(prop, BAD_CAST "public")) {
                 prefer = XML_CATA_PREFER_PUBLIC;
             } else {
-                xmlGenericError(xmlGenericErrorContext,
-                                "Invalid value for prefer: '%s'\n", prop);
+		xmlCatalogErr(parent, cur, XML_CATALOG_PREFER_VALUE,
+                              "Invalid value for prefer: '%s'\n",
+			      prop, NULL, NULL);
             }
             xmlFree(prop);
         }
@@ -1184,17 +1234,18 @@ xmlParseXMLCatalogFile(xmlCatalogPrefer prefer, const xmlChar *filename) {
 	    } else if (xmlStrEqual(prop, BAD_CAST "public")) {
 		prefer = XML_CATA_PREFER_PUBLIC;
 	    } else {
-		xmlGenericError(xmlGenericErrorContext,
-			"Invalid value for prefer: '%s'\n",
-			        prop);
+		xmlCatalogErr(NULL, cur, XML_CATALOG_PREFER_VALUE,
+			      "Invalid value for prefer: '%s'\n",
+			      prop, NULL, NULL);
 	    }
 	    xmlFree(prop);
 	}
 	cur = cur->children;
 	xmlParseXMLCatalogNodeList(cur, prefer, parent);
     } else {
-	xmlGenericError(xmlGenericErrorContext,
-			"File %s is not an XML Catalog\n", filename);
+	xmlCatalogErr(NULL, (xmlNodePtr) doc, XML_CATALOG_NOT_CATALOG,
+		      "File %s is not an XML Catalog\n",
+		      filename, NULL, NULL);
 	xmlFreeDoc(doc);
 	return(NULL);
     }
@@ -1438,6 +1489,17 @@ xmlCatalogXMLResolve(xmlCatalogEntryPtr catal, const xmlChar *pubID,
     int haveNext = 0;
 
     /*
+     * protection against loops
+     */
+    if (catal->depth > MAX_CATAL_DEPTH) {
+	xmlCatalogErr(catal, NULL, XML_CATALOG_RECURSION,
+		      "Detected recursion in catalog %s\n",
+		      catal->name, NULL, NULL);
+	return(NULL);
+    }
+    catal->depth++;
+
+    /*
      * First tries steps 2/ 3/ 4/ if a system ID is provided.
      */
     if (sysID != NULL) {
@@ -1452,6 +1514,7 @@ xmlCatalogXMLResolve(xmlCatalogEntryPtr catal, const xmlChar *pubID,
 			if (xmlDebugCatalogs)
 			    xmlGenericError(xmlGenericErrorContext,
 				    "Found system match %s\n", cur->name);
+			catal->depth--;
 			return(xmlStrdup(cur->URL));
 		    }
 		    break;
@@ -1482,6 +1545,7 @@ xmlCatalogXMLResolve(xmlCatalogEntryPtr catal, const xmlChar *pubID,
 	    ret = xmlStrdup(rewrite->URL);
 	    if (ret != NULL)
 		ret = xmlStrcat(ret, &sysID[lenrewrite]);
+	    catal->depth--;
 	    return(ret);
 	}
 	if (haveDelegate) {
@@ -1515,8 +1579,10 @@ xmlCatalogXMLResolve(xmlCatalogEntryPtr catal, const xmlChar *pubID,
 				    "Trying system delegate %s\n", cur->URL);
 			ret = xmlCatalogListXMLResolve(
 				cur->children, NULL, sysID);
-			if (ret != NULL)
+			if (ret != NULL) {
+			    catal->depth--;
 			    return(ret);
+			}
 		    }
 		}
 		cur = cur->next;
@@ -1524,6 +1590,7 @@ xmlCatalogXMLResolve(xmlCatalogEntryPtr catal, const xmlChar *pubID,
 	    /*
 	     * Apply the cut algorithm explained in 4/
 	     */
+	    catal->depth--;
 	    return(XML_CATAL_BREAK);
 	}
     }
@@ -1540,6 +1607,7 @@ xmlCatalogXMLResolve(xmlCatalogEntryPtr catal, const xmlChar *pubID,
 			if (xmlDebugCatalogs)
 			    xmlGenericError(xmlGenericErrorContext,
 				    "Found public match %s\n", cur->name);
+			catal->depth--;
 			return(xmlStrdup(cur->URL));
 		    }
 		    break;
@@ -1590,8 +1658,10 @@ xmlCatalogXMLResolve(xmlCatalogEntryPtr catal, const xmlChar *pubID,
 				    "Trying public delegate %s\n", cur->URL);
 			ret = xmlCatalogListXMLResolve(
 				cur->children, pubID, NULL);
-			if (ret != NULL)
+			if (ret != NULL) {
+			    catal->depth--;
 			    return(ret);
+			}
 		    }
 		}
 		cur = cur->next;
@@ -1599,6 +1669,7 @@ xmlCatalogXMLResolve(xmlCatalogEntryPtr catal, const xmlChar *pubID,
 	    /*
 	     * Apply the cut algorithm explained in 4/
 	     */
+	    catal->depth--;
 	    return(XML_CATAL_BREAK);
 	}
     }
@@ -1611,14 +1682,17 @@ xmlCatalogXMLResolve(xmlCatalogEntryPtr catal, const xmlChar *pubID,
 		}
 		if (cur->children != NULL) {
 		    ret = xmlCatalogListXMLResolve(cur->children, pubID, sysID);
-		    if (ret != NULL)
+		    if (ret != NULL) {
+			catal->depth--;
 			return(ret);
+		    }
 		}
 	    }
 	    cur = cur->next;
 	}
     }
 
+    catal->depth--;
     return(NULL);
 }
 
@@ -1899,7 +1973,7 @@ xmlCatalogListXMLResolveURI(xmlCatalogEntryPtr catal, const xmlChar *URI) {
 #define NEXT cur++;
 #define SKIP(x) cur += x;
 
-#define SKIP_BLANKS while (IS_BLANK(*cur)) NEXT;
+#define SKIP_BLANKS while (IS_BLANK_CH(*cur)) NEXT;
 
 /**
  * xmlParseSGMLCatalogComment:
@@ -1933,7 +2007,7 @@ xmlParseSGMLCatalogComment(const xmlChar *cur) {
  */
 static const xmlChar *
 xmlParseSGMLCatalogPubid(const xmlChar *cur, xmlChar **id) {
-    xmlChar *buf = NULL;
+    xmlChar *buf = NULL, *tmp;
     int len = 0;
     int size = 50;
     xmlChar stop;
@@ -1950,25 +2024,25 @@ xmlParseSGMLCatalogPubid(const xmlChar *cur, xmlChar **id) {
     } else {
 	stop = ' ';
     }
-    buf = (xmlChar *) xmlMalloc(size * sizeof(xmlChar));
+    buf = (xmlChar *) xmlMallocAtomic(size * sizeof(xmlChar));
     if (buf == NULL) {
-	xmlGenericError(xmlGenericErrorContext,
-		"malloc of %d byte failed\n", size);
+        xmlCatalogErrMemory("allocating public ID");
 	return(NULL);
     }
-    while (xmlIsPubidChar(*cur) || (*cur == '?')) {
+    while (IS_PUBIDCHAR_CH(*cur) || (*cur == '?')) {
 	if ((*cur == stop) && (stop != ' '))
 	    break;
-	if ((stop == ' ') && (IS_BLANK(*cur)))
+	if ((stop == ' ') && (IS_BLANK_CH(*cur)))
 	    break;
 	if (len + 1 >= size) {
 	    size *= 2;
-	    buf = (xmlChar *) xmlRealloc(buf, size * sizeof(xmlChar));
-	    if (buf == NULL) {
-		xmlGenericError(xmlGenericErrorContext,
-			"realloc of %d byte failed\n", size);
+	    tmp = (xmlChar *) xmlRealloc(buf, size * sizeof(xmlChar));
+	    if (tmp == NULL) {
+		xmlCatalogErrMemory("allocating public ID");
+		xmlFree(buf);
 		return(NULL);
 	    }
+	    buf = tmp;
 	}
 	buf[len++] = *cur;
 	count++;
@@ -1976,7 +2050,7 @@ xmlParseSGMLCatalogPubid(const xmlChar *cur, xmlChar **id) {
     }
     buf[len] = 0;
     if (stop == ' ') {
-	if (!IS_BLANK(*cur)) {
+	if (!IS_BLANK_CH(*cur)) {
 	    xmlFree(buf);
 	    return(NULL);
 	}
@@ -2111,7 +2185,7 @@ xmlParseSGMLCatalog(xmlCatalogPtr catal, const xmlChar *value,
 		/* error */
 		break;
 	    }
-	    if (!IS_BLANK(*cur)) {
+	    if (!IS_BLANK_CH(*cur)) {
 		/* error */
 		break;
 	    }
@@ -2166,7 +2240,7 @@ xmlParseSGMLCatalog(xmlCatalogPtr catal, const xmlChar *value,
 			/* error */
 			break;
 		    }
-		    if (!IS_BLANK(*cur)) {
+		    if (!IS_BLANK_CH(*cur)) {
 			/* error */
 			break;
 		    }
@@ -2185,7 +2259,7 @@ xmlParseSGMLCatalog(xmlCatalogPtr catal, const xmlChar *value,
 			/* error */
 			break;
 		    }
-		    if (!IS_BLANK(*cur)) {
+		    if (!IS_BLANK_CH(*cur)) {
 			/* error */
 			break;
 		    }
@@ -2648,6 +2722,7 @@ xmlACatalogResolveURI(xmlCatalogPtr catal, const xmlChar *URI) {
     return(ret);
 }
 
+#ifdef LIBXML_OUTPUT_ENABLED
 /**
  * xmlACatalogDump:
  * @catal:  a Catalog
@@ -2667,6 +2742,7 @@ xmlACatalogDump(xmlCatalogPtr catal, FILE *out) {
 		    (xmlHashScanner) xmlCatalogDumpEntry, out);
     } 
 }
+#endif /* LIBXML_OUTPUT_ENABLED */
 
 /**
  * xmlACatalogAdd:
@@ -2856,11 +2932,11 @@ xmlInitializeCatalog(void) {
 	    cur = catalogs;
 	    nextent = &catal->xml;
 	    while (*cur != '\0') {
-		while (IS_BLANK(*cur)) 
+		while (xmlIsBlank_ch(*cur)) 
 		    cur++;
 		if (*cur != 0) {
 		    paths = cur;
-		    while ((*cur != 0) && (!IS_BLANK(*cur)))
+		    while ((*cur != 0) && (!xmlIsBlank_ch(*cur)))
 			cur++;
 		    path = (char *) xmlStrndup((const xmlChar *)paths, cur - paths);
 		    if (path != NULL) {
@@ -2904,8 +2980,10 @@ xmlLoadCatalog(const char *filename)
 
     if (xmlDefaultCatalog == NULL) {
 	catal = xmlLoadACatalog(filename);
-	if (catal == NULL)
+	if (catal == NULL) {
+	    xmlRMutexUnlock(xmlCatalogMutex);
 	    return(-1);
+	}
 
 	xmlDefaultCatalog = catal;
 	xmlRMutexUnlock(xmlCatalogMutex);
@@ -2937,10 +3015,10 @@ xmlLoadCatalogs(const char *pathss) {
 
     cur = pathss;
     while ((cur != NULL) && (*cur != 0)) {
-	while (IS_BLANK(*cur)) cur++;
+	while (xmlIsBlank_ch(*cur)) cur++;
 	if (*cur != 0) {
 	    paths = cur;
-	    while ((*cur != 0) && (*cur != ':') && (!IS_BLANK(*cur)))
+	    while ((*cur != 0) && (*cur != ':') && (!xmlIsBlank_ch(*cur)))
 		cur++;
 	    path = xmlStrndup((const xmlChar *)paths, cur - paths);
 	    if (path != NULL) {
@@ -3061,6 +3139,7 @@ xmlCatalogResolveURI(const xmlChar *URI) {
     return(ret);
 }
 
+#ifdef LIBXML_OUTPUT_ENABLED
 /**
  * xmlCatalogDump:
  * @out:  the file.
@@ -3077,6 +3156,7 @@ xmlCatalogDump(FILE *out) {
 
     xmlACatalogDump(xmlDefaultCatalog, out);
 }
+#endif /* LIBXML_OUTPUT_ENABLED */
 
 /**
  * xmlCatalogAdd:

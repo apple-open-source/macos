@@ -1,0 +1,47 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/input/Imakefile,v 1.16 2002/10/11 01:40:32 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+#define IHaveSubdirs
+
+#if JoystickSupport
+JOYSTICKDIR = joystick
+#endif
+
+SUBDIRS = XInputDrivers $(JOYSTICKDIR)
+DRIVERS = XInputDrivers
+
+OBJS = `cat idriver.list`
+
+#if DoLoadableServer
+MakeSubdirs($(SUBDIRS))
+#endif
+
+#if MakeHasPosixVariableSubstitutions
+DONES = $(DRIVERS:%=%/DONE)
+#if HasGnuMake || HasBsdMake
+$(DONES): $(SUBDIRS)
+#endif
+#if !DoLoadableServer
+NormalDepLibraryTarget(idriver,$(SUBDIRS) $(DONES) idriver.list,$(OBJS))
+#endif
+#else
+#if !DoLoadableServer
+NormalDepLibraryTarget(idriver,$(SUBDIRS) idriver.list,$(OBJS))
+#endif
+#endif
+
+INCLUDES = -I$(XF86COMSRC) -I$(XF86OSSRC) -I$(SERVERSRC)/include \
+	   -I$(EXTINCSRC) -I$(XINCLUDESRC)
+
+#if !DoLoadableServer
+ConfigTargetNoDepend(drvConf,$(ICONFIGFILES),confdrv.SHsuf,$(DRIVERS))
+DriverObjectList($(DRIVERS),idriver.list)
+#endif
+
+NormalLibraryObjectRule()
+
+ForceSubdirs($(SUBDIRS))
+
+DependSubdirs($(SUBDIRS))
+

@@ -1,0 +1,53 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:47:36 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/XIE/mixie/fax/Imakefile,v 3.6 2001/01/17 22:13:03 dawes Exp $
+
+XCOMM build device dependent machine independent fax processing element objects
+
+#define IHaveModules
+#include <Server.tmpl>
+
+       SRCS = 	dg31d.c \
+		dg32d.c \
+		dg4.c \
+		dtiff2.c \
+		dtiffpb.c \
+		eg31d.c \
+		eg32d.c \
+		etiff2.c \
+		etiffpb.c \
+		faxtabs.c \
+		zeroeven.c
+
+       OBJS = 	dg31d.o \
+		dg32d.o \
+		dg4.o \
+		dtiff2.o \
+		dtiffpb.o \
+		eg31d.o \
+		eg32d.o \
+		etiff2.o \
+		etiffpb.o \
+		faxtabs.o \
+		zeroeven.o
+
+#if BuildDIS
+    DEFINES = -DXIE_DIS
+#endif
+
+   INCLUDES = -I../include -I../../include -I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(XINCLUDESRC)/extensions
+   LINTLIBS = ../../dixie/export/llib-lexp.ln ../../dixie/import/llib-limp.ln \
+              ../../dixie/process/llib-lproc.ln ../../dixie/request/llib-lreq.ln \
+              ../control/llib-lctrl.ln ../export/llib-lmexp.ln ../fax/llib-lfax.ln \
+              ../import/llib-lmimp.ln ../jpeg/llib-ljpeg.ln ../process/llib-lmproc.ln
+
+ModuleObjectRule()
+
+SubdirLibraryRule($(OBJS))
+LintLibraryTarget(fax,$(SRCS))
+NormalLintTarget($(SRCS))
+
+DependTarget()

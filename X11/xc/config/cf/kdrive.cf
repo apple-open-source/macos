@@ -1,0 +1,242 @@
+XCOMM $XFree86: xc/config/cf/kdrive.cf,v 1.12 2001/06/23 17:00:03 keithp Exp $
+/*
+ * This configuration file contains all of the configuration
+ * information for the XFree86 based X Servers.
+ *
+ * Most of these settings can be overridden in a vendor.cf or the
+ * BeforeVendor part of the site.def file.
+ */
+XCOMM $XConsortium: $
+
+#undef BuildXprint
+#define BuildXprint 	NO
+#ifndef XTS300Server
+#define XTS300Server 	NO
+#endif
+#ifndef XipaqServer
+#define XipaqServer 	NO
+#endif
+#ifndef XfbdevServer
+#define XfbdevServer 	NO
+#endif
+#ifndef XIGSServer
+#define XIGSServer 	NO
+#endif
+#ifndef XTridentServer
+#define XTridentServer	NO
+#endif
+#ifndef XSavageServer
+#define XSavageServer	NO
+#endif
+#ifndef XItsyServer
+#define XItsyServer	NO
+#endif
+#ifndef TinyXServer
+#define TinyXServer	NO
+#endif
+#ifndef XvesaServer
+#define XvesaServer	NO
+#endif
+#ifndef Xmach64Server
+#define Xmach64Server	NO
+#endif
+
+#if XItsyServer
+#include <itsy.cf>
+#endif
+
+#if TinyXServer
+#include <TinyX.cf>
+#endif
+
+#if CrossCompiling
+#include <cross.def>
+#endif
+
+#define XprtServer	NO
+#define BuildXIE	NO
+#define BuildXInputExt	NO
+#define BuildPexExt	NO
+#ifndef BuildLBX
+#define BuildLBX	YES
+#endif
+#ifndef BuildPseudo8
+#define BuildPseudo8	NO
+#endif
+#ifndef BuildRender
+#define BuildRender	YES
+#endif
+#ifndef TouchScreen
+#define TouchScreen 	NO
+#endif
+
+/*
+ * By default, build all of the fonts.
+ */
+#ifndef Build75Dpi
+#define Build75Dpi		YES
+#endif
+
+#ifndef Build100Dpi
+#define Build100Dpi		YES
+#endif
+
+#ifndef BuildSpeedo
+#define BuildSpeedo		NO
+#endif
+
+#ifndef BuildType1
+#define BuildType1		NO
+#endif
+
+#ifndef BuildCID
+#define BuildCID		NO
+#endif
+
+#ifndef BuildFreeType
+#define BuildFreeType		NO
+#endif
+
+#ifndef BuildBuiltinFonts
+#define BuildBuiltinFonts	YES
+#endif
+
+#ifndef CompressAllFonts
+#define CompressAllFonts	YES
+#endif
+
+#ifndef GzipFontCompression
+#define GzipFontCompression	YES
+#endif
+
+#define DefaultFontPath built-ins,$(FONTDIR)/misc/,$(FONTDIR)/75dpi/,$(FONTDIR)/100dpi/
+
+#ifndef HasLinuxDoc
+#define HasLinuxDoc		NO
+#endif
+
+#ifndef InstallJapaneseDocs
+#define InstallJapaneseDocs	NO
+#endif
+
+#ifndef HasDlsymBug
+#define HasDlsymBug		NO
+#endif
+
+#ifndef XVendorString
+#define XVendorString	"Keith Packard"
+#endif
+
+#ifndef XVendorRelease
+#define XVendorRelease	600300
+#endif
+
+#ifndef BuildXKB
+#define BuildXKB		NO
+#endif
+
+#ifndef BuildXIE
+#define BuildXIE		NO
+#endif
+
+#ifndef BuildEVI
+#define BuildEVI		NO
+#endif
+
+#ifndef BuildRECORD
+#define BuildRECORD		NO
+#endif
+
+#ifndef BuildPexExt
+#define BuildPexExt		NO
+#endif
+
+#ifndef BuildDPMS
+#define BuildDPMS		NO
+#endif
+
+#ifndef FontServerAccess
+#define FontServerAccess	YES
+#endif
+
+/*
+ * Fix some xfree86 assumptions
+ */
+ 
+#undef DoLoadableServer
+#define DoLoadableServer	NO
+
+#define NormalLibFont		YES
+#define SharedLibFont		NO
+
+#define DBMLibrary		/**/
+
+#define DDXOsColor YES
+
+#if FontServerAccess
+#else
+FONTSERVERACCESS=-DNOFONTSERVERACCESS
+#endif
+
+#if TouchScreen
+#define TouchScreenDefines -DTOUCHSCREEN
+#else
+#define TouchScreenDefines /**/
+#endif
+
+#if BuildPseudo8
+#define Pseudo8Defines -DPSEUDO8
+#else
+#define Pseudo8Defines
+#endif
+
+#ifndef KdriveServerExtraDefines
+#define KdriveServerExtraDefines
+#endif
+
+XF86COMSRC=.
+
+#undef ServerExtraDefines
+#define ServerExtraDefines -DKDRIVESERVER -DGCCUSESGAS -DDDXOSINIT -DSMART_SCHEDULE $(FONTSERVERACCESS) Pseudo8Defines TouchScreenDefines KdriveServerExtraDefines
+#undef ServerOSDefines
+#define ServerOSDefines -DDDXOSINIT
+
+#ifndef Other IConfigFiles
+#define OtherIConfigFile $(IRULESRC)/kdrive.cf
+#endif
+
+#if defined(HasGcc2) && defined(i386Architecture)
+#ifndef DefaultGcc2i386Opt
+#define DefaultGcc2i386Opt -O2 -fno-strength-reduce
+#endif
+#endif
+
+#if defined(HasGcc2) && defined(AlphaArchitecture)
+#ifndef DefaultGcc2AxpOpt
+#define DefaultGcc2AxpOpt -O2
+#endif
+#endif
+
+#if defined(HasGcc2) && defined(PpcArchitecture)
+#ifndef DefaultGcc2PpcOpt
+#define DefaultGcc2PpcOpt -O2
+#endif
+#endif
+
+#ifndef DefaultGcc2DebugOpt
+#define DefaultGcc2DebugOpt -g
+#endif
+
+#define InstallDriverSDKNonExecFile(file,dest)				/**/
+#define InstallDriverSDKLibrary(libname,dest)				/**/
+#define InstallDriverSDKNamedLibrary(libname,dlibname,dest)		/**/
+#define InstallDriverSDKNamedNonExec(srcname,dstname,dest)		/**/
+#define InstallDriverSDKNamedProg(srcname,dstname,dest)			/**/
+#define InstallDriverSDKSubdirs(dirs)					/**/
+#define InstallDriverSDKMultipleDestFlags(list,dest,flags)		/**/
+#define InstallDriverSDKDynamicModule(module,dest,subdir)		/**/
+#define InstallDriverSDKObjectModule(module,dest,subdir)		/**/
+#define InstallDriverSDKObjectSubModule(module,dest,subdir)		/**/
+#define InstallDriverSDKLibraryModule(module,dest,subdir)		/**/
+#define ServerDriverSDKTarget(program)					/**/
+#define InstallDriverSDKProgramWithFlags(program,dest,flags)		/**/

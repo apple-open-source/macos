@@ -1,0 +1,9 @@
+/* code converter: KSCJOHAB */
+
+#define ModuleName KSCJOHAB
+SRCS = KSCJOHABtoUCS2.c main.c
+OBJS = KSCJOHABtoUCS2.o main.o
+
+#include <xttMod.tmpl>
+
+/* end of file */

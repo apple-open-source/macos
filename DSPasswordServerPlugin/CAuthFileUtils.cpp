@@ -45,11 +45,11 @@ void
 CAuthFileUtils::getGMTime(struct tm *inOutGMT)
 {
     time_t theTime;
-    struct tm *gmt;
+    struct tm gmt;
     
-    time(&theTime);
-    gmt = gmtime(&theTime);
-    memcpy( inOutGMT, gmt, sizeof(struct tm) );
+    ::time(&theTime);
+    ::gmtime_r(&theTime, &gmt);
+    memcpy( inOutGMT, &gmt, sizeof(struct tm) );
 }
 
 
@@ -191,6 +191,7 @@ CAuthFileUtils::DESAutoDecode(const void *key, void *data)
 			break;
 	}
 }
+
 
 
 

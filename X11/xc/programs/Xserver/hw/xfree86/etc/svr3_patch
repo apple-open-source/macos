@@ -1,0 +1,863 @@
+#!/bin/sh
+# $XFree86: xc/programs/Xserver/hw/xfree86/etc/svr3_patch,v 3.2 1996/12/23 06:47:21 dawes Exp $
+#
+# Apply patch to kernel to prevent losing IOPL on signals.
+#
+# Version 1.0 - 10/8/93
+#	adapted for svr3 by Steve Forsythe (forsse@meaddata.com) from initial
+#	svr4 version by David Wexelblat (dwex@goblin.org, dwex@aib.com)
+#
+# $XConsortium: svr3_patch /main/4 1996/02/21 17:48:28 kaleb $
+#
+
+PATH=/bin:/usr/bin:/usr/local/bin
+
+N=`basename $0`
+
+#
+# Make sure we're running on SVR3!
+#
+uname -r | grep '3.2' > /dev/null
+if [ "$?" != "0" ]
+then
+	echo "$N: This only applies to SVR3!"
+	exit 1
+fi
+
+#
+# Next make sure we are running as root
+#
+id | grep 'uid=0' > /dev/null
+if [ "$?" != "0" ]
+then
+	echo "$N: Must be run as root!"
+	exit 1
+fi
+
+#
+# Now make temp directory
+#
+TMPDIR=/tmp/xf86_pt.$$
+mkdir ${TMPDIR}
+if [ ! -d ${TMPDIR} ]
+then
+	echo "$N: Failed to make temp directory"
+	exit 1
+fi
+
+#
+# Go to temp directory
+#
+OWD=${PWD}
+cd ${TMPDIR}
+
+#
+# Checksums for programs
+#
+CHECKER_SUM="52302 7 checker"
+PATCHER_SUM="39651 17 patcher"
+
+#
+# Extract programs
+#
+cat > checker.uu <<\!EOF!
+begin 775 checker
+M3`$'`"O#M"P``````````!P`#P$+`0``T`(``"P$````````K`$``$@!```8
+M!$``+G1E>'0```!(`0``2`$``-`"``!(`0``````````````````(````"YD
+M871A````&`1``!@$0``L!```&`0``````````````````$`````N8G-S````
+M`$0(0`!$"$````````````````````````````"`````+F9K83`P,`````"@
+M````H)A+````````````````````````(@```"YF:V$P-#````!`H```0*`H
+M!@```````````````````````$(````N8V]M;65N=```````````N@0``$0(
+M`````````````````````@``+FQI8@`````!`````````!@```#^#```````
+M``````````````@``%6+[%93:@"0QP4T`$"@Y`,``,<%,`!`H$0(0`#'!3@`
+M0*`8!$``D)"+](O<@SPD`'0=D)"#PP2#.P!U^.L1D)"0D)"0D)"0D(/#_(L#
+M_]`[WG7UC67X6UZ+Y5W#:@"0D,.0D)"#[`B+[(M%"(U4A1")%1@$0`!2C54,
+M4E#H?____VH`Z#`!``"#Q`3H<````(/$#%#HYP$``&H`N`$```":``````<`
+M],.0D)!5B^R+Y5W#B_2+W(,\)`!T%I"0D(/#!(,[`'7XZPF0D(/#_(L#_]`[
+MWG7UC67X6UZ+Y5W#58OLZPN0D)"0D)"0D)"0D(OE7<.0D)"0D)"0D)"0D)!5
+MB^R#[`1H*`(``&H0Z!C__Y^#Q`AH`#```&H$:D?H@0```(/$#&A@$@``Z%``
+M``"#Q`2)1?QJ$.AD``"@B\!0Z&W^_Y^#Q`AH8!(``.@N````@\0$B47\:@#H
+M(0$``(/$!)"0D)"0D)"0D)"0D)"0B^5=PY"0D)"0D)"0D)"0D%6+[(/L"(M5
+M"(E5^&:+3?B+T>R)1?R+1?SK!9"0D)"0B^5=P[@R````F@`````'``^"#/W_
+MG\.058OL@>R$`@``5U:^_____X-]"`!U,6@D!D``Z++]_Y]9A<")10AT"8M%
+M"(H`A,!U%H`](`9```!T!C/`7E_)P\=%""T&0`#&!2`&0```:#,&0`"-18!0
+MZ#3^_Y^#Q`C_=0B-18Y0Z"7^_Y^#Q`AJ`(U%@%#HL_W_GX/$"(7`B_A\/F@"
+M`@``C85^_?__4%?HL?W_GX/$##T"`@``=1MH`@(``(V%?OW__U!H'`1``.AI
+M_?^?@\0,,_97Z*7\_Y]9B\9>7\G#D)#H%P```(M4)`2X`0```)H`````!P`/
+M@B?\_Y_#PY"0D+A$!D``BT@$B]'!X@*#P@CC"(/J!/\T`N+X_Q#,Z^&058OL
+M5E.0D)#_____````````````("`@("`@("`@*"@H*"@@("`@("`@("`@("`@
+M("`@("!($!`0$!`0$!`0$!`0$!`0A(2$A(2$A(2$A!`0$!`0$!"!@8&!@8$!
+M`0$!`0$!`0$!`0$!`0$!`0$!`1`0$!`0$(*"@H*"@@("`@("`@("`@("`@("
+M`@("`@("$!`0$"``````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M`````````0(#!`4&!P@)"@L,#0X/$!$2$Q05%A<8&1H;'!T>'R`A(B,D)28G
+M*"DJ*RPM+B\P,3(S-#4V-S@Y.CL\/3X_0&%B8V1E9F=H:6IK;&UN;W!Q<G-T
+M=79W>'EZ6UQ=7E]@04)#1$5&1TA)2DM,34Y/4%%24U155E=865I[?'U^?P``
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M```````````````````````````````````````````````````!````0TA2
+M0TQ!4U,`87-C:6D`+VQI8B]C:')C;&%S<R\`````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M`$`H(RD@<V0Z8W)T,2YO("`S.#8O:7@@5F5R<VEO;B`R+C`N,```0"@C*71Y
+M<&5S+F@),BXS("T@.#@O,#4O,C<`0"@C*7!A<F%M+F@),BXS("T@.#@O,#4O
+M,C<`0"@C*7,U<&%R86TN:`DR+C,@+2`X."\P-2\R-P!`*",I:6UM=2YH"3(N
+M,R`M(#@X+S`U+S(W`$`H(RER96=I;VXN:`DR+C,@+2`X."\P-2\R-P!`*",I
+M<')O8RYH"3(N,R`M(#@X+S`U+S(W`$`H(RES>7-I.#8N:`DR+C8@+2`X."\Q
+M,"\P-`!`*",I='-S+F@),BXS("T@.#@O,#4O,C<`0"@C*78X-BYH"3(N-"`M
+M(#@X+S`X+S$P`$`H(RES:6=N86PN:`DR+C,@+2`X."\P-2\R-P!`*",I<VEG
+M;F%L+F@),BXS("T@.#@O,#4O,C<`0"@C*7-T9&EO+F@),BXS("T@.#@O,#4O
+M,C<`0"@C*6QI8F,M:3,X-CIL:6)C+6DS.#8O<WES+W-Y<VDX-BYS"3$N,@``
+M``!`*",I8W1Y<&4N8PDS+C,@+2`X."\P-2\R-P!`*",I9F-N=&PN:`DR+C,@
+M+2`X."\P-2\R-P!`*",I9F-N=&PN:`DR+C,@+2`X."\P-2\R-P!`*",I8W1Y
+M<&4N:`DR+C,@+2`X."\P-2\R-P!`*",I;&EB8RUI,S@V.FQI8F,M:3,X-B]S
+M>7,O8VQO<V4N<PDQ+C(`0"@C*6=E=&5N=BYC"3,N,R`M(#@X+S`U+S(W`$`H
+M(RES:&QI8BYH"3,N,R`M(#@X+S`U+S(W``!`*",I;&EB8RUI,S@V.FQI8F,M
+M:3,X-B]G96XO;65M8W!Y+G,),2XR`````$`H(REL:6)C+6DS.#8Z;&EB8RUI
+M,S@V+W-Y<R]O<&5N+G,),2XR``!`*",I;&EB8RUI,S@V.FQI8F,M:3,X-B]S
+M>7,O<F5A9"YS"3$N,@``0"@C*6QI8F,M:3,X-CIL:6)C+6DS.#8O9V5N+W-T
+M<F-P>2YS"3$N,@````!`*",I;&EB8RUI,S@V.FQI8F,M:3,X-B]S>7,O<VEG
+M;F%L+G,),2XS`````$`H(REL:6)C+6DS.#8Z;&EB8RUI,S@V+W-Y<R]K:6QL
+M+G,),2XR``!`*",I;&EB8RUI,S@V.FQI8F,M:3,X-B]S>7,O9V5T<&ED+G,)
+M,2XR`````$`H(REL:6)C+6DS.#8Z;&EB8RUI,S@V+V-R="]C97)R;W(N<PDQ
+M+C(`````0"@C*6=E;E]D968N8PDS+C,@+2`X."\P-2\R-P````!`*",I<W!E
+M8PDR+C,@+2`X."\P-2\R-P!`*",I;&EB8RUI,S@V.FQI8F,M:3,X-B]G96XO
+M8W5E>&ET+G,),2XR`````$`H(REL:6)C+6DS.#8Z;&EB8RUI,S@V+V=E;B]F
+M86MC=2YS"3$N,@!`*",I;&EB8RUI,S@V.FQI8F,M:3,X-B]G96XO:3,X-E]D
+M871A+G,),2XR`$`H(RD@<V0Z;&EB9RYA("`S.#8O:7@@5F5R<VEO;B`R+C`N
+M,```0"@C*2!S9#IC<G1N+F\@(#,X-B]I>"!697)S:6]N(#(N,"XP```&````
+4`@```"]S:&QI8B]L:6)C7W,````X
+`
+end
+!EOF!
+uudecode checker.uu
+rm -f checker.uu
+if [ "`sum checker`" != "${CHECKER_SUM}" ]
+then
+	echo "$N: Program 'checker' extracted incorrectly!"
+	cd ${OWD}
+	rm -fr ${BKUP}
+	exit 1
+fi
+chmod 700 checker
+
+cat > patcher.uu <<\!EOF!
+begin 775 patcher
+M3`$'`'_#M"P``````````!P`#P$+`0``F`@``-P*``#X"0``%`(``$@!``#@
+M"4``+G1E>'0```!(`0``2`$``)@(``!(`0``````````````````(````"YD
+M871A````X`E``.`)0`#<"@``X`D``````````````````$`````N8G-S````
+M`+P40`"\%$``^`D```````````````````````"`````+F9K83`P,`````"@
+M````H)A+````````````````````````(@```"YF:V$P-#````!`H```0*`H
+M!@```````````````````````$(````N8V]M;65N=```````````Y@L``+P4
+M`````````````````````@``+FQI8@`````!`````````!@```"B(```````
+M``````````````@``%6+[%93:@"0QP4$`$"@U`M``)"0QP48`$"@O!1``,<%
+M'`!`H,080`#'!2``0*#,'$``QP4D`$"@_`U``,<%*`!`H+P10`#'!2P`0*#`
+M$4``QP4T`$"@#P``H,<%,`!`H+0>0`#'!3@`0*#@"4``D)#'!0@`0*`)`0"@
+MD)#'!1``0*"J``"@QP44`$"@M!)``(OTB]R#/"0`=!V0D(/#!(,[`'7XZQ&0
+MD)"0D)"0D)"0@\/\BP/_T#O>=?6-9?A;7HOE7<-J`)"0PY"0D(/L"(OLBT4(
+MC52%$(D5X`E``%*-50Q24.@7____:@#HE`8``(/$!.A0````@\0,4.A+!P``
+M:@"X`0```)H`````!P#TPY"0D%6+[(OE7<.+](O<@SPD`'06D)"0@\,$@SL`
+M=?CK"9"0@\/\BP/_T#O>=?6-9?A;7HOE7<-5B^R![)````!3QX5\____````
+M`,>%>/___P````!H,`I``(M=#%.+70A3Z!?^_Y^#Q`R+P(O0B56`@_K_#X3]
+M````BT6`/6,```!T,SUC````?Q@]/P````^$H0```.G,````D)"0D)"0D)`]
+M=0```'1-Z;@```"0D)"0D)"0D(.]>/___P!T)XM%#(L84V@S"D``:!P.0`#H
+M:/W_GX/$#&H!Z%P&``"#Q`20D)"0D,>%?/___P$```#K=)"0D)"#O7S___\`
+M=">+10R+&%-H4PI``&@<#D``Z"C]_Y^#Q`QJ`>@<!@``@\0$D)"0D)#'A7C_
+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
+M;&4@6V]U="UF:6QE70H`=7-A9V4Z("5S(%LM8R!\("UU72!I;BUF:6QE(%MO
+M=70M9FEL95T*`&9A:6QE9"!T;R!O<&5N*"D@)7,L(&5R<FYO/25D"@!#;W5L
+M9"!N;W0@<W1A="@I("5S+"!E<G)N;STE9`H`9F%I;&5D('1O(')E860H*2`E
+M9"!B>71E<R!T;R`E<RP@97)R;F\])60*`#\_/R`P>"4P,G@@;F]T(&9O=6YD
+M(#\_/PH`)60*`#\_/R`P>"4P,G@@;F]T(&9O=6YD(#\_/PH`)60*`&1I9"!N
+M;W0@9FEN9"!A;GD@;6%T8V@@<W1R:6YG<R$*`&9A:6QE9"!T;R!O<&5N*"D@
+M)7,L(&5R<FYO/25D"@!F86EL960@=&\@=W)I=&4H*2`E9"!B>71E<R!T;R`E
+M<RP@97)R;F\])60*```@("`@("`@("`H*"@H*"`@("`@("`@("`@("`@("`@
+M($@0$!`0$!`0$!`0$!`0$!"$A(2$A(2$A(2$$!`0$!`0$(&!@8&!@0$!`0$!
+M`0$!`0$!`0$!`0$!`0$!$!`0$!`0@H*"@H*"`@("`@("`@("`@("`@("`@("
+M`@(0$!`0(```````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M```!`@,$!08'"`D*"PP-#@\0$1(3%!46%Q@9&AL<'1X?("$B(R0E)B<H*2HK
+M+"TN+S`Q,C,T-38W.#DZ.SP]/C]`86)C9&5F9VAI:FML;6YO<'%R<W1U=G=X
+M>7I;7%U>7V!!0D-$149'2$E*2TQ-3D]045)35%565UA96GM\?7Y_````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M``````````````````````````````````````````````$```!#2%)#3$%3
+M4P!A<V-I:0`O;&EB+V-H<F-L87-S+P````````````````````$`````````
+M```````````"`0```````-P<0`#<'$``!@(`````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M`````````````````````````````````````````````````````+P10```
+M`````````.0<0```````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M````````````````````````````````````````````````````````````
+M`````````````````````````````````````````````````````````$`H
+M(RD@<V0Z8W)T,2YO("`S.#8O:7@@5F5R<VEO;B`R+C`N,```0"@C*7-T9&EO
+M+F@),BXS("T@.#@O,#4O,C<`0"@C*69C;G1L+F@),BXS("T@.#@O,#4O,C<`
+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
+(:6)C7W,````X
+`
+end
+!EOF!
+uudecode patcher.uu
+rm -f patcher.uu
+if [ "`sum patcher`" != "${PATCHER_SUM}" ]
+then
+	echo "$N: Program 'patcher' extracted incorrectly!"
+	cd ${OWD}
+	rm -fr ${BKUP}
+	exit 1
+fi
+chmod 700 patcher
+
+echo "$N: The programs we need have been extracted successfully"
+
+#
+# OK.  Now we have the programs we need.  Run checker to see if the patch
+# is needed.
+#
+rm -f core
+(./checker; exit $? ) > /dev/null 2>&1
+if [ "$?" != "0" ]
+then
+	if [ ! -f core ]
+	then
+		echo "$N: Check failed, but no core file???  Aborting."
+		cd ${OWD}
+		rm -fr ${TMPDIR}
+		exit 1
+	else
+		rm -f core
+		echo "$N: The bug exists.  Will proceed with the patch"
+	fi
+else
+	echo "$N: Patch is not needed; bug not present."
+	cd ${OWD}
+	rm -fr ${TMPDIR}
+	exit 0
+fi
+
+#
+# OK.  We need to do the patch.  Make a directory in /etc/conf/pack.d/kernel
+# to hold our stuff (we'll store a backup os.o there, and put the programs 
+# there, and their source as well).
+#
+PACK=/etc/conf/pack.d/kernel
+BKUP=${PACK}/.xfree86
+if [ -d ${BKUP} ]
+then
+	echo "$N: Backup directory ${BKUP} exists"
+	echo "    but bug not fixed. Aborting"
+	cd ${OWD}
+	rm -fr ${TMPDIR}
+	exit 1
+fi
+
+mkdir ${BKUP}
+if [ ! -d ${BKUP} ]
+then
+	echo "$N: Failed to make backup directory ${BKUP}"
+	cd ${OWD}
+	rm -fr ${TMPDIR}
+	exit 1
+fi
+cp ${TMPDIR}/* ${BKUP}
+cd ${BKUP}
+rm -fr ${TMPDIR}
+./patcher -c ../os.o
+if [ "$?" = "0" ]
+then
+	echo "$N: Patch already applied, but bug not fixed. Aborting"
+	cd ${OWD}
+	rm -fr ${BKUP}
+	exit 1
+fi
+
+#
+# Stash the backup
+#
+cp ../os.o ./os.o.SAV
+echo "$N: A copy of os.o has been saved in ${BKUP}"
+LOC=`./patcher ../os.o ./Nos.o`
+if [ "$?" != "0" ]
+then
+	echo "$N: Patch failed!!!"
+	cd ${OWD}
+	rm -fr ${BKUP}
+	exit 1
+fi
+LOC1=`cmp -l ../os.o ./Nos.o | awk '{print $1; exit}'`
+if [ "$LOC" != "$LOC1" ]
+then
+	echo "$N: Patch sanity check failed!!!"
+	cd ${OWD}
+	rm -fr ${BKUP}
+	exit 1
+fi
+echo "$N: Patch successfully applied.  Installing it."
+mv ./Nos.o ../os.o
+
+#
+# OK.  Patch is installed.  Now do an idbuild
+#
+echo "$N: Building the new kernel."
+/etc/conf/bin/idbuild 2>/tmp/idb.$$
+if [ "$?" != "0" ]
+then
+	echo "$N: Kernel build failed!  Errors are in /tmp/idb.$$"
+	cd ${OWD}
+	exit 1
+fi
+rm -f /tmp/idb.$$
+
+#
+# Kernel is now rebuilt.  
+#
+echo "$N: Kernel successfully rebuilt."
+
+#
+# Stash the source files
+#
+echo "$N: Copies of the source for my programs"
+echo "    will be in ${BKUP}"
+cat >> checker.c <<\!EOF!
+#include <sys/types.h>
+#include <sys/param.h>
+#include <sys/immu.h>
+#include <sys/region.h>
+#include <sys/proc.h>
+#include <sys/sysi86.h>
+#include <sys/tss.h>
+#include <sys/v86.h>
+#include <signal.h>
+#include <stdio.h>
+
+#ifdef __GNUC__
+static __inline__ unsigned int
+inb(port)
+     short port;
+{
+  unsigned int ret;
+  __asm__ __volatile__("in%B0 (%1)" :
+                   "=a" (ret) :
+                   "d" (port));
+  return ret;
+}
+#else
+#include <sys/inline.h>
+#endif
+
+
+#define PORT 0x1260
+
+void sighand(signo)
+int signo;
+
+{
+   return;
+}
+
+main()
+{
+        int i;
+
+        sigset(SIGUSR1, sighand);
+        sysi86(SI86V86, V86SC_IOPL, PS_IOPL);
+        i = inb(PORT);
+        kill(getpid(), SIGUSR1);
+        i = inb(PORT);
+        exit(0);
+}
+!EOF!
+cat > patcher.c <<\!EOF!
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <errno.h>
+#ifdef __STDC__
+# include <stdlib.h>
+#else
+# include <malloc.h>
+#endif
+
+#define NUM_PATTERNS	2
+unsigned char match_buf[NUM_PATTERNS][30] = { 
+	{
+	/* SVR4 */
+	0x8b,0x54,0x24,0x04,			/* movl 4(%esp),%edx */
+	0x81,0x62,0x40,0xff,0xcf,0xff,0xff,	/* andl $0xffffcfff,64(%edx) */
+	0x81,0x4a,0x40,0x00,0x02,0x00,0x00,	/* orl $0x200,64(%edx) */
+	},
+	{
+	/* SVR3 */
+	0x81,0x67,0x40,0xff,0xcf,0xff,0xff,	/* andl $0xffffcfff,64(%edi) */
+	0x81,0x4f,0x40,0x00,0x02,0x00,0x00,	/* orl $0x200,64(%edi) */
+	0x81,0x4f,0x3c,0x04,0x00,0x00,0x00,	/* orl $0x4,60(%edi) */
+	},
+};
+
+int match_lengths[] = {18,21};
+int match_offset[] = {8,4};
+#define EXPECT	0xcf
+#define CHANGE	0xff
+
+main(argc, argv)
+int argc;
+char *argv[];
+{
+	int ifd, ofd;
+	char *ifname, *ofname;
+	unsigned int i, j, k;
+	unsigned int file_len, match_len;
+	struct stat stat_buf;
+	unsigned char *file_buf, hold_buf[50]; 
+	int c, check=0, undo=0;
+	char *infname, *outfname;
+	extern int optind;
+
+	
+	while ((c=getopt(argc, argv, "cu")) != EOF) {
+		switch (c) {
+		case 'c':
+			if (undo) {
+				fprintf(stderr, 
+					"%s: only one of -c, -u allowed\n", 
+					argv[0]);
+				exit(1);
+			}
+			check = 1;
+			break;
+		case 'u':
+			if (check) {
+				fprintf(stderr, 
+					"%s: only one of -c, -u allowed\n", 
+					argv[0]);
+				exit(1);
+			}
+			undo = 1;
+			break;
+		case '?':
+			fprintf(stderr, 
+				"usage: %s [-c | -u] in-file [out-file]\n", 
+				argv[0]);
+			exit(1);
+		}
+	}
+				
+	if ((!check && (argc-optind != 2)) || (check && (argc-optind != 1))) {
+		fprintf(stderr, "usage: %s [-c | -u] in-file [out-file]\n", 
+			argv[0]);
+		exit(1);
+	}
+
+	ifname = argv[optind++];
+	if ((ifd = open(ifname, O_RDONLY)) < 0) {
+		fprintf(stderr, "failed to open() %s, errno=%d\n",
+			ifname, errno);
+		exit(1);
+	}
+	if (fstat(ifd, &stat_buf) < 0) {
+		fprintf(stderr, "Could not stat() %s, errno=%d\n",
+			ifname, errno);
+		exit(1);
+	}
+	file_len = stat_buf.st_size;
+	file_buf = malloc(file_len);
+	if (read(ifd, file_buf, file_len) != file_len) {
+		fprintf(stderr, "failed to read() %d bytes to %s, errno=%d\n",
+			file_len, ifname, errno);
+		exit(1);
+	}
+	close(ifd);
+
+	for (k=0; k < NUM_PATTERNS; k++) {
+		match_len = match_lengths[k];
+		memcpy(hold_buf, match_buf[k], match_len);
+		if (check || undo)
+			hold_buf[match_offset[k]] = CHANGE;
+		for (i=0, j=0; j < match_len && i < file_len; i++, j++) {
+			while (file_buf[i] != hold_buf[j]) {
+				i -= j-1;
+				j = 0;
+				if (i > file_len)
+					break;
+			}
+		}
+		if (j == match_len) {
+			/* 
+	 		 * Here, i is pointing to the end of the match 
+			 * string.  Move it back to the beginning.
+	 		 */
+			i -= match_len;
+			if (check || undo) {
+				/*
+			 	 * Sanity check.
+			 	 */
+				if (file_buf[i+match_offset[k]] != CHANGE) {
+					fprintf(stderr, 
+						"??? 0x%02x not found ???\n",
+						CHANGE);
+					exit(1);
+				}
+				if (check)
+					exit(0);
+
+				file_buf[i+match_offset[k]] = EXPECT;
+				/*
+			 	 * Print out the byte offset of the change.  We
+			  	 * can double-check this with 'cmp -l'.
+			 	 */
+				printf("%d\n", i + match_offset[k] + 1);
+				break;
+			}
+			else {
+				/*
+			 	 * Sanity check.
+			 	 */
+				if (file_buf[i+match_offset[k]] != EXPECT) {
+					fprintf(stderr, 
+						"??? 0x%02x not found ???\n",
+						EXPECT);
+					exit(1);
+				}
+				file_buf[i+match_offset[k]] = CHANGE;
+				/*
+			 	 * Print out the byte offset of the change.  We
+			  	 * can double-check this with 'cmp -l'.
+			 	 */
+				printf("%d\n", i + match_offset[k] + 1);
+				break;
+			}
+		}
+	}
+
+	if (k == NUM_PATTERNS) {
+		if (!check)
+			fprintf(stderr, "did not find any match strings!\n");
+		exit(1);
+	}
+
+	ofname = argv[optind];
+	if ((ofd = open(ofname, O_RDWR|O_CREAT, 0666)) < 0) {
+		fprintf(stderr, "failed to open() %s, errno=%d\n",
+			ofname, errno);
+		exit(1);
+	}
+	if (write(ofd, file_buf, file_len) != file_len) {
+		fprintf(stderr, "failed to write() %d bytes to %s, errno=%d\n",
+			file_len, ofname, errno);
+		exit(1);
+	}
+	close(ofd);
+	exit(0);
+}
+!EOF!
+
+#
+# Now store the removal script.
+#
+cat > ${N}_rem <<\!EOF!
+#!/bin/sh
+######################################################################
+#
+# Back out the patch to kernel that prevents losing IOPL on signals.
+#
+# Version 1.0 - 10/08/93
+#	adapted for svr3 by Steve Forsythe (forsse@meaddata.com) from initial
+#	svr4 version by David Wexelblat (dwex@goblin.org, dwex@aib.com)
+#
+
+N=`basename $0`
+
+#
+# Make sure we're running on SVR3!
+#
+uname -r | grep '3.2' > /dev/null
+if [ "$?" != "0" ]
+then
+	echo "$N: This only applies to SVR3!"
+	exit 1
+fi
+
+#
+# Next make sure we are running as root
+#
+id | grep 'uid=0' > /dev/null
+if [ "$?" != "0" ]
+then
+	echo "$N: Must be run as root!"
+	exit 1
+fi
+
+#
+# OK.  Now undo the patch.
+#
+PACK=/etc/conf/pack.d/kernel
+BKUP=${PACK}/.xfree86
+if [ ! -d ${BKUP} ]
+then
+	echo "$N: Backup directory ${BKUP} does not exist!"
+	exit 1
+fi
+OWD=${PWD}
+cd ${BKUP}
+
+./patcher -c ../os.o
+if [ "$?" != "0" ]
+then
+	echo "$N: Patch not applied. Aborting"
+	cd ${OWD}
+	exit 1
+fi
+
+LOC=`./patcher -u ../os.o ./Nos.o`
+if [ "$?" != "0" ]
+then
+	echo "$N: Patch removal failed!!!"
+	cd ${OWD}
+	exit 1
+fi
+LOC1=`cmp -l ../os.o ./Nos.o | awk '{print $1; exit}'`
+if [ "$LOC" != "$LOC1" ]
+then
+	echo "$N: Patch sanity check failed!!!"
+	cd ${OWD}
+	exit 1
+fi
+echo "$N: Patch successfully removed.  Installing unpatched module."
+mv ./Nos.o ../os.o
+
+#
+# OK.  Patch is removed.  Now do an idbuild
+#
+echo "$N: Building the new kernel."
+/etc/conf/bin/idbuild 2>/tmp/idb.$$
+if [ "$?" != "0" ]
+then
+	echo "$N: Kernel build failed!  Errors are in /tmp/idb.$$"
+	cd ${OWD}
+	exit 1
+fi
+rm -f /tmp/idb.$$
+
+#
+# Kernel is now rebuilt.  
+#
+echo "$N: Kernel successfully rebuilt."
+cd ${OWD}
+rm -fr ${BKUP}
+
+#
+# Kernel is now rebuilt.  Check if we should reboot now.
+#
+REBOOT=0
+echo "$N: You must reboot before patch takes effect.  Reboot now? \c"
+read RESP
+case ${RESP} in
+	[yY]*)
+		REBOOT=1
+		;;
+	*)
+		echo "$N: OK.  But remember to reboot later"
+		;;
+esac
+
+cd ${OWD}
+rm -fr ${BKUP}
+#
+# All done.  Reboot if necessary
+#
+if [ ${REBOOT} = "1" ]
+then
+	cd /
+	sync
+	/etc/shutdown -i6 -g15 -y &
+fi
+exit 0
+######################################################################
+!EOF!
+chmod 700 ${N}_rem
+
+#
+# Give the user some info that he will surely forget
+#
+echo ""
+echo "$N: To back out this patch, execute the script ${N}_rem,"
+echo "    a copy of which can be found in the save directory"
+echo "    ${BKUP}.  To verify that the patch"
+echo "    was successful, after rebooting with the new kernel,"
+echo "    you can execute the program 'checker' (as root), which"
+echo "    is also located in the save directory.  This program"
+echo '    should exit with an exit code of 0 (i.e. $? == 0).'
+echo ""
+
+#
+# Check if we should reboot now.
+#
+REBOOT=0
+echo "$N: You must reboot before patch takes effect.  Reboot now? \c"
+read RESP
+case ${RESP} in
+	[yY]*)
+		REBOOT=1
+		;;
+	*)
+		echo "$N: OK.  But remember to reboot later"
+		;;
+esac
+
+#
+# All done.  Reboot if necessary
+#
+if [ ${REBOOT} = "1" ]
+then
+	cd /
+	sync
+	/etc/shutdown -i6 -g15 -y &
+fi
+exit 0

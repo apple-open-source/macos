@@ -1,0 +1,45 @@
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/drivers/newport/newport.man,v 1.4 2003/02/17 23:06:11 dawes Exp $ 
+.\" shorthand for double quote that works everywhere.
+.ds q \N'34'
+.TH NEWPORT __drivermansuffix__ __vendorversion__
+.SH NAME
+newport \- Newport video driver
+.SH SYNOPSIS
+.nf
+.B "Section \*qDevice\*q"
+.BI "  Identifier \*q"  devname \*q
+.B  "  Driver \*qnewport\*q"
+\ \ ...
+.B EndSection
+.fi
+.SH DESCRIPTION
+.B newport
+is an XFree86 driver for the SGI Indy's and Indigo2's newport video cards.
+.SH SUPPORTED HARDWARE
+The
+.B newport
+driver supports the Newport (also called XL) cards found in SGI Indys and Indigo2s.
+It supports both the 8bit and 24bit versions of the Newport.
+.SH CONFIGURATION DETAILS
+Please refer to XF86Config(__filemansuffix__) for general configuration
+details.  This section only covers configuration details specific to this
+driver.
+.PP
+The following driver options are supported:
+.br
+.TP
+.BI "Option \*qbitplanes\*q \*q" integer \*q
+number of bitplanes of the board (8 or 24)
+Default: auto-detected.
+.TP
+.BI "Option \*qHWCursor\*q \*q" boolean \*q
+Enable or disable the HW cursor. Default: on.
+.PP
+.TP
+.BI "Option \*qBusID\*q \*q"integer \*q
+Set to 1 for the Indigo2 XL. Default: 0
+.SH "SEE ALSO"
+XFree86(1), XF86Config(__filemansuffix__), xf86config(1), Xserver(1), X(__miscmansuffix__)
+.SH AUTHORS
+Authors:
+Guido GÜnther \fIagx@sigxcpu.org\fP

@@ -159,7 +159,6 @@ public:
 	virtual	IODBDMAChannelRegisters *	GetInputChannelRegistersVirtualAddress ( IOService * dbdmaProvider );
 	virtual	IODBDMAChannelRegisters *	GetOutputChannelRegistersVirtualAddress ( IOService * dbdmaProvider );
 
-	virtual void					LogDBDMAChannelRegisters ( void );
 
 	//	
 	//	User Client Support

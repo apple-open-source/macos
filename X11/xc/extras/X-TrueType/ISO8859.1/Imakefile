@@ -1,0 +1,9 @@
+/* code converter: ISO8859.1 */
+
+#define ModuleName ISO8859_1
+SRCS = ISO8859_1toAROMAN.c main.c
+OBJS = ISO8859_1toAROMAN.o main.o
+
+#include <xttMod.tmpl>
+
+/* end of file */

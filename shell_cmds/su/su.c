@@ -65,6 +65,10 @@ static const char rcsid[] =
 #include <pam/pam_appl.h>
 #include <pam/pam_misc.h>
 
+#include <bsm/libbsm.h>
+#include <bsm/audit_uevents.h>
+
+
 #define PAM_END() do {						\
 	int local_ret;						\
 	if (pamh != NULL && creds_set) {			\
@@ -103,6 +107,9 @@ static int	chshell(char *);
 static void	usage(void);
 static int	export_pam_environment(void);
 static int	ok_to_export(const char *);
+
+void audit_success(struct passwd *pwd);
+void audit_fail(struct passwd *pwd, char *errmsg);
 
 extern char	**environ;
 
@@ -156,12 +163,16 @@ main(int argc, char *argv[])
 	if (user == NULL)
 		usage();
 
-	if (strlen(user) > MAXLOGNAME - 1)
+	if (strlen(user) > MAXLOGNAME - 1) { 
+		audit_fail(NULL, "username too long");
 		errx(1, "username too long");
+	}
 
 	nargv = malloc(sizeof(char *) * (argc + 4));
-	if (nargv == NULL)
+	if (nargv == NULL) { 
+		audit_fail(NULL, "malloc failure");
 		errx(1, "malloc failure");
+	}
 
 	nargv[argc + 3] = NULL;
 	for (i = argc; i >= optind; i--)
@@ -184,13 +195,18 @@ main(int argc, char *argv[])
 	pwd = getpwnam(username);
 	if (username == NULL || pwd == NULL || pwd->pw_uid != ruid)
 		pwd = getpwuid(ruid);
-	if (pwd == NULL)
+	if (pwd == NULL) { 
+		audit_fail(NULL, "who are you?");
 		errx(1, "who are you?");
+	}
+
 	gid = pwd->pw_gid;
 
 	username = strdup(pwd->pw_name);
-	if (username == NULL)
+	if (username == NULL) { 
+		audit_fail(NULL, "strdup failure");
 		err(1, "strdup failure");
+	}
 
 	if (asme) {
 		if (pwd->pw_shell != NULL && *pwd->pw_shell != '\0') {
@@ -205,10 +221,13 @@ main(int argc, char *argv[])
 		}
 	}
 
+	pwd = getpwnam(user);
+
 	/* Do the whole PAM startup thing */
 	retcode = pam_start("su", user, &conv, &pamh);
 	if (retcode != PAM_SUCCESS) {
 		syslog(LOG_ERR, "pam_start: %s", pam_strerror(pamh, retcode));
+		audit_fail(pwd, "pam_start error");
 		errx(1, "pam_start: %s", pam_strerror(pamh, retcode));
 	}
 
@@ -223,6 +242,7 @@ main(int argc, char *argv[])
 	if (retcode != PAM_SUCCESS) {
 		syslog(LOG_ERR, "pam_authenticate: %s",
 		    pam_strerror(pamh, retcode));
+		audit_fail(pwd, "pam_authenticate error");
 		errx(1, "Sorry");
 	}
 	retcode = pam_get_item(pamh, PAM_USER, (const void **)&p);
@@ -239,24 +259,30 @@ main(int argc, char *argv[])
 		if (retcode != PAM_SUCCESS) {
 			syslog(LOG_ERR, "pam_chauthtok: %s",
 			    pam_strerror(pamh, retcode));
+			audit_fail(pwd, "pam_chauthtok error");
 			errx(1, "Sorry");
 		}
 	}
 	if (retcode != PAM_SUCCESS) {
 		syslog(LOG_ERR, "pam_acct_mgmt: %s",
 			pam_strerror(pamh, retcode));
+		audit_fail(pwd, "pam_acct_mgmt error");
 		errx(1, "Sorry");
 	}
 
 	/* get target login information, default to root */
 	pwd = getpwnam(user);
-	if (pwd == NULL)
+	if (pwd == NULL) {
+		audit_fail(NULL, "unknown login");
 		errx(1, "unknown login: %s", user);
+	}
 
 	/* if asme and non-standard target shell, must be root */
 	if (asme) {
-		if (ruid != 0 && !chshell(pwd->pw_shell))
+		if (ruid != 0 && !chshell(pwd->pw_shell)) { 
+			audit_fail(pwd, "permission denied (shell)");
 			errx(1, "permission denied (shell).");
+		}
 	}
 	else if (pwd->pw_shell && *pwd->pw_shell) {
 		shell = pwd->pw_shell;
@@ -282,8 +308,10 @@ main(int argc, char *argv[])
 	 * PAM modules might add supplementary groups in pam_setcred(), so
 	 * initialize them first.
 	 */
-	if( initgroups(user, pwd->pw_gid) )
+	if( initgroups(user, pwd->pw_gid) ) {
+		audit_fail(pwd, "initgroups failed");
 		err(1, "initgroups failed");
+	}
 
 	retcode = pam_open_session(pamh, 0);
 	if( retcode != PAM_SUCCESS ) {
@@ -323,10 +351,13 @@ main(int argc, char *argv[])
 		PAM_END();
 		exit(WEXITSTATUS(statusp));
 	case -1:
+		audit_fail(pwd, "fork() error");
 		err(1, "fork");
 		PAM_END();
 		exit(1);
 	case 0:
+		/* audit before we relinquish privileges */
+		audit_success(pwd);
 		if( setgid(pwd->pw_gid) )
 			err(1, "setgid");
 		if( setuid(pwd->pw_uid) )
@@ -451,4 +482,123 @@ ontty(void)
 	if (p)
 		snprintf(buf, sizeof(buf), " on %s", p);
 	return buf;
+}
+
+/*
+ * Include the following tokens in the audit record for successful su attempts
+ * header
+ * subject
+ * return
+ */
+void audit_success(struct passwd *pwd)
+{
+	int aufd;
+	token_t *tok;
+	auditinfo_t auinfo;
+	long au_cond;
+	uid_t uid = pwd->pw_uid;
+	gid_t gid = pwd->pw_gid;
+	pid_t pid = getpid();
+
+	/* If we are not auditing, don't cut an audit record; just return */
+	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
+		fprintf(stderr, "su: Could not determine audit condition\n");
+		exit(1);
+	}
+	if (au_cond == AUC_NOAUDIT)
+		return;
+
+	if(getaudit(&auinfo) != 0) {
+		fprintf(stderr, "su: getaudit failed:  %s\n", strerror(errno));
+		exit(1);
+	}
+
+	if((aufd = au_open()) == -1) {
+		fprintf(stderr, "su: Audit Error: au_open() failed\n");
+		exit(1);      
+	}
+
+	/* record the subject being created */
+	if((tok = au_to_subject32(auinfo.ai_auid, geteuid(), getegid(), 
+			uid, gid, pid, auinfo.ai_asid, &auinfo.ai_termid)) == NULL) {
+		fprintf(stderr, "su: Audit Error: au_to_subject32() failed\n");
+		exit(1);      
+	}
+	au_write(aufd, tok);
+
+	if((tok = au_to_return32(0, 0)) == NULL) {
+		fprintf(stderr, "su: Audit Error: au_to_return32() failed\n");
+		exit(1);
+	}
+	au_write(aufd, tok);
+
+	if(au_close(aufd, 1, AUE_su) == -1) {
+		fprintf(stderr, "su: Audit Error: au_close() failed\n");
+		exit(1);
+	}
+	return; 
+}
+
+/*
+ * Include the following tokens in the audit record for successful su attempts
+ * header
+ * subject
+ * text
+ * return
+ */
+void audit_fail(struct passwd *pwd, char *errmsg)
+{
+	int aufd;
+	token_t *tok;
+	auditinfo_t auinfo;
+	long au_cond;
+	/* If pwd is NULL, the event dont attribute it to any user */
+	uid_t uid = pwd ? pwd->pw_uid : -1;
+	gid_t gid = pwd ? pwd->pw_gid : -1;
+	pid_t pid = getpid();
+
+	/* If we are not auditing, don't cut an audit record; just return */
+	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
+		fprintf(stderr, "su: Could not determine audit condition\n");
+		exit(1);
+	}
+	if (au_cond == AUC_NOAUDIT)
+		return;
+
+	if(getaudit(&auinfo) != 0) {
+		fprintf(stderr, "su: getaudit failed:  %s\n", strerror(errno));
+		exit(1);
+	}
+
+	if((aufd = au_open()) == -1) {
+		fprintf(stderr, "su: Audit Error: au_open() failed\n");
+		exit(1);      
+	}
+
+	/* subject token corresponds to the subject being created */
+	if((tok = au_to_subject32(auinfo.ai_auid, geteuid(), getegid(), 
+			uid, gid, pid, auinfo.ai_asid, &auinfo.ai_termid)) == NULL) {
+		fprintf(stderr, "su: Audit Error: au_to_subject32() failed\n");
+		exit(1);      
+	}
+	au_write(aufd, tok);
+
+	/* the actual error message text */
+	if((tok = au_to_text(errmsg)) == NULL) {
+		fprintf(stderr, "su: Audit Error: au_to_text() failed\n");
+		exit(1);
+	}
+	au_write(aufd, tok);
+
+	if((tok = au_to_return32(1, errno)) == NULL) {
+		fprintf(stderr, "su: Audit Error: au_to_return32() failed\n");
+		exit(1);
+	}
+	au_write(aufd, tok);
+
+	if(au_close(aufd, 1, AUE_su) == -1) {
+		fprintf(stderr, "su: Audit Error: au_close() failed\n");
+		exit(1);
+	}
+	return;
 }

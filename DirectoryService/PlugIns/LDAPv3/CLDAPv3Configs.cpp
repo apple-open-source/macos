@@ -34,6 +34,7 @@
 
 #include "CLDAPv3Configs.h"
 #include "CLog.h"
+#include "DSLDAPUtils.h"
 
 #include "DirServices.h"
 #include "DirServicesUtils.h"
@@ -1219,6 +1220,7 @@ CFDataRef CLDAPv3Configs::RetrieveServerMappings ( char *inServer, char *inMapSe
 					result = nil;
 				}
 			}
+			DSSearchCleanUp(serverHost, ldapMsgId);
 			if (bCleanHost)
 			{
 				ldap_unbind( serverHost );

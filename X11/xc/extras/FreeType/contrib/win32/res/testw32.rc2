@@ -1,0 +1,14 @@
+//
+// TESTW32.RC2 - resources Microsoft Visual C++ does not edit directly
+//
+// $XFree86: xc/extras/FreeType/contrib/win32/res/testw32.rc2,v 1.2 2003/01/12 03:55:44 tsi Exp $
+
+#ifdef APSTUDIO_INVOKED
+#	error this file is not editable by Microsoft Visual C++
+#endif //APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Add manually edited resources here...
+
+/////////////////////////////////////////////////////////////////////////////

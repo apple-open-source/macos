@@ -1,0 +1,8 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:53:48 cpqbld Exp $
+        DEPLIBS = $(DEPXTOOLLIB) $(DEPXLIB)
+LOCAL_LIBRARIES = $(XTOOLLIB) $(XLIB)
+           SRCS = appres.c 
+           OBJS = appres.o 
+
+ComplexProgramTarget(appres)
+

@@ -1,0 +1,369 @@
+<!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN" [
+<!ENTITY % defs SYSTEM "defs.ent"> %defs;
+<!ENTITY % onediff 'IGNORE'>	 <!-- patch is a single diff file -->
+<!ENTITY % twodiffs 'IGNORE'>	 <!-- patch is split into two diff files -->
+<!ENTITY % threediffs 'IGNORE'> <!-- patch is split into three diff files -->
+<!ENTITY % fourdiffs 'INCLUDE'> <!-- patch is split into four diff files -->
+<!ENTITY % difftar 'INCLUDE'> <!-- patch also contains a tarball -->
+<!ENTITY % removefiles 'INCLUDE'> <!-- patching requires removing some files -->
+]>
+
+
+<article>
+
+<title>README for XFree86&tm; &relvers;
+<author>The XFree86 Project, Inc
+<date>26 February 2003
+
+<ident>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/README.sgml,v 3.134 2003/02/27 01:19:32 dawes Exp $
+</ident>
+
+<abstract>
+
+XFree86 is an Open Source version of the X Window System that supports
+many UNIX(R) and UNIX-like operating systems (such as Linux, FreeBSD,
+NetBSD, OpenBSD and Solaris x86) on Intel and other platforms.  This
+version is compatible with X11R6.6.
+
+</abstract>
+
+<toc>
+
+<sect>What is XFree86 &relvers;?
+<p>
+
+<![ %updaterel [
+XFree86 &relvers; is the &whichupdaterel; update to &fullrelvers;,
+the &whichfullrel; full release in the
+<![ %earlyrel; [new]]>
+XFree86 4.x series.
+
+Update releases are taken from a stable/maintenance branch.  They are
+designed to be installed on top of the full release that they are
+updating.  They contain fixes for serious problems, most commonly
+fixes for security issues, fixes for driver bugs, and fixes that improve
+stability.
+]]>
+
+<![ %fullrel [
+XFree86 &relvers; is the &whichfullrel; full release in the
+<![ %earlyrel; [new]]>
+XFree86 4.x series.
+]]>
+
+<![ %snapshot [
+XFree86 &relvers; is a pre-release snapshot of XFree86 &nextfullrelvers;.
+<![ %relcandidate [
+This snapshot is release candidate &rcnum; for version &nextfullrelvers;.
+]]>
+Pre-release snapshots are provided for beta testing.  You should only install
+snapshots if you're comfortable dealing with possibly unstable beta-level
+software.  If you find problems with this snapshot, you are encouraged
+to report your findings to the public XFree86 mailing list:
+<email>XFree86@XFree86.org</email>.
+
+XFree86 &relvers; is a feature-complete snapshot of XFree86
+&nextfullrelvers;.
+]]> 
+
+<p>
+XFree86 4.x is the current XFree86 release series.  The first release in
+this series was in early 2000.  The core of XFree86 4.x is a modular
+X server.
+<![ %fullrel [The &relvers; version is a new release that includes
+additional hardware support, functional enhancements and bug fixes.]]>
+<![ %haverelnotes [
+Specific release enhancements can be viewed in the
+<htmlurl name="Release Notes" url="RELNOTES.html">.
+]]>
+
+Most modern PC video hardware is supported in XFree86 &relvers;, and
+most PC video hardware that isn't supported explicitly can be used with
+the "vesa" driver.  The <htmlurl name="Driver Status document"
+url="Status.html"> has a summary of what hardware is supported in
+&relvers; compared with the old 3.3.x (&legacyvers;) series.  It is a
+good idea to check there before upgrading if you are currently running
+&legacyvers; with older hardware.
+
+XFree86 is produced by The XFree86 Project, Inc, which is a group of
+mostly volunteer independent developers.  XFree86 is a non-commercial
+organisation, and would not be viable without the invaluable development
+contributions of volunteers.  This release is dedicated to all who have
+supported and contributed to XFree86 over the last eleven years.
+
+<![ %snapshot [
+<sect>Redistribution of Snapshots
+<p>
+
+While the XFree86 <htmlurl name="License" url="LICENSE.html"> doesn't
+prohibit vendors and others redistributing binaries of this snapshot
+release, we don't recommend including them in production releases.
+]]>
+
+<sect>Pointers to additional information
+<p>
+
+The documentation for this release can be found online at the <url
+name="XFree86 web site" url="http://www.xfree86.org/&relvers;/">.
+Documentation for the latest release version can always be found <url
+name="here" url="http://www.xfree86.org/current/">, and documentation
+for the latest pre-release snapshot can be found <url name="here"
+url="http://www.xfree86.org/snapshot/">.  Checking those last two links
+is a good way of finding out the latest versions available from XFree86.
+
+Information about binary distributions and the attendant installation
+instructions can be found in the <htmlurl name="Installation Document"
+url="Install.html">.
+
+Copyright and Licensing information for this release and all XFree86
+releases can be found in the <htmlurl name="License Document"
+url="LICENSE.html">.
+
+The XFree86 version numbering system (including historical information)
+can be found in the <htmlurl name="Versions Document" url="Versions.html">.
+
+Additional information may be available at the <url
+name="XFree86 web site" url="http://www.xfree86.org/">, and pointers to
+other information are available at the <url name="XFree86 support page"
+url="http://www.xfree86.org/support.html">.
+
+<sect>The Public Mailing Lists
+<sect1>CVS Commit
+<p>
+For those who want to see what has been committed recently to our CVS
+repository this is the list that will show you those updates.  This list
+is updated dynamically every time the repository is updated after the
+the commit happens.
+
+<sect1>Devel
+<p>
+This list is available for discussions about XFree86 development and
+for following up well-defined bug reports.  Many experienced XFree86
+developers are present on this list.
+
+<sect1>XFree86
+<p>
+This list is available for any discussions and questions related to XFree86.
+Support related questions should be sent here.  Many experienced XFree86
+developers monitor this list.
+
+</sect1>
+</sect>
+
+<sect>Contributing to XFree86
+<p>
+If you have any new work or enhancements/bug fixes for existing work,
+please submit them to <email>fixes@XFree86.org</email>.  This will ensure
+that they are included in future releases.  For new work, it's usually
+a good idea to discuss it first on the <email>devel@XFree86.org</email>
+list.
+
+<sect>How to get XFree86 &relvers;
+<p>
+<![ %snapshot; [
+XFree86 &relvers; can be found at the <url name="XFree86 ftp server"
+url="ftp://ftp.xfree86.org/pub/XFree86/snapshots/&relvers;/">, and at
+mirrors of this server.  This snapshot is available primarily in binary
+form for several popular platforms.
+]]>
+
+<![ %release; [
+XFree86 &relvers; can be found at the <url name="XFree86 ftp server"
+url="ftp://ftp.xfree86.org/pub/XFree86/&relvers;/">,
+and at mirrors of this server.  Information about obtaining and installing
+binary distributions of this release can be found in the
+<htmlurl name="Installation Document" url="Install.html">.  Information about
+obtaining the release in source form is given below.
+]]>
+
+<![ %updaterel; [
+The source for version &relvers; is available as a patch relative to
+&prevrelvers;.
+The patch file is <tt>&prevrelvers;-&relvers;.diff.gz</tt>.
+
+The patch
+should be applied to a clean &prevrelvers; source tree, working from
+the directory containing the <tt>xc/</tt> directory.  The patch should
+be applied by running:
+
+<tscreen><verb>
+gzip -d &lt; &prevrelvers;-&relvers;.diff.gz | patch -p0 -E
+</verb></tscreen>
+
+Information about getting the source for &prevrelvers can be found in the
+README file for that version, which can be found on the
+<url name="XFree86 web site" url="http://www.xfree86.org/pub/XFree86/&prevrelvers;/README.html">.
+]]>
+
+<![ %fullrel [
+The source for version &fullrelvers; is split into seven tarballs:
+<tt>X&fullsrcvers;src-1.tgz</tt>, <tt>X&fullsrcvers;src-2.tgz</tt>,
+<tt>X&fullsrcvers;src-3.tgz</tt>, <tt>X&fullsrcvers;src-4.tgz</tt>,
+<tt>X&fullsrcvers;src-5.tgz</tt>, <tt>X&fullsrcvers;src-6.tgz</tt> and
+<tt>X&fullsrcvers;src-7.tgz</tt>.  The first three contain everything
+except the fonts and general X11 documentation.  Those three are sufficient
+for building XFree86 if you already have a set of fonts.  The fourth
+and fifth contain the fonts.  The sixth contains the source for the
+general X11 documentation.  The seventh contains the general X11
+documentation in hardcopy format.
+
+<![ %onediff; [
+A source patch relative to version &prevfullrelvers; is also available.
+The patch file is <tt>&prevfullrelvers;-&fullrelvers;.diff.gz</tt>.
+<![ %difftar; [
+There is also a tarball that contains some files that have components that
+can't be included in a diff.  It is <tt>&fullrelvers;.tgz</tt>.
+]]>
+The patch
+should be applied to a clean &prevfullrelvers; source tree, working from
+the directory containing the <tt>xc/</tt> directory.  The patch should
+be applied by running:
+
+<tscreen><verb>
+gzip -d &lt; &prevfullrelvers;-&fullrelvers;.diff.gz | patch -p0 -E
+</verb></tscreen>
+<![ %difftar; [
+<tscreen><verb>
+gzip -d &lt; &fullrelvers;.tgz | tar vxf -
+</verb></tscreen>
+]]>
+]]>
+
+<![ %twodiffs; [
+A source patch relative to version &prevfullrelvers; is also available.
+Because of its size, it is split into two parts.
+The patch files are <tt>&prevfullrelvers;-&fullrelvers;.diff1.gz</tt> and
+<tt>&prevfullrelvers;-&fullrelvers;.diff2.gz</tt>.
+<![ %difftar; [
+There is also a tarball that contains some files that have components that
+can't be included in a diff.  It is <tt>&fullrelvers;.tgz</tt>.
+]]>
+These patches should
+be applied to a clean &prevfullrelvers; source tree, working from the directory
+containing the <tt>xc/</tt> directory.  The patches should be applied by
+running:
+
+<tscreen><verb>
+gzip -d &lt; &prevfullrelvers;-&fullrelvers;.diff1.gz | patch -p0 -E
+gzip -d &lt; &prevfullrelvers;-&fullrelvers;.diff2.gz | patch -p0 -E
+</verb></tscreen>
+<![ %difftar; [
+<tscreen><verb>
+gzip -d &lt; &fullrelvers;.tgz | tar vxf -
+</verb></tscreen>
+]]>
+]]>
+
+<![ %threediffs; [
+A source patch relative to version &prevfullrelvers; is also available.
+Because of its size, it is split into three parts.
+The patch files are <tt>&prevfullrelvers;-&fullrelvers;.diff1.gz</tt>,
+<tt>&prevfullrelvers;-&fullrelvers;.diff2.gz</tt> and
+<tt>&prevfullrelvers;-&fullrelvers;.diff3.gz</tt>.
+<![ %difftar; [
+There is also a tarball that contains some files that have components that
+can't be included in a diff.  It is <tt>&fullrelvers;.tgz</tt>.
+]]>
+These patches should
+be applied to a clean &prevfullrelvers; source tree, working from the directory
+containing the <tt>xc/</tt> directory.  The patches should be applied by
+running:
+
+<tscreen><verb>
+gzip -d &lt; &prevfullrelvers;-&fullrelvers;.diff1.gz | patch -p0 -E
+gzip -d &lt; &prevfullrelvers;-&fullrelvers;.diff2.gz | patch -p0 -E
+gzip -d &lt; &prevfullrelvers;-&fullrelvers;.diff3.gz | patch -p0 -E
+</verb></tscreen>
+<![ %difftar; [
+<tscreen><verb>
+gzip -d &lt; &fullrelvers;.tgz | tar vxf -
+</verb></tscreen>
+]]>
+]]>
+
+<![ %fourdiffs; [
+A source patch relative to version &prevfullrelvers; is also available.
+Because of its size, it is split into four parts.
+The patch files are <tt>&prevfullrelvers;-&fullrelvers;.diff1.gz</tt>,
+<tt>&prevfullrelvers;-&fullrelvers;.diff2.gz</tt>,
+<tt>&prevfullrelvers;-&fullrelvers;.diff3.gz</tt> and
+<tt>&prevfullrelvers;-&fullrelvers;.diff4.gz</tt>.
+<![ %difftar; [
+There is also a tarball that contains some files that have components that
+can't be included in a diff.  It is <tt>&fullrelvers;.tgz</tt>.
+]]>
+These patches should
+be applied to a clean &prevfullrelvers; source tree, working from the directory
+containing the <tt>xc/</tt> directory.  The patches should be applied by
+running:
+
+<tscreen><verb>
+gzip -d &lt; &prevfullrelvers;-&fullrelvers;.diff1.gz | patch -p0 -E
+gzip -d &lt; &prevfullrelvers;-&fullrelvers;.diff2.gz | patch -p0 -E
+gzip -d &lt; &prevfullrelvers;-&fullrelvers;.diff3.gz | patch -p0 -E
+gzip -d &lt; &prevfullrelvers;-&fullrelvers;.diff4.gz | patch -p0 -E
+</verb></tscreen>
+<![ %difftar; [
+<![ %removefiles; [
+<tscreen><verb>
+rm -f xc/doc/hardcopy/Xext/mit-shm.PS.gz
+rm -f xc/doc/hardcopy/saver/saver.PS.gz
+rm -fr xc/fonts/scaled/Ethiopic
+rm -fr xc/fonts/scaled/Meltho
+rm -fr xc/programs/Xserver/hw/darwin/bundle
+rm -f xc/programs/Xserver/hw/hp/input/drivers/XHPKeymaps
+rm -f xc/programs/Xserver/hw/hp/ngle/ngledoblt.o.8.07
+rm -f xc/programs/Xserver/hw/xwin/X.ico
+rm -fr xc/programs/xcursorgen/redglass
+rm -fr xc/programs/xcursorgen/whiteglass
+touch xc/extras/Mesa/src/Trace/tr_attrib.c
+touch xc/lib/fontconfig/NEWS
+</verb></tscreen>
+]]>
+<tscreen><verb>
+gzip -d &lt; &fullrelvers;.tgz | tar vxf -
+</verb></tscreen>
+]]>
+]]>
+
+<!--
+<![ %prevrelwasupdate; [
+Patches might also be available relative to &prevrelvers;.  If so, the
+instructions for applying them are the same, except that you should start 
+with a clean &prevrelvers; source tree.
+]]>
+-->
+
+To format the XFree86 documentation use the latest version of our doctools
+package available from the XFree86 CVS repository's "doctools" module,
+and from our <url name="ftp site"
+url="ftp://ftp.xfree86.org/pub/XFree86/misc/doctools-&doctoolsvers;.tgz">.
+]]>  <!-- fullrel -->
+
+The XFree86 source code for this and all releases/snapshots as well as
+development versions can also be accessed via the XFree86 CVS repository.
+Information about accessing this can be found at the <url name="CVS page"
+url="http://www.xfree86.org/cvs/"> on our web site.  It's also possible
+to browse the XFree86 CVS repository at our <url name="CVSWeb server"
+url="http://cvsweb.xfree86.org/">.  The CVS tag for this version is
+"&reltag;".
+<![ %notsnapshot [
+The CVS tag for the stable branch for this release is "&relbranchtag;".
+]]>
+To check out the latest development version, don't specify any tag.
+
+
+<sect>Reporting Bugs
+<p>
+
+Bugs should be reported to <email>XFree86@XFree86.org</email>.  Before
+reporting bugs, please check the XFree86 server log file, which can be
+found at <tt>/var/log/XFree86.0.log</tt> on most platforms.  If you
+can't resolve the problem yourself, send the entire log file with your
+bug report but not the operating system core dump.  Do not edit  the
+log file as our developers use it to reproduce and debug your problem.
+
+
+
+</article>

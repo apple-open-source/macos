@@ -1,0 +1,35 @@
+
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/scanpci/module/Imakefile,v 1.2 2002/07/15 20:46:04 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+MODPATHDEFINES = -DDEFAULT_MODULE_PATH=\"$(MODULEDIR)\"
+   INCLUDES =	-I.. -I$(XF86SRC)/common -I$(XF86OSSRC) -I$(XF86OSSRC)/bus \
+		-I$(SERVERSRC)/include -I$(SERVERSRC)/os \
+		-I$(XINCLUDESRC) -I$(SERVERSRC)/Xext -I$(EXTINCSRC) \
+		-I$(SERVERSRC)/Xi \
+		-I$(FONTLIBSRC)/include -I$(XF86PARSERSRC) \
+		-I$(XF86SRC)/loader $(VGAINCLUDES) -I$(XF86SRC)/rac
+
+SRCS = xf86ScanPci.c xf86PciData.c
+
+LinkSourceFile(xf86ScanPci.c,..)
+LinkFile(xf86PciData.c,../xf86ScanPci.c)
+
+ModuleObjectRule()
+
+SpecialCObjectRule(xf86PciData,NullParameter,-DPCIDATA)
+
+LibraryModuleTarget(scanpci,xf86ScanPci.o)
+
+InstallLibraryModule(scanpci,$(MODULEDIR),.)
+
+LibraryModuleTarget(pcidata,xf86PciData.o)
+
+InstallLibraryModule(pcidata,$(MODULEDIR),.)
+
+DependTarget()
+
+InstallDriverSDKLibraryModule(scanpci,$(DRIVERSDKMODULEDIR),.)
+InstallDriverSDKLibraryModule(pcidata,$(DRIVERSDKMODULEDIR),.)

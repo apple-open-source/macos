@@ -1,0 +1,5 @@
+$XFree86: xc/programs/Xserver/hw/xfree86/reconfig/README,v 3.3 1996/12/23 06:51:40 dawes Exp $
+There is no documentation. Read the comment in the reconfig.y file.
+The comments at the structures in there indicate how I want to split the
+keywords over the various sections. I hope the code agrees with this.
+$XConsortium: README /main/4 1996/02/21 17:54:53 kaleb $

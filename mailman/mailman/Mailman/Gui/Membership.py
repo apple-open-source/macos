@@ -23,7 +23,7 @@ from Mailman.i18n import _
 
 class Membership:
     def GetConfigCategory(self):
-        return 'members', _('Membership&nbsp;Management')
+        return 'members', _('Membership&nbsp;Management...')
 
     def GetConfigSubCategories(self, category):
         if category == 'members':

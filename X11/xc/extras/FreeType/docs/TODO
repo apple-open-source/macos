@@ -1,0 +1,23 @@
+FreeType TODO list
+
+. Handle various PostScript glyph names in ftxpost.c:
+
+            Omega vs. Ohm
+            Delta vs. increment
+            macron vs. overscore
+            my vs. mu1
+            periodcentered vs. middot
+
+  with a new flag.
+
+
+. Adaption of FreeType for non-ANSI compilers (wow, I'm heretic :-)
+
+
+. More 16bit stuff to support _cdecl etc.  Maybe something like this
+  may be used in place of the current EXPORT_DEF/EXPORT_FUNC:
+
+           NEW_EXPORT_DEF( TT_Error )
+           Cache_Create( PEngine_Instance  engine, ... )
+
+--- end of TODO ---

@@ -1,0 +1,74 @@
+#! @PYTHON@
+
+"""Show the contents of one or more Mailman queue files.
+
+Usage: show_qfiles [options] qfile ...
+
+Options:
+
+    -q / --quiet
+        Don't print `helpful' message delimiters.
+
+    -h / --help
+        Print this text and exit.
+
+Example: show_qfiles qfiles/shunt/*.pck
+"""
+
+import sys
+import getopt
+from cPickle import load
+
+import paths
+from Mailman.i18n import _
+
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
+
+
+
+def usage(code, msg=''):
+    if code:
+        fd = sys.stderr
+    else:
+        fd = sys.stdout
+    print >> fd, _(__doc__)
+    if msg:
+        print >> fd, msg
+    sys.exit(code)
+
+
+
+def main():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'hq', ['help', 'quiet'])
+    except getopt.error, msg:
+        usage(1, msg)
+
+    quiet = False
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            usage(0)
+        elif opt in ('-q', '--quiet'):
+            quiet = True
+
+    if not args:
+        usage(1, "Not enough arguments")
+
+    for filename in args:
+        if not quiet:
+            print '====================>', filename
+        fp = open(filename)
+        if filename.endswith(".pck"):
+            msg = load(fp)
+            sys.stdout.write(msg.as_string())
+        else:
+            sys.stdout.write(fp.read())
+
+
+
+if __name__ == '__main__':
+    main()

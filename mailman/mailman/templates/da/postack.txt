@@ -1,0 +1,8 @@
+Din e-mail med emnet:
+
+    %(subject)s
+
+er uden problemer videresendt til alle på listen %(listname)s.
+
+Listens informationsside: %(listinfo_url)s
+Din personlige medlemsside: %(optionsurl)s

@@ -1,0 +1,134 @@
+.\"
+.EH ''''
+.OH ''''
+.EF ''''
+.OF ''''
+.ps 11
+.nr PS 11
+\&
+.sp 8
+.ce 5
+\s+2\fB\*(xW\fP\s-2
+
+\s+1\fBX Window System\fP\s-1
+
+\s+1\fBX Version 11, Release 3+\fP\s-1
+
+\s+1\fBDRAFT - not for Redistribution\fP\s-1
+.sp 6
+.ce 4
+\s-1Ralph R. Swick
+.sp 6p
+Digital Equipment Corporation
+External Research Group
+MIT Project Athena
+.sp 2
+.ce 4
+Terry Weissman
+.sp 6p
+Digital Equipment Corporation
+Western Software Laboratory\s+1
+.bp
+\&
+.ps 9
+.nr PS 9
+.sp 8
+.LP
+X Window System is a trademark of X Consortium, Inc.
+.LP
+Copyright \(co 1985, 1986, 1987, 1988
+Digital Equipment Corporation, Maynard, Massachusetts.
+.LP
+Permission to use, copy, modify and distribute this documentation for any
+purpose and without fee is hereby granted, provided that the above copyright
+notice appears in all copies and that both that copyright notice and this
+permission notice appear in supporting documentation, and that the name of
+Digital not be used in in advertising or publicity pertaining
+to distribution of the software without specific, written prior permission.
+Digital makes no representations about the suitability of the
+software described herein for any purpose.
+It is provided ``as is'' without express or implied warranty.
+Copyright \(co 1985, 1986, 1987, 1988 X Consortium
+.LP
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the ``Software''), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+.LP
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+.LP
+THE SOFTWARE IS PROVIDED ``AS IS'', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+.LP
+Except as contained in this notice, the name of the X Consortium shall not be
+used in advertising or otherwise to promote the sale, use or other dealings
+in this Software without prior written authorization from the X Consortium.
+.LP
+.ps 11
+.nr PS 11
+.bp iii
+.XS iii
+Acknowledgments
+.XE
+\&
+.sp 1
+.ce 3
+\s+1\fBAcknowledgments\fP\s-1
+.sp 2
+.na
+.LP
+The implementation of the Athena Widgets was the responsibility of
+Ralph Swick, Ron Newman (Project Athena), 
+and Mark Ackerman (Project Athena).
+Additional contributions to their implementation was made by:
+.LP
+.Ds
+Rich Hyde (Digital WSL)
+Terry Weissman (Digital WSL)
+Mary Larson (Digital UEG)
+Joel McCormack (Digital WSL)
+Jeanne Rich (Digital WSL)
+Charles Haynes (Digital WSL)
+Loretta Guarino-Reid (Digital WSL)
+.De
+.LP
+The contributors to the X10 toolkit also deserve much of the
+credit for this work.
+The Athena Widgets borrow heavily on the their counterparts in the X10 toolkit.
+The design and implementation of the X10 toolkit were done by:
+.LP
+.Ds
+Terry Weissman (Digital WSL)
+Smokey Wallace (Digital WSL)
+Phil Karlton (Digital WSL)
+Charles Haynes (Digital WSL)
+Ram Rao (Digital UEG)
+Mary Larson (Digital UEG)
+Mike Gancarz (Digital UEG)
+Kathleen Langone  (Digital UEG)
+.De
+.LP
+Thanks go to Al Mento of Digital's UEG Documentation Group for 
+formatting and generally improving this document
+and to Chris Peterson of Project Athena for testing the many versions
+of the code and reviewing this document.
+.LP
+.sp
+.Ds 0
+Ralph R. Swick
+Digital Equipment Corporation
+External Research Group
+MIT Project Athena
+.De
+.bp 1
+.EH '\fBX Toolkit Athena Widgets\fP''\fBX11, Release 3+ DRAFT\fP'
+.OH '\fBX Toolkit Athena Widgets\fP''\fBX11, Release 3+ DRAFT\fP'
+.EF ''\fB % \fP''
+.OF ''\fB % \fP''

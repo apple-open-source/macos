@@ -1,0 +1,33 @@
+XCOMM $XFree86: xc/programs/Xserver/GL/aqua/Imakefile,v 1.1 2002/08/28 06:41:26 torrey Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+
+LinkSourceFile(x-list.h,$(SERVERSRC)/hw/apple)
+LinkSourceFile(x-hash.h,$(SERVERSRC)/hw/apple)
+LinkSourceFile(compsize.c,$(LIBSRC)/GL/glx)
+
+         SRCS = indirect.c compsize.c
+         OBJS = indirect.o compsize.o
+
+           AS = /System/Library/Frameworks/ApplicationServices.framework
+
+     INCLUDES = -I. -I$(INCLUDESRC) -I$(XINCLUDESRC) -I$(EXTINCSRC) \
+                -I$(LIBSRC)/GL/glx -I$(LIBSRC)/GL/include -I$(SERVERSRC)/mi \
+                -I$(SERVERSRC)/include -I$(FONTINCSRC) -I$(SERVERSRC)/render \
+                -I$(SERVERSRC)/GL/include -I$(SERVERSRC)/GL/glx \
+                -I$(SERVERSRC)/hw/apple -F$(AS)/Frameworks \
+		$(XPLUGIN_INCLUDE)
+
+      DEFINES = $(GLX_DEFINES)
+
+#if DoLoadableServer
+ModuleObjectRule()
+SubdirLibraryRule($(OBJS))
+#else
+NormalLibraryTarget(AppleGLcore,$(OBJS))
+NormalLibraryObjectRule()
+#endif
+
+DependTarget()

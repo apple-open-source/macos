@@ -1,0 +1,103 @@
+XCOMM $XFree86: xc/lib/Xpm/Imakefile,v 1.3 2000/09/19 12:46:06 eich Exp $
+
+/* This is a simplified version of the standard Xpm Imakefile */
+
+#define DoNormalLib NormalLibXpm
+#define DoSharedLib SharedLibXpm
+#define DoExtraLib SharedLibXpm
+#define DoDebugLib DebugLibXpm
+#define DoProfileLib ProfileLibXpm
+#define HasSharedData NO
+#define LibName Xpm
+#define SoRev SOXPMREV
+#define IncSubdir X11
+
+#ifdef SharedXpmReqs
+REQUIREDLIBS = SharedXpmReqs
+#endif
+
+/*
+ * if your system doesn't provide strcasecmp add -DNEED_STRCASECMP
+ * if your system doesn't provide strdup add -DNEED_STRDUP
+ * if your system doesn't provide pipe add -DNO_ZPIPE
+ * if on your system sprintf doesn't return the number of bytes transmitted
+ * add -DVOID_SPRINTF
+ * if you want xpm to try name.xpm.Z and name.xpm.gz when asked to read
+ * name.xpm , add -DSTAT_ZFILE
+ */
+
+#if defined(LinuxArchitecture)
+ZFILEDEF = -DSTAT_ZFILE
+#endif
+#if defined(UltrixArchitecture) || \
+    (defined(MipsArchitecture) && !defined(SGIArchitecture))
+STRDUPDEF = -DNEED_STRDUP
+#endif
+
+#if !HasStrcasecmp
+STRCASECMPDEF = -DNEED_STRCASECMP
+#endif
+
+#if defined(SunArchitecture) && !defined(SVR4Architecture)
+SPRINTFDEF = -DVOID_SPRINTF
+#endif
+
+#if defined(Win32Architecture)
+ZPIPEDEF = -DNO_ZPIPE
+#endif
+
+DEFINES = $(STRDUPDEF) $(STRCASECMPDEF) $(SPRINTFDEF) $(ZPIPEDEF) $(ZFILEDEF)
+
+HEADERS = xpm.h
+
+  SRCS = data.c create.c misc.c rgb.c scan.c parse.c hashtab.c \
+	 CrBufFrI.c CrDatFrP.c CrPFrBuf.c RdFToI.c WrFFrI.c \
+	 CrBufFrP.c CrIFrBuf.c CrPFrDat.c RdFToP.c WrFFrP.c \
+	 CrDatFrI.c CrIFrDat.c RdFToDat.c WrFFrDat.c \
+	 Attrib.c CrIFrP.c CrPFrI.c Image.c Info.c RdFToBuf.c WrFFrBuf.c
+
+  OBJS = data.o create.o misc.o rgb.o scan.o parse.o hashtab.o \
+	 CrBufFrI.o CrDatFrP.o CrPFrBuf.o RdFToI.o WrFFrI.o \
+	 CrBufFrP.o CrIFrBuf.o CrPFrDat.o RdFToP.o WrFFrP.o \
+	 CrDatFrI.o CrIFrDat.o RdFToDat.o WrFFrDat.o \
+	 Attrib.o CrIFrP.o CrPFrI.o Image.o Info.o RdFToBuf.o WrFFrBuf.o
+
+         XPMDIR = $(TOP)/extras/Xpm
+      XPMLIBDIR = $(TOP)/extras/Xpm/lib
+
+       INCLUDES = -I$(XPMLIBDIR)
+       LINTLIBS = $(LINTXTOLL) $(LINTXLIB) 
+
+#include <Library.tmpl>
+
+LinkSourceFile(data.c,$(XPMLIBDIR))
+LinkSourceFile(create.c,$(XPMLIBDIR))
+LinkSourceFile(misc.c,$(XPMLIBDIR))
+LinkSourceFile(rgb.c,$(XPMLIBDIR))
+LinkSourceFile(scan.c,$(XPMLIBDIR))
+LinkSourceFile(parse.c,$(XPMLIBDIR))
+LinkSourceFile(hashtab.c,$(XPMLIBDIR))
+LinkSourceFile(CrBufFrI.c,$(XPMLIBDIR))
+LinkSourceFile(CrDatFrP.c,$(XPMLIBDIR))
+LinkSourceFile(CrPFrBuf.c,$(XPMLIBDIR))
+LinkSourceFile(RdFToI.c,$(XPMLIBDIR))
+LinkSourceFile(WrFFrI.c,$(XPMLIBDIR))
+LinkSourceFile(CrBufFrP.c,$(XPMLIBDIR))
+LinkSourceFile(CrIFrBuf.c,$(XPMLIBDIR))
+LinkSourceFile(CrPFrDat.c,$(XPMLIBDIR))
+LinkSourceFile(RdFToP.c,$(XPMLIBDIR))
+LinkSourceFile(WrFFrP.c,$(XPMLIBDIR))
+LinkSourceFile(CrDatFrI.c,$(XPMLIBDIR))
+LinkSourceFile(CrIFrDat.c,$(XPMLIBDIR))
+LinkSourceFile(RdFToDat.c,$(XPMLIBDIR))
+LinkSourceFile(WrFFrDat.c,$(XPMLIBDIR))
+LinkSourceFile(Attrib.c,$(XPMLIBDIR))
+LinkSourceFile(CrIFrP.c,$(XPMLIBDIR))
+LinkSourceFile(CrPFrI.c,$(XPMLIBDIR))
+LinkSourceFile(Image.c,$(XPMLIBDIR))
+LinkSourceFile(Info.c,$(XPMLIBDIR))
+LinkSourceFile(RdFToBuf.c,$(XPMLIBDIR))
+LinkSourceFile(WrFFrBuf.c,$(XPMLIBDIR))
+LinkSourceFile(xpm.h,$(XPMLIBDIR))
+
+DependTarget()

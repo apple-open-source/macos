@@ -1,0 +1,175 @@
+XCOMM $XFree86: xc/config/cf/sco5.cf,v 3.12 2003/02/17 18:57:46 dawes Exp $
+
+/*
+ * This is for SCO Open Server 5.0.6A or later. You must have the
+ * Execution Environment update (OSS646) installed on 5.0.6 (it
+ * ships standard in 5.0.7 and later), as well as the Graphics,
+ * Web and X11 (gwxlibs) package OSS631 installed, which also ships
+ * standard with 5.0.7 and later.
+ *
+ * It is suggested that you use the GNU Development Tools for compiling
+ * XFree86. Almost no testing has been done with the native development
+ * system.
+ */
+
+#ifndef OSName
+#define OSName                  UNIX System V/386 Open Server Release 5
+#endif
+#ifndef OSVendor
+#define OSVendor                SCO-Group
+#endif
+#ifndef OSMajorVersion
+#define OSMajorVersion          5
+#endif
+#ifndef OSMinorVersion
+#define OSMinorVersion          0
+#endif
+#ifndef OSTeenyVersion
+#define OSTeenyVersion          7
+#endif
+
+/*
+ * Note: We define FD_SETSIZE here (as opposed to in ConnectionFlags) to
+ * guarantee that the same FD_SETSIZE is used. Havoc abounds if we do not
+ * do this, as some files which include sys/socket.h and sys/types.h will
+ * have different values for FD_SETSIZE.
+ *
+ * Note 2: We also define _SVID3, as this seems to enable more Streams
+ * based options which are closer to the "desired" state for X11. A by-
+ * product of this is that we get better signals too.
+ *
+ * Note 3: We fool Xfree into thinking we have NCURSES. Thats becuase the
+ * system curses is close enough for Xfree86's purposes. Actually xf86cfg
+ * is poorly constructed, it should not depend on the NCURSES package but
+ * rather on a "capable curses", of which NCURSES is just one.
+ */
+
+#if 1
+#ifndef HasGcc2
+# define HasGcc2		YES
+#endif
+#ifndef HasGcc2ForCplusplus
+# define HasGcc2ForCplusplus	YES
+#endif
+#endif
+
+#define StandardDefines		-Dsco -DSCO -DSCO5 -DSYSV -Di386 -DSCO325 -DFD_SETSIZE=256 -D_NO_STATIC -DMAXPATHLEN=1024
+#ifdef HasGcc2
+# define DefaultCCOptions       GccWarningOptions
+# define CcCmd			gcc
+# define DefaultCDebugFlags	-O2
+# define OptimizedCDebugFlags	-O2
+#else
+# define DefaultCCOptions	-dy
+# define CcCmd			cc -belf
+# define DefaultCDebugFlags	-O2
+# define OptimizedCDebugFlags	-O2
+#endif
+
+#define	HasNCurses		YES
+#define NCursesLibName		-lcurses
+
+#define LogDirectory		/var/adm
+
+#ifndef PexDynamicModule
+#define PexDynamicModule        YES
+#endif
+
+#ifndef XieDynamicModule
+#define XieDynamicModule        YES
+#endif
+
+#ifndef HasSymLinks
+# define HasSymLinks            YES
+#endif
+
+#ifdef BuildDynamicLoading
+# define SCODynamicFlags        -Wl,-Bexport
+#else
+# define SCODynamicFlags	/**/
+#endif
+
+#define AsmDefines		-D__ELF__ -D__PIC__
+#define XawI18nDefines          -DHAS_WCHAR_H -DHAS_ISW_FUNCS
+#define ServerExtraSysLibs      $(CBRT) -lm -levent SCODynamicFlags
+#define ExtraLibraries          -lsocket
+#define NeedWidePrototypes      NO
+#define ServerOSDefines         -DDDXTIME XFree86ServerOSDefines
+#define ToolkitStringsABIOptions -intelabi
+#define ThreadedX               NO
+#define HasThreadSafeAPI        NO
+#define HasNdbm                 YES
+#define HasVFork                YES
+#define HasPutenv               YES
+#define HasSnprintf             YES
+#define HasSetenv		NO
+#define ExecableScripts         YES
+#define HasShadowPasswd         YES
+#define ManSourcePath           $(MANPATH)/man
+#define Malloc0ReturnsNull      YES
+#define RemoveDSDENroffMacros   NO
+#define CompressManPages        NO
+
+#ifndef HasLibCrypt
+# define HasLibCrypt            YES
+# define SpecialLibCrypt        -lcrypt
+#endif
+#define PosixLibraries          /**/
+
+#ifndef ForceNormalLib
+# define ForceNormalLib         NO 
+#endif
+
+#define HasExpat		YES
+#define HasFreetype2		YES
+#define HasLibpng		YES
+#define HasPerl5		YES
+#define HasDlopen		YES
+#define HasShm			YES
+#define HasStrcasecmp		YES
+#define HasZlib			YES
+#define HasFontconfig		YES
+
+#define SharedLibXmu            YES
+#define SystemV                 YES
+#define LdCombineFlags          -r 
+
+#define HasLdRunPath            YES
+#define HasPoll                 YES
+#define PatheticCpp		YES
+
+#define ArCmdBase               ar
+#define AsCmd                   CcCmd
+#define CppCmd			/lib/cpp
+#define RawCppCmd		CppCmd
+#define LdCmd                   ld
+#define LexCmd                  flex
+#define MakeCmd	                make
+#define YaccCmd                 yacc
+#define InstallCmd		/usr/gnu/bin/ginstall
+
+#ifndef UseSeparateConfDir
+#define UseSeparateConfDir	NO
+#endif
+
+#ifndef BuildHtmlManPages
+#define BuildHtmlManPages	NO
+#endif
+
+#define DefaultUserPath         /bin:/usr/bin:$(BINDIR):/usr/bin/X11:/usr/gnu/bin:/usr/local/bin:/etc
+#define DefaultSystemPath       /etc:/bin:/usr/bin:$(BINDIR):/usr/bin/X11
+
+#define ConnectionFlags         -DLOCALCONN -DTCPCONN -DUNIXCONN 
+
+#define SharedGLUReqs           $(LDPRELIB) $(XLIB) $(GLXLIB)
+
+#define ObjectFromAsmSource(src,flags)					@@\
+									@@\
+src.o: src.S								@@\
+	RemoveFile(src.o)						@@\
+	$(CC) -c AsmDefines $(DEFINES) $(INCLUDES) flags src.S
+
+#include <scoLib.rules>  /* minor changes to sv4Lib.rules */
+#include <sv4Lib.rules>
+
+#include <xfree86.cf>

@@ -1,0 +1,45 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:53:54 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/lbxproxy/di/Imakefile,v 1.2 2001/04/23 16:17:12 tsi Exp $
+
+#include <Server.tmpl>
+
+INCLUDES = -I../include -I$(TOP)/include -I$(EXTINCSRC) \
+           -I../../../include/extensions
+
+    SRCS = main.c dispatch.c wire.c globals.c \
+		utils.c tables.c init.c \
+		cache.c cmap.c cmaputil.c lbxfuncs.c reqtype.c \
+                resource.c tags.c atomcache.c gfx.c lbxutil.c \
+                props.c swapreq.c swaprep.c unsquish.c extensions.c \
+		options.c zeropad.c pm.c
+    OBJS = main.o dispatch.o wire.o globals.o \
+		utils.o tables.o init.o \
+		cache.o cmap.o cmaputil.o lbxfuncs.o reqtype.o \
+                resource.o tags.o atomcache.o gfx.o lbxutil.o \
+                props.o swapreq.o swaprep.o unsquish.o extensions.o \
+		options.o zeropad.o pm.o
+
+    DEFINES = AllocateLocalDefines
+
+#ifdef DefaultRGBDatabase
+DEFAULTRGBDATABASE = DefaultRGBDatabase
+   SITE_RGB_DB = -DRGB_DB=\"$(DEFAULTRGBDATABASE)\"
+#endif
+
+UTIL_DEFINES = '-DDEF_ATOMS_FILE="$(LBXPROXYDIR)/AtomControl"' $(SITE_RGB_DB)
+
+DEPEND_DEFINES = $(PROXYMNGR_INCLUDES) $(UTIL_DEFINES) DependDefines
+
+NormalLibraryObjectRule()
+NormalLibraryTarget(dilbx,$(OBJS))
+LintLibraryTarget(dilbx,$(SRCS))
+NormalLintTarget($(SRCS))
+
+SpecialCObjectRule(dispatch,$(ICONFIGFILES),$(EXT_DEFINES))
+SpecialCObjectRule(utils,$(ICONFIGFILES),$(UTIL_DEFINES))
+
+DependTarget()

@@ -1,0 +1,665 @@
+
+
+
+
+
+
+  README for XFree86 3.1.2 on FreeBSD 2.0.5
+  Rich Murphey, David Dawes 著
+  1995年7月24日
+  Takefumi Tsukada(塚田剛文) 訳
+
+  この文書はXFree86 3.1.2に含まれる、README.FreeBSDを日本語訳したもので
+  す。内容に関してはほとんど修正していませんので古い内容も残っています。
+
+  1.  XFree86とは
+
+  XFree86は、数々のバージョンのインテルベースのUNIXをサポートする、X11R6
+  の移植物です。その起源はX11R5と共に配布されたXサーバであるX386 1.2に遡
+  ることができます。本リリースは多くのバグFIXだけでなく、多くの新機能
+  ・性能改善により構成されています。本リリースは、XコンソーシアムのX11R6
+  に対するソースパッチとして、また、多くのアーキテクチャ用にバイナリコー
+  ドとして入手可能です。
+
+  著作権告知については、Copyright Notice (COPYRIGHT.html) を参照して下さ
+  い。
+
+  XFree86のソースコードは以下のanonymous FTPサイトより入手可能です。
+
+  ftp.XFree86.org:/pub/XFree86/current
+  (ftp://ftp.XFree86.org/pub/XFree86/current)
+
+  XFree86のFreeBSD用バイナリコードは以下のanonymous FTPサイトより入手可
+  能です。
+
+  ftp.XFree86.org:/pub/XFree86/current/binaries/FreeBSD-2.0.5
+  (ftp://ftp.XFree86.org/pub/XFree86/current/binaries/FreeBSD-2.0.5)
+
+  XFree86.cdrom.com:/pub/XFree86/current/binaries/FreeBSD-2.0.5
+  (ftp://XFree86.cdrom.com/pub/XFree86/current/binaries/FreeBSD-2.0.5)
+
+
+  このファイルに関して、コメントや提案がある場合には、 Rich-
+  Murphey@Rice.edu または、XFree86@XFree86.org にE-Mailを送って下さい。
+  それを反映させることができるでしょう。
+
+
+  2.  バイナリコードのインストール
+
+  ディスク容量を節約したい場合は、まず、展開するアーカイブを選択します。
+  どれを展開すべきかわからず、かつ、52Mバイト以上ののディスク容量がある
+  場合は、全て展開するのが確実です。
+
+  最低限、X312*.tgzのうち、'必須アーカイブ'に加え、少なくとも一つ、使用
+  するVGAカードに適合するXサーバを展開することが必要です。最低限必要な実
+  行用バイナリのみをインストールする場合、9Mバイトのディスク容量が必要で
+  す。
+
+
+     必須アーカイブ(6.7Mb):
+
+        X312bin.tgz
+           全ての実行可能なXのクライアントアプリケーションソフトと共有ラ
+           イブラリ
+
+        X312fnts.tgz
+
+           75 dpiフォント他
+
+        X312lib.tgz
+           実行時に必要なデータファィル
+
+     カスタマイズ済みの定義ファイルがない場合必要なアーカイブ:
+
+        X312xicf.tgz
+           xinit実行時に参照されるカスタマイズ用定義ファイル
+
+        X312xdcf.tgz
+           xdm実行時に参照されるカスタマイズ用定義ファイル
+
+
+     サーバアーカイブ(少なくとも一つ選択) (~2.3Mb):
+
+        X3128514.tgz
+           IBM 8514 および完全互換チップ用8-bitカラーサーバ
+
+        X312AGX.tgz
+           AGX,XGAボード用 8,16-bitカラーサーバ
+
+        X312Ma32.tgz
+           ATI Mach32ボード用 8,16-bitカラーサーバ
+
+        X312Ma64.tgz
+           ATI Mach64ボード用 8,16,24-bitカラーサーバ
+
+        X312Ma8.tgz
+           ATI Mach8ボード用 8-bitカラーサーバ
+
+        X312Mono.tgz
+           VGA,Super-VGA,Hercules,その他のボード用1-bitモノクロサーバ
+
+        X312P9K.tgz
+           Weitek P9000ボード(Diamond Viper)用 8,16,24-bitカラーサーバ
+
+        X312S3.tgz
+           S3 ボード(#9 GXE,Actix GE32,SPEA Mercury,STB Pegasus)用
+           8,16,24-bitカラーサーバ
+
+        X312SVGA.tgz
+           Super-VGAカード用 8-bitカラーサーバ
+
+        X312VG16.tgz
+           VGA,Super-VGAカード用 4-bitカラーサーバ
+
+        X312W32.tgz
+           ET4000/W32,/W32i,W32pカード用 8-bitカラーサーバ
+
+        X312nest.tgz
+           他のdisplay上でクライアントwindowとして動作するネスト（いれ
+           子）サーバ
+
+
+      オプショナル:
+
+
+        X312doc.tgz
+
+           (.5Mb) READMEs
+
+
+        X312man.tgz
+           (1.7Mb) man pages
+
+        X312f100.tgz
+           (1.8Mb)100dpiフォント
+
+        X312fscl.tgz
+           (1.6Mb)Speedo,Type1 フォント
+
+        X312fnon.tgz
+           (3.3Mb)日本語、中国語、その他の非英語用フォント
+
+        X312fcyr.tgz
+           (.4Mb)キリル文字フォント
+
+        X312fsrv.tgz
+           (.3Mb)フォントサーバとそのman page
+
+        X312prog.tgz
+           (3.9Mb)コンパイル時にのみ必要なconfig,lib*.a,*.hファイル
+
+        X312link.tgz
+           (7.8Mb)Xサーバの再構成キット
+
+        X312pex.tgz
+           (.5Mb)PEXアプリケーションで必要なPEX フォント,共有ライブラリ
+
+        X312lbx.tgz
+           (.2Mb)狭帯域X proxy サーバとそのライブラリ
+
+  独立したxdmアーカイブは無くなったことに注意して下さい。FreeBSD-2.0やそ
+  れ以降では、これを共有ライブラリで扱っているため、xdmバイナリ自身には
+  desは含まれず、独立したtarアーカイブとして提供する必要が無くなりまし
+  た。
+
+
+  2.1.  フルインストール
+
+
+  1. いくつかの実行可能ファイルはset-user-idされるのでアーカイブを展開す
+     るために必ずrootでログインしなければなりません。rootでなく通常ユー
+     ザで展開するとサーバは異常終了する可能性があります。また、Xサーバは
+     特別なパーミッション（ファイル属性）を必要とするので``umask''の値を
+     022 に設定しなければなりません。
+
+
+        % su
+        # umask 022
+
+
+
+  2. /usrパーティションに52Mb以上の空き容量がある場合、 ``cd /usr''とし
+     て、３にスキップして下さい。無い場合は、他のパーティションにディレ
+     クトリを作り、/usrの中へシンボリックリンクをはります。
+
+
+
+
+   # cd /usr/local
+   # mkdir X11R6
+   # ln -s /usr/local/X11R6 /usr/X11R6
+
+
+
+  3. 全アーカイブを展開
+
+     shを使っている場合（rootは多くの場合こちら）:
+
+
+
+        # for i in X312*.tgz; do
+        #   tar -xzf $i
+        # done
+
+
+
+  またはcshを使っている場合:(訳注:現在のFreeBSDではrootも標準でcsh)
+
+
+
+        % foreach i (X312*.tgz)
+        %   tar -xzf $i
+        % end
+
+
+
+
+  4. 使用しているビデオボードに適合するサーバを指し示すように``X'' とい
+     う名前でシンボリックリンクを作成します。それぞれのサーバがどのビデ
+     オチップをサポートするかは、XF86_* のman pagesに示されています。た
+     とえば、ET4000ベースのカードの場合は、XF86_SVGAサーバを使用します。
+
+
+
+
+        # cd /usr/X11R6/bin; rm X; ln -s XF86_SVGA X
+
+
+
+  2.2.  最小インストール
+
+  最初に上記の1,2を実行します。そして、必須アーカイブを展開します。
+
+
+
+        # for i in bin fnts lib xicf; do
+        #   tar -xzf  X312$i.tgz
+        # done
+
+
+  使用しているvgaカードに適合するサーバアーカイブを展開します。それぞれ
+  のサーバがどのビデオチップをサポートするかは、サーバののman pages
+  X11R6/man/man1/XF86_*示されています。たとえば、ET4000ベースのカードの
+  場合は、XF86_SVGAサーバを使用します。
+
+
+
+
+   # tar -xzf X312SVGA.tgz
+   # cd /usr/X11R6/bin; rm X; ln -s XF86_SVGA X
+
+
+
+  2.3.  フルインストール、または最小インストール後にすること:
+
+  まだ行われていない場合は、shのために/etc/profile内のデフォルトのパス
+  に、また、cshのために/etc/csh.loginに/usr/X11R6/binを追加します。
+
+
+
+        # echo 'set path = ($path /usr/X11R6/bin)' >>/etc/csh.login
+        # echo 'PATH=$PATH:/usr/X11R6/bin' >>/etc/profile
+
+
+  または、Xを使用する全ユーザのシェルの``path''変数に/usr/X11R6/bin が入
+  るようにします。
+
+  その後リブートするか、rootになって共有ライブラリがld.soのキャッシュに
+  入るようにldconfigを実行します。
+
+
+
+        # ldconfig /usr/lib /usr/local/lib /usr/X11R6/lib
+
+
+  設定済みのX11R6/lib/X11/xinit/xinitrcまたは、 X11R6/lib/X11/xdm/* があ
+  る場合、xinit-configまたは xdm-configのアーカイブを省略するか、別にの
+  場所に展開し、必要な設定に応じてマージします。
+
+  fsclとf100アーカイブはオプショナルで、ディスク容量を節約したい場合には
+  省略可能です。また、オプショナルなlinkアーカイブはXサーバのリコンフィ
+  グやカスタマイズを可能にします。オプショナルなprogアーカイブは、Ｘのア
+  プリケーションソフトを作成したりコンパイルする場合にのみ必要です。オプ
+  ショナルなpexアーカイブはpexクライアントや3Dグラフィックアプリケーショ
+  ンソフトの作成のためのライブラリを含みます。
+
+
+       Note: フォントファィルはuncompressする必要はありませんが、も
+       し、それらを uncompressする場合は、該当するディレクトリで、
+       mkfontdirを実行しなければなりません。それを行わないと、
+       ``could not open dfault font 'fixed' '' とメッセージを出力し
+       て、サーバは異常終了します。
+
+
+  標準的なFreeBSD 1.1.5システムで使用する場合、この章の残りの部分を省略
+  できます。それ以外の場合、login process(getty)が動作している、予備の仮
+  想コンソールがあるか確認します。まず、いくつの仮想コンソールがあるか確
+  認します。
+
+
+
+        % dmesg|grep sc
+        sc0 at 0x60-0x6f irq 1 on motherboard
+        sc0: VGA color <8 virtual consoles>
+
+
+
+  そして、gettyが有効化されていないttyv?デバイスが少なくとも１つあるか、
+  /etc/ttysを確認します。FreeBSD 1.1.5では、最初の3つが``on''で最後の1
+  つが``off''になっていて、3つだけgettyが実行されています。
+
+
+
+
+        % grep ttyv /etc/ttys
+        ttyv0  "/usr/libexec/getty Pc" cons25  on secure
+        ttyv1  "/usr/libexec/getty Pc" cons25  on secure
+        ttyv2  "/usr/libexec/getty Pc" cons25  on secure
+        ttyv3  "/usr/libexec/getty Pc" cons25  off secure
+
+
+  カーネルに少なくとも4つの仮想端末(VT)があり、3つだけgettyが実行されて
+  いる場合、これはたいへん適当な設定です。仮想端末が不足している場合、
+  /etc/ttysで``on''から``off''に変更し、gettyを1つ無効化するか、下記で説
+  明するように、より多くの仮想端末(VT)を使えるように新たなカーネルを構成
+  します。
+
+
+  3.  ディスプレイマネージャ(xdm)のインストール
+
+  ディスプレイマネージャによって、PCをX端末のように使用することができま
+  す。ディスプレイマネージャは、X下で動作するログインスクリーンを提供し
+  ます。
+
+  最も簡単に、ブート時にディスプレイマネージャを自動的に起動するには、使
+  用されていない仮想端末に対して、/etc/ttysに以下の1行を追加します。
+
+
+
+        ttyv4  "/usr/X11R6/bin/xdm -nodaemon" xterm    on secure
+
+
+  /usr/X11R6/bin/Xが使用しているビデオカードに適合するXサーバへのシンボ
+  リックリンクになっていることを確認するか、または、
+  /usr/X11R6/lib/X11/xdm内の Xserversというファィルで、Xサーバのパス名を
+  指定する必要があります。
+
+  /etc/ttysの変更は、リブートするか、``kill -HUP 1''としてinitd に対して
+  強制的に/etc/ttysの再読込を行わせないと効果がありません。また、rootで
+  ログインし、コンソール上で手動により``xdm -nodaemon''としてディスプレ
+  イマネージャをテストすることもできます。
+
+
+  4.  ハードウエアに合わせたXの設定
+
+  どんなモニタ、ビデオカード、マウスで使用するか、XF86ConfigでXサーバに
+  指示します。使用する正確なハードウエアを指示できるようにXF86Config を
+  必ず作成する必要があります。
+
+  XFree86-3.1は新しいファイルフォーマットを使用しています。XF86Configの
+  man pageと、一般的な内容のINSTALL (INSTALL.html)ファイルを説明書として
+  参照して下さい。
+
+  XF86Configを生成する``xf86config''を使用することを強くお勧めします。
+  （訳注：PC98では``xf86config''を使用しないでサンプルのXF86Config.98を
+  参照して下さい。）
+
+  XFree86 2.x用のXconfigがある場合、reconfigを使用してその一部分を新しい
+  フォーマットに変換できます。
+
+
+
+        # reconfig <Xconfig >XF86Config
+
+
+  そして、XF86Config(4)のman pageやテンプレートとしてXF86Config.eg を参
+  照して残りの部分を完成させます。
+
+  ハードウエアの損傷から保護するため、現在では一般ユーザのホームディレク
+  トリのXF86Configファイルを読まず、/etc/XF86Config,
+  /usr/X11R6/lib/X11/XF86Config.hostname, /usr/X11R6/lib/X11/XF86Config
+  になければなりません。
+
+  使用ハードウエアの以下の情報が必要です。
+
+  +  マウスのタイプ、ボーレート、使用する/devのエントリ
+
+  +  ビデオカードの使用チップセット(例:ET4000,S3,etc)
+
+  +  モニタの同期周波数
+
+  マウスがどのデバイスに接続されているか知る最も簡単な方法は、``cat''や
+  ``kermit''を使用して、マウスの出力を調べることです。マウスを接続し、マ
+  ウスを動かしたりクリックしたときに出力があるか確かめます。
+
+
+
+        % cat < /dev/tty00
+
+
+  正しいマウスのデバイスがわからない場合は、``dmesg|grep sio''として、
+  ブート時に認識されたデバイスのリストを取得します。
+
+
+
+        % dmesg|grep sio
+        sio0 at 0x3f8-0x3ff irq 4 on isa
+
+
+  そして、そのデバイスに適合する/devエントリをさらに確認します。エントリ
+  が無い場合は、/dev/MAKEDEVスクリプトを使って作ります。
+
+
+
+        % cd /dev
+        % sh MAKEDEV tty00
+
+
+  モニタ上の画面の大きさや位置を完全に調整するには、モニタの説明書から、
+  同期周波数に関する情報を入手する必要があります。
+
+
+
+
+  5.  Xの実行
+
+
+  Xを実行するには、最小8Mbのメモリがあることを推奨します。サーバとウイン
+  ドウマネージャ、ディスプレイマネージャ、1つのxtermで、約8Mbの仮想メモ
+  リを使用します。
+
+  かりに常駐する部分のサイズは小さいとしても、8Mb のシステムではgcc のよ
+  うに数Mバイトを期待しているようなアプリケーションに十分なスペースは残
+  りません。
+
+  R6のサーバは4Mbのメモリでも動作する可能性はありますが、X下でのコンパイ
+  ルには、定常的なページングにより5,10倍の時間がかかります。
+
+  新しいユーザがXウィンドウを起動する最も簡単な方法は、 ``startx >&
+  startx.log''と入力することです。エラーメッセージはリダイレクトしない
+  と、サーバがスクリーン上に上書きし、見えなくなってしまいます。
+
+  Xウィンドウから抜けるには、コンソールとして動作しているxterm中で
+  ``exit'' と入力します。xinit,startxのman pageを参照し、ホームディレク
+  トリに、.xinitrc,.xserverrc,.twmrcのファイルを作成することで、 Xをカス
+  タマイズできます。
+
+
+  6.  Xサーバ用カーネルの再構築
+
+
+  FreeBSD-2.0,2.0.5のGENERICカーネルは、全く修正することなしにXFree86を
+  サポートしています。何らGENERICカーネルの変更や、特別なカーネルを構築
+  する必要はありません。一般的な、BSDカーネルの構築に関する説明は、
+  smm.02.config.ps.Z
+  (ftp://gatekeeper.dec.com/pub/BSD/manuals/smm.02.config.ps.Z) にありま
+  す。これは、システム管理マニュアルのカーネル構築に関する章で、そのまま
+  印刷できるポストスクリプト出力です。
+
+  カーネルコンフィグレーションファイルを削減したい場合でも、
+  (/usr/src/sys/i386/conf/GENERIC中にある)以下のような2行を消してはいけ
+  ません。どちらもXサポートのために必要です。
+
+
+
+        options                XSERVER                 #Xserver
+        options                UCONSOLE                #X Console support
+
+
+  FreeBSD 2.0,2.0.5のGENERICカーネルでは、デフォルトでsysconsドライバが
+  設定されています。カーネルを再構築する場合、
+  /usr/src/sys/i386/conf/GENERICの中にある以下のような行が必要です。
+
+
+
+        device         sc0     at isa? port "IO_KBD" tty irq 1 vector scintr
+
+
+  仮想端末の数は、NCONS オプションで指定できます。
+
+
+
+        options                "NCONS=4"               #4 virtual consoles
+
+
+  この行がない場合はデフォルトの12になります。3章の終わりに記述したよう
+
+  にgetty の数より多くの仮想端末が必要で、4が合理的な最小値です。
+
+  サーバは、pccons,syscons,pcvtなどいくつかのコンソールドライバをサポー
+  トします。 sysconsは、FreeBSD 1.1.5とそれ以降でデフォルトです。これら
+  は実行時に検出されるので、特にサーバに設定する必要はありません。
+
+  pcvtコンソールドライバはFreeBSD 1.0.2以降の/usr/port/util/pcvtにバンド
+  ルされています。また、以下からFTPで入手できます。
+
+  FreeBSD.cdrom.com:/pub/FreeBSD/FreeBSD-1.1/ports/util/pcvt
+  (ftp://FreeBSD.cdrom.com/pub/FreeBSD/FreeBSD-1.1/ports/util/pcvt)
+
+  README.FreeBSD (ftp://FreeBSD.cdrom.com/pub/FreeBSD/FreeBSD-
+  1.1/ports/util/pcvt/README.FreeBSD) を参照して下さい。
+
+  これには完全なインストール手順が示してあります。
+
+  XFree86サーバは、MIT-SHM extensionをサポートしています。GENERICカーネ
+  ルは、これをサポートしていないので、これらを使用したい場合は、SYSV共有
+  メモリサポートを有効にして構築します。それには、カーネルコンフィグレー
+  ションファイルに以下の行を加えます。
+
+
+
+        options                SYSVSHM                 # System V shared memory
+        options                SYSVSEM                 # System V semaphores
+        options                SYSVMSG                 # System V message queues
+
+
+  SoundBlaster 16をIRQ 2(9)で使用する場合、sb16_dsp.cにパッチが必要で
+  す。そうしないとSoundBlasterを有効にしたカーネルは、IRQ9が存在しないと
+  エラーを出し、Xサーバがロックアップしてしまいます。
+
+  IOアドレスが重なるので、S3カードとシリアルポートのCOM4の両方を単一シス
+  テム上で使用することはできません。
+
+
+  7.  XFree86の再構築
+
+  Xサーバリンクキットは、最小限のディスク容量でXサーバの構築を可能にしま
+  す。単に展開して、xf86sire.defを適当に変更し、``./mkmf'', ``make''とし
+  てリンクします。詳しくは、 README.LinkKit (LinkKit.html) を参照して下
+  さい。
+
+  ソースツリーは、コンパイル前に約114Mb、``make World''後はさらに100Mbの
+  ディスク容量が必要です。コンパイル前に、xc/config/cf内の
+  xf86site.def,site.defを編集し、配布物を設定します。デフォルトでコン
+  フィグファィルは共有ライブラリを構築するように設定されています。共有ラ
+  イブラリがサポートされないFreeBSDのバージョンを使用している場合は、以
+  下の行をsite.defに追加します。
+
+
+
+        #define BuildBsdSharedLibs             NO
+
+
+  また、使用しているシステムがSYSV共有メモリをサポートしてない場合（たと
+  えば、 <sys/shm.h>ヘッダーがない場合）、以下の行をsite.defに追加して、
+  MIT-SHM extensionを無効にしてください。
+
+
+        #define HasShm                         NO
+
+
+  FreeBSD-1.1以降でコンパイルする場合、xc/config/cf/FreeBSD.cfを編集し
+  て、OSバージョンのパラメータを正しく設定します。そして、以下のように入
+  力します。
+
+
+
+        make World
+
+
+  旧バージョンのFreeBSD(1.1より前)で使用する場合、以下のように入力しま
+  す。
+
+
+
+        make World BOOTSTRAPCFLAGS=-D__FreeBSD__
+
+
+
+
+  8.  他のXクライアントの構築
+
+  新しいクライアント(X アプリケーション)を構築する最も簡単な方法は、
+  Imakefileがその中に含まれている場合、xmkmfを使うことです。 ``xmkmf
+  -a'' と入力し、Makefileを作成し、``make''と入力します。新しくman page
+  を追加したときはかならず、 ``makewhatis /usr/X11R6/man''を実行して
+  whatis.dbをアップデートします。
+
+  FreeBSD 1.0以前のシステムでは、コンパイル中、ccの``Virtual memory
+  exhausted'' というメッセージを避けるために、データとスタックサイズの制
+  限を引き上げます。 (cshでは``limit datasize 32M'',``limit stacksize
+  16M''と入力します。) FreeBSD 2.0以降では、デフォルトが十分大きいので、
+  これらの必要はありません。
+
+  Note: XFree86 2.1とFreeBSD 1.1から、__386BSD__のシンボルはコンパイラで
+  もXのコンフィグファイルでも定義されていません。クライアントをBSDシステ
+  ムに移植する場合、完全にBSD仕様のコードになるようにシンボル BSDを使用
+  して下さい。このシンボルの値で、異なったBSDリリースを識別することがで
+  きます。たとえば、Net-2やそれ以降のリリースに依存するの場合には以下の
+  ように使用できます。
+
+
+       #if (BSD >= 199103)
+
+  このシンボルBSDが正しく定義されるように、これが必要なソースの中で
+  <<sys/param.h> をインクルードするようにします。XFree86 3.1.1以降、*BSD
+  システムでは、シンボル CSRG_BASEDが定義されていることに注意して下さ
+  い。これは、 <sys/param.h> のインクルードを保護するために使われます。
+
+  実際には特定のi386 BSD派生OSに依存したコードでは、
+
+  FreeBSD用に__FreeBSD__、  NetBSD用に__NetBSD__、 386BSD用に
+  __386BSD__、BSD/386用に__bsdi__ が使われています。
+
+
+
+
+  9.  謝辞
+
+  以下の方々に感謝いたします。
+
+
+  +  Pace Willison  (最初に*BSDへ対応)
+
+  +  Amancio Hasty (386BSDカーネルとS3チップセットへの対応)
+
+  +  David Greenman, Nate Williams, Jordan Hubbard (FreeBSDカーネルへの
+     対応)
+
+  +  Rod Grimes, Jordan Hubbard,Jack Velte (Walnut Creek Cdromの機材の利
+     用)
+
+  +  Orest Zborowski, Simon Cooper ,Dirk Hohndel (Linuxの配布物からアイ
+     デアの提供)
+
+
+  また、日本語訳にあたりアドバイスをいただいたFreeBSD PC98移植チームの
+  方々に感謝いたします。日本語訳に関するコメントは
+  <tsuka@kawalab.dnj.ynu.ac.jp>までお願いします。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

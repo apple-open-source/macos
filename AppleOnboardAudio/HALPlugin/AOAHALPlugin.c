@@ -87,13 +87,6 @@ OSStatus AudioDriverPlugInDeviceGetPropertyInfo (AudioDeviceID inDevice, UInt32 
 //	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInDeviceGetPropertyInfo %s", theProp);
 
 	switch (inPropertyID) {
-		case kAOAPropertyHeadphoneExclusive:
-			if (mHeadphoneExclusiveControl) {
-				if (outWritable) *outWritable = TRUE;
-				if (outSize) *outSize = sizeof (UInt32);
-				theResult = noErr;
-			}
-			break;
 		case kAOAPropertyPowerState:
 			if (outWritable) *outWritable = FALSE;
 			if (outSize) *outSize = sizeof (UInt32);
@@ -145,14 +138,6 @@ OSStatus AudioDriverPlugInDeviceGetProperty (AudioDeviceID inDevice, UInt32 inLi
 //	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInDeviceGetProperty %s", theProp);
 
 	switch (inPropertyID) {
-		case kAOAPropertyHeadphoneExclusive:
-			if (mHeadphoneExclusiveControl) {
-				theResult = GetIntPropertyData (mHeadphoneExclusiveControl, CFSTR ("IOAudioControlValue"), outPropertyData);
-				if (!theResult) {
-					if (ioPropertyDataSize) *ioPropertyDataSize = sizeof (UInt32);
-				}
-			}
-			break;
 		case kAOAPropertyPowerState:
 			theResult = GetIntPropertyData (ioAudioDevice, CFSTR ("IOAudioPowerState"), outPropertyData);
 			if (!theResult) {
@@ -183,9 +168,6 @@ OSStatus AudioDriverPlugInDeviceGetProperty (AudioDeviceID inDevice, UInt32 inLi
 OSStatus AudioDriverPlugInDeviceSetProperty (AudioDeviceID inDevice, const AudioTimeStamp * inWhen, UInt32 inLine, Boolean isInput, AudioDevicePropertyID inPropertyID, UInt32 inPropertyDataSize, const void * inPropertyData) {
 	char					theProp[5];
 	OSStatus				theResult;
-	UInt32 *				theUInt32ValPtr;
-	UInt32					theIntVal;
-	CFNumberRef				theCFValue;
 
 	convertDecTo4cc (inPropertyID, theProp);
 	theResult = kAudioHardwareUnknownPropertyError;
@@ -193,16 +175,6 @@ OSStatus AudioDriverPlugInDeviceSetProperty (AudioDeviceID inDevice, const Audio
 //	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInDeviceSetProperty %s", theProp);
 
 	switch (inPropertyID) {
-		case kAOAPropertyHeadphoneExclusive:
-			if (mHeadphoneExclusiveControl) {
-				theUInt32ValPtr = (UInt32 *)inPropertyData;
-				theIntVal =  *theUInt32ValPtr;
-				theCFValue = CFNumberCreate (kCFAllocatorDefault, kCFNumberSInt32Type, &theIntVal);
-				theResult = IORegistryEntrySetCFProperty (mHeadphoneExclusiveControl, CFSTR ("IOAudioControlValue"), theCFValue);
-				CFRelease (theCFValue);
-				theResult = noErr;
-			}
-			break;
 		case kAOAPropertyPowerState:
 		case kAOAPropertySelectionsReference:
 			theResult = kAudioHardwareIllegalOperationError;

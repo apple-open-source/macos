@@ -90,6 +90,7 @@ void cleanup_pid_file(void);
 void handle_sig_cleanup(int);
 
 void sigalarm_handler(void);
+void my_svc_run(void);
 
 const char *transports[] = { "udp", "tcp", "udp6", "tcp6" };
 
@@ -103,7 +104,7 @@ main(argc, argv)
 	struct sigaction sigalarm;
 	int grace_period = 30;
 	
-	while ((ch = getopt(argc, argv, "d:g:w")) != (-1)) {
+	while ((ch = getopt(argc, argv, "d:g:wx:")) != (-1)) {
 		switch (ch) {
 		case 'd':
 			debug_level = atoi(optarg);
@@ -121,6 +122,9 @@ main(argc, argv)
 			break;
 		case 'w':
 			waitkern = 1;
+			break;
+		case 'x':
+			host_expire = atoi(optarg);
 			break;
 		default:
 		case '?':
@@ -164,7 +168,7 @@ main(argc, argv)
 		nanosleep(&ts, NULL);
 	}
 
-	openlog("rpc.lockd", 0, LOG_DAEMON);
+	openlog("rpc.lockd", debug_level == 99 ? LOG_PERROR : 0, LOG_DAEMON);
 	if (debug_level)
 		syslog(LOG_INFO, "Starting, debug level %d", debug_level);
 	else
@@ -211,7 +215,7 @@ main(argc, argv)
 
 	client_pid = client_request();
 
-	svc_run();		/* Should never return */
+	my_svc_run();		/* Should never return */
 	exit(1);
 }
 
@@ -225,7 +229,8 @@ sigalarm_handler(void)
 void
 usage()
 {
-	errx(1, "usage: rpc.lockd [-d <debuglevel>] [-g <grace period>] [-w]");
+	errx(1, "usage: rpc.lockd [-d <debuglevel>] [-g <grace period>] "
+	    " [-x <statd cache timeout>] [-w]");
 }
 
 /*
@@ -369,3 +374,45 @@ handle_sig_cleanup(int sig __unused)
 	exit(1);
 }
 
+void
+my_svc_run(void)
+{
+        fd_set readfds;
+        struct timeval timeout;
+	struct timeval now;
+	int error;
+	int hashosts = 0;
+	int tsize = 0;
+	struct timeval *top;
+
+
+	for( ;; ) {
+		timeout.tv_sec = host_expire + 1;
+		timeout.tv_usec = 0;
+
+		tsize = getdtablesize();
+		bcopy(&svc_fdset, &readfds, sizeof(svc_fdset));
+		/*
+		 * If there are any expired hosts then sleep with a
+		 * timeout to expire them.
+		 */
+		if (hashosts && (timeout.tv_sec >= 0))
+			top = &timeout;
+		else
+			top = NULL;
+		error = select(tsize, &readfds, NULL, NULL, top);
+		if (error == -1) {
+			if (errno == EINTR)
+				continue;
+                        perror("rpc.lockd: my_svc_run: select failed");
+                        return;
+		}
+		gettimeofday(&now, NULL);
+		currsec = now.tv_sec;
+		if (error > 0)
+			svc_getreqset(&readfds);
+		if (debug_level > 3 && error == 0)
+			fprintf(stderr, "my_svc_run: select timeout\n");
+		hashosts = expire_lock_hosts();
+	}
+}

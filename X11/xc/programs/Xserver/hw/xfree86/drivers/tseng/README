@@ -1,0 +1,264 @@
+
+
+This file is NOT up to date for the New Design!
+
+
+
+
+============== old (pre-ND) contents below ==============
+
+"I just thought it would be usefull if we had some kind of TODO and BUGS
+files in the distribution as it would make it easier to see what is needed
+to be done and what could be done better, instead of browsing through the
+sourcecode. And we whould be able to se the progress literally by the ever
+decreasing TODO file :-)"
+
+
+## BUGS:
+
+All Tseng cards:
+
+* We definitely NEED to fix that color-expansion problem. See Appendix A
+below for a detailed explanation.
+
+* There are still some problems with the HW-cursor. The error message about
+"wrong color selected" is disabled, and the limitation documented. Better
+would be to have a way to dynamically switch to software-cursor mode if the
+color can not be made. HW cursor doesn't work in DoubleScan modes yet (only
+half of the cursor displayed)
+
+* text font sometimes corrupted when going back to text mode. This may be
+related to the order in which registers are restored: the ARK driver first
+restores extended registers before restoring the standard registers for
+excactly this reason.
+
+* The code needs to be heavily reworked to fix all sorts of data type
+problems. The current code will certainly not run on an Alpha. The first
+step is to replace all hardware related variables by CARD8/CARD16/CARD32
+types.
+
+
+ET6000:
+
+* The trapezoid code is disabled because it doesn't comply with the way the
+non-accelerated ("cfb") code does things. This needs to be fixed.
+
+
+ET-4000(W32):
+
+* Hardware cursor support for the W32 is still lacking color support. We
+need to reserve color cells #0 and #255 to make this work. From discussions
+on the development list, it seems the best solution is to allocate these cells
+read-write, and then use them for the HW cursor. We MUST however document
+that this will break some clients which depend on a fixed color in cell #0,
+and some others that rely on the presence of 256 color cells. It will also
+cause cursor color problems when someone uses a local color map.
+
+
+## TODO:
+
+All cards:
+
+* The accelerator on the Tseng devices is capable of much more. Especially
+the pattern support is not used most of the time: It can render a pattern in
+just about every accelerated operation. This means patterned lines, bitblts,
+screencopies, etc. are possible. However, operations like these are very
+uncommon in normal server use, so the speed benefit would go largely unnoticed.
+
+
+ET4000:
+
+* support needs to be added for several clockchips and RAMDACs:
+        - 8-bit RAMDAC support for >8bpp modes: Sierra DACs and possibly others
+        - AT&T 20C49x RAMDAC support is not correct.
+
+* SuperProbe could use an update. It doesn't detect some of the RAMDACs that
+are detected by the driver.
+
+* Several of the color expansion-related accelerations are still only 8bpp.
+It should be easy to use the same trick on those as on the standard color
+expand code (use intermediate buffer, expand data before blitting).
+
+* many of the operations that the W32 family can't support natively (e.g.
+FillRectSolid for 24bpp) can be performed using CPU-to-screen operations,
+feeding the correct (color) information through the ACL aperture.
+
+
+ET6000:
+
+* someone might want to look at how the bitBLT engine of the ET6000 is
+constructed, and come up with some fancy ways of abusing it. We're still
+only using a small part of it (I'm thinking about the compare map and the
+extensions to the MIX hardware compared to the ET4000).
+
+* Mclk support is still lacking (that would also allow MClk-dependent
+maximum bandwidth).
+
+* Apart from the things mentionned above, I think the ET6000 server is
+pretty complete. Some optimisations could possibly be added. Like for
+example some assembler code for calculating a framebuffer address from X/Y
+coordinates. That would help to speed up small blits.
+
+
+=======================================================================
+APPENDIX A: the color expansion problem
+----------------------------------------
+
+As suggested in the data book, we're doing font rendering using the
+color-expansion (MIX map) capabilities of the Tseng accelerator.
+
+We're using a ping-pong buffer scheme (triple buffering actually) in
+off-screen memory to store one scanline worth of font data at a time. each
+of these scanlines is "blitted" to on-screen memory using the accelerator.
+The scanline is the MIX map, and there's also a 4x1 solid foreground color
+(SRC map), and a 4x1 solid background color (PAT map). 
+
+Basically, the flow is as follows:
+
+	- setup accelerator for font-expansion
+	
+	- store scanline 1 in off-screen memory buffer 1
+	
+	- start operation
+	
+	- store scanline 2 in off-screen memory buffer 2
+	
+	- start operation
+	
+	- store scanline 3 in off-screen memory buffer 3
+	
+	- start operation
+	
+	- store scanline 4 in off-screen memory buffer 1
+	
+	- start operation
+	
+	... etc, until the whole line of text is drawn.
+	
+There is no explicit "waiting" for the accelerator to finish an operation
+before starting a new one, because it has been set up to add "wait-states"
+when the queue is full. We're aiming to use concurrency between the
+accelerator and the storing of scanlines in the buffers. Anyway, waiting
+after each operation doesn't help.
+
+Now, in 99% of all cases, text is rendered OK. But in some cases, we're
+seeing severe font corruption.
+
+What we're seeing is this: sometimes, exactly 32 pixels of a scanline are
+rendered with the scanline data that was there BEFORE, instead of the one
+that was just written into the scanline buffer. In other words, 32 pixels of
+line 2 (for example) are rendered at line 5. The rest of the scanline can be
+OK (i.e. data from scanline 5 is actually written there).
+
+Here's an attempt at showing you what _should_ have been rendered:
+
+1
+2   #####################################################################
+3
+4
+5
+6   #####################################################################
+7
+8
+9
+10  #####################################################################
+11
+12
+13
+14  #####################################################################
+15
+
+
+
+and what _is_ rendered sometimes (only an example):
+
+1  
+2   #####################################################################
+3
+4
+5 
+6   ########################                                #############
+7
+8
+9
+10  #####################################################################
+11
+12
+13  ########################
+14  #####################################################################
+15  
+
+At line 6, 32 pixels of the "black" scanline data from line 3 is rendered
+instead of the actual full-white that would normally have to be there. At
+line 13, the opposite happened (data from line 10 rendered at line 13). This
+32-pixel width of the "bug" is independent of the color depth: we're seeing
+this at 8bpp as well as at 16bpp, 24bpp and 32bpp. 32 pixels each time.
+
+Remember, we're talking triple-buffering here, so the "wrongly" rendered
+data is in fact the data that was in the scanline-buffer from the PREVIOUS
+operation that used that buffer.
+
+In fact, my best explanation is that sometimes, a whole DWORD (32 bits) of
+data isn't in the video memory yet by the time the accelerator starts
+rendering with it.
+
+But the data _is_ being written to there by the driver software, because if
+you restart the scanline-operation again, without writing any more data to
+the scanline buffers (only the MIX address and the destination address are
+reprogrammed to restart the scanline color expansion operation -- see code
+in tseng_acl.c), data _is_ rendered correctly.
+
+
+
+I have investigated this as far as I possibly can. I checked if the data was
+actually written in video memory. It was. I checked all kinds of PCI-related
+things, like write-gathering or write-reordering of the PCI chipset, etc. I
+disabled all possible enhanced features, both on the PCI chipset, inside the
+CPU, and on the ET6000.
+
+What strikes me, is that the exact same problems are seen on ET4000W32p as
+on the ET6000. This immediately rules out any special features that were
+only added with the ET6000, like problems with the MDRAM cache buffers, etc.
+It seems to be a generic problem to all Tseng accelerators.
+
+The exact same higher-level code is being used for other chipsets as well
+(i.e. the system of writing scanlines of data to off-screen memory and
+making the accelerator expand it into on-screen memory), and there are no
+problems on these other chipsets. The acceleration architecture we're using
+is completely device-independent up to the point where each chip needs to
+provide a
+
+	SetupForScanlineScreenToScreenColorExpand()
+
+and a
+
+	SubsequentScanlineScreenToScreenColorExpand()
+function.
+
+Since the higher-level code is being used by other chip drivers as well, it
+seems to be OK.
+
+So the problem is either in those device-dependent functions, or in the
+hardware itself.
+
+
+I have found one kludge to work around this problem, and it should (?) tell
+you a lot about the problem: if I start each scanline-colorexpand operation
+TWICE, rendering is suddenly perfect (at least there are so little rendering
+errors that I haven't seen any yet).
+
+
+I am including the two device-depending functions so that you may be able to
+follow what I'm saying here:
+
+
+
+One entire line of text is drawn by calling the Setup() function ONCE. All
+scanlines of text (16 of them in case of a 8x16 font) are drawn by filling
+the off-screen scanline buffers and calling the Subsequent() function.
+
+
+
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/drivers/tseng/README,v 1.12 2000/08/08 08:58:06 eich Exp $

@@ -1,0 +1,138 @@
+# Jamfile for target "IOFireWireLib.plugin" of project "IOFireWireFamily"
+
+
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
+
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IOFireWireFamily ;
+export deferred SRCROOT = /Users/cpieper/Desktop/Builds/fw_lavender/projects/IOFireWireFamily ;
+
+# User-defined project-wide settings for project
+
+# Target "IOFireWireLib.plugin"
+
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOFireWireLib.plugin.build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOFireWireLib.plugin.build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOFireWireLib.plugin.build/pbdevelopment.plist" ;
+
+# Implicitly computed build settings for target "IOFireWireLib.plugin"
+export deferred CLONE_HEADERS = NO ;
+export deferred PFE_FILE_C_DIALECTS = c++ ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = IOFireWireLib.plugin ;
+
+# User-defined build settings for target "IOFireWireLib.plugin"
+export deferred BUILD_SETTING =  ;
+export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOFireWireFamily.kext/Contents/PlugIns" ;
+export deferred OTHER_CFLAGS = -DFIREWIREPRIVATE ;
+export deferred OTHER_LDFLAGS = -bundle -undefined error ;
+export deferred OTHER_REZFLAGS =  ;
+export deferred PREBINDING = NO ;
+export deferred PREFIX_HEADER = IOFireWireLib.CFPlugInProj/prefix.h ;
+export deferred PRODUCT_NAME = IOFireWireLib ;
+export deferred SECTORDER_FLAGS =  ;
+export deferred USE_GCC3_PFE_SUPPORT = YES ;
+export deferred WARNING_CFLAGS = -W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas ;
+export deferred WARNING_CPLUSPLUSFLAGS = -W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas -Wno-pmf-conversions ;
+export deferred WRAPPER_EXTENSION = plugin ;
+
+if "$(BUILD_STYLE)" = Development {
+	export deferred GCC_DYNAMIC_NO_PIC = NO ;
+	export deferred GCC_ENABLE_FIX_AND_CONTINUE = YES ;
+	export deferred GCC_GENERATE_DEBUGGING_SYMBOLS = YES ;
+	export deferred GCC_OPTIMIZATION_LEVEL = 0 ;
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
+	export deferred OTHER_CFLAGS += -DIOFIREWIREDEBUG=1 -DIOFIREWIREUSERCLIENTDEBUG=1 -DIOFIREWIRELIBDEBUG=1 -DFIRELOG=0 -DFIRELOGCORE=0 ;
+	export deferred ZERO_LINK = YES ;
+}
+
+if "$(BUILD_STYLE)" = Deployment {
+	export deferred GCC_ENABLE_FIX_AND_CONTINUE = NO ;
+	export deferred OTHER_CFLAGS += -DIOFIREWIREDEBUG=0 -DIOFIREWIREUSERCLIENTDEBUG=0 -DIOFIREWIRELIBDEBUG=0 -DFIRELOG=0 -DFIRELOGCORE=0 ;
+	export deferred ZERO_LINK = NO ;
+}
+
+if "$(BUILD_STYLE)" = FireLog {
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
+	export deferred OTHER_CFLAGS += -DIOFIREWIREDEBUG=1 -DIOFIREWIREUSERCLIENTDEBUG=1 -DIOFIREWIRELIBDEBUG=1 -DFIRELOG=1 -DFIRELOGCORE=1 ;
+}
+
+
+ConditionalDefinitions _ ;
+commitdeferred ;
+
+
+BeginBundle "<IOFireWireLib>IOFireWireLib.plugin" ;
+
+# Headers
+HEADERS =
+	IOFireWireLib.CFPlugInProj/IOFireWireLib.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibCommand.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibPhysicalAddressSpace.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibPriv.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibPseudoAddressSpace.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibUnitDirectory.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibConfigDirectory.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibDCLCommandPool.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibIsochChannel.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibIsochPort.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibIsoch.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibNuDCL.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibNuDCLPool.h
+	IOFireWireLib.CFPlugInProj/prefix.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibBufferFillIsochPort.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibDevice.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibIUnknown.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibCoalesceTree.h
+	IOFireWireLib.CFPlugInProj/IOFireWireLibIOCFPlugIn.h ;
+ProcessHeaders "<IOFireWireLib>IOFireWireLib.plugin" : "$(HEADERS)" : "" : BPTag000 ;
+
+# Resources
+IOFireWireLib.CFPlugInProj/English.lproj/InfoPlist.strings_REGION = English ;
+RESOURCES = IOFireWireLib.CFPlugInProj/English.lproj/InfoPlist.strings ;
+ProcessResources "<IOFireWireLib>IOFireWireLib.plugin" : "$(RESOURCES)" : BPTag000 : BPTag001 ;
+
+# Sources
+SOURCES =
+	IOFireWireLib.CFPlugInProj/IOFireWireLibCommand.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibPhysicalAddressSpace.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibPriv.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibPseudoAddressSpace.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibUnitDirectory.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibConfigDirectory.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibDCLCommandPool.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibIsochChannel.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibIsochPort.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibNuDCL.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibNuDCLPool.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibBufferFillIsochPort.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibDevice.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibIUnknown.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibCoalesceTree.cpp
+	IOFireWireLib.CFPlugInProj/IOFireWireLibIOCFPlugIn.cpp ;
+ProcessSources "<IOFireWireLib>IOFireWireLib.plugin" : "$(SOURCES)" : BPTag001 : BPTag002 ;
+
+# Frameworks & Libraries
+/System/Library/Frameworks/CoreFoundation.framework_ATTRIBUTES = AbsolutePath ;
+/System/Library/Frameworks/IOKit.framework_ATTRIBUTES = AbsolutePath ;
+/System/Library/Frameworks/Security.framework_ATTRIBUTES = AbsolutePath ;
+FRAMEWORKS_AND_LIBRARIES =
+	/System/Library/Frameworks/CoreFoundation.framework
+	/System/Library/Frameworks/IOKit.framework
+	/System/Library/Frameworks/Security.framework ;
+ProcessFrameworksAndLibraries "<IOFireWireLib>IOFireWireLib.plugin" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag002 : BPTag003 ;
+
+# Rez Files
+REZ_FILES = ;
+ProcessRezFiles "<IOFireWireLib>IOFireWireLib.plugin" : "$(REZ_FILES)" : BPTag003 : BPTag004 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<IOFireWireLib>IOFireWireLib.plugin" ;
+
+EndBundle "<IOFireWireLib>IOFireWireLib.plugin" ;
+

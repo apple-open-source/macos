@@ -457,6 +457,7 @@ void AppleDBDMAAudio::allocateDMABuffers (void) {
 	debugIOLog (3, "allocateDMABuffers: buffer size = %ld", numBlocks * blockSize);
 
     mOutputSampleBuffer = IOMallocAligned(numBlocks * blockSize, PAGE_SIZE);
+    mIntermediateSampleBuffer = IOMallocAligned(numBlocks * blockSize, PAGE_SIZE);
 
 	if(ioBaseDMAInput) {
         mInputSampleBuffer = IOMallocAligned(numBlocks * blockSize, PAGE_SIZE);
@@ -726,7 +727,6 @@ IOReturn AppleDBDMAAudio::performAudioEngineStart()
 
 	debugIOLog (3, "getNumSampleFramesPerBuffer %ld", getNumSampleFramesPerBuffer() );
 	((AppleOnboardAudio *)audioDevice)->setCurrentSampleFrame (0);
-	if ( mPlatformObject ) { mPlatformObject->LogDBDMAChannelRegisters(); }
 
 	// start the input DMA first
     if (ioBaseDMAInput) {
@@ -746,7 +746,11 @@ IOReturn AppleDBDMAAudio::performAudioEngineStart()
 		IODBDMAStart(ioBaseDMAOutput, (IODBDMADescriptor *)commandBufferPhys);
 	}
 
-	if ( mPlatformObject ) { mPlatformObject->LogDBDMAChannelRegisters(); }
+	// start with the lastest user set volume before playback [3527440] aml
+	if (TRUE == mUseSoftwareOutputVolume) {
+		*((UInt32 *)mPreviousLeftVolume) = *((UInt32 *)mLeftVolume);
+		*((UInt32 *)mPreviousRightVolume) = *((UInt32 *)mRightVolume);
+	}
 
 	dmaRunState = TRUE;				//	rbm 7.12.02	added for user client support
 	result = kIOReturnSuccess;
@@ -812,7 +816,10 @@ IOReturn AppleDBDMAAudio::performAudioEngineStop()
 
 // This gets called when a new audio stream needs to be mixed into an already playing audio stream
 void AppleDBDMAAudio::resetClipPosition (IOAudioStream *audioStream, UInt32 clipSampleFrame) {
-  if ((NULL != iSubBufferMemory) && (NULL != iSubEngine)) {
+
+	debugIOLog (3, "AppleDBDMAAudio::resetClipPosition (%p, %ld)", audioStream, clipSampleFrame);
+
+	if ((NULL != iSubBufferMemory) && (NULL != iSubEngine)) {
 				
 		resetiSubProcessingState();
 
@@ -1027,7 +1034,9 @@ void AppleDBDMAAudio::chooseInputConversionRoutinePtr()
 
 IOReturn AppleDBDMAAudio::clipOutputSamples(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream)
 {
-	IOReturn result = kIOReturnSuccess;
+	IOReturn 			result;
+	
+	result = kIOReturnSuccess;
  
  	// if the DMA went bad restart it
 	if (mNeedToRestartDMA) {
@@ -1038,6 +1047,7 @@ IOReturn AppleDBDMAAudio::clipOutputSamples(const void *mixBuf, void *sampleBuf,
 	startTiming();
 
 	if (0 != numSampleFrames) {
+
 		// [3094574] aml, use function pointer instead of if/else block - handles both iSub and non-iSub clipping cases.
 		result = (*this.*mClipAppleDBDMAToOutputStreamRoutine)(mixBuf, sampleBuf, firstSampleFrame, numSampleFrames, streamFormat);
 	}
@@ -1068,6 +1078,18 @@ IOReturn AppleDBDMAAudio::convertInputSamples(const void *sampleBuf, void *destB
 #pragma mark ------------------------ 
 
 inline void AppleDBDMAAudio::outputProcessing (float* inFloatBufferPtr, UInt32 inNumSamples) {
+	if (mUseSoftwareOutputVolume) {
+		volume (inFloatBufferPtr, inNumSamples, mLeftVolume, mRightVolume, mPreviousLeftVolume, mPreviousRightVolume);
+	}
+}
+
+inline void AppleDBDMAAudio::setupOutputBuffer (const void *mixBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat) {
+	float*			tempFloatPtr;
+
+	mMixBufferPtr = (float *)mixBuf;
+	tempFloatPtr = (float *)mixBuf+firstSampleFrame*streamFormat->fNumChannels;
+
+	memcpy (mIntermediateSampleBuffer, tempFloatPtr, numSampleFrames*streamFormat->fNumChannels*sizeof(float));
 }
 
 IOReturn AppleDBDMAAudio::clipMemCopyToOutputStream (const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
@@ -1085,19 +1107,19 @@ IOReturn AppleDBDMAAudio::clipMemCopyToOutputStream (const void *mixBuf, void *s
 // ------------------------------------------------------------------------
 // Float32 to Native SInt16
 // ------------------------------------------------------------------------
-IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
+IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
 {
-    float	*inFloatBufferPtr;
     SInt16	*outSInt16BufferPtr;
 	UInt32	numSamples;
 
 	numSamples = numSampleFrames*streamFormat->fNumChannels;
-    inFloatBufferPtr = (float *)mixBuf+firstSampleFrame*streamFormat->fNumChannels;
-	outSInt16BufferPtr = (SInt16 *)sampleBuf+firstSampleFrame * streamFormat->fNumChannels;
+	outSInt16BufferPtr = (SInt16 *)sampleBuf+firstSampleFrame * streamFormat->fNumChannels;	
 
-	outputProcessing(inFloatBufferPtr, numSamples);
+	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
+
+	outputProcessing((float *)mIntermediateSampleBuffer, numSamples);
 	
-	Float32ToNativeInt16( inFloatBufferPtr, outSInt16BufferPtr, numSamples );
+	Float32ToNativeInt16( (float *)mIntermediateSampleBuffer, outSInt16BufferPtr, numSamples );
 
     return kIOReturnSuccess;
 }
@@ -1106,21 +1128,21 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16(const void *mixBuf, voi
 // Float32 to Native SInt16, mix right and left channels and mute right
 // assumes 2 channels
 // ------------------------------------------------------------------------
-IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16MixRightChannel(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
+IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16MixRightChannel(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
 {
-    float	*inFloatBufferPtr;
     SInt16	*outSInt16BufferPtr;
 	UInt32	numSamples;
-
+ 
 	numSamples = numSampleFrames*streamFormat->fNumChannels;
-    inFloatBufferPtr = (float *)mixBuf+firstSampleFrame*streamFormat->fNumChannels;
 	outSInt16BufferPtr = (SInt16 *)sampleBuf+firstSampleFrame * streamFormat->fNumChannels;
 
-	outputProcessing (inFloatBufferPtr, numSamples);
-	
-	mixAndMuteRightChannel( inFloatBufferPtr, numSamples );
+	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
 
-	Float32ToNativeInt16( inFloatBufferPtr, outSInt16BufferPtr, numSamples );
+	outputProcessing((float *)mIntermediateSampleBuffer, numSamples);
+	
+	mixAndMuteRightChannel( (float *)mIntermediateSampleBuffer, (float *)mIntermediateSampleBuffer, numSamples );
+
+	Float32ToNativeInt16( (float *)mIntermediateSampleBuffer, outSInt16BufferPtr, numSamples );
 
     return kIOReturnSuccess;
 }
@@ -1128,43 +1150,42 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16MixRightChannel(const vo
 // ------------------------------------------------------------------------
 // Float32 to Native SInt32
 // ------------------------------------------------------------------------
-IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
+IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
 {
-    float	*inFloatBufferPtr;
 	SInt32	*outSInt32BufferPtr;
 	UInt32	numSamples;
 
 	numSamples = numSampleFrames*streamFormat->fNumChannels;
-    inFloatBufferPtr = (float *)mixBuf+firstSampleFrame*streamFormat->fNumChannels;
 	outSInt32BufferPtr = (SInt32 *)sampleBuf + firstSampleFrame * streamFormat->fNumChannels;
 
-	outputProcessing (inFloatBufferPtr, numSamples);
+	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
 
-	Float32ToNativeInt32( inFloatBufferPtr, outSInt32BufferPtr, numSamples );
+	outputProcessing((float *)mIntermediateSampleBuffer, numSamples);
+
+	Float32ToNativeInt32( (float *)mIntermediateSampleBuffer, outSInt32BufferPtr, numSamples );
 
     return kIOReturnSuccess;
 }
-
 
 // ------------------------------------------------------------------------
 // Float32 to Native SInt32, mix right and left channels and mute right
 // assumes 2 channels
 // ------------------------------------------------------------------------
-IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32MixRightChannel(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
+IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32MixRightChannel(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
 {
-    float	*inFloatBufferPtr;
 	SInt32	*outSInt32BufferPtr;
 	UInt32	numSamples;
 
 	numSamples = numSampleFrames*streamFormat->fNumChannels;
-    inFloatBufferPtr = (float *)mixBuf+firstSampleFrame*streamFormat->fNumChannels;
 	outSInt32BufferPtr = (SInt32 *)sampleBuf + firstSampleFrame * streamFormat->fNumChannels;
-	
-	outputProcessing (inFloatBufferPtr, numSamples);
 
-	mixAndMuteRightChannel( inFloatBufferPtr, numSamples );
+	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
 
-	Float32ToNativeInt32( inFloatBufferPtr, outSInt32BufferPtr, numSamples );
+	outputProcessing((float *)mIntermediateSampleBuffer, numSamples);
+
+	mixAndMuteRightChannel( (float *)mIntermediateSampleBuffer, (float *)mIntermediateSampleBuffer, numSamples );
+
+	Float32ToNativeInt32( (float *)mIntermediateSampleBuffer, outSInt32BufferPtr, numSamples );
 
     return kIOReturnSuccess;
 }
@@ -1176,26 +1197,22 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32MixRightChannel(const vo
 // ------------------------------------------------------------------------
 // Float32 to Native SInt16 with iSub, assumes 2 channel data
 // ------------------------------------------------------------------------
-IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16iSub(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
+IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16iSub(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
 {
     UInt32 		maxSampleIndex, numSamples;
-    float*		floatMixBuf;
-    SInt16*	outputBuf16;
+    SInt16*		outputBuf16;
 	UInt32		sampleIndex;
 
 	iSubSynchronize(firstSampleFrame, numSampleFrames);
 
 	PreviousValues* filterState = &(miSubProcessingParams.filterState);
 	PreviousValues* filterState2 = &(miSubProcessingParams.filterState2);
-//	PreviousValues* phaseCompState = &(miSubProcessingParams.phaseCompState);
 	UInt32* loopCount = &(miSubProcessingParams.iSubLoopCount);
 	SInt32* iSubBufferOffset = &(miSubProcessingParams.iSubBufferOffset);
 	float* srcPhase = &(miSubProcessingParams.srcPhase);
 	float* srcState = &(miSubProcessingParams.srcState);
 
-    floatMixBuf = (float *)mixBuf;
 	float* low = miSubProcessingParams.lowFreqSamples;
-	float* high = &floatMixBuf[firstSampleFrame * streamFormat->fNumChannels];//miSubProcessingParams.highFreqSamples;
 	UInt32 sampleRate = miSubProcessingParams.sampleRate;
 	UInt32 adaptiveSampleRate = miSubProcessingParams.adaptiveSampleRate;
 	SInt16* iSubBufferMemory = miSubProcessingParams.iSubBuffer;
@@ -1204,20 +1221,17 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16iSub(const void *mixBuf,
 
 	numSamples = numSampleFrames * streamFormat->fNumChannels;
     maxSampleIndex = (firstSampleFrame + numSampleFrames) * streamFormat->fNumChannels;
-//	high = &high[firstSampleFrame * streamFormat->fNumChannels]; 
 
-    // Filter audio into low and high buffers using a 24 dB/octave crossover
-//	StereoCrossover4thOrderPhaseComp (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], high, numSampleFrames, sampleRate, filterState, filterState2, phaseCompState);
-	StereoLowPass4thOrder (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2);
+	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
 
-    // high side 
+	StereoLowPass4thOrder ((float *)mIntermediateSampleBuffer, &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2);
+
 	outputBuf16 = (SInt16 *)sampleBuf+firstSampleFrame * streamFormat->fNumChannels;
 
-	outputProcessing (high, numSamples);
+	outputProcessing ((float *)mIntermediateSampleBuffer, numSamples);
 
-	Float32ToNativeInt16( high, outputBuf16, numSamples );
+	Float32ToNativeInt16( (float *)mIntermediateSampleBuffer, outputBuf16, numSamples );
 
-    // low side
  	sampleIndex = (firstSampleFrame * streamFormat->fNumChannels);
 	iSubDownSampleLinearAndConvert( low, srcPhase, srcState, adaptiveSampleRate, outputSampleRate, sampleIndex, maxSampleIndex, iSubBufferMemory, iSubBufferOffset, iSubBufferLen, loopCount );	
 
@@ -1229,26 +1243,22 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16iSub(const void *mixBuf,
 // ------------------------------------------------------------------------
 // Float32 to Native SInt16 with iSub, mix and mute right channel
 // ------------------------------------------------------------------------
-IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16iSubMixRightChannel(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
+IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16iSubMixRightChannel(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
 {
 
     UInt32 		sampleIndex, maxSampleIndex, numSamples;
-    float *		floatMixBuf;
     SInt16 *	outputBuf16;
 
 	iSubSynchronize(firstSampleFrame, numSampleFrames);
 
 	PreviousValues* filterState = &(miSubProcessingParams.filterState);
 	PreviousValues* filterState2 = &(miSubProcessingParams.filterState2);
-//	PreviousValues* phaseCompState = &(miSubProcessingParams.phaseCompState);
 	UInt32* loopCount = &(miSubProcessingParams.iSubLoopCount);
 	SInt32* iSubBufferOffset = &(miSubProcessingParams.iSubBufferOffset);
 	float* srcPhase = &(miSubProcessingParams.srcPhase);
 	float* srcState = &(miSubProcessingParams.srcState);
 
-    floatMixBuf = (float *)mixBuf;
 	float* low = miSubProcessingParams.lowFreqSamples;
-	float* high = &floatMixBuf[firstSampleFrame * streamFormat->fNumChannels];//miSubProcessingParams.highFreqSamples;
 	UInt32 sampleRate = miSubProcessingParams.sampleRate;
 	UInt32 adaptiveSampleRate = miSubProcessingParams.adaptiveSampleRate;
 	SInt16* iSubBufferMemory = miSubProcessingParams.iSubBuffer;
@@ -1257,21 +1267,19 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16iSubMixRightChannel(cons
 
 	numSamples = numSampleFrames * streamFormat->fNumChannels;
     maxSampleIndex = (firstSampleFrame + numSampleFrames) * streamFormat->fNumChannels;
-//	high = &high[firstSampleFrame * streamFormat->fNumChannels]; 
+
+	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
 
     // Filter audio into low and high buffers using a 24 dB/octave crossover
-//	StereoCrossover4thOrderPhaseComp (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], high, numSampleFrames, sampleRate, filterState, filterState2, phaseCompState);
-	StereoLowPass4thOrder (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2);
+	StereoLowPass4thOrder ((float *)mIntermediateSampleBuffer, &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2);
 
-    // high side 
 	outputBuf16 = (SInt16 *)sampleBuf+firstSampleFrame * streamFormat->fNumChannels;
-	mixAndMuteRightChannel(  high, numSamples );
+	mixAndMuteRightChannel( (float *)mIntermediateSampleBuffer, (float *)mIntermediateSampleBuffer, numSamples );
 
-	outputProcessing (high, numSamples);
+	outputProcessing ((float *)mIntermediateSampleBuffer, numSamples);
 
-	Float32ToNativeInt16( high, outputBuf16, numSamples );
+	Float32ToNativeInt16( (float *)mIntermediateSampleBuffer, outputBuf16, numSamples );
 
-    // low side
  	sampleIndex = (firstSampleFrame * streamFormat->fNumChannels);
 	iSubDownSampleLinearAndConvert( low, srcPhase, srcState, adaptiveSampleRate, outputSampleRate, sampleIndex, maxSampleIndex, iSubBufferMemory, iSubBufferOffset, iSubBufferLen, loopCount );	
 		
@@ -1283,25 +1291,21 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream16iSubMixRightChannel(cons
 // ------------------------------------------------------------------------
 // Float32 to Native SInt32 with iSub, assumes 2 channel data
 // ------------------------------------------------------------------------
-IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32iSub(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
+IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32iSub(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
 {
     UInt32 		sampleIndex, maxSampleIndex, numSamples;
-    float *		floatMixBuf;
     SInt32 *	outputBuf32;
 
 	iSubSynchronize(firstSampleFrame, numSampleFrames);
 
 	PreviousValues* filterState = &(miSubProcessingParams.filterState);
 	PreviousValues* filterState2 = &(miSubProcessingParams.filterState2);
-//	PreviousValues* phaseCompState = &(miSubProcessingParams.phaseCompState);
 	UInt32* loopCount = &(miSubProcessingParams.iSubLoopCount);
 	SInt32* iSubBufferOffset = &(miSubProcessingParams.iSubBufferOffset);
 	float* srcPhase = &(miSubProcessingParams.srcPhase);
 	float* srcState = &(miSubProcessingParams.srcState);
 
-    floatMixBuf = (float *)mixBuf;
 	float* low = miSubProcessingParams.lowFreqSamples;
-	float* high = &floatMixBuf[firstSampleFrame * streamFormat->fNumChannels];//miSubProcessingParams.highFreqSamples;
 	UInt32 sampleRate = miSubProcessingParams.sampleRate;
 	UInt32 adaptiveSampleRate = miSubProcessingParams.adaptiveSampleRate;
 	SInt16* iSubBufferMemory = miSubProcessingParams.iSubBuffer;
@@ -1310,20 +1314,17 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32iSub(const void *mixBuf,
 
 	numSamples = numSampleFrames * streamFormat->fNumChannels;
     maxSampleIndex = (firstSampleFrame + numSampleFrames) * streamFormat->fNumChannels;
-//	high = &high[firstSampleFrame * streamFormat->fNumChannels]; 
 
-    // Filter audio into low and high buffers using a 24 dB/octave crossover
-//	StereoCrossover4thOrderPhaseComp (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], high, numSampleFrames, sampleRate, filterState, filterState2, phaseCompState);
-	StereoLowPass4thOrder (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2);
+	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
 
-    // high side 
+	StereoLowPass4thOrder ((float *)mIntermediateSampleBuffer, &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2);
+
 	outputBuf32 = (SInt32 *)sampleBuf + firstSampleFrame * streamFormat->fNumChannels;
 
-	outputProcessing (high, numSamples);
+	outputProcessing ((float *)mIntermediateSampleBuffer, numSamples);
 
-	Float32ToNativeInt32( high, outputBuf32, numSamples );
+	Float32ToNativeInt32( (float *)mIntermediateSampleBuffer, outputBuf32, numSamples );
 
-    // low side
   	sampleIndex = (firstSampleFrame * streamFormat->fNumChannels);
 	iSubDownSampleLinearAndConvert( low, srcPhase, srcState, adaptiveSampleRate, outputSampleRate, sampleIndex, maxSampleIndex, iSubBufferMemory, iSubBufferOffset, iSubBufferLen, loopCount );	
 		
@@ -1335,25 +1336,21 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32iSub(const void *mixBuf,
 // ------------------------------------------------------------------------
 // Float32 to Native SInt32 with iSub, mix and mute right channel
 // ------------------------------------------------------------------------
-IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32iSubMixRightChannel(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
+IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32iSubMixRightChannel(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat)
 {
     UInt32 		sampleIndex, maxSampleIndex, numSamples;
-    float *		floatMixBuf;
     SInt32 *	outputBuf32;
 
 	iSubSynchronize(firstSampleFrame, numSampleFrames);
 
 	PreviousValues* filterState = &(miSubProcessingParams.filterState);
 	PreviousValues* filterState2 = &(miSubProcessingParams.filterState2);
-//	PreviousValues* phaseCompState = &(miSubProcessingParams.phaseCompState);
 	UInt32* loopCount = &(miSubProcessingParams.iSubLoopCount);
 	SInt32* iSubBufferOffset = &(miSubProcessingParams.iSubBufferOffset);
 	float* srcPhase = &(miSubProcessingParams.srcPhase);
 	float* srcState = &(miSubProcessingParams.srcState);
 
-    floatMixBuf = (float *)mixBuf;
 	float* low = miSubProcessingParams.lowFreqSamples;
-	float* high = &floatMixBuf[firstSampleFrame * streamFormat->fNumChannels];//miSubProcessingParams.highFreqSamples;
 	UInt32 sampleRate = miSubProcessingParams.sampleRate;
 	UInt32 adaptiveSampleRate = miSubProcessingParams.adaptiveSampleRate;
 	SInt16* iSubBufferMemory = miSubProcessingParams.iSubBuffer;
@@ -1362,21 +1359,18 @@ IOReturn AppleDBDMAAudio::clipAppleDBDMAToOutputStream32iSubMixRightChannel(cons
 
 	numSamples = numSampleFrames * streamFormat->fNumChannels;
     maxSampleIndex = (firstSampleFrame + numSampleFrames) * streamFormat->fNumChannels;
-//	high = &high[firstSampleFrame * streamFormat->fNumChannels]; 
 
-    // Filter audio into low and high buffers using a 24 dB/octave crossover
-//	StereoCrossover4thOrderPhaseComp (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], high, numSampleFrames, sampleRate, filterState, filterState2, phaseCompState);
-	StereoLowPass4thOrder (&floatMixBuf[firstSampleFrame * streamFormat->fNumChannels], &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2);
+	setupOutputBuffer (inFloatBufferPtr, firstSampleFrame, numSampleFrames, streamFormat);
 
-    // high side 
+	StereoLowPass4thOrder ((float *) mIntermediateSampleBuffer, &low[firstSampleFrame * streamFormat->fNumChannels], numSampleFrames, sampleRate, filterState, filterState2);
+
 	outputBuf32 = (SInt32 *)sampleBuf + firstSampleFrame * streamFormat->fNumChannels;
-	mixAndMuteRightChannel( high, numSamples );
+	mixAndMuteRightChannel( (float *)mIntermediateSampleBuffer, (float *)mIntermediateSampleBuffer, numSamples );
 
-	outputProcessing (high, numSamples);
+	outputProcessing ((float *)mIntermediateSampleBuffer, numSamples);
 
-	Float32ToNativeInt32( high, outputBuf32, numSamples );
+	Float32ToNativeInt32( (float *)mIntermediateSampleBuffer, outputBuf32, numSamples );
 
-    // low side
  	sampleIndex = (firstSampleFrame * streamFormat->fNumChannels);
 	iSubDownSampleLinearAndConvert( low, srcPhase, srcState, adaptiveSampleRate, outputSampleRate, sampleIndex, maxSampleIndex, iSubBufferMemory, iSubBufferOffset, iSubBufferLen, loopCount );	
 		
@@ -1573,12 +1567,76 @@ void AppleDBDMAAudio::setRightChanMixed(const bool needsRightChanMixed)
 
 void AppleDBDMAAudio::setUseSoftwareInputGain(const bool inUseSoftwareInputGain) 
 {     
-	debugIOLog (3, "setUseSoftwareInputGain (%s)", inUseSoftwareInputGain ? "true" : "false");
+	debugIOLog (3, "AppleDBDMAAudio::setUseSoftwareInputGain (%s)", inUseSoftwareInputGain ? "true" : "false");
 	
 	mUseSoftwareInputGain = inUseSoftwareInputGain;     	
 	chooseInputConversionRoutinePtr();
 	
 	return;   
+}
+
+void AppleDBDMAAudio::setUseSoftwareOutputVolume(const bool inUseSoftwareOutputVolume, UInt32 inMinLinear, UInt32 inMaxLinear, SInt32 inMindB, SInt32 inMaxdB) 
+{     
+	debugIOLog (3, "AppleDBDMAAudio::setUseSoftwareOutputVolume (%s, %ld, %ld, %ld, %ld)", inUseSoftwareOutputVolume ? "true" : "false", inMinLinear, inMaxLinear, inMindB, inMaxdB);
+	
+	mMinVolumeLinear = inMinLinear;
+	mMaxVolumeLinear = inMaxLinear;
+	mMinVolumedB = inMindB;
+	mMaxVolumedB = inMaxdB;
+	
+	mUseSoftwareOutputVolume = inUseSoftwareOutputVolume;     	
+	
+	return;   
+}
+
+void AppleDBDMAAudio::setOutputVolumeLeft(UInt32 inVolume) 
+{ 
+	debugIOLog (3, "AppleDBDMAAudio::setOutputVolumeLeft (%ld)", inVolume);
+	debugIOLog (3, "min: %ld, max: %ld, mindB: %ld, maxdB %ld", inVolume);
+
+#ifndef TESTING_VOLUME_SCALING
+    volumeConverter(inVolume, mMinVolumeLinear, mMaxVolumeLinear, mMinVolumedB, mMaxVolumedB, mLeftVolume);
+#else
+	float t1, t2, t3, t4, t5;
+	char floatstr[128];
+
+    volumeConverter(inVolume, mMinVolumeLinear, mMaxVolumeLinear, mMinVolumedB, mMaxVolumedB, mLeftVolume, &t1, &t2, &t3, &t4, &t5);
+
+	float2string(mLeftVolume, floatstr);
+	debugIOLog (1, "mLeftVolume after conversion: %s", floatstr);
+
+	float2string(&t1, floatstr);
+	debugIOLog (1, "min dB: %s", floatstr);
+	float2string(&t2, floatstr);
+	debugIOLog (1, "max dB: %s", floatstr);
+	float2string(&t3, floatstr);
+	debugIOLog (1, "slope: %s", floatstr);
+	float2string(&t4, floatstr);
+	debugIOLog (1, "offset: %s", floatstr);
+	float2string(&t5, floatstr);
+	debugIOLog (1, "volume dB: %s", floatstr);
+#endif
+
+    return;   
+}
+
+void AppleDBDMAAudio::setOutputVolumeRight(UInt32 inVolume) 
+{ 
+	debugIOLog (3, "AppleDBDMAAudio::setOutputVolumeRight (%ld)", inVolume);
+
+#ifndef TESTING_VOLUME_SCALING
+    volumeConverter(inVolume, mMinVolumeLinear, mMaxVolumeLinear, mMinVolumedB, mMaxVolumedB, mRightVolume);
+#else
+	float t1, t2, t3, t4, t5;
+	char fstr[128];
+
+    volumeConverter(inVolume, mMinVolumeLinear, mMaxVolumeLinear, mMinVolumedB, mMaxVolumedB, mRightVolume, &t1, &t2, &t3, &t4, &t5);
+
+	float2string(mRightVolume, fstr);
+	debugIOLog (1, "mRightVolume after conversion: %s", fstr);
+#endif
+
+    return;   
 }
 
 #pragma mark ------------------------ 
@@ -1719,6 +1777,31 @@ IOReturn AppleDBDMAAudio::copyOutputChannelRegisters (void * outState) {
 }
 //	} end	[3305011]
 
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+IOReturn AppleDBDMAAudio::copySoftwareProcessingState (GetSoftProcUserClientStructPtr outState) {
+
+	debugIOLog (3, "AppleDBDMAAudio::copySoftwareProcessingState (0x%p), mode = %s", outState, outState->inputMode ? "input" : "output");
+	if (FALSE == outState->inputMode) {
+		mOutputDSPManager->getState (outState);
+	} else {
+		mInputDSPManager->getState (outState);
+	}
+	return kIOReturnSuccess;
+}
+
+IOReturn AppleDBDMAAudio::applySoftwareProcessingState (SetSoftProcUserClientStructPtr inState) {
+	debugIOLog (3, "AppleDBDMAAudio::applySoftwareProcessingState (0x%p), mode = %s", inState, inState->processInput ? "input" : "output");
+
+	if (FALSE == inState->processInput) {
+		mOutputDSPManager->setParameters (inState);
+	} else {
+		mInputDSPManager->setParameters (inState);
+	}
+	
+	return kIOReturnSuccess;
+}
+
 #pragma mark ------------------------ 
 #pragma mark еее Format Routines
 #pragma mark ------------------------ 
@@ -1811,7 +1894,6 @@ Exit:
 }
 
 void AppleDBDMAAudio::updateDSPForSampleRate (UInt32 inSampleRate) {	
-	debugIOLog (3, "updateDSPForSampleRate (%ld)", inSampleRate);
 }
 
 #pragma mark ------------------------ 
@@ -2120,7 +2202,7 @@ void AppleDBDMAAudio::iSubSynchronize(UInt32 firstSampleFrame, UInt32 numSampleF
 		if (firstSampleFrame < previousClippedToFrame) {
 			debugIOLog (3, "clipOutput: no sync: firstSampleFrame < previousClippedToFrame (delta = %ld)", previousClippedToFrame-firstSampleFrame);
 			// We've wrapped around the buffer
-			offsetDelta = (getNumSampleFramesPerBuffer () - firstSampleFrame + previousClippedToFrame) * iSubEngine->GetNumChannels();	
+			offsetDelta = (getNumSampleFramesPerBuffer () - previousClippedToFrame + firstSampleFrame) * iSubEngine->GetNumChannels();	
 		} else {
 			debugIOLog (3, "clipOutput: no sync: previousClippedToFrame < firstSampleFrame (delta = %ld)", firstSampleFrame - previousClippedToFrame);
 			offsetDelta = (firstSampleFrame - previousClippedToFrame) * iSubEngine->GetNumChannels();

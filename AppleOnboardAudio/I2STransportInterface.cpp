@@ -45,11 +45,6 @@ bool		I2STransportInterface::init ( PlatformInterface * inPlatformInterface ) {
 
 	mPlatformObject->setClockMux ( kGPIO_MuxSelectDefault );
 	super::transportMakeClockSelect ( kTRANSPORT_MASTER_CLOCK );
-
-	//	SET UP default operating variables.  There are codec dependencies on how the clock 
-	//	divide ratios are determined for the I2S audio data transport bus.  THIS WILL NEED 
-	//	TO ASK AOA WHAT CODEC IS ATTACHED AT SOME POINT IN THE FUTURE (i.e. when the newer 
-	//	controller is used).  FOR NOW, AN ASSUMPTION THAT ALL CODECS REQUIRE THE SAME BEHAVIOR IS MADE.
 	
 	mMclkMultiplier = 256;		//	TAS3004, CS84xx run MCLK at 256 * fs
 	mSclkMultiplier =  64;		//	TAS3004, CS84xx run MCLK at 64 * fs
@@ -635,10 +630,10 @@ IOReturn		I2STransportInterface::calculateSerialFormatRegisterValue ( UInt32 sam
 	mMClkDivisor = mClockSourceFrequency / mMClkFrequency;
 	debugIOLog(6, "I2STransportInterface::calculateSerialFormatRegisterValue: mMClkDivisor = %ld", mMClkDivisor);
 	switch ( mMClkDivisor ) {
-		// NOTE: these exceptions don't appear to work (audio turns to white noise)
-		case 1:			mMClkDivider = 0x00000014;									break;	// also tried all of these as 0x0000XX10 as indicated in intrepid docs
-		case 3:			mMClkDivider = 0x00000013;									break;
-		case 5:			mMClkDivider = 0x00000012;									break;
+		// exception cases require decimal divider constants (not hex!)
+		case 1:			mMClkDivider = 14;											break;
+		case 3:			mMClkDivider = 13;											break;
+		case 5:			mMClkDivider = 12;											break;
 		default:		mMClkDivider = ( ( mMClkDivisor / 2 ) - 1 );				break;
 	}
 	mSerialFormat |= ( mMClkDivider << kMClkDivisorShift );
@@ -647,8 +642,9 @@ IOReturn		I2STransportInterface::calculateSerialFormatRegisterValue ( UInt32 sam
 	mSClkDivisor = ( mClockSourceFrequency / mMClkDivisor ) / mSClkFrequency;
 	debugIOLog(6, "I2STransportInterface::calculateSerialFormatRegisterValue: mSClkDivisor = %ld", mSClkDivisor);
 	switch ( mSClkDivisor ) {
-		case 1:			mSClkDivider = 0x00000008;									break;	// also tried all of these as 0x0000XX10 as indicated in intrepid docs
-		case 3:			mSClkDivider = 0x00000009;									break;
+		// exception cases require decimal divider constants (not hex!)
+		case 1:			mSClkDivider = 8;											break;
+		case 3:			mSClkDivider = 9;											break;
 		default:		mSClkDivider = ( ( mSClkDivisor / 2 ) - 1 );				break;
 	}
 	mSerialFormat |= ( mSClkDivider << kSClkDivisorShift );

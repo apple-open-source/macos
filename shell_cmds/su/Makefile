@@ -21,7 +21,7 @@ MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
 MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/bin
-LIBS = -lpam -lpam_misc
+LIBS = -lpam -lpam_misc -lbsm
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

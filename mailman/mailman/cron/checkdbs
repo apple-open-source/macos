@@ -122,6 +122,7 @@ def main():
 
 def pending_requests(mlist):
     # Must return a byte string
+    lcset = Utils.GetCharSet(mlist.preferred_language)
     pending = []
     first = 1
     for id in mlist.GetSubscriptionIds():
@@ -130,6 +131,8 @@ def pending_requests(mlist):
             first = 0
         when, addr, fullname, passwd, digest, lang = mlist.GetRecord(id)
         if fullname:
+            if isinstance(fullname, UnicodeType):
+                fullname = fullname.encode(lcset, 'replace')
             fullname = ' (%s)' % fullname
         pending.append('    %s%s %s' % (addr, fullname, time.ctime(when)))
     first = 1
@@ -139,6 +142,7 @@ def pending_requests(mlist):
             first = 0
         info = mlist.GetRecord(id)
         when, sender, subject, reason, text, msgdata = mlist.GetRecord(id)
+        subject = Utils.oneline(subject, lcset)
         date = time.ctime(when)
         reason = _(reason)
         pending.append(_("""\

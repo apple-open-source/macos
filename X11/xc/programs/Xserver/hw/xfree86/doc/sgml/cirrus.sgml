@@ -1,0 +1,977 @@
+<!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN">
+ 
+<article>
+
+<!-- Title information -->
+<title> Information for Cirrus Chipset Users
+<author> Harm Hanemaayer (<it>H.Hanemaayer@inter.nl.net</it>),
+Randy Hendry (<it>randy@sgi.com</it>) (64xx),
+Corin Anderson (<it>corina@the4cs.com</it>)
+<date> 5 November 1998
+
+<!-- Table of contents -->
+<toc>
+
+<sect> Supported chipsets <p>
+
+There are two different SVGA drivers for Cirrus chipsets, one called
+``cirrus'' and one called ``cl64xx''.
+The ``cirrus'' driver is used in the 256-color SVGA server (with
+acceleration) and the mono server (without acceleration). The SVGA server
+supports 16, 24, and 32 bits-per-pixel truecolor modes on some configurations.
+The ``cl64xx'' driver is used in the 256-color SVGA, 16-color and mono
+servers.  Note that except where stated otherwise, this document is
+referring to the ``cirrus'' driver.
+The following chipsets by Cirrus Logic are supported:
+<descrip>
+<tag>CL-GD5420</tag>
+	ISA SVGA chipset, 1Mbyte; maximum dot clock is 45 MHz (256
+	color server). Acceleration with extended write modes (used
+	for scrolling and solid filling in this driver). This chipset
+	can <em>not</em> support 1024x768 non-interlaced in 256 colors.
+<tag>CL-GD5422</tag>
+	Enhanced version of the 5420 (32-bit internal memory
+	interface). Maximum dot clock is 80 MHz.
+<tag>CL-GD6205/6215/6225/6235</tag>
+	Laptop chipsets more or less compatible with the 5420. The
+	only dot clock supported is 25 MHz (more on an external
+	display). Some problems have been reported with these
+	chipsets (especially on external displays). Take note of
+	the "<tt>noaccel</tt>" option.
+<tag>CL-GD6420/6440</tag>
+	These chipsets are not compatible with the 542x series, but are
+        supported by the ``cl64xx'' driver. It is used in
+        recent laptops, and bears some similarity to old Cirrus
+        chipsets (5410/AVGA2). The driver may also work for other
+        64xx chips. The configuration identifiers for this driver are
+	"<tt>cl6420</tt>" and <tt>"cl6440"</tt>.  This driver is discussed
+	in detail in section <ref id="cl64xx" name="The cl64xx Driver">.
+<tag>CL-GD5424</tag>
+	Basically VLB version of the 5422, but resembles the
+	5426 in some respects.
+<tag>CL-GD5426</tag>
+	Supports both ISA bus and VLB, and up to 2Mbyte of memory.
+	Has BitBLT engine for improved acceleration (BitBlt, image
+	transfer, text). Dot clock limit is 85 MHz.
+<tag>CL-GD5428</tag>
+	Enhanced version of the 5426.
+<tag>CL-GD5429</tag>
+	Enhanced version of the 5428; officially supports higher
+	MCLK and has memory-mapped I/O.
+<tag>CL-GD5430</tag>
+	Similar to 5429, but with 543x core (32-bit host interface).
+	Does not have 64-bit memory mode.
+<tag>CL-GD5434</tag>
+	`Alpine' family chip with 64-bit internal memory interface.
+        The chip
+	can only support 64-bit mode if equipped with 2 Mbytes of
+	memory; cards with only 1 Mbyte are severely limited.
+	Supports dot clocks up to 110 MHz (later chips support
+	135 MHz).
+<tag>CL-GD5436</tag>
+	Highly optimized 5434.
+<tag>CL-GD5440</tag>
+	Similar to the CL-GD5430, and detected as such.
+<tag>CL-GD5446</tag>
+	Another member of the Alpine family of 2D accelerators; similar
+        to the CL-GD5436.
+<tag>CL-GD5480</tag>
+	Newer Alpine family chip that support synchronous graphics RAM
+	(SGRAM).
+<tag>CL-GD5462, CL-GD5464 and CL-GD5465</tag>
+	The Laguna VisualMedia family of 2D  Accelerators.  These chips 
+	use Rambus RDRAM memory.  The '62 is a 64-bit 2D 
+	accelerator, including a BitBlit engine, video windows (not currently
+	used by the server), and 64x64 HW cursor.  Mono modes have not been
+	tested. The CL-GD5464 is the next chip in the Laguna family, and the
+	CL-GD5465 is the latest member, both have been tested.
+<tag>CL-GD7541/7542/7543/7548</tag>
+	Laptop chipsets more or less compatible with the 5428/3x.
+        While has it been tested on some configurations, not all
+        configuration may work correctly.
+<tag>CL-GD7555</tag>
+	Limited untested support, without auto-detection, has been
+	provided for this chip which is a 64-bit extension of the 754x
+	family. Use a Chipset "clgd7555" line.
+</descrip>
+
+Here's a list of maximum dot clocks for each supported depth:
+
+<quote><verb>
+                mono     8 bpp (256c) 16 bpp       24 bpp       32 bpp
+CL-GD62x5       45 MHz   45 MHz    
+CL-GD5420       80 MHz   45 MHz (1)
+CL-GD542x/512K  80 MHz   45 MHz    
+CL-GD5422/24    80 MHz   80 MHz       40 MHz       27 MHz
+CL-GD5426/28    85 MHz   85 MHz       45 MHz (2)   28 MHz
+CL-GD5429       85 MHz   85 MHz       50 MHz       28 MHz
+CL-GD5430       85 MHz   85 MHz       45 MHz (2)   28 MHz
+CL-GD5434/1Mb   85 MHz   85 MHz       42 MHz       28 MHz
+CL-GD5434/2Mb   85 MHz   110/135 MHz  85 MHz       28 MHz       45/50 MHz (2)
+CL-GD5436/1Mb	85 MHz	 110 MHz (3)  60 MHz (3)   40 MHz (3)
+CL-GD5436/2Mb	85 MHz	 135 MHz      85 MHz       85 MHz (3)   60 MHz (3)
+CL-GD5446/1Mb	85 MHz	 110 MHz (3)  60 MHz (3)   40 MHz (3)
+CL-GD5446/2Mb	85 MHz	 135 MHz      85 MHz       85 MHz (3)   60 MHz (3)
+CL-GD5462	170 MHz  170 Mhz      170 MHz      170 MHz      135 MHz
+CL-GD5464/65	170 MHz  230 Mhz      170 MHz      170 MHz      135 MHz
+CL-GD5480	85 MHz	 200 MHz      100 MHz      100 MHz      50 MHz
+CL-GD754x	80 MHz   80 MHz       40 MHz (4)   (5)
+
+(1) with 512K memory.
+(2) 50 MHz with high MCLK setting.
+(3) Depends on memory clock.
+(4) This may be too low for some chips.
+(5) This depth may actually work if it is enabled and tested.
+</verb></quote>
+
+Rough virtual/physical screen resolution limits for different amounts of
+video memory:
+<quote><verb>
+            mono        8 bpp        16 bpp     24 bpp     32 bpp
+256K        800x600     640x400                         
+512K        1152x900    800x600     640x400             
+1024K       1600x1200   1152x900    800x600     680x510
+2048K       2304x1728   1600x1200   1152x900    960x720    800x600
+4096K       2304x1728   2272x1704   1600x1200   1360x1020  1152x900
+</verb>
+</quote>
+For 546x chips, the above table isn't quite accurate.  While the virtual 
+width may be any size, the screen <it>pitch</it> will be rounded up to the 
+nearest value in the table
+below.  Thus, each line on the screen will take more video memory than just
+what is displayed.  To maximize video memory, then, choose the virtual
+desktop width from the table of pixel widths below:
+<quote><verb>
+8bpp:	640, 1024, 1280, 1664, 2048, 2560, 3328, 4096, 5120, 6656
+16bpp:	320,  512,  640,  832, 1024, 1280, 1664, 2048, 2560, 3328
+24bpp:	640, 1024, 1280, 1664, 2048, 2560, 3328, 4096, 5120, 6656
+32bpp:	160,  256,  320,  416,  512,  640,  832, 1024, 1280, 1664
+</verb></quote>
+ 
+For other Cirrus chips, it's advisable to have a virtual width that is a
+multiple of 32 if acceleration is used.
+The horizontal monitor timings must be below 2048.
+
+To run <tt>XF86_SVGA</tt> at a higher color depth, pass options to the
+X server as follows:
+<verb>
+startx -- -bpp 16		5-6-5 RGB ('64K color', XGA)
+startx -- -bpp 16 -weight 555	5-5-5 RGB ('Hicolor') (not on 5462)
+startx -- -bpp 24		8-8-8 RGB truecolor
+startx -- -bpp 32		8-8-8 XRGB truecolor (543X/46/6X only)
+</verb>
+
+
+<sect> Basic configuration <p>
+
+It is recommended that you generate an XF86Config file using
+the `<tt>XF86Setup</tt>' or `<tt>xf86config</tt>' program, which should
+produce a working
+high-resolution 8bpp configuration. You may want to include mode
+timings in the <tt>Monitor</tt> section that better fit your monitor
+(e.g 1152x900 modes). The driver options are described in detail in
+the next section; here the basic options are hinted at.
+
+For all chipsets, a <tt>Clockchip "cirrus"</tt> line in the
+<tt>Device</tt> section can be useful. This allows the use of any dot
+clocks, instead of one out of the fixed set of dot clocks supported
+by the driver. This is required if you want a 12.6 MHz dot clock for
+low-resolution modes. However, when this option used, clock frequencies
+be unstable leading to strange effects, so only use it if absolutely
+required.
+
+For any chip with a BitBLT engine, the new XAA (XFree86 Acceleration
+Architecture) is used. This code is new and still in a beta stage.
+If graphics redrawing goes wrong, try the
+<tt>"noaccel"</tt> option; if it is using memory-mapped I/O,
+<tt>"no_mmio"</tt> might be sufficient.
+
+In order to be able to run at a depth of 16bpp, 24bpp, or 32bpp, and to improve
+performance at 8bpp, linear addressing must be enabled. This is generally
+
+In order to be able to run at a depth of 16bpp, 24bpp or 32bpp, and to improve
+performance at 8bpp, linear addressing must be enabled. Linear addressing
+is the default mode of operation on any PCI-bus configuration; use
+<tt>"nolinear"</tt> to disable it.
+For other bus types, it is generally
+possible on 543x local bus cards, and if you have less than 16Mb of system
+memory, on local bus 542x cards and ISA 543x cards. You must specify
+the <tt>"linear"</tt> option and possibly a <tt>Membase</tt>
+address. See the following sections for a detailed description.
+
+Memory-mapped I/O is the default mode of operation for any Alpine family
+chip. For the 5429, the <tt>"mmio"</tt> option may be used
+to enable it, but it has not been tested.
+
+Finally, if you have 546X chip, it will be on either a PCI or AGP bus.
+As such, there
+is no problem about memory mapped I/O or linear frame buffer address spaces
+running into system memory.  The PCI spaces are mapped way up near the 4GB
+point.  Because the mmio and linear frame buffer don't conflict at all on 
+the system, the <tt>"linear"</tt>, <tt>Membase</tt>, and 
+<tt>"mmio"</tt> options are ignored (memory mapped I/O  and linear
+addressing are always used).
+
+<sect> XF86Config options <p>
+Don't use the `<tt>Clocks</tt>' command. The clocks are fixed
+(i.e. not probed), and
+there should be no variation between cards (other than the maximum supported
+clock for each chipset).
+
+The following options are of particular interest to the Cirrus driver. Each
+of them must be specified in the `<tt>svga</tt>' driver section of the
+<tt>XF86Config</tt>
+file, within the <tt>Screen</tt> subsections of the depths to which they are
+applicable (you can enable options for all depths by specifying them in the
+Device section).
+<descrip>
+<tag>Option "noaccel"</tag>
+	This option will disable the use of any accelerated functions. This
+	is likely to help with problems related to bugs in acceleration
+	functions, and perhaps high dot clocks and DRAM timing, at the cost
+	of performance (which will still be reasonable on a local bus).
+<tag>Option "fast_dram" "med_dram"
+"slow_dram" (5424/6/8/9, 543x, 5446, 546x)
+</tag>
+        These options set the internal memory clock (MCLK, or BCLK for
+	the 546x) register to
+	another value. The default value programmed by the BIOS is
+	usually OK, don't mess with these options unless absolutely
+        required.
+
+	The <tt>"fast_dram"</tt> option will cause the driver to set the
+	internal
+	memory clock (MCLK) register of the video card to a higher value
+	(recent chips use an even higher value by default).
+	Normally, this register is not touched but it appears that the
+	standard CL-GD542x BIOS initializes it to a value that is somewhat
+	on the low side (limited by the chip specification), which has a
+	negative influence on performance of high dot clock modes. This
+	is especially true if extended RAS timing is being used (this is
+	indicated in the server probe).
+	The actual speed of DRAM is not a critical factor in the determining
+	whether	this option is appropriate; one CL-GD5426-based card with
+	80ns DRAM using Extended RAS timing, which came with a DOS driver
+	utility to set the MCLK to this value (0x22), seems to run stable
+	at higher MCLK.
+
+	There are also (mainly brand name) cards whose customized BIOS does
+	initialize to a higher non-standard value.
+
+	The <tt>"slow_dram"</tt>
+	option will set the MCLK to the value used by the
+        standard CL-GD542x BIOS (0x1c). Symptoms of a MCLK that is too high
+        can be vertical bands of flickering pixels on the screen, erroneous
+        pixels appearing in text, and loosing pixels in the textmode font
+        after running X (note that very similar effects can be caused by an
+        MCLK setting that is too low).
+
+	Upon start-up, the driver will report the value of the MCLK
+	register (check this first), and also any changes that are made.
+
+	Typical MCLK values:
+	<descrip>
+	<tag/0x1c (50 MHz)/
+		This is usually the BIOS default.
+		It is forced by the <tt>"slow_dram"</tt> option.
+	<tag/0x1f (55 MHz)/
+		Value used by the <tt>"med_dram"</tt> option.
+		Highest value that
+		542x based cards seem to be able to handle with linear
+		addressing enabled.
+	<tag/0x22 (60 MHz)/
+		Value that most (Extended RAS) 542x cards seem to be able to
+		handle, used by	the <tt>"fast_dram"</tt> option.
+	</descrip>
+
+	The official maximum of the 542x chips is 50 MHz.
+	The official spec. for the 5434 is also 50 MHz (0x1c)
+	and that for
+        the 5429 and 5430 is probably 60 MHz (0x22). Current revisions
+	of the 5434 (E and greater) support 60 MHz MCLK in graphics modes,
+	and the driver will program this automatically. If it causes
+	problems, use the <tt>"slow_dram"</tt> option.
+
+	The driver takes the MCLK into account for clock limits that
+	are determined by DRAM bandwidth.
+
+	For the 546x chips, the BCLK is the Rambus access clock.
+	Typical values live in the range of 258 MHz to 300 MHz.  If you
+	have troubles, such as a black checkerboard pattern on the
+	screen, try using the <tt>"med_dram"</tt> or
+	<tt>"slow_dram"</tt> options.
+
+	In all cases, if you are not having any problems (performance
+	or stability at high dot clocks), it is best not to use any of
+	the DRAM options.
+<tag>
+Option "no_bitblt"
+</tag>
+	This option, when used with a 5426/28/29/3x/46/6x/754x, will have the 
+	effect of
+        disabling the use of the BitBLT engine (which the 5424 does not
+        have), while retaining some acceleration. This will be useful for
+        problems related to functions that use the BitBLT engine.
+	Performance is significantly decreased.
+<tag>
+Option "no_imageblt"
+</tag>
+        This option is now obsolete. The "xaa_no_color_exp" option has a
+        somewhat similar effect.
+<tag>
+chipset "clgd54xx"
+</tag>
+	Force detection of the given chipset. Useful if you have a supported
+        chipset that is not properly detected, or if you have an unsupported
+        chip that might be compatible with a supported one.
+<tag>
+videoram 1024 (or another value)
+</tag>
+	This option will override the detected amount of video memory, and
+        pretend the given amount of memory is present on the card. This is
+        useful on cards with 2Mbyte of memory whose DRAM configuration is
+        not compatible with the way the driver enables the upper megabyte of
+        memory, or if the memory detection goes wrong. It must be specified
+	in the Device section.
+<tag>
+Option "fifo_conservative" (5424/6/8/9/3x/46/6x/754x)
+</tag>
+	This option will set the CRT FIFO threshold to a conservative value
+	for high dot clocks (&gt;= 65 MHz), reducing performance but hopefully
+	alleviating problems with what can be described as flashing
+	`streaks', `jitter' or horizontally repeated display areas on the
+	screen (especially when	a BitBLT operation is in progress, e.g.
+	scrolling).
+<tag>
+Option "fifo_aggressive" (5424/6/8/9/3x/46/6x/754x)
+</tag>
+	This option will set the CRT FIFO threshold to an aggressive value;
+	it will be the same as that used for lower dot clocks.
+        Theoretically it improves performance at high dot clocks, but
+        it does not help in the vast majority of cases.  In some
+	cases with 546x chips, however, this option can help
+	reduce horizontal streaks or otherwise fix abnormal
+	display problems (display shifted to the left, etc.).
+<tag>
+Option "no_2mb_banksel" (542x)
+</tag>
+	This option will cause the driver not to set the `DRAM bank select'
+	bit to enable the upper megabyte of memory on a 2Mbyte card. This
+	should be helpful with cards equipped with 512Kx8 DRAMs, as opposed
+	to 256Kx4/16 DRAMs, when using a virtual screen configuration that
+	uses more than 1Mbyte of memory.
+<tag>
+Option "probe_clocks"
+</tag>
+	This option will force probing of dot clocks on the card. This
+        should not be necessary, since the clocks are fixed and the same for
+        all Cirrus chipsets.
+<tag>
+Clockchip "cirrus"
+</tag>
+	This enables programmable clocks. It must be specified in the
+	Device section. With this option, the clocks the modes use will
+	be automatically selected. Do not specify any Clocks line. This
+	option makes a 12.5 MHz clock possible for a 320x200 Doublescan
+	mode. Note that some frequencies may be unstable (resulting in
+	a `wavy' screen). Only tried
+	and tested frequencies (like the default clocks) are guaranteed
+	to be stable.
+<tag>
+Option "linear"  (542x/6/8/9/3x/754x on VL-bus)
+</tag>
+	This enables linear addressing, which is the mapping of the entire
+        framebuffer to a high address beyond system memory, so that SVGA
+        bank switching is not necessary. It enhances performance at 256
+        colors, and is currently required for 16bpp, 24bpp, and 32bpp. See 
+	section 4 for details.
+  <tag>
+Option "nolinear"  (542x/6/8/9/3x/754x on PCI bus)
+</tag>
+        Linear addressing is the default mode of operation on any
+        PCI-bus chip. For these configurations, this option disables
+        linear addressing.
+<tag>
+Membase 0x00e00000 (or a different address) (542x/6/8/9/3x/46/754x)
+</tag>
+	This sets the physical memory base address of the linear
+        framebuffer. It must be specified in the Device section. It is
+	required for non-PCI linear addressing configurations.
+<tag>
+Option "favour_bitblt" (5426 only)
+</tag>
+	This option is now obsolete.
+<tag>
+Option "mmio" (5429, 7548)
+</tag>
+	This enables the use of memory-mapped I/O to talk to the BitBLT
+        engine on the 543x/5429, which is a bit faster. This is option
+	has no effect when not using the BitBLT engine (e.g. when using
+	"no_bitblt").
+<tag>
+Option "no_mmio" (543x/4x)
+</tag>
+	This disables the use of memory-mapped I/O to talk to the BitBLT
+        engine on any chip for which it is the default mode of
+        operation. 
+<tag>
+Option "sw_cursor" (542x/3x/46/6x)
+</tag>
+	This disables use of the hardware cursor provided by the chip. Try
+        this if the cursor seems to have problems. In particular, use this
+	when using dot clocks greater than 85 MHz on the 5434/6 since those
+	chips don't fully support the hardware cursor at those clocks.
+<tag>
+Option "clgd6225_lcd"
+</tag>
+	Provides a work-around for problems on the LCD screen of some
+	62x5 laptop chipsets with maximum white colors.
+<tag>
+Option "no_pixmap_cache"
+</tag>
+	When XAA is used (on any BitBLT chip), this option disables
+	the use of a pixmap cache in XAA. It could help with certain
+	drawing bugs.
+<tag>
+Option "xaa_no_color_exp"
+</tag>
+	When XAA is used, this option disables the use of hardware color
+	expansion features by XAA. Again, this might help with certain
+	drawing bugs.
+<tag>
+Option "no_stretch" (754x)
+</tag>
+	Disable automatic stretching (horizontal and vertical expansion)
+	of 640x480 on a 800x600 LCD.
+<tag>
+Option "pci_retry" (546x)
+</tag>
+        Enables a performance feature for PCI based cards.  When this
+	feature is enabled, the driver code will attempt to transmit
+	data on the PCI bus as fast as possible.  For the most part,
+	this option is safe, but may cause trouble with other PCI
+	devices such as PCI network cards, sound cards, SCSI
+	controllers, etc.  When this option is not selected, a safer
+	approach (polling the VGA's command queue) is taken.
+</descrip>
+
+
+<sect> Mode issues <p>
+
+The accelerated 256-color driver uses 16K bytes of scratch space in video
+memory, and the hardware cursor also uses 1K (2K on the '6X). Consequently, 
+a 1024x1024 virtual resolution should not be used with a 1Mbyte card.
+
+On older chips,
+the use of a higher dot clock frequencies has a negative effect on the
+performance of graphics operations, especially BitBlt, when little
+video memory bandwidth is left for drawing (the amount is displayed
+during start-up for 542x/3x/46/6x chips).  For the 542x/3x chips, with
+default MCLK setting (0x1c) and a 32-bit memory interface, performance
+with a 65 MHz dot clock can be half of that with a dot clock of 25
+MHz.  So if you are short on memory bandwidth and experience blitting
+slowness, try using the lowest dot clock that is acceptable; for
+example, on a 14" or 15" screen 800x600 with high refresh (50 MHz dot
+clock) is not so bad, with a large virtual screen.
+
+5434-based cards with 2Mbyte of memory do much better at high dot clocks;
+the DRAM bandwidth is basically double that of the 542x series. The 543x
+chips also make more efficient use of the available DRAM bandwidth. The
+same goes for the 544x.
+
+<sect> Linear addressing and 16bpp/24bpp/32bpp modes <p>
+
+Currently the framebuffer code 16-bit, 24-bit, and 32-bit pixels  in 
+the SVGA
+server requires linear addressing.  Option 
+"linear" can be specified in a
+depth-specific screen section to enable linear addressing; a MemBase
+setting (in the device section) is probably also required (although they
+are both automatically selected with PCI cards, like 5446, 546x, and some
+543x based cards). There
+are a number of different card configurations.
+
+If you have a 542x/543x on the ISA bus, and you have 16Mb or more of
+system memory, linear addressing is impossible. 16bpp is out, sorry.
+If you have less than 14Mb of memory, you may be able to map the
+framebuffer at 14Mb, using `<tt>MemBase 0x00e00000</tt>'. That's five zeros
+after the `e'. Unfortunately many ISA cards don't support linear
+addressing.
+
+If you have a 5424/26/28/29 on VESA local bus, the situation is more
+complicated. There are two different types of cards w.r.t. linear
+addressing:
+<itemize>
+<item>Cards that can only map in the lower 16Mb, like cards on the ISA bus.
+  This is the case with most cards. The same
+  restrictions apply (i.e. you must have less than 16Mb of memory).
+<item>Cards that connect address line A26 and always map at 64Mb + 14Mb or
+  64Mb. In
+  this case specify `<tt>MemBase 0x04e00000</tt>' or `<tt>MemBase
+  0x04000000</tt>'. This assumes you have a VLB motherboard implementation
+  that implements A26. Alternatively the card may map to 0x2000000, and
+  recent cards like the 5429 usually map to 0x03e00000 (62Mb).
+</itemize>
+You will probably have to rely on trial and error. If you have less
+than 16Mb memory, the `wrong' membase setting will result in no graphics
+being displayed, but you can probably exit with ctrl-alt-backspace.
+
+If you have &gt;= 16Mb memory, the first type of card (and even the second
+type with a stupid VLB motherboard) will result in a crash (probably a
+spontaneous hard reboot).
+
+It may be possible to find out the type by visual inspection. If the card
+has a pin at A26, it is likely to map beyond 64Mb. To do this, take the card
+out. At the VESA local bus pins (this is the smaller strip of connector pins
+at the non-slot side of the card), consider the right side (this is the side
+of the board where all the chips are mounted). There are 45 pins here. They
+are numbered 1 to 45, from the inside (i.e. the one nearest to the card end
+is 45). Counting from the inside, the 17th pin is probably not present, then
+there are pins at 18-20. The 21st is A30, the 22nd is A28 and the 23rd is
+A26. So, if we have no pins at at 21-23, the card doesn't map beyond 64Mb. If
+there's only a gap of two pins at 21 and 22 (or they are both present) and
+there's a pin at 23, the card does probably map beyond 64Mb. If there's a
+little logic near that pin on the card, it's more likely.
+
+With a 543x on the local bus things are simpler (the Cirrus Logic windows
+drivers use it), but it is not quite without problems.
+
+With a card on the PCI bus, there is a PCI configuration register that holds
+the framebuffer base address, which is read automatically by the driver
+if a PCI card is detected. The `scanpci' program 
+can read out the PCI configuration and show the base address.
+
+On the VESA local bus, most 543x cards have a default mapping address of
+64Mb, with jumper options for 2048Mb and 32Mb. This is probably described in
+the documentation that came with the card, or look in the MS-Windows system.ini
+file (something with linearaddr = &lt;offset in megabytes&gt;). These different
+settings were added by Cirrus Logic after finding that many VLB motherboard
+implementations don't implement different address pins. The driver assumes
+a default of 64Mb if MemBase isn't specified. A few examples for MemBase:
+<tscreen><verb>
+	MemBase	0x02000000	32Mb
+	MemBase	0x04000000	64Mb
+	MemBase	0x80000000	2048Mb
+</verb></tscreen>
+
+Finally, for 546X cards, you are in luck:  there are no "issues" to worry
+about.  The '6X will always use linear addressing and memory-mapped I/O,
+and will use the memory addresses up near 4GB.  Yay for PCI!
+
+
+The 16bpp and 32bpp modes are now fully accelerated, thanks to XAA. On
+more recent chips like the 5436/46 and the 546X, 24bpp is also fully
+accelerated.
+So although 
+there are now up to 4 times as many bits to display, the X server shouldn't
+feel overly sluggish.  Note also that the 24bpp and 32bpp modes are only 
+supported on a limited set of cards, and with at least 2Mb of memory.
+
+In the <tt>XF86Config</tt> <tt>"Screen"</tt> section, a
+<tt>"Display"</tt> subsection must be
+defined for each depth that you want to run, with separate Modes
+and virtual screen size. Example (2Mb of video memory):
+<tscreen><verb>
+Section "screen"
+    SubSection "Display"
+	Depth 8
+	Virtual 1280 1024
+	ViewPort 0 0
+	Modes "640x480" "800x600" "1024x768"
+	Option "linear"
+    EndSubSection
+    SubSection "Display"
+	Depth 16
+	Virtual 1024 992
+	ViewPort 0 0
+	Modes "640x480" "800x600" "1024x768"
+	Option "linear"
+    EndSubSection
+    SubSection "Display"
+	Depth 32
+	Virtual 832 600
+	ViewPort 0 0
+	Modes "640x480" "800x600"
+	Option "linear"
+    EndSubSection
+EndSection
+</verb></tscreen>
+
+<sect> The ``cl64xx'' Driver<label id="cl64xx"><p>
+The cl64xx driver supports the cl-gd6440 found in many laptops.  For
+example, Nan Tan Computer's NP9200, NP3600, etc., which are OEM-ed by
+Sager, ProStar, etc. and Texas Instruments TI4000 series are supported.
+
+The driver works in LCD-only, CRT-only, and the chip's SimulScan mode
+which allows one to use both the LCD and external CRT displays
+simultaneously.  The LCD and Simulscan modes' resolution is 640x480
+while, for CRT-only, the standard VESA modes of 640x480, 600x800, and
+1024x768 have been tested.  Interlaced 1024x768 mode has never been
+debugged and does not work on the machines tested.
+
+The chip has a documented maximum operating limit for its dot clock
+that is related to its core voltage.  Specifically, for 5.0V the
+maximum dot clock is 65MHz and for 3.3V the maximum dot clock is
+40MHz.  The driver checks the core voltage and limits the maximum dot
+clock to the corresponding value.  This translates to a maximum  
+resolution of about 1024x768 at a 60Hz refresh rate.  The internal 
+frequency generator can be programmed higher than these limits and is
+done so during server startup when the clocks are probed which
+momentarily exceeding the chip's operating limit.  Once a set of valid
+clocks is obtained, I would recommend using Clocks lines in
+<tt>XF86Config</tt>.  Doing so will also decrease startup time significantly.
+The clocks may be obtained by running the X server -probeonly (see the
+XFree86 man page for more information about -probeonly).
+
+The data book indicates that only a configuration of one megabyte of
+video memory is supported by the chip.  This size has been directly set
+in the driver.  If one finds a need, one should be able to override the
+default size in <tt>XF86Config</tt>.  Also, with 1MB of video memory, one should
+be able to have a virtual screen size of e.g. 1024x1024 and this is  
+possible in CRT-only screen mode.  However, whenever the LCD is in use
+(LCD and SimulScan), the chip uses a portion of upper video ram for
+its own internal acceleration purposes.  Thus, the maximum video memory
+available for virtual resolution in LCD modes is about 0.75MB e.g.
+1024x768.  If you set the virtual resolution above this, you will see
+what might be described as a compressed aliased band when the
+accelerated area is displayed.
+
+Currently, the driver does not support switching of screen modes among
+LCD, CRT, and SimulScan, and, at least on the NP9200, the mode must be
+chosen at OS boot time (e.g. Linux's LILO) while the BIOS is still
+active.  It should be possible to add screen mode type selection as a 
+ModeLine flag option in <tt>XF86Config</tt> to allow for dynamic screen mode
+selection from within the X server.  Finally, the driver does not currently
+support any of the powerdown saving features of the chip nor does it  
+shut off the LCD's backlight on screen blank.  I hope to implement all
+these features in future releases.
+
+Some notes regarding the CL-GD6420:
+
+The amount of video memory may not always be detected correctly. The driver
+source code includes two methods, one defined out. Better specify the amount
+of video memory with a VideoRam line in the Device section. Use the standard
+640x480 60 Hz standard mode timing with 25.175 MHz dot clock for CRT or
+SIMulscan mode; for LCD-only operation, use the same mode timing but with
+a dot clock of 16.257 MHz. Standard 56 Hz 800x600 is also supported on
+the CRT.
+
+The primary contact for the cl6440 problems with ``cl64xx'' driver is
+Randy Hendry <em>&lt;randy@sgi.com&gt;</em>.
+
+<sect> Trouble shooting with the ``cirrus'' driver<p>
+First of all, make sure that the default modes selected from your
+<tt>XF86Config</tt>
+is supported by your monitor, i.e. make sure the horizontal sync limit is
+correct. It is best to start with standard 640x480x256 with a 25.175 MHz
+clock (by specifying a single horizontal sync of 31.5) to make sure the
+driver works on your configuration. The default mode used will always be
+the first mode listed in the modes line, with the highest dot clock listed
+for that resolution in the timing section.
+
+Note that some VESA standard mode timings may give problems on some monitors
+(try increasing the horizontal sync pulse, i.e. the difference between
+the middle two horizontal timing values, or try multiples of 16 or 32 for
+all of the horizontal timing parameters).
+<descrip>
+<tag>There is a video signal, but the screen doesn't sync.</tag>
+	You are using a mode that your monitor cannot handle. If it is
+	a non-standard mode, maybe you need to tweak the timings a bit. If
+	it is a standard mode and frequency that your monitor should be able
+	to handle, try to find different timings for a similar mode and
+	frequency combination.
+<tag>Horizontal jitter at high dot clocks.</tag>
+	This problem shows especially when drawing operations such as
+	scrolling are in progress.
+	If you're using a 542x/3x/46/6x/754x, try the 
+	<tt>"fifo_conservative"</tt> 
+	option. Failing that, you can try the <tt>"fast_dram"</tt> option, 
+	or use a lower dot clock.  If that is not sufficient, the 
+	<tt>"noaccel"</tt> option or <tt>"no_bitblt"</tt> will
+	probably help.  When using a 546x, option
+	<tt>"fifo_aggressive"</tt> can also be tried.
+<tag>`Wavy' screen.</tag>
+	Horizontal waving or jittering of the whole screen, continuously
+	(independent from drawing operations).
+	You are probably using a dot clock that is too high; it is also
+	possible that there is interference with a close MCLK. Try a
+	lower dot clock. You can also try to tweak the mode timings; try
+	increasing the second horizontal value somewhat. Here's a 65 MHz
+	dot clock 1024x768 mode (about 60 Hz) that might help:
+<verb>
+ "1024x768"     65      1024 1116 1228 1328     768  783  789  818
+</verb>
+	If you are using programmable clocks with Clockchip <tt>"cirrus"</tt>,
+	try disabling it and using the default set of clocks.
+<tag>Crash or hang after start-up (probably with a black screen).</tag>
+	Try the <tt>"noaccel"</tt> option. If that works,
+	try Option <tt>"no_bitblt"</tt> for
+	somewhat better performance. Check that the BIOS settings are OK;
+	in particular, disable caching of 0xa0000-0xaffff. Disabling hidden
+	DRAM refresh may also help.
+<tag>
+Crash, hang, or trash on the screen after a graphics operation.
+</tag>
+	This may be related to a bug in one of the accelerated functions, or
+	a problem with the BitBLT engine. Try the <tt>"noaccel"</tt> option,
+	or the <tt>"no_bitblt"</tt> option. Also check the BIOS settings.
+<tag>
+`Blitter timeout' messages from the server.
+</tag>
+	Same as for the above entry.
+<tag>
+Screen is `wrapped' vertically. (542x/3x/46)
+</tag>
+	This indicates a DRAM configuration problem. If your card has two
+	megabytes of memory, try the <tt>"no_2mb_banksel"</tt> option, or use
+	<tt>videoram "1024"</tt> if you only use 1 Mbyte for the virtual
+	screen.
+<tag>
+Corrupted text in terminal window.
+</tag>
+
+	This has been reported on non-standard video implementations.
+	Use the <tt>"no_bitblt"</tt> option.
+<tag>
+Streaks or hangs with laptop chipset
+</tag>
+	This can happen if the dot clock is high enough to leave very
+	little bandwidth for drawing (e.g. 40 MHz on a 512K card), and
+	(5422-style) acceleration is used.
+<tag>
+Occasional erroneous pixels in text, pixel dust when moving window-frame
+</tag>	
+	Probably related to MCLK setting that is too high (can happen
+	with linear addressing even though banked mode runs OK).
+<tag>
+Chipset is not detected.
+</tag>
+	Try forcing the chipset to a type that is most similar to what
+	you have.
+<tag>
+Incorrect little lines (mostly white) appear occasionally
+</tag>
+	This may be related to a problem with system-to-video-memory BitBLT
+	operations. Try the <tt>"no_imageblt"</tt> option if it annoys you.
+<tag>
+Textmode is not properly restored
+</tag>
+	This has been reported on some configurations. In XFree86 3.1
+	the SVGA server probe would corrupt a register on the 543x,
+	requiring a Chipset line. Normally you should be able to restore
+	the textmode font using a utility that sets it (<tt>setfont</tt>,
+	<tt>runx</tt>, <tt>restorefont</tt> on Linux).
+<tag>
+Erratic system behaviour at very high dot clocks
+</tag>
+	It is possible that high dot clocks on the video card interfere with
+	other components in the system (e.g. disk I/O), because of a bad
+	card and/or motherboard design. It has been observed on some PCI
+	5428-based cards (which are very rare, since the 5428 chip doesn't
+	support PCI).
+<tag>
+No mouse cursor, or cursor appears twice on screen
+</tag>
+        With high dot clocks, the graphics card's hardware cursor
+	doesn't operate correctly.  Try option <tt>"sw_cursor"</tt> or
+	use a lower screen refresh.
+
+<tag>
+Random/garbage pixels on far right or bottom of screen (546x)
+</tag>
+        This problem is usually associated with using a virtual
+	screen size larger than the screen display size.  The
+	garbage pixels are unused portions of the frame buffer
+	that result from padding each scanline to an integral
+	number of memory tiles.  To eliminate the extra pixels,
+	use a screen display mode whose pixel width is evenly
+	divisible by 128 / bits per pixel.
+
+<tag>
+Screen is wrapped horizontally on right side (546x)
+</tag>
+        Same as above entry.
+
+<tag>
+The screen is initially displayed correctly, but then turns all
+white. (546x)
+</tag>
+        This problem usually happens at high bit depths and while
+	the screen is changing rapidly (catting a long file or
+	dragging a large window around).  The RamBus memory is
+	being overdriven.  Use Option <tt>"med_dram"</tt>, or, if
+	the problem persists, Option <tt>"slow_dram"</tt>.
+
+</descrip>
+For other screen drawing related problems, try the <tt>"noaccel"</tt>
+option (if <tt>"no_bitblt"</tt> doesn't help).
+
+If are having driver-related problems that are not addressed by this document,
+or if you have found bugs in accelerated functions, you can try contacting
+the XFree86 team (the current driver maintainer, Corin Anderson,
+can be reached at <it>corina@the4cs.com</it>), or post in the
+Usenet newsgroup "<it>comp.windows.x.i386unix</it>".
+
+In fact, reports (success or failure) are very welcome, especially
+on configurations that have not been tested. You can do this
+via the BetaReport form (mail to report@XFree86.org). You may want to
+keep an eye on forthcoming beta releases at <it>www.xfree86.org</it>.
+
+<sect> Tested Configurations <p>
+
+Version 3.3.3 has had the following configurations tested:
+
+<descrip>
+<tag>CL-GD5446 with 2MB memory on PCI bus</tag>
+
+<tag>CL-GD5464 with 2MB memory on PCI bus</tag>
+
+<tag>CL-GD5465 with 4MB memory on PCI bus</tag>
+
+<tag>CL-GD5480 with 4MB memory on PCI bus</tag>
+
+<tag>CL-GD5465 with 4MB memory on AGP bus</tag>
+
+</descrip>
+
+For version 3.3, the following configurations have received a
+certain amount of testing:
+
+<descrip>
+<tag>CL-GD5446 with 2MB memory on PCI bus</tag>
+	Support for dot clocks > 85 MHz has been fixed. At 16bpp, it
+	has been reported that some stippled edges of window frames
+	may be corrupted or show the wrong colors. The option
+	"xaa_no_pixmap_cache" eliminates the problem.
+
+<tag>CL-GD5464 with 4MB memory on PCI bus</tag>
+
+<tag>CL-GD7543 on PCI bus</tag>
+	
+</descrip>
+
+
+This is a list of configurations that has received testing with one or
+more of the changes introduced in version XFree86 3.2A. The amount of
+testing is very small for some of the configurations, and the summaries
+may be incomplete. If you can contribute, please do so. For the latest
+information check the latest version of this document on
+<it>www.xfree86.org</it>.
+
+<descrip>
+<tag>CL-GD5426 on VL-bus</tag>
+	This configuration was only tested with an early version of
+	the XAA code.
+
+<tag>CL-GD5434 with 2MB memory on VL-bus</tag>
+	MMIO operation is supported. This configuration was only tested
+	with an early version of the XAA code.
+
+<tag>CL-GD5436 with 2MB memory on PCI-bus</tag>
+ 	Works OK. Non-MMIO operation might have problems.
+ 
+<tag>CL-GD5446 with 2MB memory on PCI bus</tag>
+	Works OK in MMIO mode. 32bpp probably doesn't work. The support
+	for dot clocks > 85 MHz at 8bpp may or may not work.
+
+<tag>CL-GD5462 with 2MB memory on PCI bus</tag>
+
+<tag>CL-GD5462 with 4MB memory on PCI bus</tag>
+
+<tag>CL-GD5464 with 4MB memory on PCI bus</tag>
+	Works OK at 8bpp, 16bpp, 24bpp and 32bpp.  CL-GD5464 works OK at
+	16bpp, -weight 555.
+
+<tag>CL-GD7543 on PCI bus</tag> Works for 8bpp, 16bpp on TFT display
+	(TI TravelMate 5000).  Although the previous version, 3.2, was
+	reported to broken, on some configurations it worked, while
+	others were reported not to work correctly. On 800x600
+	displays, the recommended dot clock is 40 MHz for TFT and 33.7
+	MHz for a DSTN panel, with corresponding horizontal syncs of
+	33.7 kHz for TFT and 38.6 kHz for DSTN. However, reports
+	indicate that the VESA standard 40 MHz 800x600 timing may cause
+	problems. The solution is decrease the fourth horizontal timing
+	number or use a dot clock of 36 MHz.
+	
+</descrip>
+
+Some configurations for which no up-to-date testing data is available:
+
+<descrip>
+<tag>CL-GD5429 on VL-bus</tag>
+	BitBLT operation should be fixed in 3.2. MMIO does not work,
+	but not tested with with 3.2 or 3.2A.
+  
+<tag>CL-GD5430 on PCI-bus</tag>
+	Works OK. 24bpp was broken, but should be fixed in later
+        versions (3.2A).
+
+<tag>CL-GD5430, and CL-GD5436 and CL-GD5446 with 1MB memory</tag>
+	It would be nice to know whether these chips needs the same
+	treatment at 16bpp as the CL-GD5434 with 1MB memory does.
+
+<tag>CL-GD5434 with 1MB memory on PCI bus</tag>
+	8bpp, 16pp and 24bpp work OK. 16bpp no longer has "static"
+	problems. MMIO operation is supported.
+
+<tag>CL-GD5436 and CL-GD5446 with 1MB memory</tag>
+	In particular the FIFO settings for this configuration are uncertain.
+
+<tag>CL-GD7541</tag>
+
+<tag>CL-GD7548</tag>
+	Should be compatible with 7543, but untested. Reports indicate
+	that it worked with 3.2, and there's no reason why it shouldn't
+	work with 3.2A.
+
+</descrip>
+
+<sect> Driver Changes <p>
+
+Changes since XFree86 3.3.2:
+<itemize>
+<item>Fix transparent screen-to-screen copies on 546x.
+<item>The built-in screen saver now correctly blanks the screen
+on 546x chips.
+<item>Driver prevents the use of the HW cursor on the 546x when
+the screen height is greater than 1023 scanlines (fix to double
+pointer problem).
+<item>CPU-to-screen BitBLT transfers disabled on the 5465.  This
+fix should prevent 5465 AGP lockups.
+<item>Fixed mode display problem with 5480 at high resolutions.
+</itemize>
+
+Changes since XFree86 3.2A:
+<itemize>
+<item>A bug that caused a server crash with memory-mapped I/O operation
+      on some chips has been fixed.
+<item>Correct handling of dot clocks > 85 MHz on the 5436 and 5446.
+<item>Preliminary support for the CL-GD7555 (no detection yet).
+<item>Support has been added for the CL-GD5480 and CL-GD5465.
+<item>32bpp mode has been fixed on some Alpine family chips.
+<item>Support for dot clocks up to 230 MHz has been added for Laguna
+      family chips.
+</itemize>
+
+Changes since XFree86 3.2:
+<itemize>
+<item>Enhanced acceleration using XAA on all chips with a BitBLT
+        engine.
+<item>Enhanced acceleration using XAA for the Laguna series (546x).
+<item>24bpp mode on 5430 is fixed.
+<item>Improved support for 754x, including support for LCD
+        stretching/centering.
+</itemize>
+
+<verb>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/cirrus.sgml,v 3.25 1999/08/23 06:38:53 dawes Exp $
+
+
+
+
+
+$XConsortium: cirrus.sgml /main/12 1996/10/28 05:43:32 kaleb $
+</verb>
+
+</article>
+

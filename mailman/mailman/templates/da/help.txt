@@ -1,0 +1,34 @@
+Hjælp for maillisten %(listname)s:
+
+Her er kommando 'help' for vesion %(version)s af maillistesystemet
+"Mailman". Kommandoerne der beskrives nedenfor vil kunne hjælpe dig
+til at tilmelde og framelde fra mailliste samt at foretage andre 
+ændringer.
+
+En kommando skrives i Subject feltet eller i indholde i en e-mail
+og sendes til %(requestaddr)s
+
+Hus at det størsteparten af disse kommandoer gør også kan gøres fra
+listens webside:
+
+    %(listinfo_url)s
+
+For eksempel kan du fra websiden bede om at få tilsendt dit password.
+
+Kommandoer som er specifikke for en liste (f. eks. subscribe, who,
+osv.), skal sendes til listens *-request adresse, f. eks. for
+en liste der hedder 'mailman', skal bruges adressen 'mailman-request@...'.
+
+Forklaring til beskrivelsen:
+Ord med <> rundt fortæller at en parameter skal skrives,
+ord med [] rundt fortæller at en parameter er valgfri.
+Du skal IKKE skrive disse tegn <> og [] når du sender kommandoer!
+
+Følgende kommandoer er gyldige:
+
+    %(commands)s
+
+Spørsmål og andre henvendelser du eventuelt måtte have om systemet,
+kan du sende til:
+
+    %(adminaddr)s

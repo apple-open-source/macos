@@ -315,7 +315,7 @@ setQueueAsyncPort(OSAsyncReference asyncRef, void * vInQueue, void *, void *,
 IOReturn IOHIDLibUserClient::
 open(void * flags, void *, void *, void *, void *, void *)
 {
-    IOReturn		ret = kIOReturnSuccess;
+    IOReturn 		ret = kIOReturnSuccess;
     IOOptionBits 	options = (IOOptionBits)flags;
     
     ret = clientHasPrivilege(fClient, kIOClientPrivilegeLocalUser);
@@ -325,7 +325,7 @@ open(void * flags, void *, void *, void *, void *, void *)
         if (ret != kIOReturnSuccess)
             return ret;
     }
-
+    
     if (!fNub->open(this, options))
 	return kIOReturnExclusiveAccess;
         

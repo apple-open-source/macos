@@ -1,0 +1,27 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/input/acecad/Imakefile,v 1.5 2001/08/13 19:35:00 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = acecad.c
+OBJS = acecad.o
+
+DRIVER = acecad
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86SRC)/loader -I$(XF86OSSRC) \
+	   -I$(SERVERSRC)/include -I$(SERVERSRC)/mi -I$(XINCLUDESRC) \
+	   -I$(EXTINCSRC)
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget($(DRIVER),$(OBJS))
+
+InstallObjectModule($(DRIVER),$(MODULEDIR),input)
+
+DependTarget()
+
+InstallDriverSDKObjectModule($(DRIVER),$(DRIVERSDKMODULEDIR),input)

@@ -50,7 +50,16 @@ from Mailman.Logging.Syslog import syslog
 # 20 bytes of all bits set, maximum sha.digest() value
 shamax = 0xffffffffffffffffffffffffffffffffffffffffL
 
-SAVE_MSGS_AS_PICKLES = 1
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
+
+# This flag causes messages to be written as pickles (when True) or text files
+# (when False).  Pickles are more efficient because the message doesn't need
+# to be re-parsed every time it's unqueued, but pickles are not human readable.
+SAVE_MSGS_AS_PICKLES = True
 
 
 
@@ -108,7 +117,7 @@ class _Switchboard:
         data['version'] = mm_cfg.QFILE_SCHEMA_VERSION
         # Filter out volatile entries
         for k in data.keys():
-            if k[0] == '_':
+            if k.startswith('_'):
                 del data[k]
         # Now write the message text to one file and the metadata to another
         # file.  The metadata is always written second to avoid race
@@ -120,6 +129,8 @@ class _Switchboard:
         finally:
             os.umask(omask)
         msgfp.write(msgsave)
+        msgfp.flush()
+        os.fsync(msgfp.fileno())
         msgfp.close()
         # Now write the metadata using the appropriate external metadata
         # format.  We play rename-switcheroo here to further plug the race
@@ -127,6 +138,7 @@ class _Switchboard:
         tmpfile = dbfile + '.tmp'
         self._ext_write(tmpfile, data)
         os.rename(tmpfile, dbfile)
+        return filebase
 
     def dequeue(self, filebase):
         # Calculate the .db and .msg filenames from the given filebase.
@@ -239,6 +251,10 @@ class MarshalSwitchboard(_Switchboard):
             else:
                 dict[attr] = repr(fval)
         marshal.dump(dict, fp)
+        # Make damn sure that the data we just wrote gets flushed to disk
+        fp.flush()
+        if mm_cfg.SYNC_AFTER_WRITE:
+            os.fsync(fp.fileno())
         fp.close()
 
     def _ext_read(self, filename):
@@ -307,6 +323,10 @@ class ASCIISwitchboard(_Switchboard):
             os.umask(omask)
         for k, v in dict.items():
             print >> fp, '%s = %s' % (k, repr(v))
+        # Make damn sure that the data we just wrote gets flushed to disk
+        fp.flush()
+        if mm_cfg.SYNC_AFTER_WRITE:
+            os.fsync(fp.fileno())
         fp.close()
 
     def _ext_read(self, filename):

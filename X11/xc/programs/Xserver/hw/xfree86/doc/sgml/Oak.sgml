@@ -1,0 +1,213 @@
+<!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN">
+ 
+<article>
+
+<!-- Title information -->
+<title>Information for Oak Technologies Inc. Chipset Users
+<author>Jorge F. Delgado Mendoza (<it>delgadomendoza.j@pg.com</it>)
+<date>17 August 1999
+
+<!-- Table of contents -->
+<toc>
+
+<sect>Supported chipsets <p>
+
+The driver is used in the 8-bit / 256-color SVGA server and the mono
+server. The following chipsets for Oak Tech. Inc. are supported:
+<descrip>
+<tag>OTI037C</tag>
+        8-bit VGA chipset, with up to 256Kbytes of DRAM. All the 
+        boards I have seen are only able to do standard VGA modes.
+        (ie. up to 320x200x256 and up to 640x480x16). Currently the
+        probe for this chip is disabled, so use the generic VGA
+        driver instead.
+<tag>OTI067</tag>
+        ISA SVGA chipset, up to 512Kbytes of DRAM (usually 70/80 ns).
+<tag>OTI077</tag>
+        Enhanced version of the 067, with support for 1Mbyte and
+        up to 65 Mhz dot-clock. This chipset is capable of resolutions
+up to
+        1024x768x256 colors in Non-Interlaced mode, and up to
+        1280x1024x16 colors Interlaced.
+<tag>OTI087</tag>
+        One of the first VLB chipsets available, it has a 16-bit
+        external data path, and a 32-bit internal memory-controller 
+        data path. It features some acceleration hardware: 
+        register-based color expansion, hardware cursor, 
+        a primitive BitBlt engine, a 64 bit graphic latch and some 
+        other new (on its time) features. 
+        Maximum BIOS resolutions are 1024x768x256
+        Non-Interlaced and 1280x1024x256 interlaced. Maximum
+        Dot-Clock is 80Mhz, but is usually coupled with the OTI068
+        clock generator capable of frequencies up to 78Mhz.
+        This chipset supports up to 2MBytes of 70/70R ns DRAM.
+
+<tag>OTI107 and OTI111</tag>
+        These are new, PCI chipsets by Oak Tech. Inc. Support is not
+        included for them, as they are very rare and I haven't had
+        the chance to look at one of these boards. 
+        We have been unable to locate 107's. If anybody has such a board and
+        can donate it to XFree86, we would be more than glad to add
+        support for them. 
+	<p>
+	An OTI111 is now available and we are working on support for it.
+</descrip>
+
+All the chipsets up to the OTI087 are "Backwards compatible", 
+in fact some early drivers for the OTI087 based chipsets were 
+those made for the 077.
+
+Accelerated support is included only for OTI087 chipsets, also Mono
+server is only included for 067/077 chipsets.
+
+<sect>XF86Config options <p>
+
+The following options are of particular interest to the Oak driver. Each
+of them must be specified in the 'svga' driver section of the
+<tt>XF86Config</tt> file, within the Screen subsections to which they
+are
+applicable (you can enable options for all depths by specifying them in
+the
+Device section).
+
+<descrip>
+<tag>
+Option "linear" (OTI087)
+</tag>
+        This option enables a linear framebuffer at 0xE00000 (14Mb) for
+        cards recognized as ISA by the probe.  Cards that are VLB will
+        map the framebuffer at 0x4E00000.  The aperture depends
+        on the VideoRam parameter in the <tt>XF86Config</tt> file or on
+        the probed value for the board. It will speed up performance by
+        about 15&percnt; on a VLB-based boards for a DX2-66 486.
+
+
+        Sometimes a motherboard will not be able to map at 0x4E00000,
+        and then linear mode will not work with more than 14 Mbytes of
+        main RAM. I know this because mine doesn't.
+<tag>
+Option "fifo_aggressive" (OTI087)
+</tag>
+        This option will cause the command FIFO threshold of the
+        chipset to be set at 0 instructions, which should be optimal
+        for 16-bit data transfers, as empirical use of different
+        thresholds, with xbench, show. Expect a 5-10&percnt; of
+performance
+        boost on a DX2-66 486.
+<tag>
+Option "fifo_conservative" (OTI087)
+</tag>
+        This option will set the FIFO to a safe value of 14, slowing
+        the board by a 50&percnt;, use this only if you experience
+streaks or
+        anomalies on the screen.
+<tag>
+Option "enable_bitblt" (OTI087)
+</tag>
+        This option will enable an internal cache on the board that
+        will be used as a rudimentary bitblt engine. Performance boost
+        is more or less 100&percnt;, (double BlitStones on xbench). Most
+        OTI087 boards seem to have this feature broken, corrupting text
+        from xterms and leaving mouse droppings throughout the
+        screen. As a rule of thumb, enable it, if it works badly,
+        disable it.
+<tag>
+Option "clock_50" (OTI087)
+</tag>
+        This one will force the internal speed to 50 Mhz.
+<tag>
+Option "clock_66" (OTI087)
+</tag>
+        This one will force the internal speed to 66 Mhz, speeding up
+        performance of the chipset.
+
+<tag>
+Option "no_wait" (OTI087)
+</tag>
+        Sets the VLB interface to no wait states. On a medium VLB
+        board (mine is VLB/PCI, so its not a very fast one) in VLB
+        transparent mode, it manages up to 16 Mbytes/second transfer
+        rate through the bus.
+<tag>
+Option "first_wait" (OTI087)
+</tag>
+        Makes the VLB interface to add one wait state to the first
+        read or write of a given burst.
+<tag>
+Option "first_wwait" (OTI087)
+</tag>
+        Similar to the previous one, this only inserts a wait state in
+        the first 'write' of a given burst. reads are not
+        affected. This is the default behaviour of the server.
+<tag>
+Option "write_wait" (OTI087)
+</tag>
+        This configures the VLB interface to add one wait state to
+        each write cycle.
+<tag>
+Option "read_wait" (OTI087)
+</tag>
+        This configures the VLB interface to add one wait state to
+        each read cycle.
+<tag>
+Option "all_wait" (OTI087)
+</tag>
+        Enables the slowest VLB transfer adding wait states in all
+        cases. Hopefully, no board will need this enabled.
+<tag>
+Option "one_wait" (OTI087)
+</tag>
+        Sets the VLB interface to at least one wait state.
+<tag>
+Option "noaccel" (OTI087)
+</tag>
+        One accelerated routine has been lately added to the driver,
+        allowing it to draw solid fills quite faster. This routine
+        only works (up to date) on segmented addressing, and only if
+        the virtual width is 1024. This option is automatically enabled
+        by the driver. Use this option if you want to disable it.
+</descrip>
+
+As a rule of thumb, use the option "no_wait", and if it doesn't
+result in corrupting text, lucky you. If not, try "first_wwait", and
+downwards. ISA card owners should not use these options.
+
+<sect>Mode issues <p>
+
+    The use of very high dot-clocks has a REAL negative effect on the
+    performance of the boards, due to its limited 80Mbit/sec, higher
+    dot clocks limit its ability to draw data into the
+    framebuffer. Thus expect better performance of a 72Mhz based mode
+    than on a 78Mhz based one (for example) where more bandwidth is
+    required for screen refresh.
+  
+    It does not make much sense to use the highest clock (78 MHz) for
+    1024x768 at 76 Hz on a OTI087; the card will almost come to a
+    standstill. A 72 MHz dot clock results in 70 Hz which should be
+    acceptable. If you have a monitor that supports 1024x768 at 76 Hz
+    with a 78 MHz dot clock, a standard OTI087 based card is a poor
+    match anyway.
+
+<sect>Linear addressing<p>
+
+    Linear addressing is hardwired to 14 Mbytes for ISA boards 
+    and 78 Mbytes for VLB boards, thus if you have more
+    than that on your board you shouldn't enable it.
+    The aperture is selected from the VideoRam
+    parameter of the XF86Config or from the amount of memory that is
+    detected if VideoRam is not found.
+
+    I hope (because I have not tested it very thoroughly) that linear
+    addressing will work on all ISA boards, VLB ones work flawlessly.
+
+<verb>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Oak.sgml,v 3.13 1999/08/23 06:38:50 dawes Exp $
+
+
+
+
+
+$XConsortium: Oak.sgml /main/8 1996/05/12 20:58:00 kaleb $
+</verb>
+
+</article>

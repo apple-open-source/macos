@@ -1,0 +1,12 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:36 cpqbld Exp $
+
+#undef lk
+#undef pc
+#undef unix
+
+     DATAFILES = lk pc unix
+
+all::
+
+InstallMultiple($(DATAFILES),$(LIBDIR)/xkb/geometry/digital)
+DependTarget()

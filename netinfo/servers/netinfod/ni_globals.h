@@ -90,6 +90,8 @@ extern char *db_tag;			/* tag of the database we serve */
 extern int shutdown_server;	/* flag to signal time to shutdown server */
 
 extern int debug;
+extern int standalone;
+
 extern int i_am_clone;			/* on if server is clone */
 extern unsigned master_addr;	/* address of master, if clone server */
 extern char *master_tag;		/* tag of master, if clone server */

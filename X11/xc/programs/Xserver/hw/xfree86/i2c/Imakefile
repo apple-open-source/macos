@@ -1,0 +1,28 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/i2c/Imakefile,v 1.4 1999/08/14 10:49:58 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#if DoLoadableServer
+MODSRC = xf86i2cmodule.c
+MODOBJ = xf86i2cmodule.o
+#endif
+
+SRCS = xf86i2c.c $(MODSRC)
+OBJS = xf86i2c.o $(MODOBJ)
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) \
+           -I$(SERVERSRC)/include -I$(XINCLUDESRC)
+
+ModuleObjectRule()
+
+LibraryModuleTarget(i2c, $(OBJS))
+
+InstallLibraryModule(i2c,$(MODULEDIR),.)
+
+DependTarget()
+
+
+InstallDriverSDKLibraryModule(i2c,$(DRIVERSDKMODULEDIR),.)
+
+InstallDriverSDKNonExecFile(xf86i2c.h,$(DRIVERSDKINCLUDEDIR))

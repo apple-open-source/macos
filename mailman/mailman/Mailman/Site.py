@@ -1,4 +1,4 @@
-# Copyright (C) 2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2002-2003 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,6 +24,12 @@ import os
 import errno
 
 from Mailman import mm_cfg
+
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
 
 
 
@@ -63,7 +69,7 @@ def get_listpath(listname, domain=None, create=0):
 
 # BAW: We don't really support domain<>None yet.  This will be added in a
 # future version.  By default, Mailman will never pass in a domain argument.
-def get_archpath(listname, domain=None, create=0, public=0):
+def get_archpath(listname, domain=None, create=False, public=False):
     """Return the file system path to the list's archive directory for the
     named list in the named virtual domain.
 

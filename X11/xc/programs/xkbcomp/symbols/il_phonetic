@@ -1,0 +1,83 @@
+// $XConsortium: il_phonetic /main/3 1997/12/18 12:40:12 rch $
+//
+// $XFree86: xc/programs/xkbcomp/symbols/il_phonetic,v 1.2 2000/10/28 00:34:07 dawes Exp $
+
+partial default alphanumeric_keys 
+xkb_symbols "basic" {
+
+    // Describes the differences between a very simple en_US
+    // keyboard and a very simple Israelian keyboard
+
+    // uses the phonetic layout from old Slackware 'il.map' file
+
+    name[Group1]= "US/ASCII";
+    name[Group2]= "Israelian";
+
+
+    key <AE12> {        [     equal,    plus            ],
+			[ hebrew_doublelowline, hebrew_doublelowline ]};
+
+    key <AD01> {        [         q,    Q               ],
+			[ hebrew_qoph, hebrew_qoph	]	};
+    key <AD02> {        [         w,    W               ],
+			[ hebrew_waw, hebrew_waw	]	};
+    key <AD03> {        [         e,    E               ],
+			[ hebrew_aleph, hebrew_aleph	]       };
+    key <AD04> {        [         r,    R               ],
+			[ hebrew_resh, hebrew_resh	]	};
+    key <AD05> {        [         t,    T               ],
+			[ hebrew_taw, hebrew_tet	]       };
+    key <AD06> {        [         y,    Y               ],
+			[ hebrew_ayin, hebrew_ayin	]       };
+    key <AD07> {        [         u,    U               ],
+			[ hebrew_waw, hebrew_waw	]       };
+    key <AD08> {        [         i,    I               ],
+			[ hebrew_yod, hebrew_yod	]       };
+    key <AD09> {        [         o,    O               ],
+			[ hebrew_samech, hebrew_samech	]       };
+    key <AD10> {        [         p,    P               ],
+			[ hebrew_pe, hebrew_finalpe	]	};
+
+    key <AC01> {        [         a,    A               ],
+			[ hebrew_aleph, hebrew_aleph	]	};
+    key <AC02> {        [         s,    S               ],
+			[ hebrew_shin, hebrew_shin	]       };
+    key <AC03> {        [         d,    D               ],
+			[ hebrew_dalet, hebrew_dalet	]       };
+    key <AC04> {        [         f,    F               ],
+			[ hebrew_pe, hebrew_finalpe	]	};
+    key <AC05> {        [         g,    G               ],
+			[ hebrew_gimel, hebrew_gimel	]       };
+    key <AC06> {        [         h,    H               ],
+			[ hebrew_he, hebrew_he		]       };
+    key <AC07> {        [         j,    J               ],
+			[ hebrew_yod, hebrew_yod	]	};
+    key <AC08> {        [         k,    K               ],
+			[ hebrew_kaph, hebrew_finalkaph	]	};
+    key <AC09> {        [         l,    L               ],
+			[ hebrew_lamed, hebrew_lamed	]       };
+
+    key <AB01> {        [         z,    Z               ],
+			[ hebrew_zain, hebrew_zain	]       };
+    key <AB02> {        [         x,    X               ],
+			[ hebrew_chet, hebrew_chet	]       };
+    key <AB03> {        [         c,    C               ],
+			[ hebrew_zade, hebrew_finalzade	]       };
+    key <AB04> {        [         v,    V               ],
+			[ hebrew_waw, hebrew_waw	]       };
+    key <AB05> {        [         b,    B               ],
+			[ hebrew_bet, hebrew_bet	]       };
+    key <AB06> {        [         n,    N               ],
+			[ hebrew_nun, hebrew_finalnun	]	};
+    key <AB07> {        [         m,    M               ],
+			[ hebrew_mem, hebrew_finalmem	]	};
+    
+    // Begin modifier mappings 
+
+    modifier_map Shift  { Shift_L };
+    modifier_map Lock   { Caps_Lock, ISO_Lock };
+    modifier_map Control{ Control_L };
+    modifier_map Mod3   { Mode_switch };
+};
+
+

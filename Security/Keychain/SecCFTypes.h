@@ -36,14 +36,20 @@ public:
     CFClass(const char *name);
 
 private:
-    static void finalizeType(CFTypeRef cf);
     static Boolean equalType(CFTypeRef cf1, CFTypeRef cf2);
     static CFHashCode hashType(CFTypeRef cf);
 	static CFStringRef copyFormattingDescType(CFTypeRef cf, CFDictionaryRef dict);
 	static CFStringRef copyDebugDescType(CFTypeRef cf);
 
+	// CFAllocatorContext callbacks.
+	static void *allocatorAllocate(CFIndex allocSize, CFOptionFlags hint, void *info);
+	static void *allocatorReallocate(void *ptr, CFIndex newsize, CFOptionFlags hint, void *info);
+	static void allocatorDeallocate(void *ptr, void *info);
+	static CFIndex allocatorPreferredSize(CFIndex size, CFOptionFlags hint, void *info);
+
 public:
     CFTypeID typeID;
+	static CFAllocatorContext allocatorContext;
 };
 
 /* Singleton that registers all the CFClass instances with the CFRuntime.
@@ -102,6 +108,8 @@ public:
 	CFClass PolicyCursor;
 	CFClass Trust;
 	CFClass TrustedApplication;
+
+	CFAllocatorRef allocator;
 };
 
 extern SecCFTypes &gTypes();

@@ -1,17 +1,17 @@
-# Copyright (C) 2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software 
+# along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 """Create mailing lists through the web."""
@@ -87,24 +87,26 @@ def process_request(doc, cgidata):
         moderate = int(cgidata.getvalue('moderate', '0'))
     except ValueError:
         moderate = mm_cfg.DEFAULT_DEFAULT_MEMBER_MODERATION
-        
+
     password = cgidata.getvalue('password', '').strip()
     confirm  = cgidata.getvalue('confirm', '').strip()
     auth     = cgidata.getvalue('auth', '').strip()
     langs    = cgidata.getvalue('langs', [mm_cfg.DEFAULT_SERVER_LANGUAGE])
 
-    if type(langs) <> ListType:
+    if not isinstance(langs, ListType):
         langs = [langs]
     # Sanity check
+    safelistname = Utils.websafe(listname)
     if '@' in listname:
         request_creation(doc, cgidata,
-                         _('List name must not include "@": %(listname)s'))
+                         _('List name must not include "@": %(safelistname)s'))
         return
     if Utils.list_exists(listname):
         # BAW: should we tell them the list already exists?  This could be
         # used to mine/guess the existance of non-advertised lists.  Then
         # again, that can be done in other ways already, so oh well.
-        request_creation(doc, cgidata, _('List already exists: %(listname)s'))
+        request_creation(doc, cgidata,
+                         _('List already exists: %(safelistname)s'))
         return
     if not listname:
         request_creation(doc, cgidata,
@@ -150,6 +152,15 @@ def process_request(doc, cgidata):
             doc, cgidata,
             _('You are not authorized to create new mailing lists'))
         return
+    # Make sure the web hostname matches one of our virtual domains
+    hostname = Utils.get_domain()
+    if mm_cfg.VIRTUAL_HOST_OVERVIEW and \
+           not mm_cfg.VIRTUAL_HOSTS.has_key(hostname):
+        safehostname = Utils.websafe(hostname)
+        request_creation(doc, cgidata,
+                         _('Unknown virtual host: %(safehostname)s'))
+        return
+    emailhost = mm_cfg.VIRTUAL_HOSTS.get(hostname, mm_cfg.DEFAULT_EMAIL_HOST)
     # We've got all the data we need, so go ahead and try to create the list
     # See admin.py for why we need to set up the signal handler.
     mlist = MailList.MailList()
@@ -173,7 +184,7 @@ def process_request(doc, cgidata):
         oldmask = os.umask(002)
         try:
             try:
-                mlist.Create(listname, owner, pw, langs)
+                mlist.Create(listname, owner, pw, langs, emailhost)
             finally:
                 os.umask(oldmask)
         except Errors.MMBadEmailError, s:
@@ -194,14 +205,12 @@ def process_request(doc, cgidata):
                 _('''Some unknown error occurred while creating the list.
                 Please contact the site administrator for assistance.'''))
             return
-        
+
         # Initialize the host_name and web_page_url attributes, based on
         # virtual hosting settings and the request environment variables.
-        hostname = Utils.get_domain()
         mlist.default_member_moderation = moderate
         mlist.web_page_url = mm_cfg.DEFAULT_URL_PATTERN % hostname
-        mlist.host_name = mm_cfg.VIRTUAL_HOSTS.get(
-            hostname, mm_cfg.DEFAULT_EMAIL_HOST)
+        mlist.host_name = emailhost
         mlist.Save()
     finally:
         # Now be sure to unlock the list.  It's okay if we get a signal here
@@ -222,8 +231,8 @@ def process_request(doc, cgidata):
         text = Utils.maketext(
             'newlist.txt',
             {'listname'    : listname,
-             'password'    : password, 
-             'admin_url'   : mlist.GetScriptURL('admin', absolute=1), 
+             'password'    : password,
+             'admin_url'   : mlist.GetScriptURL('admin', absolute=1),
              'listinfo_url': mlist.GetScriptURL('listinfo', absolute=1),
              'requestaddr' : mlist.GetRequestEmail(),
              'siteowner'   : siteadmin,
@@ -309,13 +318,15 @@ def request_creation(doc, cgidata=dummy, errmsg=None):
     ftable.AddRow([Center(Italic(_('List Identity')))])
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 0, colspan=2)
 
+    safelistname = Utils.websafe(cgidata.getvalue('listname', ''))
     ftable.AddRow([Label(_('Name of list:')),
-                   TextBox('listname', cgidata.getvalue('listname', ''))])
+                   TextBox('listname', safelistname)])
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 0, bgcolor=GREY)
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 1, bgcolor=GREY)
 
+    safeowner = Utils.websafe(cgidata.getvalue('owner', ''))
     ftable.AddRow([Label(_('Initial list owner address:')),
-                   TextBox('owner', cgidata.getvalue('owner', ''))])
+                   TextBox('owner', safeowner)])
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 0, bgcolor=GREY)
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 1, bgcolor=GREY)
 
@@ -330,13 +341,15 @@ def request_creation(doc, cgidata=dummy, errmsg=None):
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 0, bgcolor=GREY)
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 1, bgcolor=GREY)
 
+    safepasswd = Utils.websafe(cgidata.getvalue('password', ''))
     ftable.AddRow([Label(_('Initial list password:')),
-                   PasswordBox('password', cgidata.getvalue('password', ''))])
+                   PasswordBox('password', safepasswd)])
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 0, bgcolor=GREY)
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 1, bgcolor=GREY)
 
+    safeconfirm = Utils.websafe(cgidata.getvalue('confirm', ''))
     ftable.AddRow([Label(_('Confirm initial password:')),
-                   PasswordBox('confirm', cgidata.getvalue('confirm', ''))])
+                   PasswordBox('confirm', safeconfirm)])
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 0, bgcolor=GREY)
     ftable.AddCellInfo(ftable.GetCurrentRowIndex(), 1, bgcolor=GREY)
 

@@ -1,4 +1,4 @@
-Listi %(listname)s moderaator lükkas tagasi teie taotluse
+Listi %(listname)s moderaator lükkas tagasi sinu taotluse
 
     %(request)s
 
@@ -6,7 +6,7 @@ põhjendades seda järgnevalt:
 
 "%(reason)s"
 
-Küsimuste ja kommentaaridega pöörduge palun listi halduri poole
+Küsimuste ja kommentaaridega pöördu palun listi halduri poole
 aadressil:
 
     %(adminaddr)s

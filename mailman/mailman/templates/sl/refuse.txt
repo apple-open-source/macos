@@ -1,0 +1,11 @@
+Va¹o zahtevo na po¹tnem seznamu %(listname)s:
+
+    %(request)s
+
+je moderator zavrnil in za zavrnitev navedel naslednji razlog:
+
+"%(reason)s"
+
+Vsa vpra¹anja in komentarje po¹ljite skrbniku seznama na naslov:
+
+    %(adminaddr)s

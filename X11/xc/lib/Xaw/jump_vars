@@ -1,0 +1,83 @@
+# $Xorg: jump_vars,v 1.3 2000/08/17 19:45:45 cpqbld Exp $
+#
+#
+#
+#
+# $XFree86: xc/lib/Xaw/jump_vars,v 3.2 2001/01/17 19:42:36 dawes Exp $
+#
+00001400 D _XawWidgetArray      libXaw         AllWidgets
+00000004 D _XawWidgetCount      libXaw         AllWidgets
+00000140 D _asciiSinkClassRec   libXaw         AsciiSink
+00000004 D _asciiSinkObjectClass libXaw         AsciiSink
+00000120 D _asciiSrcClassRec    libXaw         AsciiSrc
+00000004 D _asciiSrcObjectClass libXaw         AsciiSrc
+00000100 D _asciiTextClassRec   libXaw         AsciiText
+00000004 D _asciiTextWidgetClass libXaw         AsciiText
+00000100 D _boxClassRec         libXaw         Box
+00000004 D _boxWidgetClass      libXaw         Box
+00000100 D _commandClassRec     libXaw         Command
+00000004 D _commandWidgetClass  libXaw         Command
+00000140 D _dialogClassRec      libXaw         Dialog
+00000004 D _dialogWidgetClass   libXaw         Dialog
+00000140 D _formClassRec        libXaw         Form
+00000004 D _formWidgetClass     libXaw         Form
+00000100 D _gripClassRec        libXaw         Grip
+00000004 D _gripWidgetClass     libXaw         Grip
+00000100 D _labelClassRec       libXaw         Label
+00000004 D _labelWidgetClass    libXaw         Label
+00000100 D _listClassRec        libXaw         List
+00000004 D _listWidgetClass     libXaw         List
+00000100 D _menuButtonClassRec  libXaw         MenuButton
+00000004 D _menuButtonWidgetClass libXaw         MenuButton
+00000140 D _panedClassRec       libXaw         Paned
+00000004 D _panedWidgetClass    libXaw         Paned
+00000004 D _vPanedWidgetClass   libXaw         Paned
+00000100 D _pannerClassRec      libXaw         Panner
+00000004 D _pannerWidgetClass   libXaw         Panner
+00000100 D _portholeClassRec    libXaw         Porthole
+00000004 D _portholeWidgetClass libXaw         Porthole
+00000100 D _repeaterClassRec    libXaw         Repeater
+00000004 D _repeaterWidgetClass libXaw         Repeater
+00000100 D _scrollbarClassRec   libXaw         Scrollbar
+00000004 D _scrollbarWidgetClass libXaw         Scrollbar
+00000100 D _simpleClassRec      libXaw         Simple
+00000004 D _simpleWidgetClass   libXaw         Simple
+00000100 D _simpleMenuClassRec  libXaw         SimpleMenu
+00000004 D _simpleMenuWidgetClass libXaw         SimpleMenu
+00000100 D _smeClassRec         libXaw         Sme
+00000004 D _smeObjectClass      libXaw         Sme
+00000100 D _smeBSBClassRec      libXaw         SmeBSB
+00000004 D _smeBSBObjectClass   libXaw         SmeBSB
+00000100 D _smeLineClassRec     libXaw         SmeLine
+00000004 D _smeLineObjectClass  libXaw         SmeLine
+00000100 D _stripChartClassRec  libXaw         StripChart
+00000004 D _stripChartWidgetClass libXaw         StripChart
+00000004 D _FMT8BIT             libXaw         Text
+00000100 D _textClassRec        libXaw         Text
+00000004 D _textWidgetClass     libXaw         Text
+00000100 D _textSinkClassRec    libXaw         TextSink
+00000004 D _textSinkObjectClass libXaw         TextSink
+00000100 D _textSrcClassRec     libXaw         TextSrc
+00000004 D _textSrcObjectClass  libXaw         TextSrc
+00000300 D __XawTextActionsTable libXaw         TextAction
+00000004 D __XawTextActionsTableCount libXaw         TextAction
+00000004 D __XawDefaultTextTranslations1 libXaw         TextTr
+00000004 D __XawDefaultTextTranslations2 libXaw         TextTr
+00000004 D __XawDefaultTextTranslations3 libXaw         TextTr
+00000100 D _toggleClassRec      libXaw         Toggle
+00000004 D _toggleWidgetClass   libXaw         Toggle
+00000140 D _treeClassRec        libXaw         Tree
+00000004 D _treeWidgetClass     libXaw         Tree
+00000100 D _vendorShellClassRec libXaw         Vendor
+00000004 D _vendorShellWidgetClass libXaw         Vendor
+00000140 D _viewportClassRec    libXaw         Viewport
+00000004 D _viewportWidgetClass libXaw         Viewport
+00000140 D _multiSrcClassRec    libXaw         MultiSrc
+00000004 D _multiSrcObjectClass libXaw         MultiSrc
+00000140 D _multiSinkClassRec   libXaw         MultiSink
+00000004 D _multiSinkObjectClass libXaw         MultiSink
+00000004 D __XawDefaultTextTranslations4 libXaw         TextTr
+00000140 D _xawvendorShellExtClassRec libXaw         Vendor
+00000004 D _xawvendorShellExtWidgetClass libXaw         Vendor
+00000004 D _XawFmt8Bit          libXaw         Text
+00000004 D _XawFmtWide          libXaw         Text

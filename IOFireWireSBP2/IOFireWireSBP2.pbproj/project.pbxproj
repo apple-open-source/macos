@@ -90,7 +90,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 1.5.1;
+				MODULE_VERSION = 1.6.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -116,7 +116,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireSBP2</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireSBP2 version 1.5.1, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOFireWireSBP2 version 1.6.1, Copyright 2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -128,11 +128,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.1</string>
+	<string>1.6.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.1</string>
+	<string>1.6.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireSBP2</key>
@@ -339,7 +339,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireSBP2Lib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireSBP2 version 1.5.1, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOFireWireSBP2 version 1.6.1, Copyright 2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -351,11 +351,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.1</string>
+	<string>1.6.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.1</string>
+	<string>1.6.1</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -479,7 +479,6 @@
 			buildRules = (
 			);
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
@@ -489,7 +488,6 @@
 			buildRules = (
 			);
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -1013,7 +1011,6 @@
 			buildRules = (
 			);
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;

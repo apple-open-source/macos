@@ -83,6 +83,13 @@ if sys.platform == 'darwin':
         resource.setrlimit(resource.RLIMIT_STACK, (newsoft, hard))
 
 
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
+
+
 
 def html_quote(s, lang=None):
     repls = ( ('&', '&amp;'),
@@ -159,21 +166,44 @@ quotedpat = re.compile(r'^([>|:]|&gt;)+')
 
 
 
-# This doesn't need to be a weakref instance because it's just storing
-# strings.  Keys are (templatefile, lang) tuples.
+# Like Utils.maketext() but with caching to improve performance.
+#
+# _templatefilepathcache is used to associate a (templatefile, lang, listname)
+# key with the file system path to a template file.  This path is the one that
+# the Utils.findtext() function has computed is the one to match the values in
+# the key tuple.
+#
+# _templatecache associate a file system path as key with the text
+# returned after processing the contents of that file by Utils.findtext()
+#
+# We keep two caches to reduce the amount of template text kept in memory,
+# since the _templatefilepathcache is a many->one mapping and _templatecache
+# is a one->one mapping.  Imagine 1000 lists all using the same default
+# English template.
+
+_templatefilepathcache = {}
 _templatecache = {}
 
 def quick_maketext(templatefile, dict=None, lang=None, mlist=None):
+    if mlist is None:
+        listname = ''
+    else:
+        listname = mlist._internal_name
     if lang is None:
         if mlist is None:
             lang = mm_cfg.DEFAULT_SERVER_LANGUAGE
         else:
             lang = mlist.preferred_language
-    template = _templatecache.get((templatefile, lang))
-    if template is None:
+    cachekey = (templatefile, lang, listname)
+    filepath =  _templatefilepathcache.get(cachekey)
+    if filepath:
+        template = _templatecache.get(filepath)
+    if filepath is None or template is None:
         # Use the basic maketext, with defaults to get the raw template
-        template = Utils.maketext(templatefile, lang=lang, raw=1)
-        _templatecache[(templatefile, lang)] = template
+        template, filepath = Utils.findtext(templatefile, lang=lang,
+                                            raw=True, mlist=mlist)
+        _templatefilepathcache[cachekey] = filepath
+        _templatecache[filepath] = template
     # Copied from Utils.maketext()
     text = template
     if dict is not None:
@@ -257,7 +287,7 @@ class Article(pipermail.Article):
         self.ctype = ctype.lower()
         self.cenc = cenc.lower()
         self.decoded = {}
-        charset = message.get_param('charset')
+        charset = message.get_param('charset', 'us-ascii')
         if isinstance(charset, types.TupleType):
             # An RFC 2231 charset
             charset = unicode(charset[2], charset[0])
@@ -268,7 +298,7 @@ class Article(pipermail.Article):
             if charset[0]=="'" and charset[-1]=="'":
                 charset = charset[1:-1]
             try:
-                body = message.get_payload(decode=1)
+                body = message.get_payload(decode=True)
             except binascii.Error:
                 body = None
             if body and charset != Utils.GetCharSet(self._lang):
@@ -529,6 +559,12 @@ class Article(pipermail.Article):
                 break
             self.body.append(line)
 
+    def finished_update_article(self):
+        self.body = []
+        try:
+            del self.html_body
+        except AttributeError:
+            pass        
 
 
 class HyperArchive(pipermail.T):
@@ -705,13 +741,14 @@ class HyperArchive(pipermail.T):
                 d["archive_listing"] = EMPTYSTRING.join(accum)
         finally:
             i18n.set_translation(otrans)
-
         # The TOC is always in the charset of the list's preferred language
         d['meta'] += html_charset % Utils.GetCharSet(mlist.preferred_language)
-
-        return quick_maketext(
-            'archtoc.html', d,
-            mlist=mlist)
+        # The site can disable public access to the mbox file.
+        if mm_cfg.PUBLIC_MBOX:
+            template = 'archtoc.html'
+        else:
+            template = 'archtocnombox.html'
+        return quick_maketext(template, d, mlist=mlist)
 
     def html_TOC_entry(self, arch):
         # Check to see if the archive is gzip'd or not
@@ -1091,6 +1128,10 @@ class HyperArchive(pipermail.T):
         # 1. use lines directly, rather than source and dest
         # 2. make it clearer
         # 3. make it faster
+        # TK: Prepare for unicode obscure.
+        atmark = _(' at ')
+        if lines and isinstance(lines[0], types.UnicodeType):
+            atmark = unicode(atmark, Utils.GetCharSet(self.lang), 'replace')
         source = lines[:]
         dest = lines
         last_line_was_quoted = 0
@@ -1131,7 +1172,7 @@ class HyperArchive(pipermail.T):
                     text = jr.group(1)
                     length = len(text)
                     if mm_cfg.ARCHIVER_OBSCURES_EMAILADDRS:
-                        text = re.sub('@', _(' at '), text)
+                        text = re.sub('@', atmark, text)
                         URL = self.maillist.GetScriptURL(
                             'listinfo', absolute=1)
                     else:

@@ -463,10 +463,10 @@ SyslogFacility log_facility_number(char *name);
 LogLevel log_level_number(char *name);
 
 /* Output a message to syslog or stderr */
-void    fatal(const char *fmt,...) __attribute__((format(printf, 1, 2)));
+void    pwsf_fatal(const char *fmt,...) __attribute__((format(printf, 1, 2)));
 void    error(const char *fmt,...) __attribute__((format(printf, 1, 2)));
 void    ssh_log(const char *fmt,...) __attribute__((format(printf, 1, 2)));
-void    verbose(const char *fmt,...) __attribute__((format(printf, 1, 2)));
+void    pwsf_verbose(const char *fmt,...) __attribute__((format(printf, 1, 2)));
 void    debug(const char *fmt,...) __attribute__((format(printf, 1, 2)));
 
 /* same as fatal() but w/o logging */

@@ -1,0 +1,749 @@
+#!/bin/sh
+#
+# $XFree86: xc/programs/Xserver/hw/xfree86/etc/svr4_patch,v 3.2 1996/12/23 06:47:23 dawes Exp $
+#
+# Apply patch to kernel to prevent losing IOPL on signals.
+#
+# Version 1.0 - 11/18/92
+#	initial version - dwex@goblin.org, dwex@aib.com
+#
+# $XConsortium: svr4_patch /main/4 1996/02/21 17:48:36 kaleb $
+#
+
+PATH=/sbin:/usr/sbin:/usr/bin
+
+N=`basename $0`
+
+#
+# Make sure we're running on SVR4!
+#
+uname -r | grep '4' > /dev/null
+if [ "$?" != "0" ]
+then
+	echo "$N: This only applies to SVR4!"
+	exit 1
+fi
+
+#
+# Next make sure we are running as root
+#
+id | grep 'uid=0' > /dev/null
+if [ "$?" != "0" ]
+then
+	echo "$N: Must be run as root!"
+	exit 1
+fi
+
+#
+# Now make temp directory
+#
+TMPDIR=/tmp/xf86_pt.$$
+mkdir ${TMPDIR}
+if [ ! -d ${TMPDIR} ]
+then
+	echo "$N: Failed to make temp directory"
+	exit 1
+fi
+
+#
+# Go to temp directory
+#
+OWD=${PWD}
+cd ${TMPDIR}
+
+#
+# Checksums for programs
+#
+CHECKER_SUM="34037 5 checker"
+PATCHER_SUM="10505 10 patcher"
+
+#
+# Extract programs
+#
+cat > checker.uu <<\!EOF!
+begin 777 checker
+M?T5,1@$! 0            (  P !    X(,$"#0   #X!0       #0 (  %
+M "@ $  /  8    T    -( $"     "@    H     4          P   -0 
+M             !,         !          !    -    #2 ! @     I 0 
+M *0$   %     !    $   #8!   V)0$"     "<    H     <     $   
+M @    0%   $E00(     '          !P         O=7-R+VQI8B]L:6)C
+M+G-O+C$  !$    1    #P    @    -          X    !     P    L 
+M        #    !                D         !P                  
+M                       $    !@         "                    
+M      4    *                               !    <(,$"!P    2
+M    "@   'B5! @     $0#Q_P\   # @P0(     !(    6    V)0$" 0 
+M   1  L 'P   -B$! @     $0#Q_R8   " @P0(0    !(    M    T(,$
+M"      2    ,@   '25! @     $0#Q_SD   "@@P0(     !(    ^    
+M=)4$" 0    1  X 1    -2$! @$    $0 * %$   "0@P0(     !(   !;
+M    W)0$"      1 /'_<0    25! @     $0#Q_WH   "P@P0(     !( 
+M  "!    Q80$"      2  @  %]C;&5A;G5P %]E;F0 9V5T<&ED %]E;G9I
+M<F]N %]E=&5X= !A=&5X:70 :VEL; !?961A=&$ 97AI= !E<G)N;P!?;&EB
+M7W9E<G-I;VX 7U]F<'-T87)T %]'3$]"04Q?3T9&4T547U1!0DQ%7P!?1%E.
+M04U)0P!S:6=S970 7V-E<G)O<@ O=7-R+VQI8B]L:6)C+G-O+C$ Z)0$" <!
+M  #LE 0(!P8  /"4! @'#   ])0$" <)  #XE 0(!P\  /R4! @' P   )4$
+M" <'  #"    _S7@E 0(_R7DE 0(     /\EZ)0$"&@     Z>#_____)>R4
+M! AH"    .G0_____R7PE 0(:!    #IP/____\E])0$"&@8    Z;#_____
+M)?B4! AH(    .F@_____R7\E 0(:"@   #ID/____\E )4$"&@P    Z8#_
+M__]J &H B^Q2N'"#! B%P'0-:'"#! CHAO___X/$!+@$E00(A<!T!>AU____
+M:-"$! CH:____XM%"(U4A1")%=B4! A2C54,4E#H+____^A>____Z"4   "#
+MQ Q0Z&#___]J +@!    F@     ' /3#ZP3K ,G#58OLZ_>0ZTYH4(0$"&H0
+MZ$;___^#Q AH #   &H$:D?H-P   (/$#"O 9KI@$NR)1?QJ$.@Q____4.@[
+M____@\0(*\!FNF 2[(E%_&H Z/?^__]9R<-5B^Q0ZZRX,@   )H     !P /
+M@@$   ##HW25! BX_____\/"               $E00(          !V@P0(
+MAH,$"):#! BF@P0(MH,$",:#! C6@P0( 0   (D    ,    7(,$" T   #0
+MA 0(!    .B ! @%    B(($" 8   !X@00("@   )P    +    $    !4 
+M         P   -R4! @"    .    !0    1    %P   "2#! @         
+M   N:6YT97)P "YH87-H "YD>6YS>6T +F1Y;G-T<@ N<F5L+G!L=  N:6YI
+M=  N<&QT "YT97AT "YF:6YI "YR;V1A=&$ +F1A=&$ +F=O=  N9'EN86UI
+M8P N8G-S "YS>6UT86( +G-T<G1A8@ N<VAS=')T86( +F-O;6UE;G0     
+M                                                   !     0  
+M  (   #4@ 0(U    !,               $         "0    4    "    
+MZ( $".@   "0     P         $    !     \    +     @   'B!! AX
+M 0  $ $   0    !    !    !     7     P    (   "(@@0(B (  )P 
+M              $         'P    D    "    )(,$""0#   X     P  
+M  <    $    "    "@    !    !@   %R#! A< P   P              
+M!          N     0    8   !@@P0(8 ,  (                0    $
+M    ,P    $    &    X(,$". #  #P               $         #D 
+M   !    !@   -"$! C0!    P              !          _     0  
+M  (   #4A 0(U 0   0               0         1P    $    #    
+MV)0$"-@$   $               $         $T    !     P   -R4! C<
+M!   *               !     0   !2    !@    ,    $E00(! 4  '  
+M   $          0    (    6P    @    #    =)4$"'0%   $        
+M       $         '     #              !T!0  @P              
+( 0          
+ 
+end
+!EOF!
+uudecode checker.uu
+rm -f checker.uu
+if [ "`sum checker`" != "${CHECKER_SUM}" ]
+then
+	echo "$N: Program 'checker' extracted incorrectly!"
+	cd ${OWD}
+	rm -rf ${BKUP}
+	exit 1
+fi
+chmod 700 checker
+
+cat > patcher.uu <<\!EOF!
+begin 777 patcher
+M?T5,1@$! 0            (  P !    9(8$"#0   !<#P       #0 (  %
+M "@ $0 0  8    T    -( $"     "@    H     4          P   -0 
+M             !,         !          !    -    #2 ! @     ? T 
+M 'P-   %     !    $   "P#0  L)T$"      @ 0  Y 0   <     $   
+M @   & .  !@G@0(     '          !P         O=7-R+VQI8B]L:6)C
+M+G-O+C$  !$    @    %     P    ;    &0   !X    :         !4 
+M   <    &    !T    %          \    ?    "P   !              
+M       !     @                                    D         
+M           (          0    &         !,    #    $@   !8     
+M    #@    <         #0   !$    *    %P                      
+M   !    T)X$", #   1  \ !P   /2%! @     $@    P    4A@0(    
+M !(    1    !(8$" P"   2    &    )2%! @     $@   !\   #0G@0(
+MP ,  "$ #P D    5(4$"!P    2    +0   )2B! @     $0#Q_S(    ,
+MG@0(!    !$ #  [    L(T$"      1 /'_0@   &2%! A     $@   $D 
+M  #0G@0(     !$ \?]0    I(4$"      2    6    "2&! @     $@  
+M %X   "$A00(     !(   !C    Q(4$"      2    :P   %2&! @     
+M$@   '$     G@0(!    !$ # !X    D*($" 0    1  \ ?@    2>! @$
+M    $0 , (4   #\BP0(!    !$ "@"2    M(4$"      2    F@   -2%
+M! B0    $@   *(   !TA00(     !(   "L    _)T$" 0    1  P LP  
+M  B>! @$    $0 , +H    0G@0(     !$ \?_0    -(8$"      2    
+MUP   $2&! B,    $@   -X   !@G@0(     !$ \?_G    Y(4$"(0"   2
+M     %]?:6]B &]P96X <F5A9 !M86QL;V, 7WAS=&%T %]I;V( 7V-L96%N
+M=7  7V5N9 !?96YV:7)O;@!?971E>'0 871E>&ET %]E9&%T80!?;'AS=&%T
+M &-L;W-E &5X:70 7WAM:VYO9 !W<FET90!O<'1I;F0 97)R;F\ ;W!T;W!T
+M %]L:6)?=F5R<VEO;@!?9GAS=&%T &9P<FEN=&8 7U]F<'-T87)T &]P=&5R
+M<@!O<'1A<F< 7T=,3T)!3%]/1D93151?5$%"3$5? &UE;6-P>0!P<FEN=&8 
+M7T193D%-24, 9V5T;W!T "]U<W(O;&EB+VQI8F,N<V\N,0     <G@0(!P< 
+M "">! @'"P  ))X$" <8   HG@0(!P\  "R>! @'!0  ,)X$" <-   TG@0(
+M!Q8  #B>! @'$   /)X$" <7  ! G@0(!Q\  $2>! @' @  2)X$" <$  !,
+MG@0(!P,  %">! @'#@  5)X$" <<  !8G@0(!QT  %R>! @'$0  P@   /\U
+M%)X$"/\E&)X$"     #_)1R>! AH     .G@_____R4@G@0(: @   #IT/__
+M__\E))X$"&@0    Z<#_____)2B>! AH&    .FP_____R4LG@0(:"    #I
+MH/____\E,)X$"&@H    Z9#_____)32>! AH,    .F _____R4XG@0(:#@ 
+M  #I</____\E/)X$"&A     Z6#_____)4">! AH2    .E0_____R5$G@0(
+M:%    #I0/____\E2)X$"&A8    Z3#_____)4R>! AH8    .D@_____R50
+MG@0(:&@   #I$/____\E5)X$"&AP    Z0#_____)5B>! AH>    .GP_O__
+M_R5<G@0(:(    #IX/[__VH :@"+[%*X5(4$"(7 = UH5(4$".CF_O__@\0$
+MN&">! B%P'0%Z-7^__]H^(L$".C+_O__BT4(C52%$(D5#)X$"%*-50Q24.B/
+M_O__Z+[^___HK0   (/$#%#HP/[__VH N $   ":      < ],/K&O]U#/]U
+M"&H"Z+'^__^#Q R)1?R+1?SK ,G#58OL4.O@B\#K&O]U#/]U"&H"Z)W^__^#
+MQ R)1?R+1?SK ,G#58OL4.O@B\#K&O]U#/]U"&H"Z(G^__^#Q R)1?R+1?SK
+M ,G#58OL4.O@B\#K'?]U$/]U#/]U"&H"Z'+^__^#Q!")1?R+1?SK ,G#58OL
+M4.O=C4  Z7H$  #'A2#___\     QX4<____     .FG    Z8D   "#O1S_
+M__\ =!^+10S_,&@ C 0(:/">! CH+/[__X/$#&H!Z-+]__]9QX4@____ 0  
+M .MN@[T@____ '0?BT4,_S!H((P$"&CPG@0(Z/C]__^#Q QJ >B>_?__6<>%
+M'/___P$   #K.HM%#/\P:$",! AH\)X$".C-_?__@\0,:@'H<_W__UGK&8N%
+M)/___X/X/W34@_AC#X1C____@_AU=))H:(P$"/]U#/]U".BG_?__@\0,B84D
+M____@_C_#X4W____@[T@____ '4.BT4(*P4 G@0(@_@"=1>#O2#___\ ="V+
+M10@K!0">! B#^ %T'XM%#/\P:&R,! AH\)X$".A#_?__@\0,:@'HZ?S__UF+
+M10R+%0">! C_!0">! B+!)")1?1J /]U].@Y_?__@\0(B47\A<!](_\UD*($
+M"/]U]&B4C 0(:/">! CH]_S__X/$$&H!Z)W\__]9C85@____4/]U_.@E_O__
+M@\0(A<!](_\UD*($"/]U]&BTC 0(:/">! CHOOS__X/$$&H!Z&3\__]9BUV0
+M4^C:_/__68F%7/___U/_M5S_____=?SHU/S__X/$##O#="3_-9"B! C_=?13
+M:-2,! AH\)X$".AT_/__@\04:@'H&OS__UG_=?SHL?S__UG'1>P     Z98!
+M  "+1>R+!(7LG00(B47H_W7H:T7L'HV L)T$"%"-A2C___]0Z(W\__^#Q R#
+MO2#___\ =0F#O1S___\ =!*+1>R+!(7TG00(QH0%*/____\S_S/VZR/K#8U&
+M_ROX,_8[^W8"ZQ*+A5S___^*!#@ZA#4H____=>%'1CMUZ',$._MRU#MUZ ^%
+M"@$  "M]Z(.](/___P!U#8.]'/___P /A($   "+QXM5[ ,$E?2=! B+E5S_
+M__\/M@00/?\   !T'VC_    : "-! AH\)X$".B!^___@\0,:@'H)_O__UF#
+MO2#___\ = AJ .@6^___68O'BU7L P25])T$"(N57/___\8$$,^+1>R+!(7T
+MG00(C40' 5!H'(T$".BF^___@\0(ZWV+QXM5[ ,$E?2=! B+E5S___\/M@00
+M/<\   !T'VC/    :""-! AH\)X$".@ ^___@\0,:@'HIOK__UF+QXM5[ ,$
+ME?2=! B+E5S____&!!#_BT7LBP2%])T$"(U$!P%0:#R-! CH-OO__X/$".L-
+M_T7L@WWL @^"8/[__X-][ )U(X.](/___P!U$FA C00(:/">! CHEOK__X/$
+M"&H!Z#SZ__]9BT4,BQ4 G@0(BP20B47P:+8!  !H @$  /]U\.B*^O__@\0,
+MB47XA<!](_\UD*($"/]U\&ADC00(:/">! CH2/K__X/$$&H!Z.[Y__]94_^U
+M7/____]U^.BN^O__@\0,.\-T)/\UD*($"/]U\%-HA(T$"&CPG@0(Z [Z__^#
+MQ!1J >BT^?__6?]U^.A+^O__66H Z*/Y__]96UY?R<-5B^R![.P   !75E/I
+M=?O__\(         )7,Z(&]N;'D@;VYE(&]F("UC+" M=2!A;&QO=V5D"@ E
+M<SH@;VYL>2!O;F4@;V8@+6,L("UU(&%L;&]W960* '5S86=E.B E<R!;+6,@
+M?" M=5T@:6XM9FEL92!;;W5T+69I;&5="@!C=0  =7-A9V4Z("5S(%LM8R!\
+M("UU72!I;BUF:6QE(%MO=70M9FEL95T* &9A:6QE9"!T;R!O<&5N*"D@)7,L
+M(&5R<FYO/25D"@  0V]U;&0@;F]T('-T870H*2 E<RP@97)R;F\])60*  !F
+M86EL960@=&\@<F5A9"@I("5D(&)Y=&5S('1O("5S+"!E<G)N;STE9 H  #\_
+M/R P>"4P,G@@;F]T(&9O=6YD(#\_/PH    E9 H /S\_(#!X)3 R>"!N;W0@
+M9F]U;F0@/S\_"@   "5D"@!D:60@;F]T(&9I;F0@86YY(&UA=&-H('-T<FEN
+M9W,A"@    !F86EL960@=&\@;W!E;B@I("5S+"!E<G)N;STE9 H  &9A:6QE
+M9"!T;R!W<FET92@I("5D(&)Y=&5S('1O("5S+"!E<G)N;STE9 H BU0D!(%B
+M0/_/__^!2D   @                  @6= _\___X%/0  "  "!3SP$    
+M            $@   !4    (    !     $    !                    
+M8)X$"           6H4$"&J%! AZA00(BH4$")J%! BJA00(NH4$",J%! C:
+MA00(ZH4$"/J%! @*A@0(&H8$""J&! @ZA@0(2H8$"%J&! @!    [@    P 
+M  ! A00(#0   /B+! @$    Z( $" 4   "T@P0(!@   +2!! @*     0$ 
+M  L    0    %0         #    $)X$" (   "(    %    !$    7    
+MN(0$"            "YI;G1E<G  +FAA<V@ +F1Y;G-Y;0 N9'EN<W1R "YR
+M96PN<&QT "YI;FET "YP;'0 +G1E>'0 +F9I;FD +G)O9&%T80 N<F]D871A
+M,0 N9&%T80 N9V]T "YD>6YA;6EC "YB<W, +G-Y;71A8@ N<W1R=&%B "YS
+M:'-T<G1A8@ N8V]M;65N=                                       
+M                 0    $    "    U( $"-0    3               !
+M          D    %     @   .B ! CH    S     ,         !     0 
+M   /    "P    (   "T@00(M $    "   $     0    0    0    %P  
+M  ,    "    M(,$"+0#   ! 0             !         !\    )    
+M @   +B$! BX!   B     ,    '    !     @    H     0    8   ! 
+MA00(0 4   ,               0         +@    $    &    1(4$"$0%
+M   @ 0             $    !    #,    !    !@   &2&! AD!@  E 4 
+M            !          Y     0    8   #XBP0(^ L   ,         
+M      0         /P    $    "    _(L$"/P+   $               $
+M         $<    !     @    ",! @ #   L $             !       
+M  !0     0    ,   "PG00(L T  &                0         5@  
+M  $    #    $)X$"! .  !0               $    !    %L    &    
+M P   &">! A@#@  <     0         !     @   !D    "     ,   #0
+MG@0(T X  ,0#              0         >0    ,              - .
+6  ",               !            
+ 
+end
+!EOF!
+uudecode patcher.uu
+rm -f patcher.uu
+if [ "`sum patcher`" != "${PATCHER_SUM}" ]
+then
+	echo "$N: Program 'patcher' extracted incorrectly!"
+	cd ${OWD}
+	rm -rf ${BKUP}
+	exit 1
+fi
+chmod 700 patcher
+
+echo "$N: The programs we need have been extracted successfully"
+
+#
+# OK.  Now we have the programs we need.  Run checker to see if the patch
+# is needed.
+#
+rm -f core
+(./checker; exit $? ) > /dev/null 2>&1
+if [ "$?" != "0" ]
+then
+	if [ ! -f core ]
+	then
+		echo "$N: Check failed, but no core file???  Aborting."
+		cd ${OWD}
+		rm -rf ${TMPDIR}
+		exit 1
+	else
+		rm -f core
+		echo "$N: The bug exists.  Will proceed with the patch"
+	fi
+else
+	echo "$N: Patch is not needed; bug not present."
+	cd ${OWD}
+	rm -rf ${TMPDIR}
+	exit 0
+fi
+
+#
+# OK.  We need to do the patch.  Make a directory in /etc/conf/pack.d/kernel
+# to hold our stuff (we'll store a backup os.o there, and put the programs 
+# there, and their source as well).
+#
+PACK=/etc/conf/pack.d/kernel
+BKUP=${PACK}/.xfree86
+if [ -d ${BKUP} ]
+then
+	echo "$N: Backup directory ${BKUP} exists"
+	echo "    but bug not fixed. Aborting"
+	cd ${OWD}
+	rm -rf ${TMPDIR}
+	exit 1
+fi
+
+mkdir ${BKUP}
+if [ ! -d ${BKUP} ]
+then
+	echo "$N: Failed to make backup directory ${BKUP}"
+	cd ${OWD}
+	rm -rf ${TMPDIR}
+	exit 1
+fi
+cp ${TMPDIR}/* ${BKUP}
+cd ${BKUP}
+rm -rf ${TMPDIR}
+./patcher -c ../os.o
+if [ "$?" = "0" ]
+then
+	echo "$N: Patch already applied, but bug not fixed. Aborting"
+	cd ${OWD}
+	rm -rf ${BKUP}
+	exit 1
+fi
+
+#
+# Stash the backup
+#
+cp ../os.o ./os.o.SAV
+echo "$N: A copy of os.o has been saved in ${BKUP}"
+LOC=`./patcher ../os.o ./Nos.o`
+if [ "$?" != "0" ]
+then
+	echo "$N: Patch failed!!!"
+	cd ${OWD}
+	rm -rf ${BKUP}
+	exit 1
+fi
+LOC1=`cmp -l ../os.o ./Nos.o | awk '{print $1; exit}'`
+if [ "$LOC" != "$LOC1" ]
+then
+	echo "$N: Patch sanity check failed!!!"
+	cd ${OWD}
+	rm -rf ${BKUP}
+	exit 1
+fi
+echo "$N: Patch successfully applied.  Installing it."
+mv ./Nos.o ../os.o
+
+#
+# OK.  Patch is installed.  Now do an idbuild
+#
+echo "$N: Building the new kernel."
+/etc/conf/bin/idbuild 2>/tmp/idb.$$
+if [ "$?" != "0" ]
+then
+	echo "$N: Kernel build failed!  Errors are in /tmp/idb.$$"
+	cd ${OWD}
+	exit 1
+fi
+rm -f /tmp/idb.$$
+
+#
+# Kernel is now rebuilt.  
+#
+echo "$N: Kernel successfully rebuilt."
+
+#
+# Stash the source files
+#
+echo "$N: Copies of the source for my programs"
+echo "    will be in ${BKUP}"
+cat >> checker.c <<\!EOF!
+#include <sys/types.h>
+#include <sys/proc.h>
+#include <sys/sysi86.h>
+#include <sys/tss.h>
+#include <sys/v86.h>
+#include <signal.h>
+#include <stdio.h>
+
+#ifdef __GNUC__
+static __inline__ unsigned int
+inb(port)
+     short port;
+{
+  unsigned int ret;
+  __asm__ __volatile__("in%B0 (%1)" :
+                   "=a" (ret) :
+                   "d" (port));
+  return ret;
+}
+#else
+#include <sys/inline.h>
+#endif
+
+
+#define PORT 0x1260
+
+void sighand(signo)
+int signo;
+
+{
+   return;
+}
+
+main()
+{
+        int i;
+
+        sigset(SIGUSR1, sighand);
+        sysi86(SI86V86, V86SC_IOPL, PS_IOPL);
+        i = inb(PORT);
+        kill(getpid(), SIGUSR1);
+        i = inb(PORT);
+        exit(0);
+}
+!EOF!
+cat > patcher.c <<\!EOF!
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <errno.h>
+#ifdef __STDC__
+# include <stdlib.h>
+#else
+# include <malloc.h>
+#endif
+
+#define NUM_PATTERNS	2
+unsigned char match_buf[NUM_PATTERNS][30] = { 
+	{
+	/* SVR4 */
+	0x8b,0x54,0x24,0x04,			/* movl 4(%esp),%edx */
+	0x81,0x62,0x40,0xff,0xcf,0xff,0xff,	/* andl $0xffffcfff,64(%edx) */
+	0x81,0x4a,0x40,0x00,0x02,0x00,0x00,	/* orl $0x200,64(%edx) */
+	},
+	{
+	/* SVR3 */
+	0x81,0x67,0x40,0xff,0xcf,0xff,0xff,	/* andl $0xffffcfff,64(%edi) */
+	0x81,0x4f,0x40,0x00,0x02,0x00,0x00,	/* orl $0x200,64(%edi) */
+	0x81,0x4f,0x3c,0x04,0x00,0x00,0x00,	/* orl $0x4,60(%edi) */
+	},
+};
+
+int match_lengths[] = {18,21};
+int match_offset[] = {8,4};
+#define EXPECT	0xcf
+#define CHANGE	0xff
+
+main(argc, argv)
+int argc;
+char *argv[];
+{
+	int ifd, ofd;
+	char *ifname, *ofname;
+	unsigned int i, j, k;
+	unsigned int file_len, match_len;
+	struct stat stat_buf;
+	unsigned char *file_buf, hold_buf[50]; 
+	int c, check=0, undo=0;
+	char *infname, *outfname;
+	extern int optind;
+
+	
+	while ((c=getopt(argc, argv, "cu")) != EOF) {
+		switch (c) {
+		case 'c':
+			if (undo) {
+				fprintf(stderr, 
+					"%s: only one of -c, -u allowed\n", 
+					argv[0]);
+				exit(1);
+			}
+			check = 1;
+			break;
+		case 'u':
+			if (check) {
+				fprintf(stderr, 
+					"%s: only one of -c, -u allowed\n", 
+					argv[0]);
+				exit(1);
+			}
+			undo = 1;
+			break;
+		case '?':
+			fprintf(stderr, 
+				"usage: %s [-c | -u] in-file [out-file]\n", 
+				argv[0]);
+			exit(1);
+		}
+	}
+				
+	if ((!check && (argc-optind != 2)) || (check && (argc-optind != 1))) {
+		fprintf(stderr, "usage: %s [-c | -u] in-file [out-file]\n", 
+			argv[0]);
+		exit(1);
+	}
+
+	ifname = argv[optind++];
+	if ((ifd = open(ifname, O_RDONLY)) < 0) {
+		fprintf(stderr, "failed to open() %s, errno=%d\n",
+			ifname, errno);
+		exit(1);
+	}
+	if (fstat(ifd, &stat_buf) < 0) {
+		fprintf(stderr, "Could not stat() %s, errno=%d\n",
+			ifname, errno);
+		exit(1);
+	}
+	file_len = stat_buf.st_size;
+	file_buf = malloc(file_len);
+	if (read(ifd, file_buf, file_len) != file_len) {
+		fprintf(stderr, "failed to read() %d bytes to %s, errno=%d\n",
+			file_len, ifname, errno);
+		exit(1);
+	}
+	close(ifd);
+
+	for (k=0; k < NUM_PATTERNS; k++) {
+		match_len = match_lengths[k];
+		memcpy(hold_buf, match_buf[k], match_len);
+		if (check || undo)
+			hold_buf[match_offset[k]] = CHANGE;
+		for (i=0, j=0; j < match_len && i < file_len; i++, j++) {
+			while (file_buf[i] != hold_buf[j]) {
+				i -= j-1;
+				j = 0;
+				if (i > file_len)
+					break;
+			}
+		}
+		if (j == match_len) {
+			/* 
+	 		 * Here, i is pointing to the end of the match 
+			 * string.  Move it back to the beginning.
+	 		 */
+			i -= match_len;
+			if (check || undo) {
+				/*
+			 	 * Sanity check.
+			 	 */
+				if (file_buf[i+match_offset[k]] != CHANGE) {
+					fprintf(stderr, 
+						"??? 0x%02x not found ???\n",
+						CHANGE);
+					exit(1);
+				}
+				if (check)
+					exit(0);
+
+				file_buf[i+match_offset[k]] = EXPECT;
+				/*
+			 	 * Print out the byte offset of the change.  We
+			  	 * can double-check this with 'cmp -l'.
+			 	 */
+				printf("%d\n", i + match_offset[k] + 1);
+				break;
+			}
+			else {
+				/*
+			 	 * Sanity check.
+			 	 */
+				if (file_buf[i+match_offset[k]] != EXPECT) {
+					fprintf(stderr, 
+						"??? 0x%02x not found ???\n",
+						EXPECT);
+					exit(1);
+				}
+				file_buf[i+match_offset[k]] = CHANGE;
+				/*
+			 	 * Print out the byte offset of the change.  We
+			  	 * can double-check this with 'cmp -l'.
+			 	 */
+				printf("%d\n", i + match_offset[k] + 1);
+				break;
+			}
+		}
+	}
+
+	if (k == NUM_PATTERNS) {
+		if (!check)
+			fprintf(stderr, "did not find any match strings!\n");
+		exit(1);
+	}
+
+	ofname = argv[optind];
+	if ((ofd = open(ofname, O_RDWR|O_CREAT, 0666)) < 0) {
+		fprintf(stderr, "failed to open() %s, errno=%d\n",
+			ofname, errno);
+		exit(1);
+	}
+	if (write(ofd, file_buf, file_len) != file_len) {
+		fprintf(stderr, "failed to write() %d bytes to %s, errno=%d\n",
+			file_len, ofname, errno);
+		exit(1);
+	}
+	close(ofd);
+	exit(0);
+}
+!EOF!
+
+#
+# Now store the removal script.
+#
+cat > ${N}_rem <<\!EOF!
+#!/bin/sh
+######################################################################
+#
+# Back out the patch to kernel that prevents losing IOPL on signals.
+#
+# Version 1.0 - 11/18/92
+#	initial version - dwex@goblin.org, dwex@aib.com
+#
+
+N=`basename $0`
+
+#
+# Make sure we're running on SVR4!
+#
+uname -r | grep '4' > /dev/null
+if [ "$?" != "0" ]
+then
+	echo "$N: This only applies to SVR4!"
+	exit 1
+fi
+
+#
+# Next make sure we are running as root
+#
+id | grep 'uid=0' > /dev/null
+if [ "$?" != "0" ]
+then
+	echo "$N: Must be run as root!"
+	exit 1
+fi
+
+#
+# OK.  Now undo the patch.
+#
+PACK=/etc/conf/pack.d/kernel
+BKUP=${PACK}/.xfree86
+if [ ! -d ${BKUP} ]
+then
+	echo "$N: Backup directory ${BKUP} does not exist!"
+	exit 1
+fi
+OWD=${PWD}
+cd ${BKUP}
+
+./patcher -c ../os.o
+if [ "$?" != "0" ]
+then
+	echo "$N: Patch not applied. Aborting"
+	cd ${OWD}
+	exit 1
+fi
+
+LOC=`./patcher -u ../os.o ./Nos.o`
+if [ "$?" != "0" ]
+then
+	echo "$N: Patch removal failed!!!"
+	cd ${OWD}
+	exit 1
+fi
+LOC1=`cmp -l ../os.o ./Nos.o | awk '{print $1; exit}'`
+if [ "$LOC" != "$LOC1" ]
+then
+	echo "$N: Patch sanity check failed!!!"
+	cd ${OWD}
+	exit 1
+fi
+echo "$N: Patch successfully removed.  Installing unpatched module."
+mv ./Nos.o ../os.o
+
+#
+# OK.  Patch is removed.  Now do an idbuild
+#
+echo "$N: Building the new kernel."
+/etc/conf/bin/idbuild 2>/tmp/idb.$$
+if [ "$?" != "0" ]
+then
+	echo "$N: Kernel build failed!  Errors are in /tmp/idb.$$"
+	cd ${OWD}
+	exit 1
+fi
+rm -f /tmp/idb.$$
+
+#
+# Kernel is now rebuilt.  
+#
+echo "$N: Kernel successfully rebuilt."
+cd ${OWD}
+rm -rf ${BKUP}
+
+#
+# Kernel is now rebuilt.  Check if we should reboot now.
+#
+REBOOT=0
+echo "$N: You must reboot before patch takes effect.  Reboot now? \c"
+read RESP
+case ${RESP} in
+	[yY]*)
+		REBOOT=1
+		;;
+	*)
+		echo "$N: OK.  But remember to reboot later"
+		;;
+esac
+
+cd ${OWD}
+rm -rf ${BKUP}
+#
+# All done.  Reboot if necessary
+#
+if [ ${REBOOT} = "1" ]
+then
+	cd /
+	sync
+	/usr/sbin/shutdown -i6 -g15 -y &
+fi
+exit 0
+######################################################################
+!EOF!
+chmod 700 ${N}_rem
+
+#
+# Give the user some info that he will surely forget
+#
+echo ""
+echo "$N: To back out this patch, execute the script ${N}_rem,"
+echo "    a copy of which can be found in the save directory"
+echo "    ${BKUP}.  To verify that the patch"
+echo "    was successful, after rebooting with the new kernel,"
+echo "    you can execute the program 'checker' (as root), which"
+echo "    is also located in the save directory.  This program"
+echo '    should exit with an exit code of 0 (i.e. $? == 0).'
+echo ""
+
+#
+# Check if we should reboot now.
+#
+REBOOT=0
+echo "$N: You must reboot before patch takes effect.  Reboot now? \c"
+read RESP
+case ${RESP} in
+	[yY]*)
+		REBOOT=1
+		;;
+	*)
+		echo "$N: OK.  But remember to reboot later"
+		;;
+esac
+
+#
+# All done.  Reboot if necessary
+#
+if [ ${REBOOT} = "1" ]
+then
+	cd /
+	sync
+	/usr/sbin/shutdown -i6 -g15 -y &
+fi
+exit 0

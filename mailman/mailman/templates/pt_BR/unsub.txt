@@ -1,9 +1,9 @@
 Notificação de confirmação da remoção da lista de discussão %(listname)s
 
-Nós recebemos uma requisiçãot%(remote)s para remoção do seu endereço
+Nós recebemos uma requisição%(remote)s para remoção do seu endereço
 de email, "%(email)s" da lista de discussão %(listaddr)s. Para 
 confirmar que você deseja ser removido desta listas, simplesmente
-resposda a esta mensagem, mantendo a linha de cabeçalho Assunto 
+responda a esta mensagem, mantendo a linha de cabeçalho Assunto 
 intacta ou visite esta página web:
 
     %(confirmurl)s
@@ -18,6 +18,6 @@ a maioria dos leitores de email, pois eles normalmente deixam
 a linha de assunto intacta (a palavra "Re:" adicionada no assunto
 não causa problemas). 
 
-Se não deeja ser removido da lista, por favor ignore esta mensagem. 
+Se não deseja ser removido da lista, por favor ignore esta mensagem. 
 Se achar que esta tentando ser maliciosamente removido da lista, ou 
 tem qualquer outra questão, envie-as para %(listadmin)s.

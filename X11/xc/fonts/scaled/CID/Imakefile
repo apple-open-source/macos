@@ -1,0 +1,13 @@
+XCOMM $XFree86: xc/fonts/scaled/CID/Imakefile,v 1.4 1999/08/28 11:45:39 dawes Exp $
+
+FONTINSTDIR = $(FONTDIR)/CID
+
+MakeFontsDir(fonts.scale)
+
+/*
+ * Replace the next line with 'InstallFonts($(FONTINSTDIR))' when fonts are
+ * added.
+ */
+InstallTarget(install,fonts.dir,$(INSTDATFLAGS),$(FONTINSTDIR))
+
+InstallFontScale($(FONTINSTDIR))

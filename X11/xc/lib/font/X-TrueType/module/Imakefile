@@ -1,0 +1,40 @@
+XCOMM X-TrueType Server - TrueType rasterizer for X
+XCOMM $XFree86: xc/lib/font/X-TrueType/module/Imakefile,v 1.8 2002/02/13 21:32:48 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+/*
+#if DoLoadableServer
+#define PassCDebugFlags CDEBUGFLAGS="$(CDEBUGFLAGS)"
+FONTMODULEDEF = -DFONTMODULE
+#endif
+*/
+
+INCLUDES = -I.. -I$(FONTINCSRC) -I../../include -I../../fontcache \
+           -I$(XINCLUDESRC) -I$(SERVERSRC)/include \
+           -I$(FTSOURCEDIR)/lib -I$(FTSOURCEDIR)/lib/extend \
+           -I$(FTSOURCEDIR)/lib/arch/unix -I$(FONTLIBSRC)/FreeType
+
+#if XTrueTypeDebugXTT
+XTT_DEBUG_FLAGS = -DDUMP
+#endif
+XTT_CCONV_MOUDLE_DEFINES = -DCCONV_MODULE -DCCONV_MODULE_DIR=\"$(MODULEDIR)/codeconv\"
+
+DEFINES = -DTT_MAKE_OPTION_SINGLE_OBJECT=1 -DTT_CONFIG_OPTION_EXTEND_ENGINE \
+	  -DFONTMODULE \
+	  $(XTT_DEBUG_FLAGS) $(XTT_CCONV_MOUDLE_DEFINES) \
+	  $(XTT_USE_OPT_ENC_DEFINES)
+
+MODULE_C = xttmodule.c
+MODULE_O = xttmodule.o
+
+#include "../Imakefile.inc"
+
+ModuleObjectRule()
+LibraryModuleTarget(xtt,$(OBJS))
+InstallLibraryModule(xtt,$(MODULEDIR),fonts)
+
+DependTarget()
+
+InstallDriverSDKLibraryModule(xtt,$(DRIVERSDKMODULEDIR),fonts)

@@ -1,45 +1,44 @@
 <html>
 <head>
-  <title>Authentifi:cation pour l'acc&egrave;s aux archives priv&eacute;es de
+    <title>Authentifi:cation pour l'acc&egrave;s aux archives priv&eacute;es de
 %(realname)s</title>
 </head>
- <body bgcolor="#ffffff">
- 
-<form method="post" action="%(action)s/">
- %(message)s   
-<table width="100%%" border="0" cellspacing="4" cellpadding="5">
+<body bgcolor="#ffffff">
+<FORM METHOD=POST ACTION="%(action)s/">
+%(message)s
+  <TABLE WIDTH="100%%" BORDER="0" CELLSPACING="4" CELLPADDING="5">
+    <TR>
+      <TD COLSPAN="2" WIDTH="100%%" BGCOLOR="#99CCFF" ALIGN="CENTER">
+	<B><FONT COLOR="#000000" SIZE="+1">Authentification pour l'acc&egrave;s aux archives
+priv&eacute;es de %(realname)s</FONT></B>
+      </TD>
+    </TR>
     <tr>
-       <td colspan="2" width="100%%" bgcolor="#99ccff" align="center"> 	
-<b><font color="#000000" size="+1">Authentification pour l'acc&egrave;s aux archives
-priv&eacute;es de %(realname)s</font></b>       
-	</td>
-     </tr>
-     <tr>
-         <td><div align="right">Adresse courriel:</div></td>
-         <td><input type="text" name="username" size="30"></td>
-     </tr>
-     <tr>
-       <td><div align="right">Mot de passe:</div></td>
-       <td><input type="password" name="password" size="30"></td>
-     </tr>
-     <tr>
-       <td colspan="2" align="middle"><input type="submit" 
-					     name="submit"
-					     value="Laissez-moi entrer...">
-	</td>
-     </tr>
-</table>
-<p><strong><em>Important:</em></strong> A partir d'ici, vous devez avoir 
-les cookies activ&eacute;s dans votre navigateur, sinon aucun      
+        <TD><div ALIGN="Right">Adresse courriel&nbsp;:</div></TD>
+        <TD><INPUT TYPE="text" NAME="username" SIZE="30"></TD>
+    </tr>
+    <tr>
+      <TD><div ALIGN="Right">Mot de passe&nbsp;:</div></TD>
+      <TD><INPUT TYPE="password" NAME="password" SIZE="30"></TD>
+    </tr>
+    <tr>
+      <td colspan=2 align="middle"><INPUT type="SUBMIT"
+                                          name="submit"
+					  value="La suite...">
+      </td>
+    </tr>
+  </TABLE>
+<p><strong><em>Important:</em></strong> A partir d'ici, vous devez avoir
+les cookies activ&eacute;s dans votre navigateur, sinon aucun
 changement ne s'appliquera.
-<p>Les cookies de session sont utilis&eacute;s dans l'interface       
-d'administration de Mailman pour que vous n'ayez pas &agrave; vous       
-authentifier de nouveau &agrave; chaque op&eacute;ration. Le cookie       
-expirera automatiquement lorsque vous quitterez votre navigateur, ou 
-vous pouvez le forcer &agrave; expirer en cliquant sur le lien       
-<em>D&eacute;connexion</em> en dessous d'<em>Autres op&eacute;rations 
-administratives</em> (que vous verrez apr&egrave;s vous &ecirc;tre 
-authentifi&eacute; avec succ&egrave;s). 
-</form>
+<p>Les cookies de session sont utilis&eacute;s dans l'interface
+d'administration de Mailman pour que vous n'ayez pas &agrave; vous
+authentifier de nouveau &agrave; chaque op&eacute;ration. Le cookie
+expirera automatiquement lorsque vous quitterez votre navigateur, ou
+vous pouvez le forcer &agrave; expirer en cliquant sur le lien
+<em>D&eacute;connecter</em> en dessous d'<em>Autres op&eacute;rations
+administratives</em> (que vous verrez apr&egrave;s vous &ecirc;tre
+authentifi&eacute; avec succ&egrave;s).
+</FORM>
 </body>
 </html>

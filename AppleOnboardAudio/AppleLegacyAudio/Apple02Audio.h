@@ -76,7 +76,7 @@ protected:
     IOAudioToggleControl *		playthruToggle;
 	IOAudioToggleControl *		headphoneConnection;
 	IOAudioToggleControl *		inputConnection;
-//	IOAudioLevelControl *		pramVol;
+	IOAudioLevelControl *		pramVol;
 	IOAudioLevelControl *		outVolMaster;
     IOAudioLevelControl *		outVolLeft;
     IOAudioLevelControl *		outVolRight;

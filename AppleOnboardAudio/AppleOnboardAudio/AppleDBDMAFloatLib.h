@@ -23,7 +23,8 @@ extern "C" {
 #pragma mark ••• Processing Functions
 #pragma mark ----------------------------- 
 
-void mixAndMuteRightChannel(float* inFloatBufferPtr, UInt32 numSamples); 
+void mixAndMuteRightChannel(float* inFloatBufferPtr, float* outFloatBufferPtr, UInt32 numSamples); 
+void volume (float* inFloatBufferPtr, UInt32 numSamples, float* inLeftVolume, float* inRightVolume, float* inPreviousLeftVolume, float* inPreviousRightVolume);
 
 #pragma mark ----------------------------- 
 #pragma mark ••• iSub Processing Functions
@@ -65,16 +66,6 @@ void Float32ToSwapInt16( float *src, signed short *dst, unsigned int count );
 void Float32ToSwapInt24( float *src, signed long *dst, unsigned int count );
 void Float32ToSwapInt32( float *src, signed long *dst, unsigned int count );
 
-//void NativeInt16ToFloat32CopyLeftToRight( signed short *src, float *dest, unsigned int count, int bitDepth );
-//void NativeInt16ToFloat32CopyLeftToRightGain( signed short *src, float *dest, unsigned int count, int bitDepth, float inGain );
-//void NativeInt16ToFloat32CopyRightToLeftGain( signed short *src, float *dest, unsigned int count, int bitDepth, float inGain );
-//void NativeInt32ToFloat32CopyLeftToRight( signed long *src, float *dest, unsigned int count, int bitDepth );
-//void NativeInt32ToFloat32CopyRightToLeft( signed long *src, float *dest, unsigned int count, int bitDepth );
-//void NativeInt32ToFloat32CopyLeftToRightGain( signed long *src, float *dest, unsigned int count, int bitDepth, float inGain );
-//void NativeInt32ToFloat32CopyRightToLeftGain( signed long *src, float *dest, unsigned int count, int bitDepth, float inGain );
-//void Float32ToNativeInt16MixAndMuteRight( float *src, signed short *dst, unsigned int count );
-//void Float32ToNativeInt32MixAndMuteRight( float *src, signed long *dst, unsigned int count );
-
 #pragma mark ---------------------------------------- 
 #pragma mark ••• Utilities
 #pragma mark ---------------------------------------- 
@@ -82,12 +73,13 @@ void Float32ToSwapInt32( float *src, signed long *dst, unsigned int count );
 UInt32 	CalculateOffset (UInt64 nanoseconds, UInt32 sampleRate);
 void 	dBfixed2float (UInt32 indBfixed, float* ioGainPtr);
 void 	inputGainConverter (UInt32 inGainIndex, float* ioGainPtr);
+#ifdef TESTING_VOLUME_SCALING
+void 	volumeConverter (UInt32 inVolume, UInt32 inMinLinear, UInt32 inMaxLinear, SInt32 inMindB, SInt32 inMaxdB, float* outVolume, float* t1, float* t2, float* t3, float* t4, float* t5);
+#else
+void 	volumeConverter (UInt32 inVolume, UInt32 inMinLinear, UInt32 inMaxLinear, SInt32 inMindB, SInt32 inMaxdB, float* outVolume);
+#endif
 void 	convertToFourDotTwenty(FourDotTwenty* ioFourDotTwenty, float* inFloatPtr);
 void 	dB2linear (float * inDB, float * outLinear);
-void 	invertFloat (float * inFloat);
-void	convertNanosToPercent (UInt64 inNumerator, UInt64 inDenominator, float * percent);
-void	floatAccumulate (float * x, float * acc);
-void	floatAverage (float * x, float * avg);
 };
 
 #endif

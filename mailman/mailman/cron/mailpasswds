@@ -42,6 +42,7 @@ import sys
 import os
 import errno
 import getopt
+from types import UnicodeType
 
 import paths
 # mm_cfg must be imported before the other modules, due to the side-effect of
@@ -75,6 +76,13 @@ def usage(code, msg=''):
     if msg:
         print >> fd, msg
     sys.exit(code)
+
+
+
+def tounicode(s, enc):
+    if isinstance(s, UnicodeType):
+        return s
+    return unicode(s, enc, 'replace')
 
 
 
@@ -142,7 +150,15 @@ def main():
                     continue
                 # Group by the lower-cased address, since Mailman always
                 # treates person@dom.ain the same as PERSON@dom.ain.
-                password = mlist.getMemberPassword(member)
+                try:
+                    password = mlist.getMemberPassword(member)
+                except Errors.NotAMemberError:
+                    # Here's a member with no passwords, which I think was
+                    # possible in older versions of Mailman.  Log this and
+                    # move on.
+                    syslog('error', 'password-less member %s for list %s',
+                           member, mlist.internal_name())
+                    continue
                 optionsurl = mlist.GetOptionsURL(member)
                 lang = mlist.getMemberLanguage(member)
                 info = (listaddr, password, optionsurl, lang)
@@ -176,6 +192,7 @@ def main():
                 if cnt > langcnt:
                     poplang = lang
                     langcnt = cnt
+            enc = Utils.GetCharSet(poplang)
             # Craft the table header
             header = '%-40s %-10s\n%-40s %-10s' % (
                 _('List'), _('Password // URL'), '----', '--------')
@@ -190,6 +207,9 @@ def main():
                  'exreq'   : sitereq,
                  'owner'   : siteowner,
                  }, lang=poplang)
+            # Coerce everything to Unicode
+            text = tounicode(text, enc)
+            table = [tounicode(_t, enc) for _t in table]
             # Add the table to the end so it doesn't get wrapped/filled
             text += (header + '\n' + NL.join(table))
             # Translate the message and headers to user's suggested lang

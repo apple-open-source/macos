@@ -1,0 +1,70 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/int10/Imakefile,v 1.16 2002/09/16 18:06:08 eich Exp $
+
+/* An OS-independent INT10 module/library */
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#if !UseX86Emu || (XF86INT10_BUILD == X86INT10_STUB)
+
+SRCS = xf86int10module.c stub.c
+OBJS = xf86int10module.o stub.o
+
+#else 
+
+X86TOPDIR = $(TOP)/extras/x86emu
+X86SRCDIR = $(X86TOPDIR)/src/x86emu
+X86EMUINCLUDES = -I$(X86TOPDIR)/include -I$(X86SRCDIR)
+
+# if !defined(X86EMU_LIBPATH)
+X86EMUSRCS = debug.c decode.c fpu.c ops.c ops2.c prim_ops.c sys.c
+X86EMUOBJS = debug.o decode.o fpu.o ops.o ops2.o prim_ops.o sys.o
+
+LinkSourceFile(debug.c,$(X86SRCDIR))
+LinkSourceFile(decode.c,$(X86SRCDIR))
+LinkSourceFile(fpu.c,$(X86SRCDIR))
+LinkSourceFile(ops.c,$(X86SRCDIR))
+LinkSourceFile(ops2.c,$(X86SRCDIR))
+LinkSourceFile(prim_ops.c,$(X86SRCDIR))
+LinkSourceFile(sys.c,$(X86SRCDIR))
+
+# else
+BuildObjectFromLibraryWithPath(X86EMU_LIBPATH,x86emu,x86emu)
+X86EMUOBJS = x86emu.o
+# endif
+
+X86EMUDEFINES = -D__DRIVER__ -DFORCE_POST -D_CEXPORT= -DNO_LONG_LONG
+
+XCOMM Check the x86_64Architecture
+# if defined(i386Architecture) || defined(x86_64Architecture)
+ARCHDEFINES = -D_PC
+# elif defined(ia64Architecture)
+/* ARCHDEFINES = -D_PC_IO -D_PC_PCI */
+# elif defined(SparcArchitecture) || defined(PpcArchitecture)
+ARCHDEFINES = -D__BIG_ENDIAN__
+# endif
+
+INT10DEFINES = -D_X86EMU $(ARCHDEFINES)
+
+SRCS = pci.c xf86int10module.c helper_exec.c helper_mem.c xf86int10.c \
+       xf86x86emu.c generic.c $(X86EMUSRCS)
+
+OBJS = pci.o xf86int10module.o helper_exec.o helper_mem.o xf86int10.o \
+       xf86x86emu.o generic.o $(X86EMUOBJS)
+
+
+#endif
+
+INCLUDES = -I$(XF86COMSRC) -I$(XF86OSSRC) -I. -I$(SERVERSRC)/include \
+	   -I$(XINCLUDESRC) -I$(EXTINCSRC) $(X86EMUINCLUDES)
+
+DEFINES = $(X86EMUDEFINES) $(INT10DEFINES)
+
+ModuleObjectRule()
+LibraryModuleTarget(int10,$(OBJS))
+
+InstallLibraryModule(int10,$(MODULEDIR),.)
+
+DependTarget()
+
+InstallDriverSDKNonExecFile(xf86int10.h,$(DRIVERSDKINCLUDEDIR))

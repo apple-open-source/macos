@@ -1,0 +1,359 @@
+XCOMM platform:  $XFree86: xc/config/cf/cygwin.cf,v 3.49 2002/12/31 19:48:42 alanh Exp $
+
+#ifndef OSName
+# define OSName                 Cygwin
+#endif
+#ifndef OSVendor
+# define OSVendor               Red Hat Inc.
+#endif
+#ifndef OSMajorVersion
+# define OSMajorVersion		DefaultOSMajorVersion
+#endif
+#ifndef OSMinorVersion
+# define OSMinorVersion		DefaultOSMinorVersion
+#endif
+#ifndef OSTeenyVersion
+# define OSTeenyVersion		DefaultOSTeenyVersion
+#endif
+
+#define ProjectRoot 		/usr/X11R6
+
+#define BuildServer		YES
+
+#ifndef UnixCpp
+#define UnixCpp
+#endif
+
+#if !CrossCompiling
+#define HasGcc2			YES
+#endif /* !CrossCompiling */
+#define HasGcc2ForCplusplus     YES
+#define GccUsesGas              YES
+#define UseGas                  YES
+#define GnuCpp                  YES
+
+#define ExtraLoadFlags		-Wl,--enable-auto-import
+
+#define HasShadowPasswd         NO
+#define HasLibCrypt             YES
+#define HasPutenv               YES
+#define HasPoll			NO
+#ifndef UseCygIPC
+#define UseCygIPC		NO
+#endif
+#if UseCygIPC
+# define HasShm			YES
+# define ServerExtraSysLibs	-lcygipc
+#else
+# define HasShm                 NO
+# define ServerExtraSysLibs	/**/
+#endif
+#define HasSnprintf		YES
+
+/*
+ * Cygwin has Tcl/Tk, but you need to keep the version numbers
+ * of the libs in sync.  These version numbers may change
+ * occassionally.
+ */
+#define Hastcl                  YES
+#define Hastk                   YES
+#define TclLibName              tcl80
+#define TkLibName               tk80
+
+#define HasSockets              YES
+#define GzipFontCompression	YES
+#define HasZlib			YES
+#define GzipLibrary             -lz.dll
+
+/* We don't need -lm */
+#define MathLibrary             /**/
+
+/*
+ * /lib/libtermcap.a doesn't have tgetent, which is needed for
+ * xc/programs/xterm/resize.exe
+ */
+#define TermcapLibrary		-lncurses.dll
+
+#define AvoidNullMakeCommand    YES
+#define StripInstalledPrograms  YES
+#define CompressAllFonts        YES
+#define Malloc0ReturnsNull      NO
+#define NeedConstPrototypes     YES
+#define NeedFunctionPrototypes  YES
+#define NeedNestedPrototypes    YES
+#define NeedVarargsPrototypes   YES
+#define NeedWidePrototypes      NO
+#define SetTtyGroup             YES
+#define ExpandManNames          YES
+#define HasDlopen	        NO
+#define HasGnuMake		YES
+#define UseGccMakeDepend	NO
+#define ThreadedX               YES
+#define HasThreadSafeAPI        YES
+#define CaseSensitiveFileSystem NO
+
+#define LnCmd                   ln -s
+#ifndef CcCmd
+#define CcCmd                   gcc
+#endif /* CcCmd */
+#ifndef CplusplusCmd
+#define CplusplusCmd		g++
+#endif /* CplusplusCmd */
+#ifndef AsCmd
+#define AsCmd                   as
+#endif /* AsCmd */
+#define GccGasOption	        -DGCCUSESGAS
+#define AsmDefines	        -DUSE_GAS -DGCCUSESGAS
+#ifndef LdCmd
+#define LdCmd                   gcc -lautomode
+#endif /* LdCmd */
+#define MkdirHierCmd            mkdir -p
+#ifndef CppCmd
+#define CppCmd                  cpp
+#endif /* CppCmd */
+#ifndef YaccCmd
+#define YaccCmd                 byacc
+#endif /* YaccCmd */
+#define LexCmd                  flex -l
+#define LexLib                  -lfl
+#define HasFlex			YES
+
+/*
+ * Cygwin-specific Windows resource compiler command
+ */
+
+#ifdef CrossCompileDir
+# ifndef WindresCmd
+#  define WindresCmd		Concat3(CrossCompileDir,/,windres)
+# endif
+#else
+# ifndef WindresCmd
+#  define WindresCmd		windres
+# endif
+#endif
+
+#define PreProcessCmd           CcCmd -E
+
+#ifndef PostIncDir
+#define PostIncDir              `CcCmd --print-libgcc-file-name | sed 's,\\\\,/,g' | sed 's,libgcc.a,include,'`
+#endif
+#ifndef ExtraIncDir
+#define ExtraIncDir		/usr/include/w32api
+#endif
+
+#define LdCombineFlags          -r
+
+/*
+ * We do not define -ansi yet as newlib (which is Cygwin's library) does not
+ * define some needed prototypes when -ansi is set, when that is fixed
+ * we can remove these lines and use the default XFree86 options.
+ */
+#ifndef DefaultCCOptions
+# define DefaultCCOptions	/* -ansi -pedantic */ GccWarningOptions
+#endif
+
+# ifndef OptimizedCDebugFlags
+#  define OptimizedCDebugFlags	DefaultGcc2i386Opt
+# endif
+
+#define StandardDefines         -D__i386__ -DWIN32_LEAN_AND_MEAN -DX_LOCALE \
+				-D_X86_ -D__CYGWIN__ -D_XOPEN_SOURCE \
+				-D_POSIX_C_SOURCE=199309L -D_BSD_SOURCE \
+				-D_SVID_SOURCE -D_GNU_SOURCE -DNO_ALLOCA
+
+#define XawI18nDefines          -DUSE_XWCHAR_STRING -DUSE_XMBTOWC
+#define HasWChar32              YES
+#define StandardCppOptions	-traditional
+
+/*
+ * Cygwin only has shared memory support when using the cygipc package,
+ * or the newer cygserver package.
+ */
+#if UseCygIPC
+# if ThreadedX
+#  define StandardCppDefines      -DHAS_THREADS -DHAS_SHM StandardDefines
+# else
+#  define StandardCppDefines      -DHAS_SHM StandardDefines
+# endif
+#else
+# if ThreadedX
+#  define StandardCppDefines      -DHAS_THREADS StandardDefines
+# else
+#  define StandardCppDefines      StandardDefines
+# endif
+#endif
+
+/*
+ * Do not use XFree86ServerDefines here because it always defines
+ * XFree86Server.  Defining XFree86Server causes fb to not expose its
+ * fbSetVisualTypesAndMasks.  Instead, we create a local
+ * XWinServerDefines, which has everything that XFree86ServerDefines
+ * has in it, but it allows us to easily remove the XFree86Server
+ * define for experimental development purposes.
+ */
+#define XWinServerDefines	-DAVOID_GLYPHBLT -DPIXPRIV -DSINGLEDEPTH \
+				XFree86DGADefines XFree86XvDefines \
+				XFree86LoaderDefines -DXFree86Server \
+				VidModeExtensionDefines \
+				XFree86XvMCDefines \
+				ServerSnprintfDefines \
+				SmartScheduleDefines \
+				DebugDefines XFree86XResDefines \
+				-DX_BYTE_ORDER=ByteOrder
+#define ServerOSDefines         XWinServerDefines \
+				-DDDXTIME -DFD_SETSIZE=256 -DDDXOSINIT \
+				-DDDXOSVERRORF -DDDXOSFATALERROR
+#define XkbServerDefines        -DXKB_ALWAYS_USES_SOFT_REPEAT
+#define ServerExtraDefines      -DGCCUSESGAS XWinServerDefines
+#define ConnectionFlags         -DTCPCONN -DUNIXCONN
+#define ExtraLibraries          
+#define InstUidFlags            -m 4711
+#define UseRgbTxt               YES
+#define ExtraFilesToClean	*.obj *.orig *.rej junk.c *.exe *.dll *.lib *~
+
+/*
+ * You'll probably want BuildDebug to be YES if you are debugging :)
+ */
+#define BuildDebug		NO
+#define XFree86Devel		NO
+
+/*
+ * Xinerama is multiple monitor support and will require special code,
+ * if it even makes sense to enable such a beast in Cygwin/XFree86.
+ */
+#define BuildXinerama		NO
+
+/*
+ * PEX and XIE were deprecated on 2001-05-29, as Keith Packard says,
+ * "they are so broken as to be unusable in real applications," furthermore,
+ * "neither PEX nor XIE have seen any development for almost a decade".
+ * 
+ * XIE is the X Image Extension Protocol, not to be confused with
+ * XInputExt, which is the X Input Extension.
+ */
+#define BuildPexExt		NO
+#define BuildXIE		NO
+
+/*
+ * Rush is a non standard extension for cooperation between the glide
+ * library and the X server.  Cygwin/XFree86 will never need Rush,
+ * as all graphics requests are processed through GDI or DirectDraw.
+ */
+#define BuildXF86RushExt	NO
+
+/*
+ * DPMS is the Display Power Management System.  Cygwin/XFree86 doesn't
+ * own the display hardware, Windows does, so it doesn't make sense
+ * for Cygwin/XFree86 to try to provide power management.
+ */
+#define BuildDPMS		NO
+#define BuildDPMSExt		NO
+#define DPMSDefines		/**/
+
+#define BuildGlxExt             YES
+#define BuildXInputExt		YES
+#define BuildXF86VidModeExt     NO
+#define BuildXF86DGA		NO	/* No direct access to hardware */
+#define BuildXvExt		YES
+#define BuildXF86MiscExt	NO
+#define BuildRender		YES
+#define BuildRandR		NO
+#define BuildXF86DRI		NO	/* No direct access to hardware */
+#define BuildXF86DRM		NO	/* No direct access to hardware */
+#define BuildXKB		YES
+#define BuildXCMiscExt		YES
+#define BuildTestExt		YES
+#define BuildMITMiscExt		YES
+#define BuildSyncExt		YES
+#define BuildBigReqsExt		YES
+#define BuildEVI		YES
+#define BuildXF86BigfontExt	YES
+#define BuildRECORD		YES
+#define BuildDBE		YES
+#define BuildFontCache		YES
+#define BuildLBX		YES
+#define BuildCup		YES
+#define BuildXCSecurity		YES
+#define BuildAppgroup		YES
+#define BuildShapeExt		YES
+#define BuildScanpci		NO	/* No direct access to hardware */
+
+#define BuildScreenSaverExt	NO
+
+/*
+ * What is Plugin?
+ */
+#define BuildPlugin		NO
+
+/*
+ * DPS is the Adobe Display Postscript (r) library.
+ * It seems that we do not yet have a postscript client library
+ * to work in conjunction with DPS; the remedy to this may be
+ * as simple as flipping a build switch or instaling Ghostscript.
+ * In any case, some work needs to be done before DPS will work. 
+ */
+#define BuildDPS		NO
+
+/*
+ * Doing a loadable server would probably take some extra work.
+ */
+#define DoLoadableServer	NO
+
+/*
+ * Don't build the XFree86 server
+ */
+#define XF86Server		NO
+
+/*
+ * Try to avoid building anything related to graphics cards
+ */
+#define XFShadowFB		NO
+#define XF24_32Bpp		NO
+#define XF8_16Bpp		NO
+#define XF8_32Bpp		NO
+#define XF4Bpp			NO
+#define XF1Bpp			NO
+#define XF86VgaHw		NO
+#define XF86FBDevHw		NO
+#define XF86XAA			NO
+#define XF86Ramdac		NO
+#define XF86I2C			NO
+#define XF86DDC			NO
+#define XF86RAC			NO
+#define XF86Int10		NO
+
+#define XF86AFB			NO
+
+#define XF86CardDrivers		/**/
+
+/* Server build rules */
+#ifndef XnestServer
+#define XnestServer			YES
+#endif
+#ifndef BuildXprint
+#define BuildXprint			YES
+#endif
+#ifndef XprtServer
+#define XprtServer			YES
+#endif
+#ifndef XVirtualFramebufferServer
+#define XVirtualFramebufferServer	YES
+#endif
+
+#define XWinServer			YES
+
+/*
+ * 2001-06-19 - SmartScheduler is terribly slow on Cygwin.  It causes
+ * visible delays in updating of windows, cursor position, etc.
+ */
+#define UseSmartScheduler		NO
+
+/*
+ * --unix option of Cygwin make fools the standard MakeFlagsToShellFlags macro
+ */
+#define MakeFlagsToShellFlags(makeflags,shellcmd) \
+	for flag in ${MAKEFLAGS} ''; do \				@@\
+	  case "$$flag" in *=*) ;;--*) ;; *[makeflags]*) shellcmd;; esac; done
+
+#include <cygwin.rules>
+#include <xfree86.cf>

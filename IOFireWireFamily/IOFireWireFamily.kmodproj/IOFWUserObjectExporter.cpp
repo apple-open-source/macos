@@ -6,6 +6,12 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  *	$Log: IOFWUserObjectExporter.cpp,v $
+ *	Revision 1.8  2003/12/18 00:08:12  niels
+ *	fix panic calling methods on deallocated user objects
+ *	
+ *	Revision 1.7  2003/12/15 23:31:32  niels
+ *	fix object exporter panic when passed NULL object handle
+ *	
  *	Revision 1.6  2003/11/20 21:32:58  niels
  *	fix radar 3490815
  *	
@@ -196,6 +202,11 @@ IOFWUserObjectExporter :: addObject ( OSObject & obj, CleanupFunction cleanupFun
 void
 IOFWUserObjectExporter :: removeObject ( UserObjectHandle handle )
 {
+	if ( !handle )
+	{
+		return ;
+	}
+	
 	lock () ;
 	
 	DebugLog("user object exporter removing handle %p\n", handle)
@@ -228,6 +239,11 @@ IOFWUserObjectExporter :: removeObject ( UserObjectHandle handle )
 const OSObject *
 IOFWUserObjectExporter :: lookupObject ( UserObjectHandle handle ) const
 {
+	if ( !handle )
+	{
+		return NULL ;
+	}
+
 	const OSObject * result = NULL ;
 	
 	lock () ;
@@ -237,7 +253,10 @@ IOFWUserObjectExporter :: lookupObject ( UserObjectHandle handle ) const
 	if ( fObjects && ( index < fCapacity ) )
 	{
 		result = fObjects [ index ] ;
-		result->retain() ;
+		if ( result )
+		{
+			result->retain() ;
+		}
 	}
 		
 	unlock () ;

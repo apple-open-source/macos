@@ -95,6 +95,7 @@ protected:
         UInt32			_notificationType;
         bool			_suspendInProgress;
         bool			_portHasBeenSuspended;
+        bool			_addExtraResetTime;
     };
     ExpansionData * _expansionData;
 

@@ -12,7 +12,7 @@
 char *prompts[] = {		/* modem responses that are prompts */
   "OOK", "-CONNECT FAX", "CCONNECT", "NNO CARRIER", "EERROR",
   "NNO DIALTONE", "BBUSY", "NNO ANSWER", "M+FCERROR", "VVCON", 
-  "DDATA", 0 } ;
+  "DDATA", "++FRH:", 0 } ;
 
 int lockpolldelay = 8000 ;	/* milliseconds between checks of lock files */
 

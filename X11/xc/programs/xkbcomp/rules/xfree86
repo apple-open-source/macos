@@ -1,0 +1,182 @@
+// $Xorg: xfree86,v 1.3 2000/08/17 19:54:42 cpqbld Exp $
+
+//
+//  Rules for resolving XKB components for use with XFree86
+//  Copyright 1996 by Joseph Moss
+//
+//  2002 Modifier: Ivan Pascal      The XFree86 Project
+//  $XFree86: xc/programs/xkbcomp/rules/xfree86,v 3.61 2003/02/20 04:36:09 dawes Exp $
+//
+
+// Layouts that still need be composed by old rules
+! $oldlayouts = az bs ca ca_enhanced de_CH fr_CH hu hu_qwerty lt_std mn vn
+
+// If you want non-latin layouts implicitly include the en_US layout
+// uncomment lines below
+//! $nonlatin = am ar ben bg by dev el ge_la ge_ru guj gur il il_phonetic\
+//              ir iu kan lo mk mm ml ori ru sr syr syr_phonetic tel th\
+//              tj tml ua
+
+! $pcmodels = pc101 pc102 pc104 pc105
+! $mac = macintosh macintosh_old
+
+! model 	=	keycodes
+  macintosh_old	=	macintosh
+  powerpcps2	=	powerpcps2
+  pc98		=	xfree98(pc98)
+  abnt2		=	xfree86(abnt2)
+  *		=	xfree86
+
+! $azerty = be fr fr-latin9
+! $qwertz = al cz de hr pl2 si sk
+
+! layout[1]	=	keycodes
+  $azerty       =       +aliases(azerty)
+  $qwertz       =       +aliases(qwertz)
+  *             =       +aliases(qwerty)
+
+! layout	=	keycodes
+  $azerty       =       +aliases(azerty)
+  $qwertz       =       +aliases(qwertz)
+  *             =       +aliases(qwerty)
+
+! model 	=	geometry
+  microsoft	=	microsoft(natural)
+  microsoftpro	=	microsoft(natural)
+  microsoftprose =	microsoft(natural)
+  dell101	=	dell(dell101)
+  flexpro	=	keytronic(FlexPro)
+  omnikey101	=	northgate(omnikey101)
+ $pcmodels	=	pc(%m)
+  jp106		=	pc(jp106)
+  everex	=	everex(STEPnote)
+  winbook	=	winbook(XP5)
+  pc98		=	nec(pc98)
+  abnt2		=	pc
+  macintosh	=	macintosh(macintosh)
+  macintosh_old	=	macintosh(macintosh)
+  *		=       pc(pc104)
+
+! model		variant		layout	=	symbols
+  macintosh	nodeadkeys	*	=	macintosh/us(extended)+macintosh/%l%(v)
+ $pcmodels	nodeadkeys  $oldlayouts	=	en_US(%m%_v)+%l%(v)
+  *		nodeadkeys  $oldlayouts	=	en_US(pc105%_v)+%l%(v)
+
+! model		layout	=	symbols
+  pc98		nec/jp	=	nec/jp(pc98)
+  abnt2		br	=	us(pc101)+br
+ $pcmodels	us_intl	=	us(%m)+us_intl
+ $mac		us	=	macintosh/us(extended)
+ $mac		en_US	=	macintosh/us(extended)
+ $mac		*	=	macintosh/us(extended)+macintosh/%l%(v)
+ $pcmodels      intl    =       us(%mcompose)
+  *		intl	=	us(pc104compose) 
+  *		jp	=	jp
+ $pcmodels $oldlayouts  =       en_US(%m)+%l%(v)
+ $pcmodels $nonlatin	=	pc/pc(%m)+pc/us+pc/%l%(v):2
+ $pcmodels	*	=	pc/pc(%m)+pc/%l%(v)
+  *	   $oldlayouts  =       en_US(pc105)+%l%(v)
+  *	   $nonlatin	=	pc/pc(pc105)+pc/us+pc/%l%(v):2
+  *		*	=	pc/pc(pc105)+pc/%l%(v)
+
+! model	    layout[1]	=	symbols
+ $pcmodels	*	=	pc/pc(%m)+pc/%l[1]%(v[1])
+  *		*	=	pc/pc(pc105)+pc/%l[1]%(v[1])
+
+! layout[2]	=	symbols
+  *		=	+pc/%l[2]%(v[2]):2
+
+! layout[3]	=	symbols
+  *		=	+pc/%l[3]%(v[3]):3
+
+! layout[4]	=	symbols
+  *		=	+pc/%l[4]%(v[4]):4
+ 
+! $inetkbds = airkey acpi scorpius \
+              brother \
+              btc5113rf btc5126t btc9000 btc9000a \
+              cherryblue cherrybluea \
+              chicony chicony9885 \
+              compaqeak8 compaqik7 compaqik13 compaqik18 armada presario ipaq \
+              dell inspiron \
+              dexxa diamond genius \
+              ennyah_dkb1008 \
+              hpi6 hp2501 hp2505 hp5181 hpxe3gc hpxe3gf hpxe4xxx hpzt11xx \
+              hp500fa hp5xx \
+              honeywell_euroboard \
+              rapidaccess rapidaccess2 rapidaccess2a \
+              ltcd logicdit logicdp logicdpa logicdpa2 logicdo logicfn \
+              logicdn logidak logiik itouch logiitc logiik logiink itouchin \
+              mx1998 mx2500 mx2750 \
+              microsoftinet microsoftpro microsoftprose microsoftoffice \
+              oretec \
+              propeller \
+              qtronix \
+              samsung4500 samsung4510 \
+              sk1300 sk2500 sk6200 sk7100 \
+              sven symplon toshiba_s3000 trust trustda yahoo
+
+! model         =       symbols
+  $inetkbds     =       +inet(%m)
+
+! model		layout	=	compat
+  pc98		nec/jp	=	pc98(basic)
+  *		*	=	complete
+
+! model	     layout[1]	=	compat
+  *		*	=	complete
+
+! model		=	types
+  *		=	complete
+
+! option		=	symbols
+  grp:switch		=	+group(switch)
+  grp:lswitch		=	+group(lswitch)
+  grp:win_switch	=	+group(win_switch)
+  grp:lwin_switch	=	+group(lwin_switch)
+  grp:rwin_switch	=	+group(rwin_switch)
+  grp:toggle		=	+group(toggle)
+  grp:shift_toggle	=	+group(shift_toggle)
+  grp:ctrls_toggle	=	+group(ctrls_toggle)
+  grp:alts_toggle	=	+group(alts_toggle)
+  grp:ctrl_shift_toggle	=	+group(ctrl_shift_toggle)
+  grp:caps_toggle	=	+group(caps_toggle)
+  grp:ctrl_alt_toggle	=	+group(ctrl_alt_toggle)
+  grp:alt_shift_toggle	=	+group(alt_shift_toggle)
+  grp:menu_toggle	=	+group(menu_toggle)
+  grp:lwin_toggle	=	+group(lwin_toggle)
+  grp:rwin_toggle	=	+group(rwin_toggle)
+  grp:lshift_toggle	=	+group(lshift_toggle)
+  grp:rshift_toggle	=	+group(rshift_toggle)
+  grp:lctrl_toggle	=	+group(lctrl_toggle)
+  grp:rctrl_toggle	=	+group(rctrl_toggle)
+  grp:lalt_toggle	=	+group(lalt_toggle)
+  lv3:switch		=	+level3(switch)
+  lv3:menu_switch	=	+level3(menu_switch)
+  lv3:win_switch	=	+level3(win_switch)
+  lv3:lwin_switch	=	+level3(lwin_switch)
+  lv3:rwin_switch	=	+level3(rwin_switch)
+  ctrl:nocaps		=	+ctrl(nocaps)
+  ctrl:swapcaps		=	+ctrl(swapcaps)
+  ctrl:ctrl_ac		=	+ctrl(ctrl_ac)
+  ctrl:ctrl_aa		=	+ctrl(ctrl_aa)
+  altwin:menu		=	+altwin(menu)
+  altwin:meta_alt	=	+altwin(meta_alt)
+  altwin:meta_win	=	+altwin(meta_win)
+  altwin:left_meta_win	=	+altwin(left_meta_win)
+  altwin:super_win	=	+altwin(super_win)
+  altwin:hyper_win	=	+altwin(hyper_win)
+  compose:ralt		=	+compose(ralt)
+  compose:rwin		=	+compose(rwin)
+  compose:menu		=	+compose(menu)
+
+! option		=	compat
+  grp_led:num		=	+leds(num)
+  grp_led:caps		=	+leds(caps)
+  grp_led:scroll	=	+leds(scroll)
+
+! option			=	types
+  caps:internal			=	+caps(internal)
+  caps:internal_nocancel	=	+caps(internal_nocancel)
+  caps:shift			=	+caps(shift)
+  caps:shift_nocancel		=	+caps(shift_nocancel)

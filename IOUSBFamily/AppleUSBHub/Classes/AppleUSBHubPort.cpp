@@ -483,8 +483,16 @@ AppleUSBHubPort::SuspendPort( bool suspend)
 IOReturn
 AppleUSBHubPort::ReEnumeratePort(UInt32 options)
 {
-    USBLog(5,"AppleUSBHubPort[%p]::ReEnumeratePort -- reenumerating port %d",this, _portNum);
+    USBLog(5,"AppleUSBHubPort[%p]::ReEnumeratePort -- reenumerating port %d, options 0x%x",this, _portNum, options);
 
+    // Test to see if bit31 is set, and if so, set up a flag to indicate that we need to wait 100ms after a reset and before
+    // talking to the device (Bluetooth workaround)
+    if ( (options & (1<<31)) )
+    {
+        USBLog(5,"AppleUSBHubPort[%p]::ReEnumeratePort -- reenumerating port %d, options 0x%x",this, _portNum, options);
+        _extraResetDelay = true;
+    }
+    
     // First, since we are going to reenumerate, we need to remove the device
     // and then add it again
     //
@@ -702,6 +710,13 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
     const IORegistryPlane 	* usbPlane;
     
     USBLog(5, "***** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d on hub %p - start", this, _portNum, _hub);
+
+    if ( _extraResetDelay )
+    {
+        USBLog(5, "***** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - delaying 100ms workaround", this);
+        IOSleep(100);
+    }
+    
     do
     {
         if (_state != hpsDeadDeviceZero)
@@ -1036,6 +1051,12 @@ AppleUSBHubPort::HandleResetPortHandler(UInt16 changeFlags, UInt16 statusFlags)
     
     USBLog(5, "***** AppleUSBHubPort[%p]::HandleResetPortHandler - port %d on hub %p - start", this, _portNum, _hub);
     SetPortVector(&AppleUSBHubPort::DefaultResetChangeHandler, kHubPortBeingReset);
+    if ( _extraResetDelay )
+    {
+        USBLog(5, "***** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - delaying 100ms workaround", this);
+        IOSleep(100);
+    }
+
     do
     {
         if (_state != hpsDeadDeviceZero)
@@ -1736,7 +1757,7 @@ AppleUSBHubPort::ReleaseDevZeroLock()
         USBError(1, "AppleUSBHubPort[%p]::ReleaseDevZeroLock()", this);
         _state = hpsNormal;
  
-        if ( _bus )
+        if ( _devZero && _bus )
             _bus->ReleaseDeviceZero();
             
         _devZero = false;

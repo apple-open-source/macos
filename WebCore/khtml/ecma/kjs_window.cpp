@@ -269,6 +269,7 @@ const ClassInfo Window::info = { "Window", 0, &WindowTable, 0 };
   onmove	Window::Onmove		DontDelete
   onreset	Window::Onreset		DontDelete
   onresize	Window::Onresize	DontDelete
+  onscroll      Window::Onscroll        DontDelete
   onselect	Window::Onselect	DontDelete
   onsubmit	Window::Onsubmit	DontDelete
   onunload	Window::Onunload	DontDelete
@@ -680,6 +681,11 @@ Value Window::get(ExecState *exec, const Identifier &p) const
         return getListener(exec,DOM::EventImpl::RESIZE_EVENT);
       else
         return Undefined();
+    case Onscroll:
+        if (isSafeScript(exec))
+            return getListener(exec,DOM::EventImpl::SCROLL_EVENT);
+        else
+            return Undefined();
     case Onselect:
       if (isSafeScript(exec))
         return getListener(exec,DOM::EventImpl::SELECT_EVENT);
@@ -878,6 +884,10 @@ void Window::put(ExecState* exec, const Identifier &propertyName, const Value &v
     case Onresize:
       if (isSafeScript(exec))
         setListener(exec,DOM::EventImpl::RESIZE_EVENT,value);
+      return;
+    case Onscroll:
+      if (isSafeScript(exec))
+        setListener(exec,DOM::EventImpl::SCROLL_EVENT,value);
       return;
     case Onselect:
       if (isSafeScript(exec))

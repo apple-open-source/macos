@@ -1,0 +1,41 @@
+Maillisten `%(listname)s' er nu oprettet. Her følger lidt
+grundlæggende information om listen.
+
+Administrationspassword er:
+
+    %(password)s
+
+Dette password er nødvendigt for at konfigurere maillisten. Du skal
+også bruge det, for at behandle forespørgsler til maillisten, f. eks.
+godkende e-mail, hvis du vælger at begrænse listen til at være en
+modereret liste.
+
+Du kan konfigurere listen på følgende webside:
+
+    %(admin_url)s
+
+Websiden for tilmeldte til listen er:
+
+    %(listinfo_url)s
+
+Du kan også ændre i din personlige tilpasning på disse sider, fra
+listens konfigurationsside, men for at kunne gøre dette skal du 
+kunne skrive HTML-kode.
+
+Der findes også en e-mailbaseret grænseflade for medlemmer (ikke
+administratore) af listen. Du kan få mere information om dette
+ved at sende en e-mail til:
+
+    %(requestaddr)s
+
+kun indeholdende ordet 'help' i Subject feltet eller i selve
+mailen.
+
+Hvis et medlem af maillisten skal fjernes, kan du fra listens
+web-side klikke på eller skrive medlemmets e-mailadresse. Der hvor
+medlemmet skal skrive sit password skal du skrive dit eget 
+administratorpassword.
+Du kan f. eks. også stoppe udsendelse af listemail til dette medlem,
+ændre til sammendrags-mods, osv. på denne måde.
+
+Du kan nu systemadminstrere på %(siteowner)s.

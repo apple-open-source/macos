@@ -1,0 +1,91 @@
+
+// Description : A keymap for Malayalam
+// Encoding    : Unicode (http://www.unicode.org)
+// Author      : Baiju M <baiju@freeshell.org>
+// Date        : Sat Aug  17 21:10:48 IST 2002
+// Mapping:
+
+default partial alphanumeric_keys 
+xkb_symbols "basic" {
+
+    name[Group1] = "Malayalam";
+
+    //From grave to backslash (\)
+    
+    key <TLDE> { [ 0x01000d4a , 0x01000d12           ] };
+    key <AE01> { [1           ,     exclam           ] }; 
+    key <AE02> { [2           ,         at           ] };
+    key <AE03> { [3           , numbersign           ] };
+    key <AE04> { [4           ,     dollar           ] };
+    key <AE05> { [5           ,    percent           ] };
+    key <AE06> { [6           ,asciicircum           ] };
+    key <AE07> { [7           ,  ampersand           ] };
+    key <AE08> { [8           , 0x01000d7e           ] };
+    key <AE09> { [9           ,  parenleft           ] };
+    key <AE10> { [0           , parenright           ] };
+    key <AE11> { [ minus      , 0x01000d03           ] };
+    key <AE12> { [ 0x01000d43 , 0x01000d0b           ] };
+    key <BKSL> { [ 0x01000d7c                        ] };
+
+    // From 'q' to right bracket (])
+    
+    key <AD01> { [ 0x01000d4c , 0x01000d14 ] };
+    key <AD02> { [ 0x01000d48 , 0x01000d10 ] };
+    key <AD03> { [ 0x01000d3e , 0x01000d06 ] };
+    key <AD04> { [ 0x01000d40 , 0x01000d08 ] };
+    key <AD05> { [ 0x01000d42 , 0x01000d0a ] };
+    key <AD06> { [ 0x01000d2c , 0x01000d2d ] };
+    key <AD07> { [ 0x01000d39 , 0x01000d19 ] };
+    key <AD08> { [ 0x01000d17 , 0x01000d18 ] };
+    key <AD09> { [ 0x01000d26 , 0x01000d27 ] };
+    key <AD10> { [ 0x01000d1c , 0x01000d1d ] };
+    key <AD11> { [ 0x01000d21 , 0x01000d22 ] };
+    key <AD12> { [ 0x0100200d , 0x01000d1e ] };
+
+    // From 'a' to apostrophe (')
+    
+    key <AC01> { [ 0x01000d4b , 0x01000d13 ] };
+    key <AC02> { [ 0x01000d47 , 0x01000d0f ] };
+    key <AC03> { [ 0x01000d4d , 0x01000d05 ] };
+    key <AC04> { [ 0x01000d3f , 0x01000d07 ] };
+    key <AC05> { [ 0x01000d41 , 0x01000d09 ] };
+    key <AC06> { [ 0x01000d2a , 0x01000d2b ] };
+    key <AC07> { [ 0x01000d30 , 0x01000d31 ] };
+    key <AC08> { [ 0x01000d15 , 0x01000d16 ] };
+    key <AC09> { [ 0x01000d24 , 0x01000d25 ] };
+    key <AC10> { [ 0x01000d1a , 0x01000d1b ] };
+    key <AC11> { [ 0x01000d1f , 0x01000d20 ] };
+    
+    // From 'z' to slash (/)
+    
+    key <AB01> { [ 0x01000d46 , 0x01000d0e ] };
+    key <AB02> { [ 0x01000d02 , 0x01000d7a ] };
+    key <AB03> { [ 0x01000d2e , 0x01000d23 ] };
+    key <AB04> { [ 0x01000d28 , 0x01000d7b ] };
+    key <AB05> { [ 0x01000d35 , 0x01000d34 ] };
+    key <AB06> { [ 0x01000d32 , 0x01000d33 ] };
+    key <AB07> { [ 0x01000d38 , 0x01000d36 ] };
+    key <AB08> { [ comma      , 0x01000d37 ] };
+    key <AB09> { [ period     , 0x01000d7d ] };
+    key <AB10> { [ 0x01000d2f , question   ] };
+
+};
+
+partial alphanumeric_keys
+xkb_symbols "mlplusnum" {
+
+   // Modifies the basic layout to include malayalam numbers
+
+   include "pc/ml(basic)"
+
+      key <AE01> { [ 0x01000d67 ,      exclam ] };
+      key <AE02> { [ 0x01000d68 ,          at ] };
+      key <AE03> { [ 0x01000d69 ,  numbersign ] };
+      key <AE04> { [ 0x01000d6a ,      dollar ] };
+      key <AE05> { [ 0x01000d6b ,     percent ] };
+      key <AE06> { [ 0x01000d6c , asciicircum ] };
+      key <AE07> { [ 0x01000d6d ,   ampersand ] };
+      key <AE08> { [ 0x01000d6e ,  0x01000d7e ] };
+      key <AE09> { [ 0x01000d6f ,   parenleft ] };
+      key <AE10> { [ 0x01000d66 ,  parenright ] };
+};

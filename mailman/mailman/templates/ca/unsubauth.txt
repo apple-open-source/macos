@@ -1,0 +1,11 @@
+Es necessita la seva autorització per a una petició de baixa
+de la llista de correu:
+
+    By:   %(username)s
+    From: %(listname)s@%(hostname)s
+
+Si ho creu convenient, visiti:
+
+    %(admindb_url)s
+
+per poder processar la petició.

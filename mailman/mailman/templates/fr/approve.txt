@@ -2,7 +2,7 @@ Votre demande à %(requestaddr)s :
 
       %(cmd)s 
 
-a été envoyée à la personne qui gère de la liste. 
+a été envoyée à la personne qui gère la liste. 
 
 C'est probablement parceque vous essayez de vous abonner
 à une liste 'fermée'. 

@@ -1,0 +1,69 @@
+NM2160 Register GUESS  
+   --- Overlay and ZV capture ---
+
+2002,2.3.
+
+1. Overlay
+  GRB0  bit5    Format; 0:YUY2/1:RGB
+        bit1    1
+        bit0    Enable overlay ; 1:enable/0:disable
+  GRB1  bit7:4  X2[11:8]
+        bit3:0  X1[11:8]
+  GRB2          X1[7:0]
+  GRB3          X2[7:0]
+  GRB4  bit7:4  Y2[11:8]
+        bit3:0  Y1[11:8]
+  GRB5          Y1[7:0]
+  GRB6          Y2[7:0]
+  GRB7          VRAM offset[24:17]
+  GRB8          VRAM offset[16:9]
+  GRB9          VRAM offset[8:1]
+  GRBA          Width in byte[15:8]
+  GRBB          Width in byte[7:0]
+  GRBC          0x4f
+  GRBD          -
+  GRBE          -
+  GRBF  bit2    0:normal/1:mirror
+        bit1:0  b'10'
+  GRC0          X scale[15:8] ; x1.0 == 0x1000
+  GRC1          X scale[7:0]
+  GRC2          Y scale[15:8] ; x1.0 == 0x1000
+  GRC3          Y scale[7:0]
+  GRC4          brightness   ; -128 to +127
+  GRC5          Color key(R)
+  GRC6          Color key(G) / Color key(8bpp)
+  GRC7          Color key(B)
+
+2. ZV capture
+  GR0A  bit5    Enable extended SR reg. ; 1:enable/0:disable
+        bit0    1
+
+  SR08  bit7:1  b'1010000'
+        bit0    Enable capture ; 1:enable/0:disable
+  SR09          0x11
+  SR0A          0x00
+  SR0B          -
+  SR0C          VRAM offset[8:1]
+  SR0D          VRAM offset[16:9]
+  SR0E          VRAM offset[24:17]
+  SR0F          -
+  SR10          -
+  SR11          -
+  SR12          -
+  SR13          -
+  SR14          Y1[7:0]
+  SR15          Y2[7:0]
+  SR16  bit7:4  Y2[11:4]
+        bit3:0  Y1[11:4]
+  SR17          X1[7:0]
+  SR18          X2[7:0]
+  SR19  bit7:4  X2[11:8]
+        bit3:0  X1[11:8]
+  SR1A          Width in byte[7:0]
+  SR1B          Width in byte[15:8]
+  SR1C          0xfb
+  SR1D          0x00
+  SR1E          0xe2
+  SR1F          0x02
+
+s.nomura@mba.nifty.ne.jp

@@ -1,0 +1,10 @@
+Da biste se odjavili s liste trebate se autorizirati:
+
+    Od:   %(username)s
+    Sa: 	%(listname)s@%(hostname)s
+
+Posjetite:
+
+    %(admindb_url)s
+
+da biste procesirali zahtjev.

@@ -1,0 +1,31 @@
+/*
+ * THIS SAMPLE INPUT DRIVER IS OUT OF DATE.  DO NOT USE IT AS A TEMPLATE
+ * WHEN WRITING A NEW INPUT DRIVER.
+ */
+
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/input/sample/Imakefile,v 1.6 2002/10/16 01:47:02 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = sample.c
+OBJS = sample.o
+
+DRIVER = sample
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86SRC)/loader -I$(XF86OSSRC) \
+			-I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(EXTINCSRC)
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget($(DRIVER),$(OBJS))
+
+InstallObjectModule($(DRIVER),$(MODULEDIR),input)
+
+DependTarget()
+
+InstallDriverSDKObjectModule($(DRIVER),$(DRIVERSDKMODULEDIR),input)

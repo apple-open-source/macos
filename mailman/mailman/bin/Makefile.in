@@ -48,7 +48,7 @@ SCRIPTS=	mmsitepass newlist rmlist add_members \
 		version config_list list_lists dumpdb cleanarch \
 		list_admins genaliases change_pw mailmanctl qrunner inject \
 		unshunt fix_url.py convert.py transcheck b4b5-archfix \
-		list_owners msgfmt.py
+		list_owners msgfmt.py show_qfiles discard rb-archfix
 
 BUILDDIR=	../build/bin
 

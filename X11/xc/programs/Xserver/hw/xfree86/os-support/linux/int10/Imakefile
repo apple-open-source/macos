@@ -1,0 +1,78 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/linux/int10/Imakefile,v 1.14 2002/09/16 18:06:14 eich Exp $
+
+#define IHaveModules
+
+#include <Server.tmpl>
+
+#define IHaveSubdirs
+
+
+#if defined(XF86INT10_BUILD) && \
+       ( !defined(DoLoadableServer) || !defined(Int10SubLibs))
+#define DoSingleLib
+# if XF86INT10_BUILD == X86VM
+EXPOBJS = vm86/helper_exec.o  vm86/linux_vm86.o  vm86/xf86int10.o
+SUBDIRS = vm86
+# elif XF86INT10_BUILD == X86EMU_OS
+EXPOBJS = x86emu/debug.o   x86emu/fpu.o x86emu/ops.o \
+	x86emu/prim_ops.o  x86emu/xf86int10.o	x86emu/decode.o \
+	x86emu/helper_exec.o  x86emu/ops2.o  x86emu/sys.o x86emu/xf86x86emu.o
+SUBDIRS = x86emu
+# endif
+#else
+SUBDIRS = vm86 x86emu
+LNXDEF = -DDoSubModules
+#endif
+
+
+#ifdef IHaveSubdirs
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif
+
+SRCS = pci.c xf86int10module.c helper_mem.c linux.c
+OBJS = pci.o xf86int10module.o helper_mem.o linux.o
+
+
+LinkSourceFile(helper_mem.c,$(XF86SRC)/int10)
+LinkSourceFile(pci.c,$(XF86SRC)/int10)
+LinkSourceFile(xf86int10module.c,$(XF86SRC)/int10)
+
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86SRC)/int10 \
+           -I$(XF86OSSRC) \
+           -I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(X86EMUINCLUDES)
+
+DEFINES=-DHAVE_SYSV_IPC $(X86EMUDEFINES) $(EXTRADEFINES)
+
+#if defined(i386Architecture) || defined (x86_64Architecture)
+EXTRADEFINES=-D_PC
+#endif
+
+
+SpecialObjectRule(linux.o, linux.c, -DHAVE_SYSV_IPC $(LNXDEF))
+
+
+#if defined(XF86INT10_BUILD) && XF86INT10_BUILD > X86EMU_GENERIC
+
+ModuleObjectRule()
+
+#if HasParallelMake && defined (DoSingleLib)
+MakeMutex($(SUBDIRS) $(EXPOBJS) $(DONES))
+#endif  
+
+LibraryModuleTarget(int10, $(OBJS)  $(EXPOBJS))
+
+InstallLibraryModule(int10,$(MODULEDIR),linux)
+
+all::
+	(set -x; cd ../..; \
+	RemoveFile(LibraryTargetName(int10)); \
+	$(LN) linux/int10/LibraryTargetName(int10) . )
+
+InstallDriverSDKLibraryModule(int10,$(DRIVERSDKMODULEDIR),.)
+
+#endif
+
+DependTarget()
+

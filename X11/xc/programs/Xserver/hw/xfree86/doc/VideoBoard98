@@ -1,0 +1,387 @@
+DATE:000616
+                       XFree86 PC98 Server
+                        Video System List
+
+
+STATUS                                MEM(Video RAM)  HiC(High Color support)
+ O  :   Working(Very fine)             q : 256KB      O : Working
+ o  :   Working(with small problems)   h : 512KB      X : Not supported
+ U  :   Working(Unstable)              1 : 1MB
+ X  :   Not Working/Not supported      2 : 2MB
+ o? :   Probably work                  3 : 3MB
+ x? :   Probably NOT work              4 : 4MB
+ D  :   Developping                    8 : 8MB
+ ?  :   Unknown
+
+
+NEC							    
++------------------------+---------------+-------+--------+-+-------+-+
+|                        |               |       |        |M|       |H|
+|         MODEL          |      CHIP     |  DAC  | CLOCK  |E|STATUS |i|
+|                        |               |       |        |M|       |C|
++------------------------+---------------+-------+--------+-+-------+-+
+|EGC                     |EGC            | B/I   |  B/I   | |   X   |X|
+|PEGC                    |PEGC           | B/I   |  B/I   | |   X   |X|
++------------------------+---------------+-------+--------+-+-------+-+
+|WAB-A    (PC-9821A-E01) |S3-928         |Bt481  |ICS2494 |1|   X   | |
+|WAB-A2   (PC-9821A-E11) |MGA II         |       |        |2|   X   | |
+|WAB-B    (PC-9801-85)   |S3-928         |Bt481  |ICS2494 |1|   X   | |
+|WAB-B3   (PC-9801-96)   |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|FC-WAB-A (PC-9821A-E09) |S3-928         |Bt485  |ICS2494 |2|   X   | |
+|FC-WAB-B (PC-9801-91)   |S3-928         |Bt485  |ICS2494 |2|   X   | |
+|FC-WAB-X (PC-9821X-B01) |MGA II         |Ti3020 |Ti3020  |2|   X   | |
+|FC-WAB-X2(PC-9821X-B03) |MGA2064W       |Ti3026 |Ti3026  |2|  o?   |O|
+|MSWIN KIT(PC-9801B3-E02)|CLGD5428       | B/I   |  B/I   |1|   X   |X|
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9821As2/U7W/U8W       |S3-928E        |       |        |1|   X   | |
+|PC9821As3               |S3-864         |S3-SDAC|S3-SDAC |2|   X   |O|
+|PC9821Ap2/U8W/C9W       |S3-928E        |       |        |1|   X   | |
+|PC9821Ap2/C9T           |MGA II         |       |        |2|   X   | |
+|PC9821Ap3               |S3-864         |S3-SDAC|S3-SDAC |2|   X   |O|
+|PC9821Af/M9W/U9W        |S3-928         |Bt485  |ICS2494 |2|   X   | |
+|PC9821An/U8W            |S3-928         |Bt485  |ICS2494 |2|   X   | |
+|PC9821An/C9T            |MGA II         |       |        |2|   X   | |
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9821Bf/U8W            |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|PC9821Bp/U8W/U7W        |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|PC9821Bs/U7W            |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|PC9821Be/U7W            |CLGD5428       | B/I   |  B/I   |1|   X   |X|
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9801BA3/U2/W          |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|PC9801BX3/U2/W          |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|PC9801BX4/U2            |CLGD5430       | B/I   |  B/I   |1|   X   |X|
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9821Xt                |MGA II         |Ti3020 |Ti3020  |4|   X   | |
+|PC9821Xt13              |MGA2064W       |Ti3026 |Ti3026  |4|  o?   |O|
+|PC9821Xt16              |MGA2064W       |Ti3026 |Ti3026  |4|  o?   |O|
+|PC9821St15              |MGA2064W       |Ti3026 |Ti3026  |4|  o?   |O|
+|PC9821St20              |MGA2064W       |Ti3026 |Ti3026  |4|  o?   |O|
+|PC9821Xa                |MGA II         |Ti3020 |Ti3020  |2|   X   | |
+|PC9821Xa7/C,K           |TGUI9680       | B/I   |  B/I   |2|   o   |O|
+|PC9821Xa9/C,K           |TGUI9680       | B/I   |  B/I   |2|  o?   |O|
+|PC9821Xa10/C,K          |TGUI9680       | B/I   |  B/I   |2|  o?   |O|
+|PC9821Xa12/C,K          |TGUI9680       | B/I   |  B/I   |2|  o?   |O|
+|PC9821Xa13/C,K          |TGUI9680       | B/I   |  B/I   |2|  o?   |O|
+|PC9821Xa13/W            |TGUI9682       | B/I   |  B/I   |2|  o?   |O|
+|PC9821Xa16/R            |TGUI9680       | B/I   |  B/I   |2|  o?   |O|
+|PC9821Xa16/W            |TGUI9682       | B/I   |  B/I   |2|  o?   |O|
+|PC9821Xa20/D,W          |TGUI9682       | B/I   |  B/I   |2|  o?   |O|
+|PC9821Xa200/D,W         |TGUI9682       | B/I   |  B/I   |2|  o?   |O|
+|PC9821Xb10              |CLGD5440       | B/I   |  B/I   |1|   X   |X|
+|PC9821Xc13/M,S          |TGUI9680       | B/I   |  B/I   |2|  o?   |O|
+|PC9821Xc13/S5           |CLGD5446       | B/I   |  B/I   |1|   X   |X|
+|PC9821Xc16/M,S          |CLGD5446       | B/I   |  B/I   |2|   X   |X|
+|PC9821Xc200/M,S         |CLGD5446       | B/I   |  B/I   |2|   X   |X|
+|PC9821Xa7e              |CLGD5440       | B/I   |  B/I   |1|   X   |X|
+|PC9821Xn                |S3-864         |S3-SDAC|S3-SDAC |2|   X   | |
+|PC9821Xf                |MGA II         |Ti3020 |Ti3020  |2|   X   | |
+|PC9821Xp                |S3-864         |S3-SDAC|S3-SDAC |2|   X   |O|
+|PC9821Xs                |S3-864         |S3-SDAC|S3-SDAC |2|   X   |O|
+|PC9821Xe                |CLGD5430       | B/I   |  B/I   |1|   X   |X|
+|PC9821Xe10              |CLGD5430       | B/I   |  B/I   |1|   X   |X|
+|PC9821Xv13/R            |TGUI9680       | B/I   |  B/I   |2|  o?   |O|
+|PC9821Xv13/W            |MGA2064W       |Ti3026 |Ti3026  |2|  o?   |O|
+|PC9821Xv20/W            |MGA2064W       |Ti3026 |Ti3026  |4|  o?   |O|
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9821V7/C              |CLGD5440       | B/I   |  B/I   |1|   X   |X|
+|PC9821V10/C,S           |CLGD5440       | B/I   |  B/I   |1|   X   |X|
+|PC9821V12/S             |CLGD5440       | B/I   |  B/I   |1|   X   |X|
+|PC9821V13/S             |CLGD5440       | B/I   |  B/I   |1|   X   |X|
+|PC9821V16/S             |CLGD5440       | B/I   |  B/I   |1|   X   |X|
+|PC9821V16/S5V,P         |CLGD5446       | B/I   |  B/I   |2|   X   |X|
+|PC9821V20/S7            |CLGD5440       | B/I   |  B/I   |1|   X   |X|
+|PC9821V13/M7            |TGUI9680       | B/I   |  B/I   |2|  o?   |O|
+|PC9821V16/M7            |TGUI9680       | B/I   |  B/I   |2|  o?   |O|
+|PC9821V20/M7            |TGUI9680       | B/I   |  B/I   |2|  o?   |O|
+|PC9821V166/S            |MGA1064SG      | B/I   |  B/I   |2|  o?   |O|
+|PC9821V200/S            |MGA1064SG      | B/I   |  B/I   |2|  o?   |O|
+|PC9821V200/M7           |MGA1064SG      | B/I   |  B/I   |4|   o   |O|
+|PC9821V200/MZ           |MGA1064SG      | B/I   |  B/I   |4|   o   |O|
+|PC9821V200/M7C2,M7D2    |MGA1064SG      | B/I   |  B/I   |4|   o   |O|
+|PC9821V233/M7           |MGA1064SG      | B/I   |  B/I   |2|  o?   |O|
+|PC9821V233/M7V          |MGA1064SG      | B/I   |  B/I   |4|  o?   |O|
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9821Ce                |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|PC9821Ce2               |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|PC9821Cs                |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|PC9821Cs2               |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|PC9821Cf                |CLGD5430       | B/I   |  B/I   |1|   X   |X|
+|PC9821Cx                |CLGD5430       | B/I   |  B/I   |1|   X   |X|
+|PC9821Cx2               |CLGD5430       | B/I   |  B/I   |1|   X   |X|
+|PC9821Cx3               |CLGD5440       | B/I   |  B/I   |1|   X   |X|
+|PC9821Cb                |CLGD5430       | B/I   |  B/I   |1|   X   |X|
+|PC9821Cb3               |CLGD5440       | B/I   |  B/I   |1|   X   |X|
+|PC9821Cx13              |CLGD5440       | B/I   |  B/I   |1|   X   |X|
+|PC9821Cu10              |CLGD5440       | B/I   |  B/I   |1|   X   |X|
+|PC9821Cu10/D            |CLGD5446       | B/I   |  B/I   |1|   X   |X|
+|PC9821Cr13              |CLGD5440       | B/I   |  B/I   |1|   X   |X|
+|PC9821Ct16              |CLGD5446       | B/I   |  B/I   |2|   X   |X|
+|PC9821Cu13/E,T          |ProVidia9685   | B/I   |  B/I   |2|   X   |X|
+|PC9821Cu16/H            |ProVidia9685   | B/I   |  B/I   |2|   X   |X|
+|PC9821Ct20/A            |ProVidia9685   | B/I   |  B/I   |2|   X   |X|
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9821Ra18/N            |TGUI9682       | B/I   |  B/I   |2|  o?   |O|
+|PC9821Ra20/N            |TGUI9682       | B/I   |  B/I   |2|   o   |O|
+|PC9821Ra266/D,N,W       |TGUI9682       | B/I   |  B/I   |2|  o?   |O|
+|PC9821Rv20/N20          |MGA2064W       |Ti3026 |Ti3026  |4|   o   |O|
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9821RaII23/N,W        |TGUI9682       | B/I   |  B/I   |2|  o?   |O|
+|PC9821RvII26/N20        |MGA2064W       |Ti3026 |Ti3026  |4|   o   |O|
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9821Rs20/B20          |TGUI9682       | B/I   |  B/I   |2|  o?   |O|
+|PC9821RsII26/B40        |TGUI9682       | B/I   |  B/I   |2|  o?   |O|
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9821C166/C            |3Dimage975     |       |        |4|   X   | |
+|PC9821C166/D            |ProVidia9685   | B/I   |  B/I   |2|   X   | |
+|PC9821C200/C,V          |ProVidia9685   | B/I   |  B/I   |2|   X   | |
+|PC9821C233/V            |3Dimage975     |       |        |4|   X   | |
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9821Es                |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|PC9821F200/X20          |ProVidia9685   | B/I   |  B/I   |2|   X   | |
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9821Ne2               |CLGD5428       | B/I   |  B/I   |1|   X   | |
+|PC9821Np                |CLGD5428       | B/I   |  B/I   |1|   X   | |
+|PC9821Nf                |CLGD5428       | B/I   |  B/I   |1|   X   | |
+|PC9821Ns                |CLGD5428       | B/I   |  B/I   |1|   X   | |
+|PC9821Nd                |CLGD5428       | B/I   |  B/I   |1|   X   | |
+|PC9821Ne3               |Cyber9320      | B/I   |  B/I   |1|   X   | |
+|PC9821Nd2               |Cyber9320      | B/I   |  B/I   |1|   X   | |
+|PC9821Na7/HC,H          |Cyber9320      | B/I   |  B/I   |1|   X   | |
+|PC9821Na9/H             |Cyber9320      | B/I   |  B/I   |1|   X   | |
+|PC9821Na12              |Cyber9320      | B/I   |  B/I   |1|   X   | |
+|PC9821Na12/S            |CLGD7548       | B/I   |  B/I   |1|   X   | |
+|PC9821Na13/H,C          |CLGD7548       | B/I   |  B/I   |1|   X   | |
+|PC9821Na15/X            |Cyber9382      | B/I   |  B/I   |2|   X   | |
+|PC9821Nb7               |CLGD7543       | B/I   |  B/I   |1|   X   | |
+|PC9821Nb7/C,D           |CLGD7543       | B/I   |  B/I   |1|   X   | |
+|PC9821Nb10              |CLGD7548       | B/I   |  B/I   |1|   X   | |
+|PC9821Nx/3,C7           |Cyber9320      | B/I   |  B/I   |1|   X   | |
+|PC9821Nr12              |CLGD7555       | B/I   |  B/I   |2|   X   | |
+|PC9821Nr13/D10          |CLGD7555       | B/I   |  B/I   |2|   X   | |
+|PC9821Nr13/D14,S14      |CLGD7556       | B/I   |  B/I   |2|   X   | |
+|PC9821Nr15              |Cyber9385      | B/I   |  B/I   |2|   X   | |
+|PC9821Nr150             |Cyber9385      | B/I   |  B/I   |2|   X   | |
+|PC9821Nr150/S20         |Cyber9385-1    | B/I   |  B/I   |2|   X   | |
+|PC9821Nr166             |Cyber9385      | B/I   |  B/I   |2|   X   | |
+|PC9821Nw133             |Cyber9385-1    | B/I   |  B/I   |2|   X   | |
+|PC9821Nw150             |Cyber9385-1    | B/I   |  B/I   |2|   X   | |
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9821Lt2               |Cyber9320      | B/I   |  B/I   |1|   X   | |
+|PC9821La7               |Cyber9320      | B/I   |  B/I   |1|   X   | |
+|PC9821La10              |Cyber9320      | B/I   |  B/I   |1|   X   | |
+|PC9821La13              |CLGD7555       | B/I   |  B/I   |2|   X   | |
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9821Ls12              |CLGD7555       | B/I   |  B/I   |2|   X   | |
+|PC9821Ls13              |CLGD7555       | B/I   |  B/I   |2|   X   | |
+|PC9821Ls13              |CLGD7556       | B/I   |  B/I   |2|   X   | |
+|PC9821Ls150             |CLGD7555       | B/I   |  B/I   |2|   X   | |
++------------------------+---------------+-------+--------+-+-------+-+
+  
+
+EPSON							    
++------------------------+---------------+-------+--------+-+-------+-+
+|PCSKB                   |S3-911         |Bt478  |        |h|   X   |X|
+|PCSKB                   |S3-911         |Bt478  |        |1|   X   |X|
+|PCSKB                   |S3-924         |Bt478  |        |h|   X   |X|
+|PCSKB                   |S3-924         |Bt478  |        |1|   X   |X|
+|PCSKB2                  |S3-924         |Bt478  |        |1|   X   |X|
+|PCSKB3                  |S3-928         |20c491 |        |1|   X   |X|
+|PCSKB4                  |S3-928         |20c491 |        |1|   X   | |
+|PCSKB4                  |S3-928         |Bt485  |        |2|   X   | |
+|PCSKB4                  |S3-928         |Bt485  |        |4|   X   | |
+|PCSKB5                  |S3-964         |       |        | |   X   | |
+|PCPKB4                  |S3-928         |20c491 |        |1|   X   | |
+|PCPKB4                  |S3-928         |Bt485  |        |2|   X   | |
+|PCPKB4                  |S3-928         |Bt485  |        |4|   X   | |
+|PCPKB5                  |S3-964         |       |        |2|   X   | |
+|PCHKB                   |S3-911         |Bt478  |        |h|   X   | |
+|PCHKB                   |S3-911         |Bt478  |        |1|   X   | |
+|PCHKB                   |S3-924         |Bt478  |        |h|   X   | |
+|PCHKB                   |S3-924         |Bt478  |        |1|   X   | |
+|PCHKB2                  |S3-924         |Bt478  |        |1|   X   | |
+|PCHKB4                  |S3-928         |       |        |1|   X   | |
+|PCLKB                   |WD90C24        | B/I   |        |1|   X   | |
+|PCLKB2                  |WD90C24        | B/I   |        |1|   X   | |
+|PCLSV                   |WD90C24        | B/I   |        |1|   X   | |
+|PCLSV2                  |WD90C24        | B/I   |        |1|   X   | |
++------------------------+---------------+-------+--------+-+-------+-+
+|PC586RA                 |S3-964         |       |        |1|   X   | |
+|PC586RX                 |S3-964         |       |        |1|   X   | |
+|PC586RT                 |S3-964         |       |        |1|   X   | |
+|PC586RJ                 |S3-964         |       |        |1|   X   | |
+|PC586RV                 |CLGD5429       | B/I   |  B/I   |1|   X   |X|
+|PC586MV                 |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|PC486MU                 |CLGD5429       | B/I   |  B/I   |1|   X   |X|
+|PC486MS                 |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|PC486MR                 |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|PC486MV                 |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|PC486ME                 |TGUI9660       | B/I   |  B/I   |1|   X   | |
+|PC486HA3/JW             |S3-964         |       |        |2|   X   | |
++------------------------+---------------+-------+--------+-+-------+-+
+|PC486NAT                |CLGD7543       | B/I   |  B/I   |1|   X   | |
+|PC586NAT                |CLGD7543       | B/I   |  B/I   |1|   X   | |
++------------------------+---------------+-------+--------+-+-------+-+
+
+Frontier Kojiro
++------------------------+---------------+-------+--------+-+-------+-+
+|PC9821As2 HYPER         |S3-928E        |       |        |1|   X   | |
+|PC9821Bs HYPER          |CLGD5428       | B/I   |  B/I   |1|   X   |X|
++------------------------+---------------+-------+--------+-+-------+-+
+
+Canopus 
++------------------------+---------------+-------+--------+-+-------+-+
+|Power Window            |S3-924         |SC11487|ICS2494M|1|   X   | |
+|Power WindowNP          |S3-924         |       |        |1|   X   | |
+|Power Window801         |S3-801         |SC15026|ICD2051A|1|   X   | |
+|Power Window801G        |S3-801         |SC15026|ICD2051A|1|   X   | |
+|Power Window801+        |S3-801         |SC15026|ICD2051A|1|   X   | |
+|Power Window801+        |S3-801         |SC15026|ICD2051A|2|   X   | |
+|Power Window805i        |S3-805i        |S3-SDAC|S3-SDAC |2|   X   | |
+|Power Window928         |S3-928D        |SC15026|ICD2051A|1|   X   |O|
+|Power Window928         |S3-928D        |SC15026|ICD2051A|2|   X   |O|
+|Power Window928G        |S3-928G        |SC15026|ICD2051A|1|   X   |O|
+|Power Window928G        |S3-928G        |SC15026|ICD2051A|2|   X   |O|
+|Power Window928II       |S3-928G        |Bt485  |ICD2051A|2|   X   |O|
+|Power Window928II       |S3-928D        |20c505 |ICD2051A|2|   X   |O|
+|Power Window928GLB      |S3-928G        |SC15026|ICD2051A|1|   X   |O|
+|Power Window928GLB      |S3-928G        |SC15026|ICD2051A|2|   X   |O|
+|Power Window928IILB     |S3-928G        |Bt485  |ICD2051A|2|   X   | |
+|Power Window928IILB     |S3-928         |20c505 |ICD2051A|2|   X   | |
+|Power Window964LB       |S3-964         |Ti3025 |        |2|   X   |O|
+|Power Window964LB       |S3-964         |Ti3025 |        |4|   X   |O|
+|Power Window968         |S3-968         |       |        |2|   X   | |
+|Power Window968         |S3-968         |       |        |4|   X   | |
+|Power Window9100PCI     |Powe9100       |20c505 |ICD2061A|2|   X   | |
+|Power Window9100PCI     |Powe9100       |RGB525 |RGB525  |4|   X   | |
+|Power Window9130C-PCI   |Powe9100       |       |        |4|   X   | |
+|Power WindowT64EL       |S3-Trio64      | B/I   |  B/I   | |   X   | |
+|Power WindowT64S        |S3-Trio64      | B/I   |  B/I   |2|   X   | |
+|Power WindowT64V Card   |S3-Trio64V+    | B/I   |  B/I   |2|   X   | |
+|Power Window6410VA      |PM6410         | B/I   |  B/I   |1|   X   | |
+|Power Window6410VA      |PM6410         | B/I   |  B/I   |2|   X   | |
+|Power WindowDX          |S3-ViRGE/DX    | B/I   |  B/I   |4|   X   | |
+|Power WindowDX/4MC      |S3-ViRGE/DX    | B/I   |  B/I   |4|   X   | |
+|Power WindowGX/4VC      |S3-ViRGE/GX    | B/I   |  B/I   |4|   X   | |
+|Power WindowGMX         |GLINT MX       |RGB526 |        |8|   ?   | |
++------------------------+---------------+-------+--------+-+-------+-+
+
+							    
+MELCO							    
++------------------------+---------------+-------+--------+-+-------+-+
+|WAB-S                   |CLGD5426       | B/I   |  B/I   |1|   X   |X|
+|WAB-S                   |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|WAB-1000                |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|WAB-2000                |CLGD5428       | B/I   |  B/I   |2|   X   |X|
+|WAB-EP                  |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|WSR-E                   |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|WSR-G                   |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|NMB-S                   |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|NMG-G  (note)           |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|NMG-S4F(note)           |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|WSP-L                   |Power9000      |       |        | |   X   | |
+|WAP-2000                |CLGD5434       | B/I   |  B/I   |2|   X   |X|
+|WAP-4000                |CLGD5434       | B/I   |  B/I   |4|   X   |X|
+|WSN-A2F                 |CLGD5434       | B/I   |  B/I   |2|   X   |X|
+|WSN-V2                  |S3-Trio64V+    | B/I   |  B/I   |2|   X   | |
+|WSN-DX2                 |S3-Trio64V2/DX | B/I   |  B/I   |2|   X   | |
+|WSN-DX4                 |S3-Trio64V2/DX | B/I   |  B/I   |4|   X   | |
+|WGN-A2                  |CLGD5434       | B/I   |  B/I   |2|   X   |X|
+|WGN-A4                  |CLGD5434       | B/I   |  B/I   |4|   X   |X|
+|WGN-V2                  |S3-Trio64V+    | B/I   |  B/I   |2|   X   | |
+|WGN-DX2                 |S3-Trio64V2/DX | B/I   |  B/I   |2|   X   | |
+|WGN-DX4                 |S3-Trio64V2/DX | B/I   |  B/I   |4|   X   | |
+|WAP-2EP                 |CLGD5434       | B/I   |  B/I   |2|   X   |X|
+|WAP-4EP                 |CLGD5434       | B/I   |  B/I   |4|   X   |X|
+|WGP-VG2                 |S3-ViRGE       | B/I   |  B/I   |2|   X   | |
+|WGP-VG4                 |S3-ViRGE       | B/I   |  B/I   |4|   X   | |
+|WGP-VG2DX               |S3-ViRGE/DX    | B/I   |  B/I   |2|   X   | |
+|WGP-VG4DX               |S3-ViRGE/DX    | B/I   |  B/I   |4|   X   | |
+|WGP-VX8                 |S3-ViRGE/VX    | B/I   |  B/I   |8|   X   | |
+|WHP-PS8                 |PERMEDIA2      |       |        |8|   O?  |O|
+|WHP-PS4                 |PERMEDIA2      |       |        |4|   O?  |O|
++------------------------+---------------+-------+--------+-+-------+-+
+
+							    
+IO DATA							    
++------------------------+---------------+-------+--------+-+-------+-+
+|GA-1024/A/AL/NL         |ORIGINAL       |       |        |1|   X   | |
+|GA-1280/AL              |ORIGINAL       |       |        |2|   X   | |
+|GA-98NBI/C,SB16-GA98    |CLGD5434       | B/I   |  B/I   |1|   X   |X|
+|GA-98NB II              |CLGD5434       | B/I   |  B/I   |2|   X   |X|
+|GA-98NB IV              |CLGD5434       | B/I   |  B/I   |4|   X   |X|
+|GA-DR2/98               |TGUI9660       | B/I   |  B/I   |2|   X   |X|
+|GA-DR4/98               |TGUI9660       | B/I   |  B/I   |4|   X   |X|
+|GA-DR2/PCI              |TGUI9660       | B/I   |  B/I   |2|   ?   | |
+|GA-DR4/PCI              |TGUI9660       | B/I   |  B/I   |4|   ?   | |
+|GA-DRV2/98              |TGUI9680       | B/I   |  B/I   |2|   X   |X|
+|GA-DRV4/98              |TGUI9680       | B/I   |  B/I   |4|   X   |X|
+|GA-DRV2/PCI             |TGUI9680       | B/I   |  B/I   |2|   ?   | |
+|GA-DRV4/PCI             |TGUI9680       | B/I   |  B/I   |4|   ?   | |
+|GA-DRTV2/98PCI          |TGUI9682       | B/I   |  B/I   |2|   ?   | |
+|GA-DRTV4/98PCI          |TGUI9682       | B/I   |  B/I   |4|   ?   | |
+|GA-968V2/98PCI          |S3-968         |RGB524 | RGB524 |2|   X   |O|
+|GA-968V4/98PCI          |S3-968         |RGB524 | RGB524 |4|   X   |O|
+|GA-PGDX2/98PCI          |S3-ViRGE/DX    | B/I   |  B/I   |2|   X   | |
+|GA-PGDX4/98PCI          |S3-ViRGE/DX    | B/I   |  B/I   |4|   D   | |
+|GA-PG3D2/98PCI          |S3-ViRGE       | B/I   |  B/I   |2|   X   | |
+|GA-PG3D4/98PCI          |S3-ViRGE       | B/I   |  B/I   |4|   X   | |
+|GA-PG3DVX4/98PCI        |S3-ViRGE/VX    | B/I   |  B/I   |4|   X   | |
+|GA-PG3DVX8/98PCI        |S3-ViRGE/VX    | B/I   |  B/I   |8|   X   | |
+|GA-PII8/PCI             |PERMEDIA2      |       |        |8|   O?  |O|
+|GA-PIIH8/PCI            |PERMEDIA2      |       |        |8|   O?  |O|
+|GA-RUSH6/PCI            |Promotion AT25 |       |        |4|   o   |o|
+|                        |Voodoo RUSH    |       |        |2|   -   | |
++------------------------+---------------+-------+--------+-+-------+-+
+
+
+ICM							    
++------------------------+---------------+-------+--------+-+-------+-+
+|GI-5434-2M              |CLGD5434       | B/I   |  B/I   |2|   X   |X|
+|GI-5434-4M              |CLGD5434       | B/I   |  B/I   |4|   X   |X|
++------------------------+---------------+-------+--------+-+-------+-+
+
+
+MIDORI
++------------------------+---------------+-------+--------+-+-------+-+
+|GAB-981                 |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|GAB-982-00              |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|GAB-983-00              |CLGD5428       | B/I   |  B/I   |1|   X   |X|
++------------------------+---------------+-------+--------+-+-------+-+
+
+
+Q-Vision
++------------------------+---------------+-------+--------+-+-------+-+
+|WinNote98               |CLGD5428       | B/I   |  B/I   |1|   X   |X|
+|WinDuo                  |S3-Trio64      | B/I   |  B/I   |2|   X   | |
++------------------------+---------------+-------+--------+-+-------+-+
+
+
+Sapiens
++------------------------+---------------+-------+--------+-+-------+-+
+|SuperCube/C4 type A     |S3-928         |       |        |3|   X   | |
+|SuperCube/C4 type B     |S3-928         |       |        |3|   X   | |
++------------------------+---------------+-------+--------+-+-------+-+
+
+
+Hachinohe Firmware System(HFS)
++------------------------+---------------+-------+--------+-+-------+-+
+|HighResoStation(note)   |               |       |        | |   X   | |
++------------------------+---------------+-------+--------+-+-------+-+
+
+
+Sumitomo Kinzoku
++------------------------+---------------+-------+--------+-+-------+-+
+|MGA98 W2                |MGA II         |       |        |2|   X   | |
+|MGA98 W3                |MGA II         |       |        |3|   X   | |
+|MGA98 3D,3DH            |MGA II         |       |        | |   X   | |
+|MGA98-PCI/2             |MGA II         |       |        |2|   X   | |
+|MGA98-PCI/4             |MGA II         |       |        |4|   X   | |
++------------------------+---------------+-------+--------+-+-------+-+
+
+Force
++------------------------+---------------+-------+--------+-+-------+-+
+|WinFrame                |TMS34020       |       |        | |   X   | |
+|WinFrame928             |S3-928         |       |        |2|   X   | |
++------------------------+---------------+-------+--------+-+-------+-+
+
+/* $XFree86: xc/programs/Xserver/hw/xfree86/doc/VideoBoard98,v 1.5 2000/06/20 20:07:58 dawes Exp $ */

@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOUSBFamily ;
-export deferred SRCROOT = /Volumes/Home/Latest/PantherUpdates/Feldspar/IOUSBFamily ;
+export deferred SRCROOT = /Volumes/Home/Latest/PantherUpdates/Lavender/IOUSBFamily-210.4.3 ;
 
 # User-defined project-wide settings for project
 
@@ -32,7 +32,7 @@ export deferred KERNEL_EXTENSION = YES ;
 export deferred KERNEL_MODULE = YES ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.driver.AppleUSBMergeNub ;
-export deferred MODULE_VERSION = 2.0.5 ;
+export deferred MODULE_VERSION = 2.1.0 ;
 export deferred OTHER_CFLAGS = -W -Wall -Wno-unused ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;

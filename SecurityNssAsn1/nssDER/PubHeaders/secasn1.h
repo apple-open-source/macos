@@ -36,7 +36,7 @@
  * Encoding Rules).  The routines are found in and used extensively by the
  * security library, but exported for other use.
  *
- * $Id: secasn1.h,v 1.4 2003/02/13 23:17:27 dmitch Exp $
+ * $Id: secasn1.h,v 1.4.20.1 2004/04/08 23:30:59 mb Exp $
  */
 
 #ifndef _SECASN1_H_
@@ -78,6 +78,9 @@ extern SECStatus SEC_ASN1DecoderUpdate(SEC_ASN1DecoderContext *cx,
 
 extern SECStatus SEC_ASN1DecoderFinish(SEC_ASN1DecoderContext *cx);
 
+/* Higher level code detected an error, abort the rest of the processing */
+extern void SEC_ASN1DecoderAbort(SEC_ASN1DecoderContext *cx, int error);
+
 extern void SEC_ASN1DecoderSetFilterProc(SEC_ASN1DecoderContext *cx,
 					 SEC_ASN1WriteProc fn,
 					 void *arg, PRBool no_store);
@@ -117,6 +120,9 @@ extern SECStatus SEC_ASN1EncoderUpdate(SEC_ASN1EncoderContext *cx,
 				       unsigned long len);
 
 extern void SEC_ASN1EncoderFinish(SEC_ASN1EncoderContext *cx);
+
+/* Higher level code detected an error, abort the rest of the processing */
+extern void SEC_ASN1EncoderAbort(SEC_ASN1EncoderContext *cx, int error);
 
 extern void SEC_ASN1EncoderSetNotifyProc(SEC_ASN1EncoderContext *cx,
 					 SEC_ASN1NotifyProc fn,

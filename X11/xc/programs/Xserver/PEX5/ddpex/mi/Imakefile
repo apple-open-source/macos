@@ -1,0 +1,16 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:47:02 cpqbld Exp $
+XCOMM This is only used on NT where we do not know how to jump over this dir
+
+#ifdef Win32Architecture
+
+#define IHaveSubdirs
+#define PassCDebugFlags CDEBUGFLAGS="$(CDEBUGFLAGS)"
+
+     SUBDIRS = level1 level2 level3 level4 shared
+
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+MakeLintLibSubdirs($(SUBDIRS))
+LintSubdirs($(SUBDIRS))
+
+#endif

@@ -1,0 +1,26 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/input/digitaledge/Imakefile,v 1.1 2000/08/11 19:10:42 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = DigitalEdge.c
+OBJS = DigitalEdge.o
+
+DRIVER = digitaledge
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86SRC)/loader -I$(XF86OSSRC) \
+		 -I$(SERVERSRC)/mi -I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(EXTINCSRC)
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget($(DRIVER),$(OBJS))
+
+InstallObjectModule($(DRIVER),$(MODULEDIR),input)
+
+DependTarget()
+
+InstallDriverSDKObjectModule($(DRIVER),$(DRIVERSDKMODULEDIR),input)

@@ -1,10 +1,11 @@
 /*
- * schemas.h : interface to the XML Schemas handling and schema validity
- *             checking
+ * Summary: incomplete XML Schemas structure implementation
+ * Description: interface to the XML Schemas handling and schema validity
+ *              checking, it is incomplete right now.
  *
- * See Copyright for the status of this software.
+ * Copy: See Copyright for the status of this software.
  *
- * Daniel.Veillard@w3.org
+ * Author: Daniel Veillard
  */
 
 
@@ -44,6 +45,8 @@ typedef enum {
     XML_SCHEMAS_ERR_NOTSIMPLE,
     XML_SCHEMAS_ERR_ATTRUNKNOWN,
     XML_SCHEMAS_ERR_ATTRINVALID,
+    XML_SCHEMAS_ERR_VALUE,
+    XML_SCHEMAS_ERR_FACET,
     XML_SCHEMAS_ERR_,
     XML_SCHEMAS_ERR_XXX
 } xmlSchemaValidError;
@@ -70,34 +73,50 @@ typedef xmlSchemaValidCtxt *xmlSchemaValidCtxtPtr;
 /*
  * Interfaces for parsing.
  */
-xmlSchemaParserCtxtPtr xmlSchemaNewParserCtxt	(const char *URL);
-xmlSchemaParserCtxtPtr xmlSchemaNewMemParserCtxt(const char *buffer,
-						 int size);
-void		xmlSchemaFreeParserCtxt	(xmlSchemaParserCtxtPtr ctxt);
-void		xmlSchemaSetParserErrors(xmlSchemaParserCtxtPtr ctxt,
+XMLPUBFUN xmlSchemaParserCtxtPtr XMLCALL 
+	    xmlSchemaNewParserCtxt	(const char *URL);
+XMLPUBFUN xmlSchemaParserCtxtPtr XMLCALL 
+	    xmlSchemaNewMemParserCtxt	(const char *buffer,
+					 int size);
+XMLPUBFUN xmlSchemaParserCtxtPtr XMLCALL
+	    xmlSchemaNewDocParserCtxt	(xmlDocPtr doc);
+XMLPUBFUN void XMLCALL		
+	    xmlSchemaFreeParserCtxt	(xmlSchemaParserCtxtPtr ctxt);
+XMLPUBFUN void XMLCALL		
+	    xmlSchemaSetParserErrors	(xmlSchemaParserCtxtPtr ctxt,
 					 xmlSchemaValidityErrorFunc err,
 					 xmlSchemaValidityWarningFunc warn,
 					 void *ctx);
-xmlSchemaPtr	xmlSchemaParse		(xmlSchemaParserCtxtPtr ctxt);
-void		xmlSchemaFree		(xmlSchemaPtr schema);
-void		xmlSchemaDump		(FILE *output,
+XMLPUBFUN xmlSchemaPtr XMLCALL	
+	    xmlSchemaParse		(xmlSchemaParserCtxtPtr ctxt);
+XMLPUBFUN void XMLCALL		
+	    xmlSchemaFree		(xmlSchemaPtr schema);
+#ifdef LIBXML_OUTPUT_ENABLED
+XMLPUBFUN void XMLCALL		
+	    xmlSchemaDump		(FILE *output,
 					 xmlSchemaPtr schema);
+#endif /* LIBXML_OUTPUT_ENABLED */
 /*
  * Interfaces for validating
  */
-void		xmlSchemaSetValidErrors	(xmlSchemaValidCtxtPtr ctxt,
+XMLPUBFUN void XMLCALL		
+	    xmlSchemaSetValidErrors	(xmlSchemaValidCtxtPtr ctxt,
 					 xmlSchemaValidityErrorFunc err,
 					 xmlSchemaValidityWarningFunc warn,
 					 void *ctx);
-xmlSchemaValidCtxtPtr	xmlSchemaNewValidCtxt	(xmlSchemaPtr schema);
-void			xmlSchemaFreeValidCtxt	(xmlSchemaValidCtxtPtr ctxt);
-int			xmlSchemaValidateDoc	(xmlSchemaValidCtxtPtr ctxt,
-					 	 xmlDocPtr instance);
-int			xmlSchemaValidateStream	(xmlSchemaValidCtxtPtr ctxt,
-						 xmlParserInputBufferPtr input,
-						 xmlCharEncoding enc,
-					 	 xmlSAXHandlerPtr sax,
-						 void *user_data);
+XMLPUBFUN xmlSchemaValidCtxtPtr XMLCALL	
+	    xmlSchemaNewValidCtxt	(xmlSchemaPtr schema);
+XMLPUBFUN void XMLCALL			
+	    xmlSchemaFreeValidCtxt	(xmlSchemaValidCtxtPtr ctxt);
+XMLPUBFUN int XMLCALL			
+	    xmlSchemaValidateDoc	(xmlSchemaValidCtxtPtr ctxt,
+					 xmlDocPtr instance);
+XMLPUBFUN int XMLCALL			
+	    xmlSchemaValidateStream	(xmlSchemaValidCtxtPtr ctxt,
+					 xmlParserInputBufferPtr input,
+					 xmlCharEncoding enc,
+					 xmlSAXHandlerPtr sax,
+					 void *user_data);
 #ifdef __cplusplus
 }
 #endif

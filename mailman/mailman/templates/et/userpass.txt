@@ -1,26 +1,27 @@
-Keegi - tõenäoliselt teie ise - esitas päringu teie 
-%(fqdn_lname)s listi parooli meeldetuletuseks. 
+Keegi - tõenäoliselt sina ise - soovis listi
+%(fqdn_lname)s parooli meeldetuletust.
 
-Seda parooli läheb tarvis kui soovite muuta oma listi
-tellimuse profiili või lõpetada listi tellimust.
+Seda parooli on vaja listi tellimuse profiili
+muutmiseks ja listi tellimuse lõpetamiseks.
 
 List on tellitud aadressile: %(user)s
 
-Teie %(listname)s listi parool on: %(password)s
+Sinu %(listname)s listi parool on: %(password)s
 
-Tellimuse profiili muutmiseks logige ülaltoodud andmeid
+Tellimuse profiili muutmiseks logi ülaltoodud andmeid
 kasutades sisse veebilehele aadressil
 
     %(options_url)s
 
-Tellimuse profiili on võimalik muuta ka meili teel, lähemat
-infot selle kohta saab saates aadressile
+Tellimuse profiili on võimalik muuta ka meili teel,
+lähemat selle kohta saab, kui saadate aadressil
 
     %(requestaddr)s
 
 kirja, mille sisuks on üksainus sõna - help
 Listserver vastab sellele kasutusjuhendiga.
 
-Küsimuste ja/või kommentaaridega pöörduge listi
-%(listname)s halduri poole, tema aadress on
-%(owneraddr)s.
+Küsimuste ja/või kommentaaridega pöördu listi
+%(listname)s halduri poole aadressil
+
+	%(owneraddr)s.

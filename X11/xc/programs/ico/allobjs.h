@@ -1,0 +1,5 @@
+#include "objcube.h"
+#include "objico.h"
+#include "objocta.h"
+#include "objpyr.h"
+#include "objplane.h"

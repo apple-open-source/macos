@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -66,7 +64,7 @@ int __in_sigtramp = 0;
 #ifdef __ppc__
 /* This routine will be replaced by an assembly soon */
 static  int
-restore64_state(mcontext_t mctx, mcontext64_t mctx64)
+restore64_state(mcontext_t mctx, mcontext64_t mctx64, int sigstyle)
 {
 	if (mctx->ss.srr0 != (unsigned int)mctx64->ss.srr0)
 		return(0);	
@@ -146,6 +144,11 @@ restore64_state(mcontext_t mctx, mcontext64_t mctx64)
 	if (mctx->ss.ctr != (unsigned int)mctx64->ss.ctr)
 		return(0);	
 
+	if (bcmp(&mctx->fs, &mctx64->ss, (PPC_FLOAT_STATE_COUNT * sizeof(int))))
+		return(0);
+	if ((sigstyle == UC_DUAL_VEC) && bcmp(&mctx->vs, &mctx64->vs, (PPC_VECTOR_STATE_COUNT * sizeof(int))))
+		return(0);
+		
 	return(1);
 
 }
@@ -183,7 +186,7 @@ _sigtramp(
 		mctx = uctx->uc_mcontext;
 		mctx64 = (mcontext64_t)((char *)(uctx->uc_mcontext) + sizeof(struct mcontext));
 		/* restore 64bit state ? */
-		if (restore64_state(mctx, mctx64)) {
+		if (restore64_state(mctx, mctx64, sigstyle)) {
 			uctx->uc_mcontext = (void *)mctx64;
 			if (sigstyle == UC_DUAL)  {
 				uctx->uc_mcsize = UC_FLAVOR64_SIZE;

@@ -1,0 +1,78 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ $Date$ $Revision$
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(PwlCurve, describe a piecewise linear NURBS trimming curve)
+_names(PwlCurve)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies the NURBS object (created with _cmnd(NewNurbsRenderer)).
+_phead(_param2)
+Specifies the number of points on the curve.
+_phead(_param3)
+Specifies an array containing the curve points.
+_phead(_param4)
+Specifies the offset (a number of single-precision floating-point values)
+between points on the curve.
+_phead(_param5)
+Specifies the type of curve.
+Must be either _gluconst(MAP1_TRIM_2) or _gluconst(MAP1_TRIM_3).
+.SH DESCRIPTION
+_cmnd describes a piecewise linear trimming curve for a NURBS surface.
+A piecewise linear curve consists of a list of 
+coordinates of points in the parameter space for the
+NURBS surface to be trimmed. These points are connected
+with line segments to form a curve. If the curve is
+an approximation to a curve that is not piecewise linear, 
+the points should be close enough in parameter space that the 
+resulting path appears curved at the resolution used in the application.
+.P
+If _param5 is
+_gluconst(MAP1_TRIM_2), then it describes a curve in two-dimensional (\f2u\fP 
+and \f2v\fP) parameter space. If it is _gluconst(MAP1_TRIM_3), then it
+describes a curve in two-dimensional homogeneous (\f2u\fP, \f2v\fP,
+and \f2w\fP) parameter space. 
+See the _cmnd(BeginTrim) reference page for more information 
+about trimming curves. 
+.SH NOTES
+To describe a trim curve that closely follows the contours of a NURBS 
+surface, call _cmnd(NurbsCurve).
+.SH SEE ALSO
+_cmnd(BeginCurve), _cmnd(BeginTrim), _cmnd(NewNurbsRenderer), _cmnd(NurbsCurve)
+

@@ -1,0 +1,30 @@
+XCOMM $XFree86: xc/lib/Xv/Imakefile,v 1.8 2003/01/04 02:48:24 dawes Exp $
+
+#define DoNormalLib NormalLibXv
+#define DoSharedLib SharedLibXv
+#define DoDebugLib DebugLibXv
+#define DoProfileLib ProfileLibXv
+#define LibName Xv
+#define SoRev SOXVREV
+#define LibHeaders NO
+
+#include <Threads.tmpl>
+
+#ifdef SharedXvReqs
+REQUIREDLIBS = SharedXvReqs
+#endif
+
+#if Malloc0ReturnsNull
+ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
+#endif
+
+      DEFINES = $(ALLOC_DEFINES)
+         SRCS = Xv.c
+         OBJS = Xv.o
+     LINTLIBS = $(LINTXLIB)
+
+#define IncludeSharedObjectInNormalLib
+
+#include <Library.tmpl>
+
+DependTarget()

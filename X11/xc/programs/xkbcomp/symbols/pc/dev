@@ -1,0 +1,71 @@
+
+// based on a keyboard map from an 'xkb/symbols/dev' file
+//
+// $XFree86: xc/programs/xkbcomp/symbols/pc/dev,v 1.2 2002/11/22 04:03:28 dawes Exp $
+
+partial default alphanumeric_keys 
+xkb_symbols "basic" {
+      name[Group1]= "Hindi";
+
+      key <TLDE> { [      0x100094A, 0x1000912		]	};
+
+      // Mainly numbers.
+      key <AE01> { [      0x1000967, 0x100090D 		]	};
+      key <AE02> { [      0x1000968, 0x1000945 		]	};
+      key <AE03> { [      0x1000969 	 		]	};
+      key <AE04> { [      0x100096A  	 		]	};
+      key <AE05> { [      0x100096B  	 		]	};
+      key <AE06> { [      0x100096C  	 		]	};
+      key <AE07> { [      0x100096D                     ]	};
+      key <AE08> { [      0x100096e  	 		]	};
+      key <AE09> { [      0x100096F, parenleft 		]	};
+      key <AE10> { [      0x1000966, parenright 	]	};
+      key <AE11> { [      0x1000903 	 		]	};
+      key <AE12> { [      0x1000943, 0x100090B 		]	};
+
+// Mainly long vowels
+
+      key <AD01> { [      0x100094C,  0x1000914       	]	};
+      key <AD02> { [      0x1000948,  0x1000910       	]	};
+      key <AD03> { [      0x100093E,  0x1000906       	]	};
+      key <AD04> { [      0x1000940,  0x1000908       	]	};
+      key <AD05> { [      0x1000942,  0x100090A       	]	};
+
+// Mainly voiced consonants
+
+      key <AD06> { [      0x100092C,  0x100092D 	]	};
+      key <AD07> { [      0x1000939,  0x1000919 	]	};
+      key <AD08> { [      0x1000917,  0x1000918 	]	};
+      key <AD09> { [      0x1000926,  0x1000927 	]	};
+      key <AD10> { [      0x100091C,  0x100091D 	]	};
+      key <AD11> { [      0x1000921,  0x1000922		]	};
+      key <AD12> { [      0x100093C,  0x100091E		]	};
+
+// Mainly short vowels
+      key <AC01> { [      0x100094B,  0x1000913       	]	};
+      key <AC02> { [      0x1000947,  0x100090F       	]	};
+      key <AC03> { [      0x100094D,  0x1000905       	]	};
+      key <AC04> { [      0x100093F,  0x1000907       	]	};
+      key <AC05> { [      0x1000941,  0x1000909       	]	};
+
+// Mainly unvoiced consonants
+
+      key <AC06> { [      0x100092A,  0x100092B 	]	};
+      key <AC07> { [      0x1000930,  0x1000931 	]	};
+      key <AC08> { [      0x1000915,  0x1000916 	]	};
+      key <AC09> { [      0x1000924,  0x1000925 	]	};
+      key <AC10> { [      0x100091A,  0x100091B 	]	};
+      key <AC11> { [      0x100091F,  0x1000920 	]	};
+      key <BKSL> { [      0x1000949,  0x1000911 	]	};
+
+      key <AB01> { [      0x1000946,  0x100090E		]	};
+      key <AB02> { [      0x1000902,  0x1000901		]	};
+      key <AB03> { [      0x100092E,  0x1000923         ]       };
+      key <AB04> { [      0x1000928,  0x1000929		]       };
+      key <AB05> { [      0x1000935,  0x1000934		]       };
+      key <AB06> { [      0x1000932,  0x1000933         ]       };
+      key <AB07> { [      0x1000938,  0x1000936         ]       };
+      key <AB08> { [      comma,      0x1000937         ]       };
+      key <AB09> { [      period,     0x1000964		]       };
+      key <AB10> { [      0x100092F,  question		]       };
+};

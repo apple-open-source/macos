@@ -49,6 +49,12 @@ _ALLKEYS = [(x,) for x in (SUBSCRIPTION, UNSUBSCRIPTION,
                            RE_ENABLE,
                            )]
 
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
+
 
 
 def new(*content):
@@ -56,10 +62,9 @@ def new(*content):
     # It's a programming error if this assertion fails!  We do it this way so
     # the assert test won't fail if the sequence is empty.
     assert content[:1] in _ALLKEYS
-
     # Get a lock handle now, but only lock inside the loop.
-    lock = LockFile.LockFile(LOCKFILE,
-                             withlogging=mm_cfg.PENDINGDB_LOCK_DEBUGGING)
+    lock = LockFile.LockFile(
+        LOCKFILE, withlogging=mm_cfg.PENDINGDB_LOCK_DEBUGGING)
     # We try the main loop several times. If we get a lock error somewhere
     # (for instance because someone broke the lock) we simply try again.
     retries = mm_cfg.PENDINGDB_LOCK_ATTEMPTS
@@ -73,12 +78,20 @@ def new(*content):
                     continue
             # Load the current database
             db = _load()
-            # Calculate a unique cookie
-            while 1:
-                n = random.random()
+            # Calculate a unique cookie.  Algorithm vetted by the Timbot.
+            # time() has high resolution on Linux, clock() on Windows.  random
+            # gives us about 45 bits in Python 2.2, 53 bits on Python 2.3.
+            # The time and clock values basically help obscure the random
+            # number generator, as does the hash calculation.  The integral
+            # parts of the time values are discarded because they're the most
+            # predictable bits.
+            while True:
                 now = time.time()
-                hashfood = str(now) + str(n) + str(content)
+                x = random.random() + now % 1.0 + time.clock() % 1.0
+                hashfood = repr(x)
                 cookie = sha.new(hashfood).hexdigest()
+                # We'll never get a duplicate, but we'll be anal about
+                # checking anyway.
                 if not db.has_key(cookie):
                     break
             # Store the content, plus the time in the future when this entry
@@ -101,10 +114,10 @@ def new(*content):
 
 
 
-def confirm(cookie, expunge=1):
+def confirm(cookie, expunge=True):
     """Return data for cookie, or None if not found.
 
-    If optional expunge is true (the default), the record is also removed from
+    If optional expunge is True (the default), the record is also removed from
     the database.
     """
     if not expunge:
@@ -114,7 +127,6 @@ def confirm(cookie, expunge=1):
         if content is missing:
             return None
         return content
-
     # Get a lock handle now, but only lock inside the loop.
     lock = LockFile.LockFile(LOCKFILE,
                              withlogging=mm_cfg.PENDINGDB_LOCK_DEBUGGING)
@@ -152,6 +164,22 @@ def confirm(cookie, expunge=1):
 
 
 
+def repend(cookie, data):
+    # Get a lock
+    lock = LockFile.LockFile(
+        LOCKFILE, withlogging=mm_cfg.PENDINGDB_LOCK_DEBUGGING)
+    lock.lock()
+    try:
+        # Load the database
+        db = _load()
+        db[cookie] = data
+        db['evictions'][cookie] = time.time() + mm_cfg.PENDING_REQUEST_LIFE
+        _save(db, lock)
+    finally:
+        lock.unlock()
+
+
+
 def _load():
     # The list's lock must be acquired if you wish to alter data and save.
     #
@@ -176,6 +204,7 @@ def _load():
             fp.close()
 
 
+
 def _save(db, lock):
     # Lock must be acquired before loading the data that is now being saved.
     if not lock.locked():

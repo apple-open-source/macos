@@ -1,0 +1,1187 @@
+\&
+.sp 1
+.ce 3
+\s+1\fBChapter 6\fP\s-1
+
+\s+1\fBRenderer Picking\fP\s-1
+.sp 2
+.nr H1 6
+.nr H2 0
+.nr H3 0
+.nr H4 0
+.nr H5 0
+.na
+.LP
+.XS
+Chapter 6: Renderer Picking
+.XE
+.LP
+.IN "renderer" "picking"
+The semantics of renderer picking are identical to rendering except that during
+picking, primitives are hit tested instead of coverted to pixels.
+All primitives which are passed to the rendering pipeline (i.e. they are not
+made invisible by the invisibility filter and they are not culled by the current
+culling mode) are eligible for picking.  Picking uses the geometric definition
+of primitives, so it is possible for hollow, empty and transparent fill areas to
+be picked.  However, it is implementation-dependent whether rendering effects
+which increase the area of the primitive (such as linewidth) are considered.
+.LP
+Two types of
+hit test rendering and traversals are supported "pick one" and "pick all".
+"Pick one" will return at most one primitive which satisfies the pick criteria.
+"Pick all" will return all hit primitives which satisfy the pick criteria, up
+to the application specified maximum number of hits.
+For both types, the hit test which is performed on the
+primitives is controlled by the specified pick device type,
+pick inclusion and pick exclusion attributes.
+.LP
+The supported pick device types are inquirable via
+.PN PEXGetEnumTypeInfo .
+.PN PEXPickDeviceDCHitBox
+is specified by a pick position and a pick
+distance, both in device coordinates.  The pick position is the
+device coordinate center of the pick area and the shape of the pick area
+is implementation-dependent (e.g. could be square, rectangular or circular).
+The pick distance defines the half-width or radius of the pick area.
+.PN PEXPickDeviceNPCHitVolume
+is specified by two points in normalized projection coordinates.  Primitives
+that lie within or intersect the pick area or volume are considered "hit".
+.LP
+The pick method determines which "hit" primitives will be picked.  For "pick
+one", four standard pick methods are defined:
+.PN PEXPickLast ,
+.PN PEXPickClosestZ ,
+.PN PEXPickVisibleAny
+and
+.PN PEXPickVisibleClosest .
+For "pick all", two standard pick methods are defined:
+.PN PEXPickAllAll
+and
+.PN PEXPickAllVisible .
+The supported pick methods can be inquired by calling
+.PN PEXGetEnumTypeInfo .
+PEX servers are required to support at least
+.PN PEXPickLast
+and
+.PN PEXPickAllAll .
+.LP
+The pick inclusion and exclusion filters specify the name sets to be used to
+filter
+primitives after a hit test rendering or traversal.  The pick functions will
+only return primitives which are not excluded by the pick filter.  If possible,
+pick one will return a primitive which most closely satisfies the pick criteria
+and also passes the pick filter test.  A flag is returned from pick one
+functions to indicate whether a primitive which did not satisfy the pick filter
+was a better candidate with the specified pick method.  The dynamics of
+the pick inclusion and exclusion filters can be determined by calling
+.PN PEXGetRendererDynamics .
+.LP
+During a "pick one", at most one primitive is picked.  If the pick method is
+.PN PEXPickLast ,
+the last "hit" primitive which satisfies the pick filter test is returned.  If
+the pick method is
+.PN PEXPickClosestZ ,
+the "hit" primitive which has a z value closest to the front clipping plane and
+satisfies the pick filter is returned.  If multiple primitives satisfy this
+criteria, any of them may be returned.  If the pick method is
+.PN PEXPickVisibleAny ,
+any "hit" primitive which is visible (taking the current HLHSR mode into
+account) and satisfies the pick filter test is returned.  If the pick method is
+.PN PEXPickVisibleClosest ,
+all "hit" primitives which are visible are first selected.  Of those selected,
+the one which is closest to the pick position and satisfies the pick filter test
+is returned.  If an NPC hit volume was specified, the pick position is the
+center of the volume.  The z-buffer contents may not be preserved when using
+the "visible" pick methods.
+.LP
+The "visible" pick methods only return primitives which would be visible in
+the pick aperture if they were rendered using the renderer's current HLHSR
+mode.  For example, if the HLHSR mode is set to
+.PN PEXHLHSRZBuffer ,
+the pick method
+.PN PEXPickClosestZ
+may return a primitive which is occluded by another primitive which does not
+satisfy the pick filter test.  However, the pick method
+.PN PEXPickVisibleAny
+guarantees that the picked primitive is not occluded.
+.LP
+During a "pick all", multiple primitives may be picked.  If the pick method is
+.PN PEXPickAllAll ,
+the primitives (up to the maximum number of hits) which lie within or intersect
+the hit box are returned.  If the pick method is
+.PN PEXPickAllVisible ,
+the primitives (up to the maximum number of hits) which are visible (taking
+into account the current HLHSR mode) and lie within or intersect the hit box
+are returned.  A "pick first" can be accomplished by specifying the maximum
+number of hits to be one.
+.LP
+"Pick all" is further controlled by the renderer's pick start path.  The pick
+start path indicates where to begin the next "pick all" and is bound at the
+start of the "pick all" rendering or traversal.
+.LP
+If a drawable that is associated with a renderer is destroyed while
+the renderer is performing a "pick one" or "pick all" hit test, an implicit
+.PN PEXEndPickOne
+or
+.PN PEXEndPickAll
+(whichever is appropriate) is performed by the server in order to return the
+renderer to the
+.PN PEXIdle
+state.  All subsequent output and traversal requests to the renderer are
+ignored and no error is generated.
+.LP
+If a drawable that is associated with a renderer is destroyed or resized while
+the renderer is performing a "pick one" or "pick all" hit test, the pick
+operation is terminated and the renderer state is set to
+.PN PEXIdle.
+All subsequent output and traversal requests to the renderer are
+ignored until the next
+.PN PEXEndPickOne
+or
+.PN PEXEndPickAll
+(whichever is appropriate) which will return a pick status of
+.PN PEXAbortedPick
+along with an empty pick path.
+.LP
+If a drawable that is associated with a renderer is moved, exposed or occluded
+while the renderer is performing a "pick one" or "pick all" hit test, the
+server will continue to process output commands and requests using the new
+drawable attributes until the pick operation is explicitly or implicitly
+terminated.
+.bp
+.XS
+Function Descriptions
+.XE
+.SH
+PEXBeginPickAll - Begin Renderer Pick All
+.XS
+	PEXBeginPickAll
+.XE
+.IN "PEXBeginPickAll" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXBeginPickAll\^(\^Display *\fIdisplay\fP\^, Drawable \fIdrawable\fP\^, PEXRenderer \fIrenderer\fP\^, long \fIstructure_id\fP\^, int \fImethod\fP\^, int \fIsend_event\fP\^, int \fImax_hits\fP\^, int \fIpick_device_type\fP\^, PEXPickRecord *\fIpick_record\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIdrawable\fP 1i
+The resource identifier of a drawable.
+.IP \fIrenderer\fP 1i
+The resource identifier of the renderer.
+.IP \fIstructure_id\fP 1i
+A value to be used as the structure identifier for the root of the structure network.
+.IP \fImethod\fP 1i
+The pick all method
+.Pn ( PEXPickAllAll
+or
+.PN PEXPickAllVisible ).
+.IP \fIsend_event\fP 1i
+.PN True
+or
+.PN False
+- specifying whether the server should send an event when the maximum number of hits is reached.
+.IP \fImax_hits\fP 1i
+The maximum number of hits to be returned.
+.IP \fIpick_device_type\fP 1i
+The pick device type
+.Pn ( PEXPickDeviceDCHitBox
+or
+.PN PEXPickDeviceNPCHitVolume ).
+.IP \fIpick_record\fP 1i
+A pointer to the pick data record.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+This functions starts an immediate-mode pick, setting the renderer's renderer
+state to
+.PN PEXPicking .
+When the renderer state is
+.PN PEXPicking ,
+primitives are hit
+tested instead of converted to pixels.
+All picked primitives are
+recorded until reaching the maximum hits specified is reached.
+Additional picked primitives will not be recorded.  Once the
+the maximum number of hits is reached, subsequent primitives may be
+ignored.
+.LP
+The supported pick device types are inquirable via
+.PN PEXGetEnumTypeInfo .
+The specified structure identifier will be inserted as the first structure
+component in the returned pick path(s).
+.LP
+If the send event flag is
+.PN True ,
+and the pick method is
+.PN PEXPickAllAll ,
+then a
+.PN PEXMaxHitsReached
+event is sent from the server to the client whenever the maximum number of
+hits is reached by the server,
+if the event is supported (see
+.PN PEXGetImpDepConstants ).
+Upon receiving the event, the application should stop sending primitives and
+process the recorded hits.
+If the pick method is
+.PN PEXPickAllVisible ,
+a complete set of primitives must be sent to the server before determining
+which primitives are picked.
+.LP
+If the specified drawable does not have the same root and depth as
+the drawable used to create the renderer, or, if the
+specified drawable is not one of the supported drawables returned
+by
+.PN PEXMatchRenderingTargets ,
+a match error is generated.
+If the renderer state is set to
+.PN PEXRendering
+or
+.PN PEXPicking
+when this function is called,
+then the operation in progress is aborted, the
+.PN PEXBeginPickAll
+function is completed, and a
+.PN BadPEXRendererState
+error returned.
+.LP
+All functions which process output commands or manipulate attributes (i.e. all
+output command functions,
+.PN PEXBeginStructure ,
+.PN PEXEndStructure ,
+.PN PEXRenderElements ,
+and
+.PN PEXAccumulateState )
+can be called when the renderer state is
+.PN PEXPicking .
+They will have the same semantics except that primitives are hit tested instead
+of converted to pixels.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXRenderer;
+.sp
+typedef union {
+    PEXPDNPCHitVolume       volume;
+    PEXPDDCHitBox           box;
+    PEXPickDataRecord       data;
+} PEXPickRecord;
+.sp
+typedef PEXNPCSubVolume PEXPDNPCHitVolume;
+.sp
+typedef struct {
+    PEXCoord            min;
+    PEXCoord            max;
+} PEXNPCSubVolume;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXCoord;
+.sp
+typedef struct {
+    PEXDeviceCoord2D    position;
+    float               distance;
+} PEXPDDCHitBox;
+.sp
+typedef struct {
+    short               x;
+    short               y;
+} PEXDeviceCoord2D;
+.sp
+typedef struct {
+    unsigned short      length;                 /* number of bytes in record */
+    char                *record;
+} PEXPickDataRecord;
+.sp
+typedef struct {
+    int             type;
+    unsigned long   serial;     /* # of last request processed by server */
+    Bool            send_event; /* true if this came from a SendEvent request */
+    Display         *display;   /* Display the event was read from */
+    PEXRenderer     renderer;
+} PEXMaxHitsReachedEvent;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadAlloc\fP 1i
+The server failed to allocate resources necessary to complete request.
+.IP \fIBadDrawable\fP 1i
+The specified drawable resource identifier is invalid.
+.IP \fIBadMatch\fP 1i
+The specified drawable is unsupported, or the specified renderer resource was
+not created with a compatible drawable.
+.IP \fIBadPEXRenderer\fP 1i
+The specified renderer resource identifier is invalid.
+.IP \fIBadPEXRendererState\fP 1i
+The specified renderer was in an invalid state.
+.IP \fIBadValue\fP 1i
+The pick record contains invalid data, or the pick device type is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXEndPickAll , 
+.PN PEXPickAll ,
+.PN PEXGetImpDepConstants
+.RE
+.bp
+.SH
+PEXBeginPickOne - Begin Renderer Pick One
+.XS
+	PEXBeginPickOne
+.XE
+.IN "PEXBeginPickOne" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXBeginPickOne\^(\^Display *\fIdisplay\fP\^, Drawable \fIdrawable\fP\^, PEXRenderer \fIrenderer\fP\^, long \fIstructure_id\fP\^, int \fImethod\fP\^, int \fIpick_device_type\fP\^, PEXPickRecord *\fIpick_record\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIdrawable\fP 1i
+The resource identifier of a drawable.
+.IP \fIrenderer\fP 1i
+The resource identifier of the renderer.
+.IP \fIstructure_id\fP 1i
+A value to be used as the structure identifier for the root of the structure network.
+.IP \fImethod\fP 1i
+The pick one method
+.Pn ( PEXPickLast ,
+.PN PEXPickClosestZ ,
+.PN PEXPickVisibleAny ,
+.PN PEXPickVisibleClosest ).
+.IP \fIpick_device_type\fP 1i
+The pick device type
+.Pn ( PEXPickDeviceDCHitBox
+or
+.PN PEXPickDeviceNPCHitVolume ).
+.IP \fIpick_record\fP 1i
+A pointer to the pick data record.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+This functions starts an immediate-mode pick, setting the renderer's renderer
+state to
+.PN PEXPicking .
+When the renderer state is
+.PN PEXPicking ,
+primitives will be hit
+tested instead of converted to pixels.
+For "pick one", a hierarchical path to the picked
+primitive will be maintained.
+.LP
+Standard "pick one" methods are
+.PN PEXPickLast ,
+.PN PEXPickClosestZ ,
+.PN PEXPickVisibleAny
+and
+.PN PEXPickVisibleClosest .
+The supported pick device types are inquirable via
+.PN PEXGetEnumTypeInfo .
+The specified structure identifier will be inserted as the first structure
+component in the returned pick path.
+.LP
+If the specified drawable does not have the same root and depth as
+the drawable that was used to create the renderer, or, if the
+specified drawable is not one of the supported drawables returned by
+.PN PEXMatchRenderingTargets ,
+a Match error will be generated.
+If the renderer state is set to
+.PN PEXRendering
+or
+.PN PEXPicking
+when this function is called,
+then the operation in progress is aborted, the
+.PN PEXBeginPickOne
+function is completed, and a
+.PN BadPEXRendererState
+error is sent.
+.LP
+All functions which process output commands or manipulate
+attributes (i.e. all output command functions,
+.PN PEXBeginStructure ,
+.PN PEXEndStructure ,
+.PN PEXRenderElements ,
+and
+.PN PEXAccumulateState )
+can be called when the renderer state is
+.PN PEXPicking .
+They will have the same semantics except that primitives are hit tested instead
+of converted to pixels.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXRenderer;
+.sp
+typedef union {
+    PEXPDNPCHitVolume       volume;
+    PEXPDDCHitBox           box;
+    PEXPickDataRecord       data;
+} PEXPickRecord;
+.sp
+typedef PEXNPCSubVolume PEXPDNPCHitVolume;
+.sp
+typedef struct {
+    PEXCoord            min;
+    PEXCoord            max;
+} PEXNPCSubVolume;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXCoord;
+.sp
+typedef struct {
+    PEXDeviceCoord2D    position;
+    float               distance;
+} PEXPDDCHitBox;
+.sp
+typedef struct {
+    short               x;
+    short               y;
+} PEXDeviceCoord2D;
+.sp
+typedef struct {
+    unsigned short      length;                 /* number of bytes in record */
+    char                *record;
+} PEXPickDataRecord;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadAlloc\fP 1i
+The server failed to allocate resources necessary to complete request.
+.IP \fIBadDrawable\fP 1i
+The specified drawable resource identifier is invalid.
+.IP \fIBadMatch\fP 1i
+The specified drawable is unsupported, or the specified renderer resource was
+not created with a compatible drawable.
+.IP \fIBadPEXRenderer\fP 1i
+The specified renderer resource identifier is invalid.
+.IP \fIBadPEXRendererState\fP 1i
+The specified renderer was in an invalid state.
+.IP \fIBadValue\fP 1i
+The pick record contains invalid data, or the pick device type is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXEndPickOne , 
+.PN PEXPickOne
+.RE
+.bp
+.SH
+PEXFreePickPaths - Free Memory Allocated for Pick Paths
+.XS
+	PEXFreePickPaths
+.XE
+.IN "PEXFreePickPaths" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXFreePickPaths\^(\^unsigned long \fIcount\fP\^, PEXPickPath *\fIpick_paths\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIcount\fP 1i
+The number of pick paths.
+.IP \fIpick_paths\fP 1i
+An array of pick paths.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function deallocates memory returned by
+.PN PEXEndPickAll
+and
+.PN PEXPickAll .
+.RE
+.SH
+Errors
+.RS
+.IP None 1i
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXEndPickAll , 
+.PN PEXPickAll
+.RE
+.bp
+.SH
+PEXEndPickAll - End Pick All
+.XS
+	PEXEndPickAll
+.XE
+.IN "PEXEndPickAll" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXPickPath *PEXEndPickAll\^(\^Display *\fIdisplay\fP\^, PEXRenderer \fIrenderer\fP\^, int *\fIstatus_return\fP\^, int *\fImore_return\fP\^, unsigned long *\fIcount_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIrenderer\fP 1i
+The resource identifier of the renderer.
+.IP \fIstatus_return\fP 1i
+Returns the status of the pick operation.
+.IP \fImore_return\fP 1i
+Returns the status of remaining picks.
+.IP \fIcount_return\fP 1i
+Returns the number of pick paths.
+.RE
+.SH
+Returns
+.RS
+.LP
+An array of pick paths; a null pointer if unsuccessful or no pick (see also status_return).
+.RE
+.SH
+Description
+.RS
+This function terminates an immediate-mode pick,
+returns the hierarchical pick paths of any
+hit primitives, and sets the renderer state to
+.PN PEXIdle .
+.LP
+If one or more primitives were picked, a pick status of
+.PN PEXPick
+is returned along with the pick paths.  The hierarchical pick path is equivalent
+to the renderer's current path at the time the picked primitive was processed.
+If no primitives were picked, the returned pick status is
+.PN PEXNoPick ,
+and the returned pick paths is a null pointer.  If the renderer's drawable
+was destroyed or resized during the pick operation, the returned pick status
+is
+.PN PEXAbortedPick
+and the returned pick paths is a null pointer.
+.LP
+If all hits were recorded then
+.PN PEXNoMoreHits
+is returned
+and the renderer's pick start path will be empty.
+If the maximum number of hits was reached and additional
+hits were detected, then
+.PN PEXMoreHits
+is returned
+and the renderer's pick start path will be set to the last recorded
+hit primitive.
+If, after reaching the maximum number of hits,
+subsequent output commands were ignored, then
+.PN PEXMayBeMoreHits
+is returned and the renderer's pick start path
+is set to the last element processed by the renderer before
+it started ignoring primitives.
+.LP
+If the renderer state is
+.PN PEXIdle
+when this function is called,
+(i.e., no picking is in progress or the rendering was aborted due to a resize),
+the function is ignored and no error is generated.  If the renderer state
+is currently
+.PN PEXRendering
+or if the pick operation in progress is a "pick one", then
+a
+.PN BadPEXRendererState
+error is sent.
+.LP
+PEXlib allocates memory for the return value.
+.PN PEXFreePickPaths
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXRenderer;
+.sp
+typedef struct {
+    unsigned long       count;                  /* number of elements */
+    PEXPickElementRef   *elements;
+} PEXPickPath;
+.sp
+typedef struct {
+    PEXStructure        sid;
+    unsigned long       offset;
+    unsigned long       pick_id;
+} PEXPickElementRef;
+.sp
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXRenderer\fP 1i
+The specified renderer resource identifier is invalid.
+.IP \fIBadPEXRendererState\fP 1i
+The specified renderer was in an invalid state.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXBeginPickAll , 
+.PN PEXPickAll ,
+.PN PEXFreePickPaths
+.RE
+.bp
+.SH
+PEXEndPickOne - End Pick One
+.XS
+	PEXEndPickOne
+.XE
+.IN "PEXEndPickOne" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXPickPath *PEXEndPickOne\^(\^Display *\fIdisplay\fP\^, PEXRenderer \fIrenderer\fP\^, int *\fIstatus_return\fP\^, int *\fIundetectable_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIrenderer\fP 1i
+The resource identifier of the renderer.
+.IP \fIstatus_return\fP 1i
+Returns the status of the pick operation.
+.IP \fIundetectable_return\fP 1i
+Returns
+.PN True
+or
+.PN False
+indicating whether another pick better satisfied the pick criteria with the exception that it did not pass the pick filter test.
+.RE
+.SH
+Returns
+.RS
+.LP
+A pointer to the pick path; a null pointer if unsuccessful or no pick (see also status_return).
+.RE
+.SH
+Description
+.RS
+This function terminates an immediate-mode pick,
+returns the hierarchical pick path to the
+closest or last hit primitive,
+and sets the renderer state to
+.PN PEXIdle .
+.LP
+If a primitive was picked, the returned pick status is
+.PN PEXPick .
+If no primitive was picked, the returned pick status is
+.PN PEXNoPick ,
+and the returned pick path is a null pointer.
+If the renderer's drawable
+was destroyed or resized during the pick operation, the returned pick status
+is
+.PN PEXAbortedPick
+and the returned pick path is a null pointer.
+.LP
+If there was a primitive which more closely satisfied the pick criteria, but
+did not pass the pick filter test, then the undetectable pick return status will
+be
+.PN True .
+Otherwise, it will be
+.PN False .
+.LP
+If the renderer state is currently
+.PN PEXIdle
+when this function is called, (i.e., no
+picking is in progress or the rendering was aborted due to a resize),
+the function is ignored and no error is generated.  If the renderer state
+is currently
+.PN PEXRendering
+or if the pick operation in progress is a "pick all", then
+a
+.PN BadPEXRendererState
+error is sent.
+.LP
+PEXlib allocates memory for the return value.
+.PN PEXFreePickPaths
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXRenderer;
+.sp
+typedef struct {
+    unsigned long       count;                  /* number of elements */
+    PEXPickElementRef   *elements;
+} PEXPickPath;
+.sp
+typedef struct {
+    PEXStructure        sid;
+    unsigned long       offset;
+    unsigned long       pick_id;
+} PEXPickElementRef;
+.sp
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXRenderer\fP 1i
+The specified renderer resource identifier is invalid.
+.IP \fIBadPEXRendererState\fP 1i
+The specified renderer was in an invalid state.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXBeginPickOne , 
+.PN PEXPickOne , 
+.RE
+.bp
+.SH
+PEXPickAll - Pick All Traversal
+.XS
+	PEXPickAll
+.XE
+.IN "PEXPickAll" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXPickPath *PEXPickAll\^(\^Display *\fIdisplay\fP\^, Drawable \fIdrawable\fP\^, PEXRenderer \fIrenderer\fP\^, int \fImethod\fP\^, int \fImax_hits\fP\^, int \fIpick_device_type\fP\^, PEXPickRecord *\fIpick_record\fP\^, int *\fIstatus_return\fP\^, int *\fImore_return\fP\^, unsigned long *\fIcount_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIdrawable\fP 1i
+The resource identifier of a drawable.
+.IP \fIrenderer\fP 1i
+The resource identifier of the renderer.
+.IP \fImethod\fP 1i
+The pick all method
+.Pn ( PEXPickAllAll
+or
+.PN PEXPickAllVisible ).
+.IP \fImax_hits\fP 1i
+The maximum number of hits to be returned.
+.IP \fIpick_device_type\fP 1i
+The pick device type
+.Pn ( PEXPickDeviceDCHitBox
+or
+.PN PEXPickDeviceNPCHitVolume ).
+.IP \fIpick_record\fP 1i
+A pointer to the pick data record.
+.IP \fIstatus_return\fP 1i
+Returns the status of the pick operation.
+.IP \fImore_return\fP 1i
+Returns the status of remaining picks.
+.IP \fIcount_return\fP 1i
+Returns the number of pick paths.
+.RE
+.SH
+Returns
+.RS
+.LP
+An array of pick paths; a null pointer if unsuccessful or no pick (see also status_return).
+.RE
+.SH
+Description
+.RS
+This function traverses the structure network specified
+by the renderer's current pick start path.
+Hit testing begins after the last element specified in the renderer's current
+pick start path and continues until one of two conditions is met:  the maximum
+number of hits is reached, or the last element of the first structure in the
+pick start path is processed.
+If the pick start path
+does not define a valid hierarchical path, a
+.PN BadPEXPath
+error is sent and a null pick path is returned.
+.LP
+Standard "pick all" methods are
+.PN PEXPickAllAll
+and
+.PN PEXPickAllVisible .
+The supported pick device types are inquirable via
+.PN PEXGetEnumTypeInfo .
+.LP
+If one or more primitives were picked, a pick status of
+.PN PEXPick
+is returned along with the pick paths.  The hierarchical pick path is equivalent
+to the renderer's current path at the time the picked primitive was processed.
+If no primitives were picked, the returned pick status is
+.PN PEXNoPick ,
+and the returned pick paths is a null pointer.  If the renderer's drawable
+was destroyed or resized during the pick operation, the returned pick status
+is
+.PN PEXAbortedPick
+and the returned pick paths is a null pointer.
+.LP
+The paths of all hit primitives are recorded until reaching the maximum
+number of hits or until the server maximum number of recordable hits is reached.
+Once the maximum number
+of paths is recorded, subsequent primitives may be ignored and the results
+returned.
+.LP
+If all possible hits were recorded then
+.PN PEXNoMoreHits
+is returned
+and the renderer's pick start path will be empty.
+If the maximum number of hits was reached and additional
+hits were detected, then
+.PN PEXMoreHits
+is returned and the renderer's pick start path will be set to the last
+recorded hit primitive.
+If, after reaching the maximum number of hits,
+subsequent output commands were ignored,
+then
+.PN PEXMayBeMoreHits
+is returned and the renderer's pick start path
+will be set to the last element processed by the renderer before
+it started ignoring primitives.
+.LP
+If the specified drawable does not have the same root and depth as
+the drawable used to create the renderer, or, if the
+specified drawable is not one of the supported drawables returned
+by
+.PN PEXMatchRenderingTargets ,
+a match error is generated.
+If the renderer state is set to
+.PN PEXRendering
+or
+.PN PEXPicking
+when this function is called,
+then the operation in progress is aborted, the
+.PN PEXPickAll
+function is completed, and a
+.PN BadPEXRendererState
+error returned.
+.LP
+PEXlib allocates memory for the return value.
+.PN PEXFreePickPaths
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXRenderer;
+.sp
+typedef union {
+    PEXPDNPCHitVolume       volume;
+    PEXPDDCHitBox           box;
+    PEXPickDataRecord       data;
+} PEXPickRecord;
+.sp
+typedef PEXNPCSubVolume PEXPDNPCHitVolume;
+.sp
+typedef struct {
+    PEXCoord            min;
+    PEXCoord            max;
+} PEXNPCSubVolume;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXCoord;
+.sp
+typedef struct {
+    PEXDeviceCoord2D    position;
+    float               distance;
+} PEXPDDCHitBox;
+.sp
+typedef struct {
+    short               x;
+    short               y;
+} PEXDeviceCoord2D;
+.sp
+typedef struct {
+    unsigned short      length;                 /* number of bytes in record */
+    char                *record;
+} PEXPickDataRecord;
+.sp
+typedef struct {
+    unsigned long       count;                  /* number of elements */
+    PEXPickElementRef   *elements;
+} PEXPickPath;
+.sp
+typedef struct {
+    PEXStructure        sid;
+    unsigned long       offset;
+    unsigned long       pick_id;
+} PEXPickElementRef;
+.sp
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadAlloc\fP 1i
+The server failed to allocate resources necessary to complete request.
+.IP \fIBadDrawable\fP 1i
+The specified drawable resource identifier is invalid.
+.IP \fIBadMatch\fP 1i
+The specified drawable is unsupported, or the specified renderer resource was
+not created with a compatible drawable.
+.IP \fIBadPEXRenderer\fP 1i
+The specified renderer resource identifier is invalid.
+.IP \fIBadPEXRendererState\fP 1i
+The specified renderer was in an invalid state.
+.IP \fIBadPEXPath\fP 1i
+The renderer pick start path is invalid.
+.IP \fIBadValue\fP 1i
+The pick record contains invalid data, or the pick device type is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXBeginPickAll , 
+.PN PEXEndPickAll ,
+.PN PEXFreePickPaths
+.RE
+.bp
+.SH
+PEXPickOne - Pick One Traversal
+.XS
+	PEXPickOne
+.XE
+.IN "PEXPickOne" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXPickPath *PEXPickOne\^(\^Display *\fIdisplay\fP\^, Drawable \fIdrawable\fP\^, PEXRenderer \fIrenderer\fP\^, PEXStructure \fIstructure\fP\^, int \fImethod\fP\^, int \fIpick_device_type\fP\^, PEXPickRecord *\fIpick_record\fP\^, int *\fIstatus_return\fP\^, int *\fIundetectable_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIdrawable\fP 1i
+The resource identifier of a drawable.
+.IP \fIrenderer\fP 1i
+The resource identifier of the renderer.
+.IP \fIstructure\fP 1i
+The resource identifier for the root structure of the structure network.
+.IP \fImethod\fP 1i
+The pick one method
+.Pn ( PEXPickLast ,
+.PN PEXPickClosestZ ,
+.PN PEXPickVisibleAny
+.PN PEXPickVisibleClosest ).
+.IP \fIpick_device_type\fP 1i
+The pick device type
+.Pn ( PEXPickDeviceDCHitBox
+or
+.PN PEXPickDeviceNPCHitVolume ).
+.IP \fIpick_record\fP 1i
+A pointer to the pick data record.
+.IP \fIstatus_return\fP 1i
+Returns the status of the pick operation.
+.IP \fIundetectable_return\fP 1i
+Returns
+.PN True
+or
+.PN False
+indicating whether another pick better satisfied the pick criteria with the exception that it did not pass the pick filter test.
+.RE
+.SH
+Returns
+.RS
+.LP
+A pointer to the pick path; a null pointer if unsuccessful or no pick (see also status_return).
+.RE
+.SH
+Description
+.RS
+This function traverses the specified structure network.
+.LP
+Standard "pick one" methods are
+.PN PEXPickLast ,
+.PN PEXPickClosestZ ,
+.PN PEXPickVisibleAny
+and
+.PN PEXPickVisibleClosest .
+The supported pick device types are inquirable via
+.PN PEXGetEnumTypeInfo .
+.LP
+If a primitive was picked, the returned pick status is
+.PN PEXPick .
+If no primitive was picked, the returned pick status is
+.PN PEXNoPick ,
+and the returned pick path is a null pointer.
+If the renderer's drawable
+was destroyed or resized during the pick operation, the returned pick status
+is
+.PN PEXAbortedPick
+and the returned pick path is a null pointer.
+.LP
+If there was a primitive which more closely satisfied the pick criteria, but
+did not pass the pick filter test, then the undetectable pick return status will
+be
+.PN True .
+Otherwise, it will be
+.PN False .
+.LP
+If the specified drawable does not have the same root and depth as
+the drawable that was used to create the renderer, or, if the
+specified drawable is not one of the supported drawables returned by
+.PN PEXMatchRenderingTargets ,
+a Match error will be generated.
+If the renderer state is set to
+.PN PEXRendering
+or
+.PN PEXPicking
+when this function is called,
+then the operation in progress is aborted, the
+.PN PEXPickOne
+function is completed, and a
+.PN BadPEXRendererState
+error is sent.
+.LP
+PEXlib allocates memory for the return value.
+.PN PEXFreePickPaths
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXRenderer;
+.sp
+typedef union {
+    PEXPDNPCHitVolume       volume;
+    PEXPDDCHitBox           box;
+    PEXPickDataRecord       data;
+} PEXPickRecord;
+.sp
+typedef PEXNPCSubVolume PEXPDNPCHitVolume;
+.sp
+typedef struct {
+    PEXCoord            min;
+    PEXCoord            max;
+} PEXNPCSubVolume;
+.sp
+typedef struct {
+    float               x;
+    float               y;
+    float               z;
+} PEXCoord;
+.sp
+typedef struct {
+    PEXDeviceCoord2D    position;
+    float               distance;
+} PEXPDDCHitBox;
+.sp
+typedef struct {
+    short               x;
+    short               y;
+} PEXDeviceCoord2D;
+.sp
+typedef struct {
+    unsigned short      length;                 /* number of bytes in record */
+    char                *record;
+} PEXPickDataRecord;
+.sp
+typedef struct {
+    unsigned long       count;                  /* number of elements */
+    PEXPickElementRef   *elements;
+} PEXPickPath;
+.sp
+typedef struct {
+    PEXStructure        sid;
+    unsigned long       offset;
+    unsigned long       pick_id;
+} PEXPickElementRef;
+.sp
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadAlloc\fP 1i
+The server failed to allocate resources necessary to complete request.
+.IP \fIBadDrawable\fP 1i
+The specified drawable resource identifier is invalid.
+.IP \fIBadMatch\fP 1i
+The specified drawable is unsupported, or the specified renderer resource was
+not created with a compatible drawable.
+.IP \fIBadPEXRenderer\fP 1i
+The specified renderer resource identifier is invalid.
+.IP \fIBadPEXRendererState\fP 1i
+The specified renderer was in an invalid state.
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The pick record contains invalid data, or the pick device type is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXBeginPickOne , 
+.PN PEXEndPickOne
+.RE
+.bp

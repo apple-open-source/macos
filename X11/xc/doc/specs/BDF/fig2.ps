@@ -1,0 +1,147 @@
+%!PS-Adobe-1.0
+mark
+/inch {72 mul}def
+
+/Helvetica findfont [10 0 0 10 0 0] makefont setfont
+
+/ShowCache
+   {$sc begin
+    gsave
+(Helvetica-Oblique) (FontPath)(rightquote) 
+0.0222222 -1.94273e-09 -1.94273e-09 -0.0222222 0 0 
+6 4 4.95555 0 2 -18  CachedChar
+0 [1 3 ] Bits
+1 [1 3 ] Bits
+2 [1 3 ] Bits
+3 [1 2 ] Bits
+4 [0 2 ] Bits
+5 [0 1 ] Bits
+ EndCachedChar
+
+    grestore
+    end
+   } def
+
+/$sc 120 dict def
+$sc begin
+
+/CN 100 string def
+/CachedChar
+   {/sl save def
+    /yo exch def /xo exch def
+    /yi exch def /xi exch def
+    /wb exch def /hb exch def
+    6 array astore /cmat exch def
+    /cname exch def
+    /fpath exch def
+    /fname exch def
+    DoScale 			% fit the character maximally onto the page
+    Grid
+    gsave
+    DoLabs
+    xo neg yo neg translate
+    OrigMarks
+   } def
+
+/DoLabs
+   {gsave
+    /Helvetica findfont [1 0 0 1 0 0] makefont setfont
+    0.1 setlinewidth
+    newpath
+    0 -1.5 moveto
+    0.5 0.5 rmoveto -0.5 -0.5 rlineto 0.5 -0.5 rlineto
+    0 -1.5 moveto wb -1.5 lineto
+    -0.5 0.5 rmoveto 0.5 -0.5 rlineto -0.5 -0.5 rlineto
+    stroke newpath
+    wb 0.5 sub (BBw ) stringwidth pop sub -0.5 moveto 
+    gsave 1 -1 scale (BBw) show grestore
+    -1 0.5 moveto -1.5 0 lineto -2 0.5 lineto
+    -1.5 0 moveto -1.5 hb lineto
+    -0.5 -0.5 rmoveto 0.5 0.5 rlineto 0.5 -0.5 rlineto
+    stroke newpath
+    -1.5 (BBh ) stringwidth pop sub hb 1 sub moveto 
+    gsave 1 -1 scale (BBh) show grestore
+    xo neg -3 moveto  0 -3 lineto 
+    -0.5 0.5 rmoveto 0.5 -0.5 rlineto -0.5 -0.5 rlineto
+    stroke newpath
+    newpath
+    0.5 -3 moveto gsave 1 -1 scale ( BBox) show grestore
+    newpath
+    -4 yo neg moveto 0 -12 rlineto
+%    -3 yo neg moveto -3 yo neg hb add lineto % ???? lowerleft?
+    0.5 0.5 rmoveto -0.5 -0.5 rlineto -0.5 0.5 rlineto
+    stroke newpath
+    -4 (BBoy ) stringwidth pop sub yo neg moveto
+    gsave 1 -1 scale (BBoy) show grestore 
+    grestore
+   } def
+
+/DoScale
+   {
+%    3 72 mul hb div dup scale  	% hb == 3 inches
+%   0 hb translate
+%    1 -1 scale
+    3 72 mul 22 div dup scale
+    0 22 translate 
+    1 -1 scale
+    } def
+
+/OrigMarks
+   {gsave
+    0 setgray
+    .17 setlinewidth
+    newpath 0 -1 moveto 0 1 lineto stroke
+    newpath -1 0 moveto 1 0 lineto stroke
+    .13 setlinewidth
+    /xii xi round def
+    newpath xii -.8 moveto 0 1.6 rlineto stroke
+    newpath xii .8 sub 0 moveto 1.6 0 rlineto stroke
+    grestore
+   } def
+
+/Bits
+   {/xa exch def
+    /yy exch yo add def
+    gsave 0.2 setgray
+    0 2 xa length 1 sub
+       {/i exch def
+	xa i get 1 xa i 1 add get
+	   {/xx exch xo add def
+	    newpath xx 0.2 add yy 0.2 add moveto 
+	    0 0.6 rlineto 0.6 0 rlineto 0 -0.6 rlineto closepath fill
+	   } for 
+       } for
+    grestore
+   } def
+
+/EndCachedChar
+   {
+    grestore
+    sl restore
+   } def
+
+/Grid
+   {gsave
+    /wbround wb 8 div 0.5 add round cvi 8 mul def
+    wbround 1 add 
+       {newpath 0 0 moveto 0 hb lineto closepath fill
+	1 0 translate 
+	(-) print
+       } repeat
+    grestore
+    gsave
+    hb 1 add 
+       {newpath 0 0 moveto wbround 0 lineto closepath fill
+	0 1 translate
+	(|) print
+       } repeat
+    grestore
+    () = 
+   } def
+end
+
+300 400 translate
+ShowCache
+cleartomark
+
+showpage

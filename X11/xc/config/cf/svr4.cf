@@ -1,0 +1,282 @@
+XCOMM $Xorg: svr4.cf,v 1.3 2000/08/17 19:41:48 cpqbld Exp $
+
+
+
+XCOMM $XFree86: xc/config/cf/svr4.cf,v 3.49 2002/08/19 03:16:31 tsi Exp $
+/*
+ * A default OS name
+ */
+#ifndef OSName
+#ifdef i386Architecture
+#define	OSName	UNIX System V/386 Release 4
+#else
+#define	OSName	UNIX System V Release 4
+#endif
+#endif
+#ifndef OSVendor
+#define OSVendor /**/
+#endif
+
+/*
+ * The default version will be 4.0.0 which should be
+ * the least common denominator of all SVR4
+ */
+
+#ifndef OSMajorVersion
+#define	OSMajorVersion	4
+#endif
+#ifndef OSMinorVersion
+#define	OSMinorVersion	0
+#endif
+#ifndef OSTeenyVersion
+#define	OSTeenyVersion	0
+#endif
+#ifndef BootstrapCFlags
+#ifdef i386Architecture
+#define BootstrapCFlags		-DSVR4 -Di386
+#else
+#ifdef SYSV386
+#define BootstrapCFlags		-DSVR4 -Di386
+#else
+#define BootstrapCFlags		-DSVR4
+#endif
+#endif
+#endif
+
+/* Some stuff that all SVR4s should have */
+
+#define SystemV4		YES
+#ifndef HasLdRunPath
+#define HasLdRunPath		YES
+#endif
+#define HasPoll			YES
+#ifndef SVR4Architecture
+#define SVR4Architecture
+#endif
+#ifndef PatheticCpp
+#define PatheticCpp		YES
+#endif
+#define Malloc0ReturnsNull	YES		/* in case -lmalloc used */
+
+/*
+ * Here are the default paths to use to pick up tools for building.
+ */
+#ifndef ArCmdBase
+#define	ArCmdBase	/usr/ccs/bin/ar
+#endif
+#ifndef AsCmd
+#define	AsCmd	/usr/ccs/bin/as
+#endif
+#ifndef CppCmd
+#define	CppCmd	/usr/ccs/lib/cpp
+#endif
+#ifndef RawCppCmd
+#if !defined(SunArchitecture)
+#define RawCppCmd CppCmd -Uunix -Ui386
+#endif
+#endif
+#ifndef LdCmd
+#define	LdCmd	/usr/ccs/bin/ld
+#endif
+#ifndef LexCmd
+#define	LexCmd	/usr/ccs/bin/lex
+#endif
+#ifndef MakeCmd
+#define	MakeCmd	/usr/ccs/bin/make
+#endif
+#ifndef YaccCmd
+#define	YaccCmd	/usr/ccs/bin/yacc
+#endif
+#ifndef MkdirHierCmd
+#define MkdirHierCmd mkdir -p
+#endif
+
+/*
+ * Add the s option to ArCmd and ArAddCmd so that empty archives can be created
+ */
+#ifndef ArCmd
+#define ArCmd ArCmdBase cqs
+#endif
+#ifndef ArAddCmd
+#define ArAddCmd ArCmdBase rus
+#endif
+
+/* Libtool on SVR4 uses minor numbers */
+#ifndef LibtoolMinorVersions
+#define LibtoolMinorVersions    YES
+#endif
+
+#ifndef SunArchitecture
+/*
+ * These come from usl.cf, and at least some are required by other
+ * SVR4 versions
+ */
+#ifndef UseLocalRegex
+#define UseLocalRegex		YES
+#endif
+#ifndef XmDefines
+#define XmDefines		\
+	-DNO_REGCOMP -DNEED_STRCASECMP \
+	-DSUPPORT_ZERO_WIDTH -DHAS_WIDECHAR_FUNCTIONS
+#endif
+#ifndef DtSvcDefines
+#define DtSvcDefines		-DXK_MISCELLANY -DMULTIBYTE -DNO_REGCOMP
+#endif
+#ifndef DtSearchDefines
+#define DtSearchDefines		-DI18N_MSG DtSvcDefines
+#endif
+#ifndef DtWidgetDefines
+#define DtWidgetDefines		DtSearchDefines
+#endif
+#ifndef DtPrintDefines
+#define DtPrintDefines		DtSearchDefines
+#endif
+#ifndef HasStrcasecmp
+#define HasStrcasecmp		NO
+#endif
+#endif
+
+/* SVR4 (including Solaris) doesn't have setenv() and unsetenv() */
+#ifndef HasSetenv
+#define HasSetenv		NO
+#endif
+
+#ifndef SunArchitecture
+#if (OSMinorVersion == 0)
+#ifndef XawI18nDefines
+#define XawI18nDefines		-DUSE_XWCHAR_STRING
+#endif
+#ifndef UseSmartScheduler
+#define UseSmartScheduler	NO
+#endif
+#endif
+#ifdef i386Architecture
+#ifndef HasPosixRegex
+#define HasPosixRegex		NO
+#endif
+#endif
+#ifndef LogDirectory
+#define LogDirectory		$(VARDIR)/adm
+#endif
+#endif
+
+#ifndef HasGcc3
+#define HasGcc3 NO
+#endif
+#ifndef HasGcc2
+#define HasGcc2 HasGcc3
+#endif
+#ifndef HasGcc
+#define HasGcc HasGcc2
+#endif
+
+#ifndef HasPerl
+#define HasPerl			NO
+#endif
+
+#ifdef i386Architecture
+#ifndef SunArchitecture
+#if (OSMinorVersion > 2) || ((OSMinorVersion == 2) && (OSTeenyVersion >= 2))
+#ifndef StandardDefines
+#define StandardDefines		-DSVR4 -DSVR42MP -Di386
+#endif
+#ifndef HasParallelMake
+#define HasParallelMake		YES
+#endif
+#if HasParallelMake
+#define TopParallelDefines	-P -B
+#define MutexDirective		.MUTEX
+#endif
+#else /* SVR4 < 4.2.2 */
+#ifndef StandardDefines
+#define StandardDefines		-DSVR4 -Di386
+#endif
+#endif
+#endif
+#ifndef ToolkitStringsABIOptions
+#define ToolkitStringsABIOptions -intelabi -earlyR6bc
+#endif
+#ifndef DefaultCCOptions
+#if !HasGcc
+#define DefaultCCOptions -Xa -Dasm=__asm
+#endif
+#endif
+#ifndef DefaultCDebugFlags
+#if HasGcc
+#if HasGcc2
+#ifndef CcCmd
+#define CcCmd gcc
+#endif
+#define DefaultCDebugFlags DefaultGcc2i386Opt
+#else
+#define DefaultCDebugFlags -O2
+#endif
+#else
+#define DefaultCDebugFlags -O
+#endif
+#endif
+#ifndef ServerOSDefines
+#define ServerOSDefines -DDDXTIME XFree86ServerOSDefines
+#endif
+#endif
+
+/*
+ * The TLI interface is more robust on most SVR4s, so it will be the default.
+ */
+#if !defined(SunArchitecture)
+#ifndef ConnectionFlags
+#define ConnectionFlags	-DSTREAMSCONN -DUNIXCONN -DLOCALCONN
+#endif
+#endif
+
+#ifndef ManSuffix
+#define ManSuffix               1x
+#define ManDir			$(MANSOURCEPATH)1
+#endif
+#ifndef LibManSuffix
+#define LibManSuffix            3x
+#define LibmanDir		$(MANSOURCEPATH)3
+#endif
+#ifndef FileManSuffix
+#define FileManSuffix           4
+#endif
+
+#ifndef StaticLibrary
+#if !HasGcc
+#define StaticLibrary(libpath,libname) -B static Concat(-L,libpath) Concat(-l,libname) -B dynamic
+#endif
+#endif
+
+#ifndef SharedLibXdmGreet
+#define SharedLibXdmGreet	HasSharedLibraries
+#endif
+
+/*
+ * At this point, an XFree86 port to Sparc/SunOS cannot be officially supported
+ * because the system I am using to develop this is just a loaner from Sun.
+ */
+#if defined(i386Architecture) || \
+    defined(PpcArchitecture) || \
+    (defined(SparcArchitecture) && \
+     defined(SunArchitecture) && \
+     defined(BuildXFree86OnSparcSunOS))
+#ifndef DoLoadableServer
+#define DoLoadableServer	YES
+#endif
+#include <xfree86.cf>
+#endif
+
+#ifndef DoLoadableServer
+# define DoLoadableServer	NO
+#endif
+#ifndef GccWarningOptions
+# define GccWarningOptions	/* */
+#endif
+#ifndef XFree86ServerDefines
+# define XFree86ServerDefines	/* */
+#endif
+#ifndef XFree86ServerOSDefines
+# define XFree86ServerOSDefines -DDDXOSINIT
+#endif
+
+#include <sv4Lib.rules>

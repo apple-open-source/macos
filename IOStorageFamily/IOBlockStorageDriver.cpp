@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -906,9 +904,12 @@ IOBlockStorageDriver::checkForMedia(void)
     if (result != kIOReturnSuccess) {		/* the poll operation failed */
         IOLog("%s[IOBlockStorageDriver]::checkForMedia; err '%s' from reportMediaState\n",
               getName(),stringFromReturn(result));
-    } else if (changed) {	/* the poll succeeded, media state has changed */
-        result = mediaStateHasChanged(currentState ? kIOMediaStateOnline
-                                                   : kIOMediaStateOffline);
+    } else {
+        changed = currentState ? !_mediaPresent : _mediaPresent;
+        if (changed) {	/* the poll succeeded, media state has changed */
+            result = mediaStateHasChanged(currentState ? kIOMediaStateOnline
+                                                       : kIOMediaStateOffline);
+        }
     }
 
     IOLockUnlock(_mediaStateLock);
@@ -923,6 +924,10 @@ IOBlockStorageDriver::mediaStateHasChanged(IOMediaState state)
     /* The media has changed state. See if it's just inserted or removed. */
 
     if (state == kIOMediaStateOnline) {		/* media is now present */
+
+        if (_mediaPresent) {
+            return(kIOReturnBadArgument);
+        }
 
         /* Allow a subclass to decide whether we accept the media. Such a
          * decision might be based on things like password-protection, etc.

@@ -139,12 +139,10 @@ IOBlockStorageServices::message ( UInt32 		type,
 				
 				case kIOMediaStateOnline:
 					fMediaPresent	= true;
-					fMediaChanged	= true;
 					break;
 					
 				case kIOMediaStateOffline:
 					fMediaPresent	= false;
-					fMediaChanged	= true;
 					break;
 					
 				default:
@@ -604,12 +602,7 @@ IOBlockStorageServices::reportMediaState ( 	bool * mediaPresent,
 {
 	
 	*mediaPresent 	= fMediaPresent;
-	*changed 		= fMediaChanged;
-	
-	if ( fMediaChanged == true )
-	{
-		fMediaChanged = false;
-	}
+	*changed 		= false;
 	
 	return kIOReturnSuccess;
 	

@@ -38,33 +38,69 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#ifndef __SASLCODE_PWSFH__
+#define __SASLCODE_PWSFH__
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-	#include <stdio.h>
-	#include <string.h>		//used for strcpy, etc.
-	#include <stdlib.h>		//used for malloc
-	
-	#include <stdarg.h>
-	#include <ctype.h>
-	#include <sysexits.h>
-	#include <errno.h>
-	
-	#include <unistd.h>
-	
-        #include <sys/types.h>
-	#include <sys/socket.h>
-	#include <netinet/in.h>
-	#include <arpa/inet.h>
-	#include <netdb.h>
-	
-	#include <openssl/bn.h>
-	#include <openssl/blowfish.h>
-	
-	#include "sasl.h"
-	#include "saslutil.h"
-	
-	#include "key.h"
+#include <stdio.h>
+#include <string.h>		//used for strcpy, etc.
+#include <stdlib.h>		//used for malloc
+
+#include <stdarg.h>
+#include <ctype.h>
+#include <sysexits.h>
+#include <errno.h>
+
+#include <unistd.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+
+#include <openssl/bn.h>
+#include <openssl/blowfish.h>
+#include <openssl/md5.h>
+
+#include "sasl.h"
+#include "saslutil.h"
+
+#include "key.h"
+
+
+#define HASHLEN 16
+typedef unsigned char HASH[HASHLEN + 1];
+#define HASHHEXLEN 32
+typedef unsigned char HASHHEX[HASHHEXLEN + 1];
+
+/* intermediate MD5 context */
+typedef struct HMAC_MD5_CTX_s {
+    MD5_CTX ictx, octx;
+} HMAC_MD5_CTX;
+
+/* intermediate HMAC state
+ *  values stored in network byte order (Big Endian)
+ */
+typedef struct HMAC_MD5_STATE_s {
+    unsigned long istate[4];	//4byte longs
+    unsigned long ostate[4];	//4byte longs
+} HMAC_MD5_STATE;
+
+
+void DigestCalcSecret(
+	unsigned char *pszUserName,
+	unsigned char *pszRealm,
+	unsigned char *Password,
+	int PasswordLen,
+	HASH HA1);
+
+void hmac_md5_precalc(
+	HMAC_MD5_STATE *state,
+	const unsigned char *key,
+	int key_len);
 
 void sasl_chop(char *s);
 typedef int sasl_cbproc();
@@ -85,6 +121,8 @@ long getconn(const char *host, const char *port, int *outSocket);
 
 #ifdef __cplusplus
 };
+#endif
+
 #endif
 
 

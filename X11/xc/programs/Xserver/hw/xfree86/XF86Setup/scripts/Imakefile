@@ -1,0 +1,19 @@
+XCOMM $XConsortium: Imakefile /main/1 1996/09/21 14:14:32 kaleb $
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/XF86Setup/scripts/Imakefile,v 3.2 1996/12/27 06:54:47 dawes Exp $
+
+ XF86SETUPLIBDIR = $(LIBDIR)/XF86Setup
+      SCRIPTSDIR = $(XF86SETUPLIBDIR)/scripts
+
+     SCRIPTFILES = mseconfig.tcl
+   
+all::
+
+InstallNamedProg(xmseconfig,xmseconfig,$(BINDIR))
+InstallMultiple($(SCRIPTFILES),$(SCRIPTSDIR))
+
+InstallManPage(xmseconfig,$(MANDIR))
+

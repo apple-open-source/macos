@@ -1,0 +1,14 @@
+XCOMM $XConsortium: Imakefile /main/10 1996/12/02 10:20:33 lehors $
+XCOMM $XFree86: xc/programs/Xserver/hw/kdrive/chips/Imakefile,v 1.1 2001/09/05 07:12:41 keithp Exp $
+KDRIVE=..
+#include "../Kdrive.tmpl"
+
+SRCS = 	chips.c chipsdraw.c chipsstub.c
+
+OBJS = 	chips.o chipsdraw.o chipsstub.o
+
+INCLUDES = -I. $(KDINCS) -I$(KDRIVE)/vesa
+
+NormalLibraryObjectRule()
+NormalLibraryTarget(chips,$(OBJS))
+DependTarget()

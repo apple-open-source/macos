@@ -1,0 +1,53 @@
+                     Information for Cyrix Chipset Users
+
+                          The XFree86 Project Inc.
+
+                                7 March 2000
+
+1.  Supported hardware
+
+This driver supports a single chipset `mediagx' that should work on the fol-
+lowing Cyrix CPUs with integrated graphics:
+
+   o MediaGX
+
+   o MediaGXi
+
+   o MediaGXm
+
+2.  Features
+
+   o Rather sparse (color depth hardcoded to 8)
+
+3.  XF86Config Option
+
+      Option "sw_cursor"
+            disable the hardware cursor. (Code not verified yet!)
+
+      Option "no_accel"
+            completely disables acceleration. Usually not recommended.
+
+4.  Bugs and Limitations
+
+   o As a first cut at the new design, known problems are everywhere.  The
+     console font is corrupted upon exit.  The server seems stable if the
+     virtual desktop and resolution size match.  I found 1024x768 usable and
+     that's why I released this version.  Geeks can have fun with this but
+     NEWBIES should use the 3.3.3.1 release instead!
+
+   o On some older chipsets, the driver may trigger an illegal instruction
+     just after probing for the ``scratchpad size''.  If this is the case,
+     email to <hecker@cat.dfrc.nasa.gov> with the output of
+
+          XFree86 -probeonly -verbose
+
+     and this will be fixed.
+
+5.  Authors
+
+   o Richard Hecker <hecker@cat.dfrc.nasa.gov>
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/cyrix.sgml,v 1.3 2000/03/08 05:38:43 dawes Exp $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.cyrix,v 1.9 2001/06/01 18:28:41 dawes Exp $

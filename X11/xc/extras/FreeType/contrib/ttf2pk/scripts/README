@@ -1,0 +1,8 @@
+In these subdirectories you can find diff files for various TeX
+implementations which add support for on-the-fly pk-generation using ttf2pk
+and hbf2gf (which is part of the CJK package for LaTeX 2e).
+
+In case you don't have/want hbf2gf, simply comment out the relevant if-Block
+in the script.
+
+For web2c 7.3 resp. teTeX 1.0 or newer, no patches are needed.

@@ -44,8 +44,11 @@ static int copy = 0;
 static int sax = 0;
 static int repeat = 0;
 static int noout = 0;
+#ifdef LIBXML_PUSH_ENABLED
 static int push = 0;
+#endif /* LIBXML_PUSH_ENABLED */
 static char *encoding = NULL;
+static int options = 0;
 
 xmlSAXHandler emptySAXHandlerStruct = {
     NULL, /* internalSubset */
@@ -75,7 +78,11 @@ xmlSAXHandler emptySAXHandlerStruct = {
     NULL, /* getParameterEntity */
     NULL, /* cdataBlock */
     NULL, /* externalSubset */
-    1
+    1,    /* initialized */
+    NULL, /* private */
+    NULL, /* startElementNsSAX2Func */
+    NULL, /* endElementNsSAX2Func */
+    NULL  /* xmlStructuredErrorFunc */
 };
 
 xmlSAXHandlerPtr emptySAXHandler = &emptySAXHandlerStruct;
@@ -375,7 +382,8 @@ startElementDebug(void *ctx ATTRIBUTE_UNUSED, const xmlChar *name, const xmlChar
 		while ((attlen = strlen((char*)att)) > 0) {
 		    outlen = sizeof output - 1;
 		    htmlEncodeEntities(output, &outlen, att, &attlen, '\'');
-		    fprintf(stdout, "%.*s", outlen, output);
+		    output[outlen] = 0;
+		    fprintf(stdout, "%s", (char *) output);
 		    att += attlen;
 		}
 		fprintf(stdout, "'");
@@ -594,7 +602,11 @@ xmlSAXHandler debugSAXHandlerStruct = {
     getParameterEntityDebug,
     cdataDebug,
     NULL,
-    1
+    1,
+    NULL,
+    NULL,
+    NULL,
+    NULL
 };
 
 xmlSAXHandlerPtr debugSAXHandler = &debugSAXHandlerStruct;
@@ -611,6 +623,7 @@ parseSAXFile(char *filename) {
     /*
      * Empty callbacks for checking
      */
+#ifdef LIBXML_PUSH_ENABLED
     if (push) {
 	FILE *f;
 
@@ -625,7 +638,7 @@ parseSAXFile(char *filename) {
 	    res = fread(chars, 1, 4, f);
 	    if (res > 0) {
 		ctxt = htmlCreatePushParserCtxt(emptySAXHandler, NULL,
-			    chars, res, filename, 0);
+			    chars, res, filename, XML_CHAR_ENCODING_NONE);
 		while ((res = fread(chars, 1, size, f)) > 0) {
 		    htmlParseChunk(ctxt, chars, res, 0);
 		}
@@ -651,7 +664,7 @@ parseSAXFile(char *filename) {
 		res = fread(chars, 1, 4, f);
 		if (res > 0) {
 		    ctxt = htmlCreatePushParserCtxt(debugSAXHandler, NULL,
-				chars, res, filename, 0);
+				chars, res, filename, XML_CHAR_ENCODING_NONE);
 		    while ((res = fread(chars, 1, size, f)) > 0) {
 			htmlParseChunk(ctxt, chars, res, 0);
 		    }
@@ -667,6 +680,7 @@ parseSAXFile(char *filename) {
 	    }
 	}
     } else {	
+#endif /* LIBXML_PUSH_ENABLED */
 	doc = htmlSAXParseFile(filename, NULL, emptySAXHandler, NULL);
 	if (doc != NULL) {
 	    fprintf(stdout, "htmlSAXParseFile returned non-NULL\n");
@@ -683,7 +697,9 @@ parseSAXFile(char *filename) {
 		xmlFreeDoc(doc);
 	    }
 	}
+#ifdef LIBXML_PUSH_ENABLED
     }
+#endif /* LIBXML_PUSH_ENABLED */
 }
 
 static void
@@ -693,6 +709,7 @@ parseAndPrintFile(char *filename) {
     /*
      * build an HTML tree from a string;
      */
+#ifdef LIBXML_PUSH_ENABLED
     if (push) {
 	FILE *f;
 
@@ -707,7 +724,7 @@ parseAndPrintFile(char *filename) {
 	    res = fread(chars, 1, 4, f);
 	    if (res > 0) {
 		ctxt = htmlCreatePushParserCtxt(NULL, NULL,
-			    chars, res, filename, 0);
+			    chars, res, filename, XML_CHAR_ENCODING_NONE);
 		while ((res = fread(chars, 1, size, f)) > 0) {
 		    htmlParseChunk(ctxt, chars, res, 0);
 		}
@@ -718,8 +735,11 @@ parseAndPrintFile(char *filename) {
 	    fclose(f);
 	}
     } else {	
-	doc = htmlParseFile(filename, NULL);
+	doc = htmlReadFile(filename, NULL, options);
     }
+#else
+	doc = htmlReadFile(filename,NULL,options);
+#endif
     if (doc == NULL) {
         xmlGenericError(xmlGenericErrorContext,
 		"Could not parse %s\n", filename);
@@ -734,6 +754,7 @@ parseAndPrintFile(char *filename) {
 	xmlFreeDoc(tmp);
     }
 
+#ifdef LIBXML_OUTPUT_ENABLED
     /*
      * print it.
      */
@@ -753,6 +774,7 @@ parseAndPrintFile(char *filename) {
 	    htmlDocDump(stdout, doc);
 #endif
     }	
+#endif /* LIBXML_OUTPUT_ENABLED */
 
     /*
      * free it.
@@ -772,8 +794,10 @@ int main(int argc, char **argv) {
 #endif
 	    if ((!strcmp(argv[i], "-copy")) || (!strcmp(argv[i], "--copy")))
 	    copy++;
+#ifdef LIBXML_PUSH_ENABLED
 	else if ((!strcmp(argv[i], "-push")) || (!strcmp(argv[i], "--push")))
 	    push++;
+#endif /* LIBXML_PUSH_ENABLED */
 	else if ((!strcmp(argv[i], "-sax")) || (!strcmp(argv[i], "--sax")))
 	    sax++;
 	else if ((!strcmp(argv[i], "-noout")) || (!strcmp(argv[i], "--noout")))
@@ -821,7 +845,9 @@ int main(int argc, char **argv) {
 	printf("\t--sax : debug the sequence of SAX callbacks\n");
 	printf("\t--repeat : parse the file 100 times, for timing\n");
 	printf("\t--noout : do not print the result\n");
+#ifdef LIBXML_PUSH_ENABLED
 	printf("\t--push : use the push mode parser\n");
+#endif /* LIBXML_PUSH_ENABLED */
 	printf("\t--encode encoding : output in the given encoding\n");
     }
     xmlCleanupParser();
@@ -831,7 +857,7 @@ int main(int argc, char **argv) {
 }
 #else /* !LIBXML_HTML_ENABLED */
 #include <stdio.h>
-int main(int argc, char **argv) {
+int main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
     printf("%s : HTML support not compiled in\n", argv[0]);
     return(0);
 }

@@ -1,0 +1,155 @@
+"Edward L. Sutter" <els@sage.sage.att.com>
+
+Perhaps there is already a better way to do this, but since I couldn'd find
+one, I'd like to make a suggestion that has helped me quite a bit for getting
+the proper hypertext links.  Keep in mind that this is under the context of
+me converting "man" directories with their typical sub-directories of
+man1, man2, etc... to an equivalently structured "html" directory with
+the same sub-directory heirarchy.
+
+I added an option to rman that allows it to search for the files over
+a specified set of directories.  This allows (for example) manpages under
+man1 that reference something under man3 to be properly linked.
+
+rman.c v2.4 ...
+
+...
+
+/* ELS: added to support a smarter external reference generator. */
+char	*SearchDirs=0;
+int 	HrefSearch();
+
+...
+
+/* ELS: added the -S option: */
+	while ((c=getopt(argc,argv,"Kh?f:l:r:bckmTpvn:t:s:yS:"))!=-1)
+		switch (c) {
+		   case 'k': fHeadfoot=1; break;
+		   case 'b': fSubsections=1; break;
+		   case 'c': fChangeleft=1; break;
+		   case 'S': SearchDirs=optarg; break;
+
+
+...
+
+
+void
+HTML(enum command cmd) {
+
+...
+
+	
+	   case BEGINMANREF:
+		for (p=hitxt; *p && *p!='('; p++) /* empty */;
+		*p++='\0'; p0=p;
+		for (; *p && *p!=')'; p++) /* empty */;
+		*p='\0';
+/* ELS: added a call to HrefSearch() if the -S option is set.. */
+		if (SearchDirs)
+			HrefSearch(hitxt,p0);
+		else {
+			printf("<A HREF=\"");
+			printf(manRef, hitxt, p0);
+			printf("\">");
+		}
+		break;
+
+
+...
+
+
+/* ELS... 
+   HrefSearch():
+	Active only with command line option -S...
+	Called when rman -fHTML has determined that it is going to add a
+	hypertext link.  The user tells rman where to search for the hypertext
+	links (local machine search only) and if HrefSearch() finds the file
+
+			SRCHDIR/manname.section
+
+	where
+		SRCHDIR is one of the colon-delimited paths specified with
+			the -S option;
+		manname is the text that rman found preceding a "manname(##)"
+			detection;
+		section is the string within the parens of the manname spec;
+
+
+	then it will use that path to build the HREF line.  If not found,
+	then <A> is all that is inserted.
+	This is generally only helpful when you are simply attempting to
+	turn a man directory into an html directory.
+
+	Note that if the first char of SearchDirs is a colon, then if
+	HrefSearch does not find the reference, it defaults to what rman
+	used to do (use manRef, -r option); otherwise, it will not add
+	a hypertext link at all.
+*/
+HrefSearch(manname,section)
+char	*manname, *section;
+{
+	char	*dir, *colon, tmp;
+	int	DefaultToManRef;
+	FILE	*fp;
+	static char	path[256];
+
+	tmp = 0;
+
+again:
+	if (SearchDirs[0] == ':') {
+		dir = &SearchDirs[1];
+		DefaultToManRef = 1;
+	}
+	else {
+		dir = SearchDirs;
+		DefaultToManRef = 0;
+	}
+
+	/* Make 2 passes on all search directories... */
+	/* First pass is with the path dir/manname.section */
+	/* Second pass is with the path dir/manname.section[0] */
+	/* This allows the spec manname(3x) to be found as manname.3 */
+	/* just in cast manname.3x doesn't exist. */
+	/* Note that the second pass is only necessary if the section */
+	/* string is more than one character in length. */
+	while(1) {
+		colon =  strchr(dir,':');
+		if (colon) *colon = 0;
+		sprintf(path,"%s/%s.%s.html",dir,manname,section); 
+		if ((fp = fopen(path,"rw")) != NULL) {
+			printf("<A HREF=\"");
+			printf("%s",path);
+			printf("\">");
+			fclose(fp);
+			if (colon) *colon = ':';
+			fprintf(stderr,"HREF @ %s\n",path);
+			return(1);
+		}
+		if (colon) {
+			*colon = ':';
+			dir = colon+1;
+		}
+		else
+			break;
+	}
+	if (section[1]) {
+		tmp = section[1];
+		section[1] = 0;
+		dir = SearchDirs;
+		goto again;
+	}
+	if (tmp)
+		section[1] = tmp;
+
+	if (DefaultToManRef) {
+		printf("<A HREF=\"");
+		printf(manRef, manname, section);
+		printf("\">");
+	}
+	else
+		printf("<A>");
+	return(1);
+}
+
+/* End ELS additions. */
+

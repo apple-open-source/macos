@@ -1,0 +1,63 @@
+#
+# $Date$ $Revision$
+# $Header: //depot/main/doc/man/manglu/html/Distfile#4 $
+#
+
+DISTDIR_SI = /xc/doc/hardcopy/GL/html/glu
+
+DISTFILES_SI = \
+	begincurve.html \
+	beginpolygon.html \
+	beginsurface.html \
+	begintrim.html \
+	build1dmipmaplevels.html \
+	build1dmipmaps.html \
+	build2dmipmaplevels.html \
+	build2dmipmaps.html \
+	build3dmipmaplevels.html \
+	build3dmipmaps.html \
+	checkextension.html \
+	cylinder.html \
+	deletenurbsrenderer.html \
+	deletequadric.html \
+	deletetess.html \
+	disk.html \
+	errorstring.html \
+	getnurbsproperty.html \
+	getstring.html \
+	gettessproperty.html \
+	loadsamplingmatrices.html \
+	lookat.html \
+	newnurbsrenderer.html \
+	newquadric.html \
+	newtess.html \
+	nextcontour.html \
+	nurbscallback.html \
+	nurbscallbackdata.html \
+	nurbscallbackdataext.html \
+	nurbscurve.html \
+	nurbsproperty.html \
+	nurbssurface.html \
+	ortho2d.html \
+	partialdisk.html \
+	perspective.html \
+	pickmatrix.html \
+	project.html \
+	pwlcurve.html \
+	quadriccallback.html \
+	quadricdrawstyle.html \
+	quadricnormals.html \
+	quadricorientation.html \
+	quadrictexture.html \
+	scaleimage.html \
+	sphere.html \
+	tessbegincontour.html \
+	tessbeginpolygon.html \
+	tesscallback.html \
+	tessendpolygon.html \
+	tessnormal.html \
+	tessproperty.html \
+	tessvertex.html \
+	unproject.html \
+	unproject4.html \
+	$(NULL)

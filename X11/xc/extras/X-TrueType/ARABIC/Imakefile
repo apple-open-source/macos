@@ -1,0 +1,9 @@
+/* code converter: ARABIC */
+
+#define ModuleName ARABIC
+SRCS = CP1256toUCS2.c MULEARABICtoUCS2.c XATERMtoUCS2.c main.c
+OBJS = CP1256toUCS2.o MULEARABICtoUCS2.o XATERMtoUCS2.o main.o
+
+#include <xttMod.tmpl>
+
+/* end of file */

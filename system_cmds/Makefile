@@ -12,15 +12,15 @@ NAME = system_cmds
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = dynamic_pager.tproj ac.tproj accton.tproj arch.tproj at.tproj\
-        atrun.tproj chkpasswd.tproj chpass.tproj dmesg.tproj\
-        getty.tproj hostinfo.tproj init.tproj iostat.tproj kgmon.tproj\
-        ktrace.tproj login.tproj mach_init.tproj makekey.tproj\
-        mkfile.tproj nvram.tproj passwd.tproj pwd_mkdb.tproj\
+TOOLS = ac.tproj accton.tproj arch.tproj at.tproj atrun.tproj\
+        auditd.tproj audit.tproj chkpasswd.tproj chpass.tproj dmesg.tproj\
+        dynamic_pager.tproj getty.tproj hostinfo.tproj init.tproj\
+        iostat.tproj kgmon.tproj ktrace.tproj login.tproj mach_init.tproj\
+        makekey.tproj mkfile.tproj nvram.tproj passwd.tproj pwd_mkdb.tproj\
         reboot.tproj shutdown.tproj sync.tproj sysctl.tproj\
         update.tproj vipw.tproj zic.tproj zdump.tproj vm_stat.tproj\
         zprint.tproj latency.tproj sc_usage.tproj fs_usage.tproj\
-        kdump.tproj sadc.tproj sar.tproj
+        kdump.tproj sadc.tproj sar.tproj  
 
 LIBRARIES = dp_notify_lib
 

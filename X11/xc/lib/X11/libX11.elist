@@ -1,0 +1,42 @@
+/* $Xorg: libX11.elist,v 1.3 2000/08/17 19:45:20 cpqbld Exp $ */
+
+/*************************************************************************
+ * Export list for libX11
+ * This list *must* be updated whenever a change is made to the API.
+ * 
+ * The syntax for the symbol declarations in this list is below.
+ *      public       sym => Public   C   symbol, i.e., publicized API
+ *      publicC++    sym => Public   C++ symbol, i.e., publicized API
+ *      private      sym => Private  C   symbol, i.e., unpublicized API
+ *      privateC++   sym => Private  C++ symbol, i.e., unpublicized API
+ *      internal     sym => Internal C   symbol, i.e., not part of API
+ *      internalC++  sym => Internal C++ symbol, i.e., not part of API
+ *      force        sym => symbol to be exported even if not found.  Some
+ *	                    restrictions may apply.  Avoid this directive.
+ *
+ * Note that exporting C++ symbols is not portable; different
+ * compilers may use different name mangling schemes and different
+ * hidden name (e.g. virtual function table) generation schemes.
+ *
+ * In addition a single "default" directive may appear, specifying how
+ * unmentioned symbols should be treated.  The possible options are:
+ *	default			Warn about implicit symbols and hide them.
+ *	default public		Export public symbols implicitly.
+ *	default private		Export public symbols implicitly.
+ *	default internal	Hide public symbols implicitly.
+ *
+ *
+ **************************************************************************/
+
+/* We will not be naming symbols; export all public symbols in the library. */
+default public
+
+#ifdef AIXV4
+/* 
+ * In earlier releases of this library, IBM exported some standard
+ * symbols from the system libraries.  We must keep re-exporting these
+ * symbols for binary compatibility.
+ */
+force setlocale
+force nl_langinfo
+#endif

@@ -1,0 +1,1864 @@
+\&
+.sp 1
+.ce 3
+\s+1\fBChapter 7\fP\s-1
+
+\s+1\fBStructures\fP\s-1
+.sp 2
+.nr H1 7
+.nr H2 0
+.nr H3 0
+.nr H4 0
+.nr H5 0
+.na
+.LP
+.XS
+Chapter 7: Structures
+.XE
+.IN "structures"
+.LP
+A structure is a resource which stores output commands for later execution.
+Output commands stored in a structure are referred to as structure elements.
+.IN "structure elements"
+.IN "elements" "structure"
+Structures can be shared by clients like any other X or PEX resource.
+Structures can reference other structures; such a hierarchy of structures is
+called a structure network. The first structure in a structure network is
+called the root structure.
+.IN "root structure"
+.IN "structure" "root"
+.LP
+The two modifiable attributes in a structure resource are:
+.ID
+element pointer
+editing mode
+.DE
+.LP
+The following attributes of a structure can be inquired:
+.ID
+number of structure elements
+length (in units of four bytes)
+whether or not referenced by other structures
+.DE
+.LP
+Create a structure resource by calling the
+.PN PEXCreateStructure
+function.
+Add structure elements to existing structures
+simply by calling output command functions with the appropriate structure
+identifier and a
+.PN PEXOCRequestType
+of
+.PN PEXOCStore .
+.LP
+Delete structure resources by calling the
+.PN PEXDestroyStructures
+function.
+.PN PEXDestroyStructures
+takes a list of structure resources to be deleted and
+has the side effect of deleting all other structure elements which 
+reference any of the deleted structures.
+.LP
+.IN "element offset"
+.IN "offset" "element, within a structure"
+The position of an element within a structure is its offset from the start of
+the structure. The first element of a structure has an offset of one. The last
+element of a structure has an offset of n, where n is the total number of
+elements within the structure.
+Conceptually, a "null element" exists before the first element and
+has an offset of zero.
+.IN "null element"
+.IN "element" "null"
+.IN "element zero"
+.LP
+The element pointer contains an offset into the structure.  When a structure is
+first created, the element pointer has a value of zero.  Many commands use the
+element pointer value to fetch, store, or edit structure elements.  PEXlib
+contains a number of functions which modify the position of the element 
+pointer.  These requests typically require a "{whence, offset}" pair.  The element
+pointer is positioned relative to the beginning of the structure (whence ==
+.PN PEXBeginning ),
+relative to the current element pointer position (whence ==
+.PN PEXCurrent ),
+or relative to the end of the structure (whence ==
+.PN PEXEnd ).
+To obtain the absolute offset, the specified offset is added to
+the position indicated by "whence".  For functions which specify a range of
+elements with two "{whence, offset}" pairs, the elements affected are those
+between the two computed positions regardless of which position was specified
+first and which was second.
+.LP
+.IN "label"
+A label is a special structure element that allows convenient editing of a
+structure.  Labels are stored as structure elements and move with other
+structure elements as elements are inserted or deleted before them in the
+structure.  The element pointer can be moved to a particular label or to the
+next occurrence of a particular structure element within the structure.  
+.LP
+.IN "insert mode"
+An output command is inserted into a structure by setting the structure
+editing mode to
+.PN PEXStructureInsert
+(the default), setting the element pointer to
+the desired element offset, and calling the appropriate output command functions.
+In insert mode, each output command sent to a structure
+causes a structure element to be created and inserted after the
+element specified by the element pointer.  After each insertion, the element
+pointer is updated to point to the newly-inserted element.
+.LP
+To illustrate a common case, the element pointer points to the last
+element in a structure and structure elements are to be added to the end of the
+structure.  Each output command sent to this structure causes a structure
+element to be added after the last element, and the element pointer is then
+updated to point to the newly-inserted structure element.  Therefore, multiple
+output commands sent to a structure when the editing mode is
+.PN PEXStructureInsert
+result in an ordered list of structure elements being added to the structure.
+.LP
+.IN "replace mode"
+Existing structure elements are overwritten by setting the editing mode of a
+structure to
+.PN PEXStructureReplace .
+In replace mode, existing elements are deleted
+and the new elements sent to the structure are created in their place.  The
+number of elements deleted is equal to n, where n is the number of elements
+sent to the structure in a single request (unless there are fewer than n
+elements between the
+element pointer position and the end of the structure, in which case only those
+between the element pointer position and the end of the structure are deleted).
+If the range to be deleted includes offset 0 then n-1 elements are deleted from
+the structure.  The elements sent to the structure are then inserted in place
+of the deleted elements.  See also the introduction in
+\fIChapter 2: Output Commands\fP.
+.LP
+It is not possible to set the element pointer to an offset greater than the
+last element in the structure.  This means at least one element is always
+overwritten during a replace operation, unless the structure originally
+contained no elements.  The element pointer is left pointing to the last
+inserted or replaced element in the structure.
+.LP
+Some structure editing commands can copy or delete a range of structure
+elements.  When elements are deleted, the element pointer is set to the
+position immediately preceding the first element deleted.  The offset of each
+element after those deleted decreases by one for each element deleted. Deleting
+element zero is effectively a no-op.  A deletion operation includes the
+elements at the boundaries of the deletion range.  After the deletion occurs,
+the element pointer is left pointing at the element preceding the deleted
+range.
+.LP
+.IN "editing mode"
+Copy operations ignore the editing mode of the destination structure; elements
+are always inserted during copy operations. After a copy operation, the
+destination structure's element pointer is left pointing at the last copied
+element.  Copying elements when the source and destination structure are the
+same is also permitted.  The semantics specify that the copy occurs as though
+the elements in the copy range are first copied to a temporary area and then
+inserted at the desired spot in the destination structure.
+.LP
+Other commands exist for dealing with structures.  These include commands to
+change all references to a structure, obtain the size of a structure, and
+obtain information about the hierarchy of a structure network.  Some of these
+requests use the concept of an element reference path, which is an arbitrary
+length list of structure id/element offset pairs.  A structure element is
+referenced with such a structure id/element offset pair.  Since structures can
+call other structures, it is helpful to know the organization of the
+structure network.  The element reference path is used to identify a unique  
+path through a structure network.
+.LP
+For instance, if structure "A" is the root of a structure network,
+an element that lives at element offset 14 in structure "A" has
+an element reference path equal to {"A":14}.  If element 14 in structure
+"A" is an execute structure command that references structure "B," element zero
+in "B" has an element reference path of {"A":14, "B":0}.  Since it
+is possible that "B" is also referenced by other structures, there may be
+alternative paths to the element "B":0.  The depth of an element
+reference path is the number of element references in the path.  A path depth
+of zero requests all unique paths leading to a particular element.
+.bp
+.XS
+Function Descriptions
+.XE
+.SH
+PEXChangeStructureRefs - Change Structure References
+.SH
+Synopsis
+.XS
+	PEXChangeStructureRefs
+.XE
+.IN "PEXChangeStructureRefs" "" "@DEF@"
+.RS
+.FD 0
+void PEXChangeStructureRefs\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIold_structure\fP\^, PEXStructure \fInew_structure\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIold_structure\fP 1i
+The resource identifier of the structure no longer to be referenced.
+.IP \fInew_structure\fP 1i
+The resource identifier of the structure now referenced.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function changes "execute structure" elements in the server that
+reference the specified old structure into
+"execute structure" elements which reference the specified new structure.
+Both structures must already exist as valid structure resources.
+.LP
+Any references to the new structure that existed before this
+request are not affected.  If there were references to the old structure
+and the new structure does not exist, an error is returned
+and no action is taken.
+.LP
+On all PHIGS workstation resources where the new structure is not already
+posted and the old structure is posted, the new structure is posted with the
+same priority as the old structure and the old structure is unposted.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure
+.PN PEXGetStructureInfo ,
+.PN PEXGetStructuresInNetwork ,
+.br
+.PN PEXGetAncestors ,
+.PN PEXGetDescendants
+.RE
+.bp
+.SH
+PEXCopyElements - Copy Elements
+.XS
+	PEXCopyElements
+.XE
+.IN "PEXCopyElements" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXCopyElements\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIsrc_structure\fP\^, int \fIsrc_whence1\fP\^, long \fIsrc_offset1\fP\^, int \fIsrc_whence2\fP\^, long \fIsrc_offset2\fP\^, PEXStructure \fIdst_structure\fP\^, int \fIdst_whence\fP\^, long \fIdst_offset\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIsrc_structure\fP 1i
+The resource identifier of the source structure.
+.IP \fIsrc_whence1\fP 1i
+A value specifying, with src_offset1, the first limit of the range of elements to be copied
+.Pn ( PEXBeginning ,
+.PN PEXCurrent ,
+.PN PEXEnd ).
+.IP \fIsrc_offset1\fP 1i
+The offset from src_whence1 denoting the first limit of the range of elements to be copied.
+.IP \fIsrc_whence2\fP 1i
+A value specifying, with src_offset2, the second limit of the range of elements to be copied
+.Pn ( PEXBeginning ,
+.PN PEXCurrent ,
+.PN PEXEnd ).
+.IP \fIsrc_offset2\fP 1i
+The offset from src_whence2 denoting the second limit of the range of elements to be copied.
+.IP \fIdst_structure\fP 1i
+The resource identifier of the destination structure.
+.IP \fIdst_whence\fP 1i
+A value specifying, with dst_offset, the position at which the elements
+are inserted into the destination structure
+.Pn ( PEXBeginning ,
+.PN PEXCurrent ,
+.PN PEXEnd ).
+.IP \fIdst_offset\fP 1i
+The offset from dst_whence denoting the position at which the elements
+are inserted into the destination structure.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function copies a range of elements from the specified source structure
+to the specified destination structure.
+.LP
+If a computed offset is less than zero, it is set to
+zero before obtaining the element information.  If a
+computed offset is greater than the number of elements in the
+structure, the offset is set to the offset of the last element in the
+structure.
+.LP
+The source structure and destination structure can
+be the same.  In this case, the copy operation proceeds
+as though the indicated range were copied to a temporary location
+and then inserted relative to the destination position.
+.LP
+After the copy operation, the element pointer of the destination
+structure is updated to point at the last element copied
+into the destination structure.  The editing mode attribute of
+the destination structure is ignored during this request.  The copied
+elements are always inserted into the destination structure
+and are never used to replace existing structure elements.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified value for whence parameter is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure
+.RE
+.bp
+.SH
+PEXCopyStructure - Copy Structure
+.XS
+	PEXCopyStructure
+.XE
+.IN "PEXCopyStructure" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXCopyStructure\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIsrc_structure\fP\^, PEXStructure \fIdst_structure\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIsrc_structure\fP 1i
+The resource identifier of the source structure.
+.IP \fIdst_structure\fP 1i
+The resource identifier of the destination structure.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function copies elements in the source structure to
+the destination structure.  Both structures must already
+exist as valid structure resources.  Elements already in
+the destination structure are overwritten.
+The element pointer and editing mode attributes of the source structure
+are copied to the destination structure as well.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure
+.RE
+.bp
+.SH
+PEXCreateStructure - Create Structure
+.XS
+	PEXCreateStructure
+.XE
+.IN "PEXCreateStructure" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXStructure PEXCreateStructure\^(\^Display *\fIdisplay\fP\^)
+.FN
+.RE
+.SH
+Argument
+.RS
+.LP
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.RE
+.SH
+Returns
+.RS
+.LP
+The resource identifier of the newly-created structure resource.
+.RE
+.SH
+Description
+.RS
+.LP
+This function creates a structure resource and returns the resource identifier
+of the created structure.  The returned identifier is used to
+refer to the created structure resource.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadAlloc\fP 1i
+The server failed to allocate the resource.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXDestroyStructures
+.RE
+.bp
+.SH
+PEXDeleteBetweenLabels - Delete Elements Between Labels
+.XS
+	PEXDeleteBetweenLabels
+.XE
+.IN "PEXDeleteBetweenLabels" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXDeleteBetweenLabels\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIstructure\fP\^, long \fIlabel1\fP\^, long \fIlabel2\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIstructure\fP 1i
+The resource identifier of the structure.
+.IP \fIlabel1\fP 1i
+The first label.
+.IP \fIlabel2\fP 1i
+The second label.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function deletes a range of elements from the specified structure.
+Elements between the two labels are deleted.
+The label elements are not deleted.  A search for the first
+label is performed starting at the current offset plus one.
+A search for the second label is performed starting at the element following
+the first label.  After the deletion operation, the structure element
+pointer is set to the pointer position at the first label.
+.LP
+If either of the two labels is not found between the starting point of the
+search and the end of the structure, no deletion occurs and the structure's
+element point is left unchanged.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXLabel\fP 1i
+The specified label does not exist.
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure ,
+.PN PEXLabel
+.RE
+.bp
+.SH
+PEXDeleteElements - Delete Elements
+.XS
+	PEXDeleteElements
+.XE
+.IN "PEXDeleteElements" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXDeleteElements\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIstructure\fP\^, int \fIwhence1\fP\^, long \fIoffset1\fP\^, int \fIwhence2\fP\^, long \fIoffset2\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIstructure\fP 1i
+The resource identifier of the structure.
+.IP \fIwhence1\fP 1i
+A value specifying, with offset1, the first limit of the range of elements to be deleted
+.Pn ( PEXBeginning ,
+.PN PEXCurrent ,
+.PN PEXEnd ).
+.IP \fIoffset1\fP 1i
+The offset from whence1 denoting the first limit of the range of elements to be deleted.
+.IP \fIwhence2\fP 1i
+A value specifying, with offset2, the second limit of the range of elements to be deleted
+.Pn ( PEXBeginning ,
+.PN PEXCurrent ,
+.PN PEXEnd ).
+.IP \fIoffset2\fP 1i
+The offset from whence2 denoting the second limit of the range of elements to be deleted.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function deletes a range of elements from the structure specified by
+structure.
+.LP
+If a computed offset is less than zero, it is set to
+zero before obtaining the element information.  If a
+computed offset is greater than the number of elements in the
+structure, the offset is set to the offset of the last structure element
+in the structure.  Deleting the null element is effectively
+a no-op.  After the deletion operation, the structure element
+pointer is set to the element immediately preceding the range
+of deleted elements.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified value for whence parameter is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure
+.RE
+.bp
+.SH
+PEXDeleteToLabel - Delete Elements to Label
+.XS
+	PEXDeleteToLabel
+.XE
+.IN "PEXDeleteToLabel" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXDeleteToLabel\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIstructure\fP\^, int \fIwhence\fP\^, long \fIoffset\fP\^, long \fIlabel\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIstructure\fP 1i
+The resource identifier of the structure.
+.IP \fIwhence\fP 1i
+A value specifying, with offset, the beginning of the range of elements to be deleted
+.Pn ( PEXBeginning ,
+.PN PEXCurrent ,
+.PN PEXEnd ).
+.IP \fIoffset\fP 1i
+The offset from whence denoting the beginning of the range of elements to be deleted.
+.IP \fIlabel\fP 1i
+The label specifying the end of the range of elements to be deleted.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function deletes a range of elements between a computed offset and a
+specified label in the specified structure.
+The computed offset specifies the beginning of the
+deletion range.  The label specifies the end of the deletion
+range.  Elements are deleted from the structure element immediately
+after the computed offset up to the next occurrence of the label.
+The label is not deleted.  If label is not found, no
+elements are deleted.
+.LP
+If the computed offset is less than zero, it is set to zero
+before the deletion occurs.  If the computed offset is greater
+than the number of elements in the structure, the offset is set to the
+offset of the last structure element.  Deleting the zero
+element is effectively a no-op.  After the deletion operation,
+the structure element pointer is set to the element immediately
+preceding the range of deleted elements.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXLabel\fP 1i
+The specified label does not exist.
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified value for whence parameter is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure ,
+.PN PEXLabel
+.RE
+.bp
+.SH
+PEXDestroyStructures - Destroy Structures
+.XS
+	PEXDestroyStructures
+.XE
+.IN "PEXDestroyStructures" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXDestroyStructures\^(\^Display *\fIdisplay\fP\^, unsigned long \fIcount\fP\^, PEXStructure *\fIstructures\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIcount\fP 1i
+The number of structure resource identifiers.
+.IP \fIstructures\fP 1i
+An array of resource identifiers of the structures to be destroyed.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function deletes each structure in the list of structure identifiers,
+removes all references to it in the server, and
+frees all memory associated with it.
+.LP
+This function also removes any "execute structure" structure elements
+that reference a structure in the list and unposts any structure in
+the list from a PHIGS workstation resource to which it is posted.
+If a structure has any structure elements removed from it as a result
+of this call, its element pointer will continue to point at the same
+structure element.  However, if the structure element being pointed
+at is removed, the element pointer will be positioned at the previous
+structure element.
+.LP
+Any paths in search contexts or pick measures that contain references
+to a deleted structure may still be inquired.
+However, if a path in a search context or pick measure resource which
+contains a destroyed structure resource identifier is later used in a
+.PN PEXSearchNetwork
+or
+.PN PEXUpdatePickMeasure
+function, a path error is generated.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure ,
+.PN PEXGetStructuresInNetwork ,
+.PN PEXGetAncestors ,
+.br
+.PN PEXGetDescendants ,
+.PN PEXChangeStructureRefs
+.RE
+.bp
+.SH
+PEXElementSearch - Element Search
+.XS
+	PEXElementSearch
+.XE
+.IN "PEXElementSearch" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+Status PEXElementSearch\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIstructure\fP\^, int \fIwhence\fP\^, long \fIoffset\fP\^, int \fIdirection\fP\^, unsigned long \fIincl_count\fP\^, unsigned short *\fIincl_list\fP\^, unsigned long \fIexcl_count\fP\^, unsigned short *\fIexcl_list\fP\^, unsigned long *\fIelem_offset_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIstructure\fP 1i
+The resource identifier of the structure.
+.IP \fIwhence\fP 1i
+A value specifying, with offset, the offset at which the search is to begin
+.Pn ( PEXBeginning ,
+.PN PEXCurrent ,
+.PN PEXEnd ).
+.IP \fIoffset\fP 1i
+The offset from whence at which the search is to begin.
+.IP \fIdirection\fP 1i
+The direction of the search
+.Pn ( PEXForward
+or
+.PN PEXBackward ).
+.IP \fIincl_count\fP 1i
+The number of values in inclusion array.
+.IP \fIincl_list\fP 1i
+An array of short integers specifying structure elements to be searched for.
+.IP \fIexcl_count\fP 1i
+The number of values in exclusion array.
+.IP \fIexcl_list\fP 1i
+An array of short integers specifying structure elements not to be searched for.
+.IP \fIelem_offset_return\fP 1i
+Returns the offset of the element located by the search.
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if unsuccessful, non-zero otherwise.
+The non-zero value will be either
+.PN PEXFound
+or
+.PN PEXNotFound
+depending upon the result of the search.
+.RE
+.SH
+Description
+.RS
+.LP
+This function searches for the first occurrence of the specified
+element type in the specified structure.
+The search always includes the starting element.
+.LP
+If the computed offset is less than zero, it is set to zero before
+the search is performed.  If the computed offset is greater than
+the number of elements in the structure, it is set to the offset
+of the last structure element in the structure.
+.LP
+An element is selected if its element type is contained in
+inclusion list and is not contained in exclusion list.
+An element type of
+.PN PEXOCAll
+causes all element types to match.  If a structure element
+type is in both the inclusion and exclusion list, it is excluded.
+.LP
+The search terminates if a match is found or if the limits of the
+structure are reached.  The search progresses from the start point
+in the specified direction
+.Pn ( PEXForward
+or
+.PN PEXBackward ).
+This is a non-descending search; that is, the
+search does not include any structures referenced by "execute
+structure" elements.  If the search finds a match, a return status of
+.PN PEXFound
+and the offset of the matching element is returned.
+If the search is unsuccessful, a return status of
+.PN PEXNotFound
+is returned.
+.LP
+The element pointer position of structure is not changed.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified value for whence or direction parameter is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure
+.RE
+.bp
+.SH
+PEXFetchElements - Fetch Elements
+.XS
+	PEXFetchElements
+.XE
+.IN "PEXFetchElements" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+Status PEXFetchElements\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIstructure\fP\^, int \fIwhence1\fP\^, long \fIoffset1\fP\^, int \fIwhence2\fP\^, long \fIoffset2\fP\^, int \fIfloat_format\fP\^, unsigned long *\fIcount_return\fP\^, unsigned long *\fIlength_return\fP\^, char **\fIocs_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIstructure\fP 1i
+The resource identifier of the structure.
+.IP \fIwhence1\fP 1i
+A value specifying, with offset1, the first limit of the range of elements to be fetched
+.Pn ( PEXBeginning ,
+.PN PEXCurrent ,
+.PN PEXEnd ).
+.IP \fIoffset1\fP 1i
+The offset from whence1 denoting the first limit of the range of elements to be fetched.
+.IP \fIwhence2\fP 1i
+A value specifying, with offset2, the second limit of the range of elements to be fetched
+.Pn ( PEXBeginning ,
+.PN PEXCurrent ,
+.PN PEXEnd ).
+.IP \fIoffset2\fP 1i
+The offset from whence2 denoting the second limit of the range of elements to be fetched.
+.IP \fIfloat_format\fP 1i
+The floating point format to use when formatting the output commands to be fetched
+.Pn ( PEXIEEE_754_32 ,
+.PN PEXDEC_F_Floating ,
+.PN PEXIEEE_754_64 ,
+.PN PEXDEC_D_Floating ).
+.IP \fIcount_return\fP 1i
+Returns the number of output commands returned.
+.IP \fIlength_return\fP 1i
+Returns the length, in bytes, of the output commands fetched.
+.IP \fIocs_return\fP 1i
+Returns a pointer to protocol-formatted output commands (structure elements).
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if unsuccessful, non-zero otherwise.
+.RE
+.SH
+Description
+.RS
+.LP
+This function fetches a range of structure elements from the specified
+structure.
+.LP
+If either computed offset is less than zero, it is set to
+zero before fetching the structure elements.  If either
+computed offset is greater than the number of elements in the
+structure, it is set to the offset of the last structure element
+in the structure.  The element pointer attribute of structure
+is not affected by this command.  No information will be returned for inquiries
+on element offset zero.
+.LP
+An null pointer is returned is the requested floating point format is not
+supported.
+.LP
+Any text or annotation text output commands returned will be formatted as
+encoded text or encoded annotation text.
+.LP
+PEXlib allocates memory for the return value.
+.PN XFree
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXFloatingPointFormat\fP 1i
+The specified floating point format is invalid or unsupported.
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified value for whence parameter is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure
+.br
+.PN PEXDecodeOCs ,
+.PN PEXEncodeOCs ,
+.PN PEXSendOCs
+.RE
+.bp
+.SH
+PEXFetchElementsAndSend - Fetch Elements and Send to Display
+.XS
+	PEXFetchElementsAndSend
+.XE
+.IN "PEXFetchElementsAndSend" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+Status PEXFetchElementsAndSend\^(\^Display *\fIsrc_display\fP\^, PEXStructure \fIstructure\fP\^, int \fIwhence1\fP\^, long \fIoffset1\fP\^, int \fIwhence2\fP\^, long \fIoffset2\fP\^, Display *\fIdst_display\fP\^, XID \fIresource_id\fP\^, PEXOCRequestType \fIreq_type\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIsrc_display\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIstructure\fP 1i
+The resource identifier of the structure.
+.IP \fIwhence1\fP 1i
+A value specifying, with offset1, the first limit of the range of elements to be fetched
+.Pn ( PEXBeginning ,
+.PN PEXCurrent ,
+.PN PEXEnd ).
+.IP \fIoffset1\fP 1i
+The offset from whence1 denoting the first limit of the range of elements to be fetched.
+.IP \fIwhence2\fP 1i
+A value specifying, with offset2, the second limit of the range of elements to be fetched
+.Pn ( PEXBeginning ,
+.PN PEXCurrent ,
+.PN PEXEnd ).
+.IP \fIoffset2\fP 1i
+The offset from whence2 denoting the second limit of the range of elements to be fetched.
+.IP \fIdst_display\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIresource_id\fP 1i
+The resource identifier of the renderer or structure.
+.IP \fIreq_type\fP 1i
+The request type for the output commands
+.Pn ( PEXOCRender ,
+.PN PEXOCStore ,
+.PN PEXOCRenderSingle
+or
+.PN PEXOCStoreSingle ).
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if unsuccessful, non-zero otherwise.
+.RE
+.SH
+Description
+.RS
+.LP
+This function is like
+.PN PEXFetchElements
+except that the list of output commands are not returned to the application
+but are sent directly to the specified destination display.
+.LP
+Calling this function is similar to calling
+.PN PEXFetchElements ,
+and then sending the returned list of output commands by calling
+.PN PEXStartOC ,
+.PN PEXCopyBytesToOC
+and
+.PN PEXFinishOC .
+.LP
+If the destination display does not support the same floating point format
+as the format PEXlib is using with the source display, and if PEXlib can not
+convert to a format supported by the destination display, the function will
+return unsuccessfully.
+.LP
+Sending output commands to a structure whose editing mode is
+.PN PEXStructureReplace ,
+is not really useful.  The behavior will be unpredictable
+unless a request type of
+.PN PEXOCStoreSingle
+is used.  And, if the request type is
+.PN PEXOCStoreSingle ,
+each output command will simply replace the previous one sent.
+Applications should ensure that the structure's editing mode is
+.PN PEXStructureInsert ,
+when sending multiple output commands.  If it is intended to replace multiple
+elements, the application can delete those elements first, and then insert the
+new ones.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified value for whence parameter is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXFetchElements
+.RE
+.bp
+.SH
+PEXFreeStructurePaths - Free Structure Paths Memory
+.XS
+	PEXFreeStructurePaths
+.XE
+.IN "PEXFreeStructurePaths" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXFreeStructurePaths\^(\^unsigned long \fIcount\fP\^, PEXStructurePath *\fIpaths\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIcount\fP 1i
+The number of structure paths.
+.IP \fIpaths\fP 1i
+An array of structure paths.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function deallocates memory returned by
+.PN PEXGetAncestors ,
+.PN PEXGetDescendants ,
+and
+.PN PEXSearchNetwork .
+.RE
+.SH
+Errors
+.RS
+.IP None 1i
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXGetAncestors ,
+.PN PEXGetDescendants ,
+.PN PEXSearchNetwork .
+.RE
+.bp
+.SH
+PEXGetAncestors - Get Ancestors
+.XS
+	PEXGetAncestors
+.XE
+.IN "PEXGetAncestors" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXStructurePath *PEXGetAncestors\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIstructure\fP\^, int \fIpath_part\fP\^, unsigned long \fIpath_depth\fP\^, unsigned long *\fIcount_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIstructure\fP 1i
+The resource identifier of the structure.
+.IP \fIpath_part\fP 1i
+The part of the path to return
+.Pn ( PEXTopPart
+or
+.PN PEXBottomPart ).
+.IP \fIpath_depth\fP 1i
+The maximum number of structure network path levels
+to be returned in each path found.
+.IP \fIcount_return\fP 1i
+Returns the number of paths found.
+.RE
+.SH
+Returns
+.RS
+.LP
+An array of structure paths defining the ancestors of the specified structure;
+a null pointer if unsuccessful.
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns a list of structure network paths which reference the
+specified structure.
+Paths are returned as lists of element references, each of which is represented
+as a structure resource identifier and an offset that gives the element's
+position in the structure.  Only unique paths are returned; in other words there
+will be no duplicates in the list of returned paths.
+.LP
+The path part must be either
+.PN PEXTopPart ,
+which requests that the top of
+the structure paths be returned, or
+.PN PEXBottomPart ,
+which
+requests that the bottom of the structure paths be returned.
+.LP
+The path depth specifies the maximum number of element references
+to be returned in each path.  If the path depth is 0, the entire
+path is returned.  If the path depth is 1, only one element
+reference is returned for each path.  A path depth of 2 returns two
+elements, and so on.
+.LP
+Specifying a path depth of 0 and a path part of
+.PN PEXTopPart
+returns the unique top parts of all paths to structure.
+Specifying a path depth of 1 and a path part of
+.PN PEXTopPart
+returns the root structure of all
+structure networks which contain structure.
+A path depth of 2 and path part of
+.PN PEXBottomPart
+returns all of
+the structure's immediate ancestors.  Determine the number
+of references to structure by setting
+the path depth to 1 and the path part to
+.PN PEXBottomPart .
+.LP
+PEXlib allocates memory for the returned ancestor information.
+.PN PEXFreeStructurePaths
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.sp
+typedef struct {
+    unsigned long       count;                  /* number of elements */
+    PEXElementRef       *elements;
+} PEXStructurePath;
+.sp
+typedef struct {
+    PEXStructure        structure;
+    unsigned long       offset;
+} PEXElementRef;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified value for path part is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure ,
+.PN PEXGetStructuresInNetwork ,
+.PN PEXGetDescendants
+.RE
+.bp
+.SH
+PEXGetDescendants - Get Descendants
+.XS
+	PEXGetDescendants
+.XE
+.IN "PEXGetDescendants" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXStructurePath *PEXGetDescendants\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIstructure\fP\^, int \fIpath_part\fP\^, unsigned long \fIpath_depth\fP\^, unsigned long *\fIcount_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIstructure\fP 1i
+The resource identifier of the structure.
+.IP \fIpath_part\fP 1i
+The part of the path to return
+.Pn ( PEXTopPart
+or
+.PN PEXBottomPart ).
+.IP \fIpath_depth\fP 1i
+The maximum number of structure network path levels
+to be returned in each path found.
+.IP \fIcount_return\fP 1i
+Returns the number of paths found.
+.RE
+.SH
+Returns
+.RS
+.LP
+An array of structure paths defining the descendants of the specified structure; a null pointer if unsuccessful.
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns a list of structure network paths referenced by the
+specified structure.
+The elements of the returned array are of type
+.PN PEXStructurePath .
+Paths are returned as lists of element references, each of which is represented
+as a structure resource identifier and an offset that gives the element's
+position in the structure.  Only unique paths are returned; in other words,
+there will be no duplicates in the returned paths.
+.LP
+The path part must be either
+.PN PEXTopPart ,
+which requests that the top of
+the structure paths be returned, or
+.PN PEXBottomPart ,
+which
+requests that the bottom of the structure paths be returned.
+.LP
+The path depth specifies the maximum number of element references
+to be returned in each path.  If the path depth is 0, the entire
+path is returned.  If the path depth is 1, only one element
+reference is returned for each path, and so on.
+.LP
+For instance, specifying a path depth of 0 and a path part of
+.PN PEXTopPart
+returns all paths from structure to leaf nodes in the structure
+network tree in the order they would be traversed.
+Specifying a path depth of 1 and a path part of
+.PN PEXBottomPart
+determines the bottom-most structures of the structure network
+rooted at structure.
+.LP
+PEXlib allocates memory for the returned descendant information.
+.PN PEXFreeStructurePaths
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.sp
+typedef struct {
+    unsigned long       count;                  /* number of elements */
+    PEXElementRef       *elements;
+} PEXStructurePath;
+.sp
+typedef struct {
+    PEXStructure        structure;
+    unsigned long       offset;
+} PEXElementRef;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified value for path part is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure ,
+.PN PEXGetStructuresInNetwork ,
+.PN PEXGetAncestors
+.RE
+.bp
+.SH
+PEXGetElementInfo - Get Element Information
+.XS
+	PEXGetElementInfo
+.XE
+.IN "PEXGetElementInfo" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+Status PEXGetElementInfo\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIstructure\fP\^, int \fIwhence1\fP\^, long \fIoffset1\fP\^, int \fIwhence2\fP\^, long \fIoffset2\fP\^, int \fIfloat_format\fP\^, unsigned long *\fIcount_return\fP\^, PEXElementInfo **\fIinfo_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIstructure\fP 1i
+The resource identifier of the structure.
+.IP \fIwhence1\fP 1i
+A value specifying, with offset1, the first limit of the range of queried elements
+.Pn ( PEXBeginning ,
+.PN PEXCurrent ,
+.PN PEXEnd ).
+.IP \fIoffset1\fP 1i
+The offset from whence1 denoting the first limit of the range of queried elements.
+.IP \fIwhence2\fP 1i
+A value specifying, with offset2, the second limit of the range of elements to be queried
+.Pn ( PEXBeginning ,
+.PN PEXCurrent ,
+.PN PEXEnd ).
+.IP \fIoffset2\fP 1i
+The offset from whence2 denoting the second limit of the range of elements to be queried.
+.IP \fIfloat_format\fP 1i
+The floating point format to use when computing element sizes
+.Pn ( PEXIEEE_754_32 ,
+.PN PEXDEC_F_Floating ,
+.PN PEXIEEE_754_64 ,
+.PN PEXDEC_D_Floating ).
+.IP \fIcount_return\fP 1i
+Returns the number element info records returned.
+.IP \fIinfo_return\fP 1i
+Returns an array of element info records describing the elements in the specified range.
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if unsuccessful, non-zero otherwise.
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns information about a range of elements from the
+specified structure.
+.LP
+If a computed offset is less than zero it is set to
+zero before obtaining the element information.  If a
+computed offset is greater than the number of elements in the
+structure, it is set to the offset of the last structure element
+in the structure.  The element pointer attribute of structure
+is not affected by this command.
+.LP
+Information returned about the list of inquired elements
+includes the type of each element and its size.
+The size of each element is based upon the specified floating point format.
+No information is returned for inquires on element offset zero.
+The element pointer is not affected by this function.
+.LP
+PEXlib allocates memory for the return value.
+.PN XFree
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.sp
+typedef struct {
+    unsigned short      type;
+    unsigned short      length;
+} PEXElementInfo;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXFloatingPointFormat\fP 1i
+The specified floating point format is invalid or unsupported.
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified value for whence parameter is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure
+.RE
+.bp
+.SH
+PEXGetStructureInfo - Get Structure Information
+.XS
+	PEXGetStructureInfo
+.XE
+.IN "PEXGetStructureInfo" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+Status PEXGetStructureInfo\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIstructure\fP\^, int \fIfloat_format\fP\^, unsigned long \fIvalue_mask\fP\^, PEXStructureInfo *\fIinfo_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIstructure\fP 1i
+The resource identifier of the structure.
+.IP \fIfloat_format\fP 1i
+The floating point format to use when computing element sizes
+.Pn ( PEXIEEE_754_32 ,
+.PN PEXDEC_F_Floating ,
+.PN PEXIEEE_754_64 ,
+.PN PEXDEC_D_Floating ).
+.IP \fIvalue_mask\fP 1i
+A mask indicating which values to return.
+.IP \fIinfo_return\fP 1i
+Returns information about the structure resource.
+.RE
+.RE
+.SH
+Returns
+.RS
+.LP
+Zero if unsuccessful, non-zero otherwise.
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns information about the specified structure resource.
+The value mask is constructed by or'ing together the following constants:
+.ID
+.PN PEXElementPtr
+.PN PEXNumElements
+.PN PEXLengthStructure
+.PN PEXHasRefs
+.PN PEXEditMode
+.DE
+.LP
+The length of the structure is given in the number of 4-byte units, and is
+based upon the specified floating point format.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.sp
+typedef struct {
+    unsigned long       element_count;
+    unsigned long       size;
+    Bool                has_refs;
+    unsigned short      edit_mode;
+    unsigned long       element_pointer;
+} PEXStructureInfo;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXFloatingPointFormat\fP 1i
+The specified floating point format is invalid or unsupported.
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+An invalid bit is set in the value mask.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure
+.RE
+.bp
+.SH
+PEXGetStructuresInNetwork - Get Structures in Network
+.XS
+	PEXGetStructuresInNetwork
+.XE
+.IN "PEXGetStructuresInNetwork" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXStructure *PEXGetStructuresInNetwork\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIstructure\fP\^, int \fIwhich\fP\^, unsigned long *\fIcount_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIstructure\fP 1i
+The resource identifier of the root structure in the
+structure network.
+.IP \fIwhich\fP 1i
+A value indicating which structure resource identifiers to return
+.Pn ( PEXAll
+or
+.PN PEXOrphans ).
+.IP \fIcount_return\fP 1i
+Returns the number of structure resource identifiers returned.
+.RE
+.SH
+Returns
+.RS
+.LP
+An array of structure resource identifiers; a null pointer if unsuccessful.
+.RE
+.SH
+Description
+.RS
+.LP
+This function returns a list of unique structure resource identifiers that are
+referenced in the structure network rooted at the specified structure.
+.PN PEXAll
+indicates that identifiers of all
+structure resources referenced in the structure network
+are returned.
+.PN PEXOrphans
+indicates that identifiers returned are those
+not referenced by any structures outside of those in the
+specified structure network.
+.LP
+The specified structure identifier will always be returned in the list, unless
+it is an invalid structure identifier, in which case the returned list will
+empty.
+.LP
+PEXlib allocates memory for the return value.
+.PN XFree
+should be called to deallocate the memory.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified value for which parameter is invalid
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure ,
+.PN PEXGetAncestors ,
+.PN PEXGetDescendants
+.RE
+.bp
+.SH
+PEXSetEditingMode - Set Structure Editing Mode
+.XS
+	PEXSetEditingMode
+.XE
+.IN "PEXSetEditingMode" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXSetEditingMode\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIstructure\fP\^, int \fImode\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIstructure\fP 1i
+The resource identifier of the structure.
+.IP \fImode\fP 1i
+The editing mode
+.Pn ( PEXStructureInsert
+or
+.PN PEXStructureReplace ).
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function sets the editing mode for the structure
+specified.  The editing mode specifies how editing operations
+affect the structure.
+If the editing mode is
+.PN PEXStructureInsert ,
+subsequent requests to create structure
+elements cause elements to be inserted into the structure.
+The element pointer is then incremented by the number of elements
+inserted.  If the editing mode is
+.PN PEXStructureReplace ,
+output requests that create structure elements cause
+structure elements to replace elements, starting at the location
+specified by the element pointer.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified value for mode is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure
+.RE
+.bp
+.SH
+PEXSetElementPtr - Set Structure Element Pointer
+.XS
+	PEXSetElementPtr
+.XE
+.IN "PEXSetElementPtr" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXSetElementPtr\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIstructure\fP\^, int \fIwhence\fP\^, long \fIoffset\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIstructure\fP 1i
+The resource identifier of the structure.
+.IP \fIwhence\fP 1i
+A value specifying with offset, the element pointer position
+.Pn ( PEXBeginning ,
+.PN PEXCurrent ,
+.PN PEXEnd ).
+.IP \fIoffset\fP 1i
+The offset from whence which specifies the element pointer position.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function sets the element pointer for the structure specified
+to the position specified.
+.LP
+If either computed offset is less than zero, it is set to
+zero before obtaining the element information.  If either
+computed offset is greater than the number of elements in the
+structure, it is set to the offset of the last structure
+element in the structure.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.IP \fIBadValue\fP 1i
+The specified value for whence parameter is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure
+.RE
+.bp
+.SH
+PEXSetElementPtrAtLabel - Set Structure Element Pointer at Label
+.XS
+	PEXSetElementPtrAtLabel
+.XE
+.IN "PEXSetElementPtrAtLabel" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXSetElementPtrAtLabel\^(\^Display *\fIdisplay\fP\^, PEXStructure \fIstructure\fP\^, long \fIlabel\fP\^, long \fIoffset\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIdisplay\fP 1i
+A pointer to a display structure returned by a successful \fBXOpenDisplay\fP call.
+.IP \fIstructure\fP 1i
+The resource identifier of the structure.
+.IP \fIlabel\fP 1i
+The value of the label.
+.IP \fIoffset\fP 1i
+The offset from the label.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function sets the element pointer for the specified structure
+at a position denoted by the label.  A search is conducted for
+the next occurrence of the label,
+starting at the current element pointer position plus
+one and proceeding in the forward direction.  If label is
+found, the element pointer for the structure is set to the
+location of the label plus the value of the specified
+offset.  If label is not found, the structure's element
+pointer is left unchanged.
+.RE
+.SH
+Data Structures
+.ID
+.Co
+typedef XID             PEXStructure;
+.ft P
+.DE
+.SH
+Errors
+.RS
+.IP \fIBadPEXLabel\fP 1i
+The specified label does not exist.
+.IP \fIBadPEXStructure\fP 1i
+The specified structure resource identifier is invalid.
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXCreateStructure ,
+.PN PEXLabel
+.RE
+.bp

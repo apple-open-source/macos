@@ -30,7 +30,121 @@ TODO for MacOS X:
 TODO:
 - For hppa cache flushing use FDC and FIC on the written instruction address.
 
-Changes for the SUPanLavender 10.3.4 release (the cctools-495.1 release):
+Changes for the SUPanLavender 10.3.4 release (the cctools-495.8 release):
+- Fixed a problem with the change for Radar bug #3622330 in cctools-494.4 in
+  relocate_symbol_pointers_in_object_image() in symbols.c in that the code that
+  was removed to set the symbol pointers in a private image with coalesced
+  symbols was really needed.  Without this code a plugin can call a global
+  coalesced symbol and end up trying to lazily bind it resulting in a undefined
+  symbol error.  Radar bug #3650224.
+
+Changes for the SUPanLavender 10.3.4 release (the cctools-495.7 release):
+- Fixed a problem with the change for Radar bug #3622330 in cctools-494.4 in
+  how relocate_symbol_pointers_in_library_image() causes only the non-lazy
+  pointers to be set for two-level namespace images.  The problem was with
+  fully binding symbols & modules.  When fully binding a library module all
+  the lazy pointers that module uses needs to also be set.  Radar bug #3629498.
+  - A new boolean field some_modules_being_bound_fully was added to the image
+    struct in images.h .  And is set to This is set to TRUE when some of the
+    modules in an image are being fully bound.
+  - In link_library_module() and link_object_module() in symbols.c if the module
+    is being fully linked the new field some_modules_being_bound_fully in the
+    image structure is set to TRUE.
+  - In relocate_symbol_pointers_in_library_image() in symbols.c in the test to
+    before the call resolve_non_lazy_symbol_pointers_in_image() an additional
+    check of the image's new some_modules_being_bound_fully being FALSE is done.
+    So that if some_modules_being_bound_fully is TRUE it will fall through to
+    the code to set both the lazy and non-lazy symbol pointers.  Also after this
+    test some_modules_being_bound_fully is set to FALSE so any modules being
+    bound later do not inherit this.
+
+Changes for the SUPanLavender 10.3.4 release (the cctools-495.6 release):
+- Fixed a problem with the changed below for Radar bug #3622330. Part of code
+  in link_object_module() that was removed with change:
+  - Changed link_object_module() in symbols.c and removed the code to that 
+    looks for global coalesced symbols in private images and calls
+    relocate_symbol_pointers() to get them set.  Also the local variable
+    indirect_symtab was removed.
+  should not have been removed.  The part of the code that needed to be kept was
+  the code that checked if the image was being linked private and then skip the
+  check of multiply defined symbols.  Otherwise the private bundle would fail to
+  load if it defined symbols that were already defined.  Radar bug #3626905.
+
+Changes for the SUPanLavender 10.3.4 release (the cctools-495.5 release):
+- Fixed a problem with the changed below for Radar bug #3622330.  Part of code
+  in resolve_non_lazy_symbol_pointers_in_image() in symbols.c for working around
+  the ld(1) -s malformed binaries bug (3534709) was this:
+			    if(skip_symbol_index_zero == TRUE)
+				continue;
+  which needed to be this:
+			    if(symbol_index == 0 &&
+			       skip_symbol_index_zero == TRUE)
+				continue;
+  and was causing all non-lazy pointers after the first one with a symbol index
+  to be zero to be skipped.  Radar bug #3627380.
+- Fixed a problem with the changed below for Radar bug #3622330.  The problem
+  was the code in resolve_non_lazy_symbol_pointers_in_image() could crash when
+  a unused non-lazy pointer was undefined.  The fix was to add a check in there
+  to see of defined_symbol was NULL after the call to lookup_symbol().  And if
+  NULL continue the loop without trying to set the non-lazy pointer for the
+  undefined symbol.  Radar bug #3625797.
+
+Changes for the SUPanLavender 10.3.4 release (the cctools-495.4 release):
+- Changed the way non-lazy pointers are set in two-level images in order to
+  improve launch time.  Now all non-lazy pointers are set in an image when the
+  first module in that image is bound.  Instead of only setting non-lazy
+  pointers for only those undefined symbols that are referenced from the modules
+  being linked.  With this change dyld will crash when non-lazy symbol pointers
+  for unused undefined symbols are set.  This could happen in a multi module
+  library where it will now crash where it previouly would not.  Radar bug
+  #3622330.
+  - Changed add_to_undefined_list() in symbols.c to not check the undefined
+    list for the symbol being added if it is being added when flat_reference
+    is TRUE.
+  - Removed the code in link_library_module() in symbols.c that for two-level
+    namespace images check to see if it has_coalesced_sections and then checked
+    the defined symbols in the module for being a coalesced symbol and making
+    sure it was on the being linked list.  This code was there because all
+    references to coalesced symbols are done indirectly and the indirect symbol
+    pointers must get filled in.  This was causing lots of wasted time since the
+    compiler created many *.eh symbols as global coalesced symbols but they are
+    never referenced.
+  - Changed add_reference() in symbols.c to call add_to_undefined_list() if
+    flat_reference is FALSE and then return. 
+  - Changed link_object_module() in symbols.c and removed the code to that 
+    looks for global coalesced symbols in private images and calls
+    relocate_symbol_pointers() to get them set.  Also the local variable
+    indirect_symtab was removed.
+  - Changed relocate_symbol_pointers_in_object_image() in symbols.c to add a
+    call to the new resolve_non_lazy_symbol_pointers_in_image() routine when
+    not forcing flat namespace and the image is a two-level namespace image
+    and is not an MH_BUNDLE file then the return.
+  - Changed the routine resolve_non_lazy_symbol_pointers_in_object_image() to
+    be the new routine resolve_non_lazy_symbol_pointers_in_image() in symbols.c.
+    - The parameter struct object_image *object_image was changed to
+      struct image *image .
+    - The references to object_image->image were changes to just image .
+    - The call to lookup_symbol() was changed so the second and third parameters
+      (primary_image and hint) that were passed as NULL are now passed as
+      get_primary_image(image, symbol) and get_hint(image, symbol).
+    - A new local variable, non_lazy_symbol_pointer_addr, is set to the address 
+      of the non-lazy pointer and a test the pointer's current value made to
+      the value to be set and it is only set it the values are different (to
+      avoid creating a dirty page for prebound images).
+    - The new field in the image struct, non_lazy_symbol_pointers_resolved,
+      gets set to true at the end of the routine.
+  - Added the field non_lazy_symbol_pointers_resolved to the image struct in
+    images.h .
+  - Changed relocate_symbol_pointers_in_library_image() in symbols.c to test if
+    the image is MH_TWOLEVEL and if the new field
+    non_lazy_symbol_pointers_resolved in the image struct is FALSE to call the
+    new routine resolve_non_lazy_symbol_pointers_in_image() and then return.
+  - Changed link_in_need_modules() in symbols.c for what was the call to
+    resolve_non_lazy_symbol_pointers_in_object_image() to the new routine
+    resolve_non_lazy_symbol_pointers_in_image() and changed it's parameter to
+    pass the address of the image struct in of the reloc_just_this_object .
+
+Changes for the SUPanFeldSpar 10.3.3 release (the cctools-495.2 release):
 - Fixed a bug caused by the fix to 3375399 in cctools-488.  That fix does not
   work because the system call for gettimeofday() has a non-standard return.
   And results in a bad value returned for the time which causes fix_prebinding

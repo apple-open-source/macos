@@ -1,0 +1,167 @@
+\."
+\." $Xorg: ex.toc,v 1.3 2000/08/17 19:42:13 cpqbld Exp $
+\."
+\." 
+$XMCOPY
+.\" Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\" 
+.\"                         All Rights Reserved
+.\" 
+.\" Permission to use, copy, modify, and distribute this software and its 
+.\" documentation for any purpose and without fee is hereby granted, 
+.\" provided that the above copyright notice appear in all copies and that
+.\" both that copyright notice and this permission notice appear in 
+.\" supporting documentation, and that the names of Sun Microsystems,
+.\" and the X Consortium not be used in advertising or publicity 
+.\" pertaining to distribution of the software without specific, written 
+.\" prior permission.  
+.\" 
+.\" SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\" INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\" EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\" CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\" USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\" OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+. \"@(#)exp.toc 1.11 89/07/05 SMI; The Sun Macro Package
+.	\" CE - table of contents entry
+.	\" $1: header type: C=Chapter A=Appendix N=NumHdr T=Table F=Figure
+.	\" $2: level number (not much use for tables and figures)
+.	\" $3: text 
+.	\" $4: page number
+.	\" $5: chapter number
+.	\" $6...: other numbers (table and figure number for example)
+.de CE
+.fi
+.na
+.nh
+.		\" page number (level 1 bold)
+.ds rS \\$4
+.if !'\\$1'T' .if !'\\$1'F' .if '\\$2'1' .ds rS \fB\\$4\fP
+.rm lS
+.		\" left string indents
+.\" 10-27-90: To get third-level entries indented properly, we
+.\" need to fox around a little.  The macro "Az"
+.\" recursively defines a string "Aw" of "\0" characters
+.\" that is the equivalent width of arguments 5, 6, and two periods.
+.\" (We assume that a single \0 is the equivalent of two periods.)
+.\" -- JH
+.if '\\$1'N' .if !'\\$5'' .if !'\\$6'' \{\
+.nr Aw (\w\\$5.\\$6./\w\0) 1
+.ds Aw "\0
+.Az
+.\}
+.		\" left string indents
+.if '\\$1'N' \{\
+.	if '\\$2'2' .ds lS "    \\$5.\\$6.  
+.	if '\\$2'3' .ds lS "    \\*(Aw  \\$5.\\$6.\\$7.  
+.	if '\\$2'4' .ds lS "                  
+.	if '\\$2'5' .ds lS "                   
+.	if '\\$2'2' .if \\nM>1 .ds lS "    \\$6.  
+.	nr tf 0
+.\}
+.if '\\$1'T' \{\
+.	ds lS Table
+.	nr tf 1
+.\}
+.if '\\$1'F' \{\
+.	ds lS Figure
+.	nr tf 1
+.\}
+.if \\n(tf=1 \{\
+.	if !\\$5\\*(oS .sp
+.	ds oS \\$5
+.	if !\\$50 .as lS " \\$5-\\$6\ \ 
+.	if \\$50 .as lS " \\$6\ \ 
+.	if '\\$1'F' .ds lS Figure \\$5-\\$6\ \ 
+.\}
+.nr NS 0
+.if \\$3\fBIndex\f1 .sp
+.if '\\$1'C' .nr NS 1
+.if '\\$1'A' .nr NS 1
+.if !\\nH=1 .if \\n(NS=1 \{\
+.	if '\\$1'C' .ds lS \fBChapter \\$5\fP\ \ 
+.	if '\\$1'A' .ds lS \fBAppendix \\$5\fP\ \ 
+.	sp
+.\}
+.if \\nH=1 .if \\n(NS=1 \{\
+.	nr cH 1
+.	bp
+.	po \\n(POu
+.	PL LEFT
+.	\" lay down gray bar
+\!x P gsave
+\!x P 6.0 576 mul  0.0 moveto
+\!x P 8.5 576 mul  0.0 lineto
+\!x P 8.5 576 mul 11.0 576 mul lineto
+\!x P 6.0 576 mul 11.0 576 mul lineto
+\!x P 6.0 576 mul  0.0 lineto
+\!x P 0.99 setgray fill grestore
+.	\" lay down logo
+.	rs
+.	sp |9i-\\n(.vu
+.	ps 128
+\!x P gsave 0.70 setgray
+\h'5.5i'\(su
+\!x P grestore
+.	ps
+.	GB 0.75i 5.75i
+.	sp |2.0i-\\n(.vu
+\s36\l'5i'\s0
+.	sp |2.0i-0.125i-\\n(.vu
+.	ps 48
+.	ta \\n(LLuR
+	\&\\$5
+.	br
+.	ps 22
+.	vs 26
+.	sp |2.5i-4p-5.5p
+\&\\$3
+.	br
+.	rm lS
+.	ps 11
+.	vs
+.\}
+.				\" reduce line length (8n for now)
+.ll -8n
+.sp 3p
+.ne 3v
+.nr wN \\w\\*(lSu		\" wN = width of left indent string
+.in +\\n(wNu
+.ti -\\n(wNu			\" don't indent first line
+.if \\nH=1 .if \\n(NS=1 .sp |3.5i-3p-4p
+.				\" first level headers in larger point size
+.ds mS \\$3
+.if \\n(NS=1 .ds mS \s+1\\$3\s-1
+.if \\n(NS=1 .ds lS \s+1\\*(lS\s-1
+.if \\n(NS=1 .ds rS \s+1\\*(rS\s-1
+.				\" output left string (lS) and text (mS)
+\&\\*(lS\\*(mS
+.if \\nH=1 .if \\n(NS=1 .br
+.vs \\n(.sp+3p			\" normalize spacing
+.				\" need two lines for moving-backward hack
+.ne 2v
+.ll
+.in
+.				\" output leader & page number
+.nf				\" leaders only work right in no-fill mode!
+.				\" if last line broke, correct for indent:
+.if (\\w\\*(lS\\*(mSu)<=(\\n(.lu-\\n(.iu-8n) .nr wN 0
+.ll -\\n(wNu
+.ti +\\n(wNu
+.ie \w\\*(rSu>5n .ta \\n(.lu-\\n(.iu-\w\\*(rSu-1nR \\n(.lu-\\n(.iuR
+.el .ta \\n(.lu-\\n(.iu-5nR \\n(.lu-\\n(.iuR
+.sp -1v
+.vs
+\\h'|\\n(.nu+.5n'\s-3\a\s+3\t\\*(rS
+.if \\nH=1 .if \\n(NS=1 .sp 0.25i
+.ll
+..
+.\"
+.\" Define Macro Az to help in aligning third-level entries.
+.de Az
+'if \\n-(Aw \{\
+'as Aw \0
+'Az
+'\}
+..

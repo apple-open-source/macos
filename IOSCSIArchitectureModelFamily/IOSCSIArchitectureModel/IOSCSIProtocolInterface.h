@@ -179,6 +179,7 @@ public:
 	
 	virtual bool	start 	( IOService * provider );
 	virtual void	free 	( void );
+	virtual bool    willTerminate   ( IOService * provider, IOOptionBits options );
 	
 	// ------ User Client Support ------
 	

@@ -1,0 +1,27 @@
+Du er midlertidigt frameldt maillisten %(listname)s på grund af
+%(reason)s.
+Du vil ikke modtage flere mails fra listen før du igen tilmelder dig.
+ Du vil modtage %(noticesleft)s
+påmindelser som denne før du blir meldt ud af listen.
+
+For igen at modtage mail fra listen, skal du svare på denne mail
+(med Subject: teksten som den er nu), eller gå ind på denne webside:
+
+    %(confirmurl)s
+
+Du kan også gå til din personlige medlemswebside:
+
+    %(optionsurl)s
+
+På denne side kan du også tilpasse leveringen af e-mail fra listen,
+f. eks. ændre e-mail adresse og om du vil modtage enkelt mails eller
+hvid 
+du vil have en e-mail hvori der er samlet flere e-mails.
+Dit password er:
+
+    %(password)s
+
+Har du spørsmål eller problemer, kan du kontakte listens ejer på
+følgende e-mailadresse:
+
+    %(owneraddr)s

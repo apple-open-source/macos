@@ -1,16 +1,16 @@
 Bienvenue sur la liste %(real_name)s@%(host_name)s!
 %(welcome)s
-Pour écrire dans la liste, envoyez votre message à:
+Pour écrire à la liste, envoyez votre message à:
 
   %(emailaddr)s
 
-Les informations générales concernant cette liste sont à l'adresse:
+Les informations générales concernant cette liste sont à l'adresse :
 
   %(listinfo_url)s
 
 Si vous souhaitez vous désabonner ou modifier vos options (par
 exemple activer/désactiver l'envoi groupé, changer votre mot de
-passe, etc.), consultez votre page d'abonnement à l'adresse:
+passe, etc.), consultez votre page d'abonnement à l'adresse :
 
   %(optionsurl)s
 %(umbrella)s
@@ -18,7 +18,7 @@ Vous pouvez également procéder par mail en envoyant un message à:
 
   %(real_name)s-request@%(host_name)s 
 
-avec le mot `help' dans le sujet ou le corps du message (sans les
+avec le mot "help" dans le sujet ou le corps du message (sans les
 guillemets), vous recevrez alors un message avec des instructions.
 
 Votre mot de passe est nécessaire pour ces modifications (y compris

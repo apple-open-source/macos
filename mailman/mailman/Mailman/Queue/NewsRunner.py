@@ -1,4 +1,4 @@
-# Copyright (C) 2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2000-2003 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -45,6 +45,13 @@ mcre = re.compile(r"""
     """, re.VERBOSE)
 
 
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
+
+
 
 class NewsRunner(Runner):
     QDIR = mm_cfg.NEWSQUEUE_DIR
@@ -60,7 +67,9 @@ class NewsRunner(Runner):
             conn = None
             try:
                 try:
-                    conn = nntplib.NNTP(mlist.nntp_host, readermode=1,
+                    nntp_host, nntp_port = Utils.nntpsplit(mlist.nntp_host)
+                    conn = nntplib.NNTP(nntp_host, nntp_port,
+                                        readermode=True,
                                         user=mm_cfg.NNTP_USERNAME,
                                         password=mm_cfg.NNTP_PASSWORD)
                     conn.post(fp)
@@ -79,8 +88,8 @@ class NewsRunner(Runner):
             # Some other exception occurred, which we definitely did not
             # expect, so set this message up for requeuing.
             self._log(e)
-            return 1
-        return 0
+            return True
+        return False
 
 
 
@@ -123,13 +132,13 @@ def prepare_message(mlist, msg, msgdata):
     #
     # Our Message-ID format is <mailman.secs.pid.listname@hostname>
     msgid = msg['message-id']
-    hackmsgid = 1
+    hackmsgid = True
     if msgid:
         mo = mcre.search(msgid)
         if mo:
             lname, hname = mo.group('listname', 'hostname')
             if lname == mlist.internal_name() and hname == mlist.host_name:
-                hackmsgid = 0
+                hackmsgid = False
     if hackmsgid:
         del msg['message-id']
         msg['Message-ID'] = Utils.unique_message_id(mlist)
@@ -155,4 +164,4 @@ def prepare_message(mlist, msg, msgdata):
         for v in values[1:]:
             msg[rewrite] = v
     # Mark this message as prepared in case it has to be requeued
-    msgdata['prepped'] = 1
+    msgdata['prepped'] = True

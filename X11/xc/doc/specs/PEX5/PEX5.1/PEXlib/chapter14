@@ -1,0 +1,271 @@
+\&
+.sp 1
+.ce 3
+\s+1\fBChapter 14\fP\s-1
+
+\s+1\fBOutput Command Encode and Decode\fP\s-1
+.sp 2
+.nr H1 14
+.nr H2 0
+.nr H3 0
+.nr H4 0
+.nr H5 0
+.na
+.LP
+.XS
+Chapter 14: Output Command Encode and Decode
+.XE
+.IN "encode"
+.IN "decode"
+.IN "output commands"
+.LP
+Some applications need to generate protocol-formatted output commands
+for use in archives or client-side data storage.  Likewise, the application
+may need to decode the protocol-formatted output commands returned from
+functions like
+.PN PEXFetchElements .
+The functions described in this chapter provide for these operations.
+.LP
+For complete information on protocol format, see the
+\fIPEX Protocol Specification\fP and the \fIPEX Protocol Encoding\fP.
+.LP
+For the definition of the
+.PN PEXOCData
+data structure, see the PEXlib.h header file.
+.bp
+.XS
+Function Descriptions
+.XE
+.SH
+PEXCountOCs - Count Output Commands in an Encoded List
+.XS
+	PEXCountOCs
+.XE
+.IN "PEXCountOCs" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+unsigned long PEXCountOCs\^(\^int \fIfloat_format\fP\^, unsigned long \fIlength\fP\^, char *\fIencoded_ocs\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIfloat_format\fP 1i
+The floating point format of the encoded output commands
+.Pn ( PEXIEEE_754_32 ,
+.PN PEXDEC_F_Floating ,
+.PN PEXIEEE_754_64 ,
+.PN PEXDEC_D_Floating ).
+.IP \fIlength\fP 1i
+The length, in bytes, of the encoded output commands.
+.IP \fIencoded_ocs\fP 1i
+A pointer to the encoded output commands.
+.RE
+.SH
+Returns
+.RS
+.LP
+The number of output commands represented in the encoded output commands.
+.RE
+.SH
+Description
+.RS
+.LP
+This function has no visible effect.  This function returns
+the number of output commands in the encoded list of output commands.
+.LP
+A count of zero will be returned if the specified floating point format is not
+supported.
+.RE
+.SH
+Errors
+.RS
+.IP None 1i
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXDecodeOCs
+.RE
+.bp
+.SH
+PEXDecodeOCs - Decode Output Commands
+.XS
+	PEXDecodeOCs
+.XE
+.IN "PEXDecodeOCs" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+PEXOCData *PEXDecodeOCs\^(\^int \fIfloat_format\fP\^, unsigned long \fIoc_count\fP\^, unsigned long \fIlength\fP\^, char *\fIencoded_ocs\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIfloat_format\fP 1i
+The floating point format of the encoded output commands
+.Pn ( PEXIEEE_754_32 ,
+.PN PEXDEC_F_Floating ,
+.PN PEXIEEE_754_64 ,
+.PN PEXDEC_D_Floating ).
+.IP \fIoc_count\fP 1i
+The number of output commands represented in the encoded output commands.
+.IP \fIlength\fP 1i
+The length, in bytes, of the encoded output commands.
+.IP \fIencoded_ocs\fP 1i
+A pointer to the encoded output commands.
+.RE
+.SH
+Returns
+.RS
+.LP
+A pointer to the decoded output commands; a null pointer if unsuccessful or if zero output commands specified.
+.RE
+.SH
+Description
+.RS
+.LP
+This function has no visible effect.  Encoded output commands are passed in
+and the data typically passed as parameters to output attribute or primitive
+functions is returned in memory allocated by PEXlib.
+.PN PEXFreeOCData
+should be called to deallocate the memory.
+.LP
+A null pointer will be returned if the specified floating point format is not
+supported.
+.LP
+Any text or annotation text primitives are returned as encoded text or encoded
+annotation text.
+.LP
+.PN PEXCountOCs
+can be used to determine the number of output commands in the encoded list if
+that information is not already available.
+.RE
+.SH
+Errors
+.RS
+.IP None 1i
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXEncodeOCs ,
+.PN PEXCountOCs
+.RE
+.bp
+.SH
+PEXEncodeOCs - Encode Output Commands
+.XS
+	PEXEncodeOCs
+.XE
+.IN "PEXEncodeOCs" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+char *PEXEncodeOCs\^(\^int \fIfloat_format\fP\^, unsigned long \fIoc_count\fP\^, PEXOCData *\fIoc_data\fP\^, unsigned long *\fIlength_return\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIfloat_format\fP 1i
+The floating point format for the encoded output commands
+.Pn ( PEXIEEE_754_32 ,
+.PN PEXDEC_F_Floating ,
+.PN PEXIEEE_754_64 ,
+.PN PEXDEC_D_Floating ).
+.IP \fIoc_count\fP 1i
+The number of output commands to be encoded.
+.IP \fIoc_data\fP 1i
+An array of the output command data.
+.IP \fIlength_return\fP 1i
+Returns the length, in bytes, of the encoded output commands.
+.RE
+.SH
+Returns
+.RS
+.LP
+A pointer to the encoded output commands; a null pointer if unsuccessful or if zero output commands specified.
+.RE
+.SH
+Description
+.RS
+.LP
+This function has no visible effect.  The data typically passed as parameters
+to output attribute or primitive functions is passed in and encoded
+into protocol formatted output commands.
+The encoded data is returned in memory allocated by PEXlib.
+.PN XFree
+should be called to deallocate the memory.
+.LP
+A null pointer will be returned if the specified floating point format is not
+supported.
+.LP
+Any text or annotation text primitives must be specified as encoded text or
+encoded annotation text.
+.RE
+.SH
+Errors
+.RS
+.IP None 1i
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXDecodeOCs
+.RE
+.bp
+.SH
+PEXFreeOCData - Deallocate OC Data
+.XS
+	PEXFreeOCData
+.XE
+.IN "PEXFreeOCData" "" "@DEF@"
+.SH
+Synopsis
+.RS
+.FD 0
+void PEXFreeOCData\^(\^unsigned long \fIcount\fP\^, PEXOCData *\fIoc_data\fP\^)
+.FN
+.RE
+.SH
+Arguments
+.RS
+.IP \fIcount\fP 1i
+The number of output commands.
+.IP \fIoc_data\fP 1i
+An array of output command data.
+.RE
+.SH
+Returns
+.RS
+.LP
+None
+.RE
+.SH
+Description
+.RS
+.LP
+This function deallocates memory allocated by PEXlib to hold
+decoded output command data.
+.RE
+.SH
+Errors
+.RS
+.IP None 1i
+.RE
+.SH
+See Also
+.RS
+.LP
+.PN PEXDecodeOCs
+.RE
+.bp

@@ -1,0 +1,44 @@
+XCOMM $XFree86: xc/programs/Xserver/miext/layer/Imakefile,v 1.3 2002/11/08 22:19:42 keithp Exp $
+XCOMM
+XCOMM
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#ifdef XFree86Version
+#if DoLoadableServer
+XFMODSRC = laymodule.c
+XFMODOBJ = laymodule.o
+#endif
+#endif
+
+SRCS = layergc.c \
+       layerinit.c \
+       layerpict.c \
+       layerwin.c \
+       $(XFMODSRC)
+
+OBJS = layergc.o \
+       layerinit.o \
+       layerpict.o \
+       layerwin.o \
+       $(XFMODOBJ)
+
+   INCLUDES = -I. -I../shadow -I../../mi -I../../fb -I../../include -I$(XINCLUDESRC) \
+	      -I$(FONTINCSRC) -I$(XF86SRC)/common $(EXTRAINCLUDES) \
+	      -I../../render -I$(EXTINCSRC)
+   LINTLIBS = ../../dix/llib-ldix.ln ../../os/llib-los.ln \
+	     ../../mi/llib-lmi.ln
+
+NormalLibraryObjectRule()
+LibraryModuleTarget(layer,$(OBJS))
+LintLibraryTarget(layer,$(SRCS))
+
+NormalLintTarget($(SRCS))
+
+InstallLibraryModule(layer,$(MODULEDIR),.)
+
+DependTarget()
+
+InstallDriverSDKLibraryModule(layer,$(DRIVERSDKMODULEDIR),.)
+InstallDriverSDKNonExecFile(layer.h,$(DRIVERSDKINCLUDEDIR))

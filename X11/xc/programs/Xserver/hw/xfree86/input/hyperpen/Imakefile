@@ -1,0 +1,30 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/input/hyperpen/Imakefile,v 1.2 2001/10/10 20:59:25 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#if HasLinuxInput
+DEFINES = -DLINUX_INPUT
+#endif
+
+SRCS = xf86HyperPen.c
+OBJS = xf86HyperPen.o
+
+DRIVER = hyperpen
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86SRC)/loader -I$(XF86OSSRC) \
+         -I$(SERVERSRC)/include -I$(SERVERSRC)/mi -I$(XINCLUDESRC) -I$(EXTINCSRC)
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget($(DRIVER),$(OBJS))
+
+InstallObjectModule($(DRIVER),$(MODULEDIR),input)
+
+DependTarget()
+
+InstallDriverSDKObjectModule($(DRIVER),$(DRIVERSDKMODULEDIR),input)

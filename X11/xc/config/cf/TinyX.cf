@@ -1,0 +1,22 @@
+/* $XFree86: xc/config/cf/TinyX.cf,v 1.1 2000/12/08 22:09:32 keithp Exp $ */
+/*
+ * This configuration file contains additional configuration needed
+ * to compile a (nearly) minimal X server using the kdrive infrastructure
+ * To use this, add the following to host.def:
+   #define KDriveXServer YES
+   #define TinyXServer YES
+ */
+
+
+#define BuildLBX                NO
+#define BuildFonts              NO
+#define BuildAppgroup           NO
+#define BuildDBE                NO
+#define BuildXCSecurity         NO
+#define FontServerAccess        NO
+#undef BuildXF86RushExt
+#define BuildXF86RushExt        NO
+#undef BuildRender
+#define BuildRender             YES
+#define UseRgbTxt               YES
+#define BuildFontServer         NO

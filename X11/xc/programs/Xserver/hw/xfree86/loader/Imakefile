@@ -1,0 +1,87 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/loader/Imakefile,v 1.35 2003/02/26 23:32:12 dawes Exp $ */
+
+
+
+
+#include <Server.tmpl>
+#ifdef LoaderTest
+#define IHaveSubdirs
+SUBDIRS = test
+#endif
+
+#define UseDBMalloc	NO
+
+#if UseDBMalloc
+SYS_LIBRARIES=-ldbmalloc
+DBMALLOCDEFINE=-DDBMALLOC
+#endif
+
+#if HasDlopen
+DLOPENDEFINES = -DDLOPEN_SUPPORT
+DLSRC=dlloader.c
+DLOBJ=dlloader.o
+#endif
+
+#if FontencCompatibility
+ COMPAT_DEFINES = -DFONTENC_COMPATIBILITY
+#endif
+
+#if HasShm
+    SHM_DEFINES = -DHAS_SHM
+#endif
+
+#if HasGlibc21Sigsetjmp
+  SETJMPDEFINES = -DHAS_GLIBC_SIGSETJMP=1
+#endif
+
+#if defined (x86_64Architecture)
+ARCHDEFINES = -DDoMMAPedMerge -DMmapPageAlign
+#endif
+
+DEFINES = $(DBMALLOCDEFINE) $(DLOPENDEFINES) $(OS_DEFINES) $(COMPAT_DEFINES) \
+	  $(SHM_DEFINES) $(ARCHDEFINES)
+
+MODULEDEFINES = -DDEFAULT_MODULE_PATH=\"$(MODULEDIR)\"
+
+   INCLUDES = -I. -I.. -I$(XF86COMSRC) -I$(XF86OSSRC) -I$(XF86SRC)/vbe \
+		-I$(SERVERSRC)/dbe -I$(SERVERSRC)/Xext -I$(XF86SRC)/int10 \
+		-I$(SERVERSRC)/mfb -I$(SERVERSRC)/mi -I$(SERVERSRC)/include \
+		-I$(SERVERSRC)/os -I$(XINCLUDESRC) -I$(FONTINCSRC) \
+		-I$(FONTLIBSRC)/include -I$(FONTLIBSRC)/fontcache \
+		-I$(EXTINCSRC) -I$(XF86SRC)/ddc -I$(XF86SRC)/i2c \
+		-I$(SERVERSRC)/render
+
+#ifdef OS2Architecture
+SRCS1 = os2funcs.c
+OBJS1 = os2funcs.o
+#endif
+
+#ifdef SparcArchitecture
+SRCS1 = SparcMulDiv.S
+OBJS1 = SparcMulDiv.o
+#endif
+
+SRCS = aoutloader.c coffloader.c $(DLSRC) elfloader.c hash.c loader.c \
+	loadmod.c loadfont.c loadext.c os.c dixsym.c misym.c xf86sym.c \
+	fontsym.c extsym.c $(SRCS1)
+OBJS = aoutloader.o coffloader.o $(DLOBJ) elfloader.o hash.o loader.o \
+	loadmod.o loadfont.o loadext.o os.o dixsym.o misym.o xf86sym.o \
+	fontsym.o extsym.o $(OBJS1)
+XOBJS =  aoutloader.o coffloader.o $(DLOBJ) elfloader.o hash.o loader.o \
+	loadmod.o loadfont.o loadext.o os.o $(OBJS1)
+
+NormalAsmObjectRule()
+
+NormalLibraryObjectRule()
+NormalLibraryTarget(loader,$(OBJS) )
+NormalLibraryTarget(xloader,$(XOBJS) )
+
+SpecialCObjectRule(loadmod,NullParameter,$(MODULEDEFINES) $(EXT_DEFINES))
+SpecialCObjectRule(xf86sym,NullParameter,$(EXT_DEFINES) $(SETJMPDEFINES))
+SpecialCObjectRule(dixsym,NullParameter,$(EXT_DEFINES))
+
+#ifdef SparcArchitecture
+ObjectFromAsmSource(SparcMulDiv,NullParameter)
+#endif
+
+DependTarget()

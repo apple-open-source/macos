@@ -170,6 +170,53 @@ unsigned long expected_address,
 cpu_type_t allow_missing_architectures);
 
 
+/*
+ * unprebind() takes a file_name of a binary and resets or removes prebinding
+ * information from it.  If inbuf is non-NULL, the memory pointed to by inbuf is
+ * used as the input file contents.  Otherwise, the contents are loaded from 
+ * the file at path file_name.  Even if inbuf is non-NULL, a file_name 
+ * parameter should be specified for error reporting.  Similarly, if outbuf is 
+ * non-NULL, upon return, outbuf will point to a buffer containing the 
+ * unprebound binary and outlen will point to the length of the output buffer.  
+ * This buffer is vm_allocate'd and therefore should be vm_deallocate'd when it 
+ * is no longer needed.  If outbuf is NULL, and output_file is not NULL the 
+ * update file is written to output_file, if outbuf is NULL and output_file is 
+ * NULL, it is written to file_name.  
+ * If unprebind() is successful it returns REDO_PREBINDING_SUCCESS otherwise it
+ * returns REDO_PREBINDING_FAILURE If the binary is already unprebound (i.e. it
+ * has the MH_PREBINDABLE flag set) then REDO_PREBINDING_NOT_NEEDED is returned.
+ * If the binary is not prebound and not prebindable, 
+ * REDO_PREBINDING_NOT_PREBOUND is returned.  If zero_checksum is non-zero then
+ * the cksum field the LC_PREBIND_CKSUM load command (if any) is set to zero on
+ * output, otherwise it is left alone.
+ * Unprebinding slides dynamic libraries to address zero, resets prebound 
+ * symbols to address zero and type undefined, resets symbol pointers, removes 
+ * LC_PREBOUND_DYLIB commands, resets library timestamps, resets two-level hints
+ * and updates relocation entries if necessary.  Unprebound binaries have
+ * the MH_PREBINDABLE flag set, but not MH_PREBOUND.  It will also set the the
+ * MH_ALLMODSBOUND flag if all two-level libraries were used and all modules
+ * were found to be bound in the LC_PREBOUND_DYLIB commands.
+ * As unprebinding is intended to produce a canonical Mach-O
+ * binary, bundles and non-prebound executables and dylibs are acceptable
+ * as input.  For these files, the  unprebind operation will zero library 
+ * time stamps and version numbers and zero entries in the two-level hints
+ * table.  These files will not gain the MH_PREBINDABLE flag.
+ * All resulting binaries successfully processed by unprebind() will have
+ * the MH_CANONICAL flag.
+ */
+extern
+enum redo_prebinding_retval
+unprebind(
+const char *file_name,
+const char *output_file,
+const char *program_name,
+char **error_message,
+int zero_checksum,
+void *inbuf,
+unsigned long inlen,
+void **outbuf,
+unsigned long *outlen);
+
 enum object_file_type_retval {
     OFT_OTHER,
     OFT_EXECUTABLE,

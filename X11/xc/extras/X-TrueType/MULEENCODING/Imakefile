@@ -1,0 +1,9 @@
+/* code converter: MULEENCODING */
+
+#define ModuleName MULEENCODING
+SRCS = ASCIILAOtoUCS2.c MULELAOtoUCS2.c MULETIBETANtoUCS2.c main.c
+OBJS = ASCIILAOtoUCS2.o MULELAOtoUCS2.o MULETIBETANtoUCS2.o main.o
+
+#include <xttMod.tmpl>
+
+/* end of file */

@@ -1,0 +1,13 @@
+# $Xorg: jump_vars,v 1.3 2000/08/17 19:44:21 cpqbld Exp $
+#
+#
+#
+# $XFree86: xc/lib/PEX5/jump_vars,v 3.2 2001/01/17 19:41:30 dawes Exp $
+#
+00000004 D _PEXDisplayInfoHeader libPEX5        pl_startup
+00000004 D _PEXPickCache        libPEX5        pl_startup
+00000004 D _PEXPickCacheSize    libPEX5        pl_startup
+00000004 D _PEXPickCacheInUse   libPEX5        pl_startup
+00000260 D _PEX_encode_oc_funcs libPEX5        pl_startup
+00000260 D _PEX_decode_oc_funcs libPEX5        pl_startup
+00000100 D _PEX_fp_convert      libPEX5        pl_startup

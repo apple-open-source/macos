@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# mailman    This shell script that starts and stops GNU Mailman.
+# mailman    This shell script starts and stops GNU Mailman.
 #
 # Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
 #

@@ -887,6 +887,7 @@ SCSITask::SetAutoSenseData ( SCSI_Sense_Data * senseData, UInt8 senseDataSize )
 	
 	fAutosenseDescriptor->writeBytes ( 0, senseData, size );
 	fAutoSenseDataIsValid = true;
+	SetAutosenseRealizedDataCount ( size );
 	
 	
 Exit:
@@ -1110,7 +1111,7 @@ SCSITask::GetAutosenseDataTransferDirection ( void )
 UInt64
 SCSITask::GetAutosenseRequestedDataTransferCount ( void )
 {
-	return sizeof ( SCSI_Sense_Data );
+	return GetAutoSenseDataSize ( );
 }
 
 

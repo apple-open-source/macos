@@ -1,0 +1,21 @@
+// $XFree86: xc/programs/xkbcomp/symbols/pc/cz_qwerty,v 1.1 2002/11/22 04:02:22 dawes Exp $
+
+partial alphanumeric_keys 
+xkb_symbols "basic" {
+ 
+    // This layout should work exactly as a cz with the exception 
+    // of 'Z' and 'Y' keys, which are in the qwerty style (ie. swapped).
+    // 2001 by Kamil Toman <ktoman@email.cz>
+    
+    include "pc/cz(basic)"
+
+    key <AB01>	{ [         z,          Z,       degree,     NoSymbol ]	};
+    key <AD06>	{ [         y,          Y,     NoSymbol,     NoSymbol ]	};
+};
+
+// Use <BKSL> instead of <LSGT> (useful for keyboard without <LSGT> key)
+xkb_symbols "bksl" {
+    include "pc/cz_qwerty(basic)"
+
+    key <BKSL>	{ [ backslash,        bar,        slash,     NoSymbol ]	};
+};

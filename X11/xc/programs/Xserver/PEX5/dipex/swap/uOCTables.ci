@@ -1,0 +1,245 @@
+/* $Xorg: uOCTables.ci,v 1.4 2001/02/09 02:04:17 xorgcvs Exp $ */
+/* Automatically generated OC table
+ */
+/******************************************************************
+
+Copyright 1990, 1991, 1998  The Open Group
+
+Permission to use, copy, modify, distribute, and sell this software and its
+documentation for any purpose is hereby granted without fee, provided that
+the above copyright notice appear in all copies and that both that
+copyright notice and this permission notice appear in supporting
+documentation.
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Except as contained in this notice, the name of The Open Group shall not be
+used in advertising or otherwise to promote the sale, use or other dealings
+in this Software without prior written authorization from The Open Group.
+
+Copyright 1990, 1991 by Sun Microsystems, Inc. 
+
+                        All Rights Reserved
+
+Permission to use, copy, modify, and distribute this software and its 
+documentation for any purpose and without fee is hereby granted, 
+provided that the above copyright notice appear in all copies and that
+both that copyright notice and this permission notice appear in 
+supporting documentation, and that the name of Sun Microsystems,
+not be used in advertising or publicity pertaining to distribution of 
+the software without specific, written prior permission.  
+
+SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT 
+SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL 
+DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
+ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
+SOFTWARE.
+
+******************************************************************/
+#include "X.h"
+#include "PEX.h"
+#include "PEXprotost.h"
+#include "PEXproto.h"
+#include "dipex.h"
+#include "pexSwap.h"
+
+#if defined (__STDC__)
+#define SWAP_OC_PREFIX(t)	uPEX##t
+#else
+#define SWAP_OC_PREFIX(t)	uPEX/**/t
+#endif
+
+extern ErrorCode
+	SwapPEXOCUnused (),
+	SwapPEXMarkerType (),
+	SwapPEXMarkerScale (),
+	SwapPEXMarkerColourIndex (),
+	SWAP_OC_PREFIX(MarkerColour) (),
+	SwapPEXMarkerBundleIndex (),
+	SwapPEXTextPrecision (),
+	SwapPEXCharExpansion (),
+	SwapPEXCharSpacing (),
+	SwapPEXCharHeight (),
+	SwapPEXCharUpVector (),
+	SwapPEXTextPath (),
+	SwapPEXTextAlignment (),
+	SwapPEXAtextStyle (),
+	SwapPEXLineType (),
+	SwapPEXLineWidth (),
+	SwapPEXCurveApproximation (),
+	SwapPEXPolylineInterp (),
+	SwapPEXInteriorStyle (),
+	SWAP_OC_PREFIX(SurfaceReflAttr) (),
+	SwapPEXSurfaceReflModel (),
+	SwapPEXSurfaceInterp (),
+	SwapPEXSurfaceApproximation (),
+	SwapPEXCullingMode (),
+	SwapPEXDistinguishFlag (),
+	SwapPEXPatternSize (),
+	SwapPEXPatternRefPt (),
+	SwapPEXPatternAttr (),
+	SwapPEXSurfaceEdgeFlag (),
+	SwapPEXSurfaceEdgeType (),
+	SwapPEXSetAsfValues (),
+	SwapPEXLocalTransform (),
+	SwapPEXLocalTransform2D (),
+	SwapPEXGlobalTransform (),
+	SwapPEXGlobalTransform2D (),
+	SwapPEXModelClip (),
+	SWAP_OC_PREFIX(ModelClipVolume) (),
+	SWAP_OC_PREFIX(ModelClipVolume2D) (),
+	SwapPEXRestoreModelClip (),
+	SWAP_OC_PREFIX(LightState) (),
+	SwapPEXPickId (),
+	SwapPEXHlhsrIdentifier (),
+	SWAP_OC_PREFIX(ParaSurfCharacteristics) (),
+	SWAP_OC_PREFIX(AddToNameSet) (),
+	SwapPEXExecuteStructure (),
+	SwapPEXLabel (),
+	SwapPEXApplicationData (),
+	SwapPEXGse (),
+	SWAP_OC_PREFIX(Marker) (),
+	SWAP_OC_PREFIX(Marker2D) (),
+	SWAP_OC_PREFIX(Text) (),
+	SWAP_OC_PREFIX(Text2D) (),
+	SWAP_OC_PREFIX(AnnotationText) (),
+	SWAP_OC_PREFIX(AnnotationText2D) (),
+	SWAP_OC_PREFIX(Polyline) (),
+	SWAP_OC_PREFIX(Polyline2D) (),
+	SWAP_OC_PREFIX(PolylineSet) (),
+	SWAP_OC_PREFIX(NurbCurve) (),
+	SWAP_OC_PREFIX(FillArea) (),
+	SWAP_OC_PREFIX(FillArea2D) (),
+	SWAP_OC_PREFIX(ExtFillArea) (),
+	SWAP_OC_PREFIX(FillAreaSet) (),
+	SWAP_OC_PREFIX(FillAreaSet2D) (),
+	SWAP_OC_PREFIX(ExtFillAreaSet) (),
+	SWAP_OC_PREFIX(TriangleStrip) (),
+	SWAP_OC_PREFIX(QuadrilateralMesh) (),
+	SWAP_OC_PREFIX(SOFAS) (),
+	SWAP_OC_PREFIX(NurbSurface) (),
+	SWAP_OC_PREFIX(CellArray) (),
+	SWAP_OC_PREFIX(CellArray2D) (),
+	SWAP_OC_PREFIX(ExtCellArray) (),
+	SWAP_OC_PREFIX(Gdp) (),
+	SWAP_OC_PREFIX(Gdp2D) (),
+	SwapPEXRenderingColourModel();
+
+OCFunction SWAP_OC_PREFIX(OutputCmd) [] = {
+	SwapPEXOCUnused,
+	SwapPEXMarkerType,
+	SwapPEXMarkerScale,
+	SwapPEXMarkerColourIndex,
+	SWAP_OC_PREFIX(MarkerColour),
+	SwapPEXMarkerBundleIndex,
+	SwapPEXMarkerBundleIndex,	/* TextFontIndex */
+	SwapPEXTextPrecision,
+	SwapPEXCharExpansion,
+	SwapPEXCharSpacing,
+	SwapPEXMarkerColourIndex,	/* TextColourIndex */
+	SWAP_OC_PREFIX(MarkerColour),	/* TextColour */
+	SwapPEXCharHeight,
+	SwapPEXCharUpVector,
+	SwapPEXTextPath,
+	SwapPEXTextAlignment,
+	SwapPEXCharHeight,	/* AtextHeight */
+	SwapPEXCharUpVector,	/* AtextUpVector */
+	SwapPEXTextPath,	/* AtextPath */
+	SwapPEXTextAlignment,	/* AtextAlignment */
+	SwapPEXAtextStyle,
+	SwapPEXMarkerBundleIndex,	/* TextBundleIndex */
+	SwapPEXLineType,
+	SwapPEXLineWidth,
+	SwapPEXMarkerColourIndex,	/* LineColourIndex */
+	SWAP_OC_PREFIX(MarkerColour),	/* LineColour */
+	SwapPEXCurveApproximation,
+	SwapPEXPolylineInterp,
+	SwapPEXMarkerBundleIndex,	/* LineBundleIndex */
+	SwapPEXInteriorStyle,
+	SwapPEXMarkerBundleIndex,	/* InteriorStyleIndex */
+	SwapPEXMarkerColourIndex,	/* SurfaceColourIndex */
+	SWAP_OC_PREFIX(MarkerColour),	/* SurfaceColour */
+	SWAP_OC_PREFIX(SurfaceReflAttr),
+	SwapPEXSurfaceReflModel,
+	SwapPEXSurfaceInterp,
+	SwapPEXInteriorStyle,	/* BfInteriorStyle */
+	SwapPEXMarkerBundleIndex,	/* BfInteriorStyleIndex */
+	SwapPEXMarkerColourIndex,	/* BfSurfaceColourIndex */
+	SWAP_OC_PREFIX(MarkerColour),	/* BfSurfaceColour */
+	SWAP_OC_PREFIX(SurfaceReflAttr),	/* BfSurfaceReflAttr */
+	SwapPEXSurfaceReflModel,	/* BfSurfaceReflModel */
+	SwapPEXSurfaceInterp,	/* BfSurfaceInterp */
+	SwapPEXSurfaceApproximation,
+	SwapPEXCullingMode,
+	SwapPEXDistinguishFlag,
+	SwapPEXPatternSize,
+	SwapPEXPatternRefPt,
+	SwapPEXPatternAttr,
+	SwapPEXMarkerBundleIndex,	/* InteriorBundleIndex */
+	SwapPEXSurfaceEdgeFlag,
+	SwapPEXSurfaceEdgeType,
+	SwapPEXLineWidth,	/* SurfaceEdgeWidth */
+	SwapPEXMarkerColourIndex,	/* SurfaceEdgeColourIndex */
+	SWAP_OC_PREFIX(MarkerColour),	/* SurfaceEdgeColour */
+	SwapPEXMarkerBundleIndex,	/* EdgeBundleIndex */
+	SwapPEXSetAsfValues,
+	SwapPEXLocalTransform,
+	SwapPEXLocalTransform2D,
+	SwapPEXGlobalTransform,
+	SwapPEXGlobalTransform2D,
+	SwapPEXModelClip,
+	SWAP_OC_PREFIX(ModelClipVolume),
+	SWAP_OC_PREFIX(ModelClipVolume2D),
+	SwapPEXRestoreModelClip,
+	SwapPEXMarkerBundleIndex,	/* ViewIndex */
+	SWAP_OC_PREFIX(LightState),
+	SwapPEXMarkerBundleIndex,	/* DepthCueIndex */
+	SwapPEXPickId,
+	SwapPEXHlhsrIdentifier,
+	SwapPEXMarkerBundleIndex,	/* ColourApproxIndex */
+	SwapPEXRenderingColourModel,	/* RenderingColourModel */
+	SWAP_OC_PREFIX(ParaSurfCharacteristics),
+	SWAP_OC_PREFIX(AddToNameSet),
+	SWAP_OC_PREFIX(AddToNameSet),	/* RemoveFromNameSet */
+	SwapPEXExecuteStructure,
+	SwapPEXLabel,
+	SwapPEXApplicationData,
+	SwapPEXGse,
+	SWAP_OC_PREFIX(Marker),
+	SWAP_OC_PREFIX(Marker2D),
+	SWAP_OC_PREFIX(Text),
+	SWAP_OC_PREFIX(Text2D),
+	SWAP_OC_PREFIX(AnnotationText),
+	SWAP_OC_PREFIX(AnnotationText2D),
+	SWAP_OC_PREFIX(Polyline),
+	SWAP_OC_PREFIX(Polyline2D),
+	SWAP_OC_PREFIX(PolylineSet),
+	SWAP_OC_PREFIX(NurbCurve),
+	SWAP_OC_PREFIX(FillArea),
+	SWAP_OC_PREFIX(FillArea2D),
+	SWAP_OC_PREFIX(ExtFillArea),
+	SWAP_OC_PREFIX(FillAreaSet),
+	SWAP_OC_PREFIX(FillAreaSet2D),
+	SWAP_OC_PREFIX(ExtFillAreaSet),
+	SWAP_OC_PREFIX(TriangleStrip),
+	SWAP_OC_PREFIX(QuadrilateralMesh),
+	SWAP_OC_PREFIX(SOFAS),
+	SWAP_OC_PREFIX(NurbSurface),
+	SWAP_OC_PREFIX(CellArray),
+	SWAP_OC_PREFIX(CellArray2D),
+	SWAP_OC_PREFIX(ExtCellArray),
+	SWAP_OC_PREFIX(Gdp),
+	SWAP_OC_PREFIX(Gdp2D)
+};
+
+#undef SWAP_OC_PREFIX

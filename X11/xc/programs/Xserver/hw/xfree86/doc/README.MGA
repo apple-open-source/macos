@@ -1,0 +1,198 @@
+                        Information for Matrox Users
+
+                          The XFree86 Project Inc.
+
+                              30 December 1998
+
+1.  Supported hardware
+
+The current MGA driver in the SVGA server supports
+
+   o Matrox Millennium (MGA2064W with Texas Instruments TVP3026 RAMDAC). It
+     has been tested with 175, 220MHz, and 250MHz cards with 2MB, 4MB and 8MB
+     WRAM.
+
+   o Millennium II both PCI and AGP (MGA2164W with Texas Instruments TVP3026
+     RAMDAC). It has been tested with 4 MB, 8 MB and 16 MB WRAM.
+
+   o Matrox Mystique (Both MGA1064SG and MGA1164SG with integrated RAMDACs)
+     170 MHz and 220 MHz (Mystique 220) versions should work.
+
+   o Millennium G200 with SGRAM and SDRAM (Millennium G200-SD), with 8MB RAM.
+
+   o Mystique G200 (but no TVout support)
+
+   o Productiva G100 with SGRAM and SDRAM.  4MB and 8MB versions have been
+     tested.
+
+   o Matrox G400 (only the first head and no TVout support).
+
+1.1  What's not supported
+
+   o  Chipsets other than those listed above.  We are still interested in
+     providing support for the other Matrox chipsets including the Impres-
+     sion, Atlas, Genesis etc... but at this time have not been able to
+     obtain documentation for them.
+
+   o  MGA2064W and MGA2164W based cards with ramdacs other than the TVP3026
+     RAMDAC (like the Matrox Corona) are not supported.
+
+2.  Features:
+
+   o uses linear frame buffer
+
+   o Resolutions up to the maximum supported by the card should be possible.
+
+   o 8 bpp, 16 bpp (depth 15 and 16), 24 bpp (depth 24, packed) and 32 bpp
+     (depth 24, sparse) are all supported.
+
+   o supports VESA Display Power Management Signaling (DPMS)
+
+   o supports RGB Sync-on-Green
+
+   o supports the XF86_DGA extension
+
+   o Makes extensive use of the graphics accelerator.  This server is very
+     well accelerated, and is one of the fastest XFree86 X servers.
+
+3.  Configuration:
+
+The MGA driver should auto-detect all supported hardware so you needn't have
+anything other than the Identifier in the Section "Device" of the XF86Config
+file.  When running the XF86Setup or xf86config programs one merely needs to
+select a Matrox card so that the correct server will be used.  One need not
+and should not specify a RAMDAC, clockchip or allow the setup program to
+probe for clocks. The driver will auto-detect the amount of video ram pre-
+sent, however, due to some hardware problems this is not detected for the
+MGA2164W (Millennium II) or G100/G200.  In this case users should specify the
+amount of video ram in the Section "Device" of the XF86Config file. eg:
+
+             VideoRam 4096
+                 or
+             VideoRam 8192
+                 or
+             VideoRam 16384
+
+as appropriate so that the server doesn't have to probe for it.
+
+The following Section "Device" options are supported by the MGA driver:
+
+   o Option "sw_cursor"
+
+     Will disable the hardware cursor on the Millennium and Millennium II.
+
+   o Option "no_accel"
+
+     Will disable all hardware acceleration (oh my!).
+
+   o Option "no_pixmap_cache"
+
+     Will disable caching of pixmaps in offscreen video memory.
+
+   o Option "sync_on_green"
+
+     Will enable syncing on green for sync-on-green monitors (these are typi-
+     cally fixed frequency workstation monitors).
+
+   o Option "pci_retry"
+
+     This will allow the MGA hardware to generate a pci_disconnect based on
+     accelerator FIFO status. This can yield large performance boosts for
+     some graphics operations but has a tendency to hog the PCI bus so it is
+     turned off by default.
+
+   o Option "mga_sdram"
+
+     This will force the server to disable sgram features such as block mode
+     fills and hardware planemasks.
+
+4.  Known solutions for some problems:
+
+   o Temporary loss of monitor sync when the cursor shape changes on Millen-
+     nium and Millennium II.  The hardware cursor has been enabled by default
+     in 3.3.3.1. This seems to cause some problems on a minority of systems.
+     If you experience problems with this on your system, please put:
+
+               Option "sw_cursor"
+
+     in the Section "Device" of the XF86Config file to disable the hardware
+     cursor.
+
+   o Garbage in the cursor instead of the normal cursor image.  A bug in the
+     driver will cause this when less than 1K of video memory is left unused
+     and the hardware cursor is enabled for some cards.  If you experience
+     this problem, please put:
+
+               Option "sw_cursor"
+
+     in the Section "Device" of the XF86Config file to disable the hardware
+     cursor. This should be fixed in XFree86 3.3.3.1 as in cases like this
+     the software cursor should be used automatically.
+
+   o the driver doesn't support some values of HTotal parameter in Modelines
+     in the XF86Config file. If you get flickering vertical stripes on the
+     screen, try to change this parameter +/- 8.
+
+   o On some Millennium II cards the driver shows severe distortions with
+     24bpp in modes above about 1024x768. We hope to have automated the
+     detection and fix of this problem. If it still occurs, putting
+
+               Option "mga_24bpp_fix"
+
+     in the Device Section may fix the problem.
+
+   o On some MGA cards the amount of memory is mis-detected, on others prob-
+     ing for the amount of memory can cause a lockup in the system so memory
+     probing is not done on those hardware (Millennium II, G100/G200).  If
+     the default of 4MB RAM (Millennium II) or 8MB RAM (G100/G200) is not
+     correct, specify the amount of video ram in the Section "Device" of the
+     XF86Config file as described in section 3 above.
+
+   o If you Millennium II card that worked fine with XFree86-3.3.2.3 and ear-
+     lier now shows pixel errors and strange effects when returning to the
+     text console, make sure that the amount of memory that the server
+     reports is correct.  See item above for details.
+
+   o With virtual screens that use 8MB of memory or more (e.g., 2048x2048 at
+     16bpp) there can be cursor distortions when panning the screen verti-
+     cally. If that occurs, please put
+
+               Option "sw_cursor"
+
+     in the Section "Device" of the XF86Config file to disable the hardware
+     cursor.
+
+5.  Authors
+
+Radoslaw Kapitan, kapitan@student.uci.agh.edu.pl
+
+Mark Vojkovich, mvojkovi@sdcc10.ucsd.edu
+
+and:
+
+   o Andrew van der Stock, ajv@greebo.net
+
+   o Angsar Hockmann, Ansgar.Hockmann@hrz.uni-dortmund.de
+
+   o Michael Will, Michael.Will@student.uni-tuebingen.de
+
+   o Andrew Mileski, aem@ott.hookup.net
+
+   o Stephen Pitts, pitts2@memphisonline.com
+
+   o Dirk Hohndel, hohndel@XFree86.Org
+
+   o Leonard N. Zubkoff, lnz@dandelion.com
+
+   o Harm Hanemaayer, H.Hanemaayer@inter.nl.net
+
+   o Guy Desbief, g.desbief@aix.pacwan.net
+
+   o Takaaki Nomura, tnomura@sfc.keio.ac.jp
+
+   o Doug Merritt, doug@netcom.com
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/MGA.sgml,v 3.9 1999/11/19 13:54:27 hohndel Exp $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.MGA,v 3.14 2000/03/01 01:48:07 dawes Exp $

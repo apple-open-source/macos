@@ -1,0 +1,301 @@
+                        README for XFree86 on FreeBSD
+
+                          Rich Murphey, David Dawes
+
+                               8 November 1998
+
+1.  What and Where is XFree86?
+
+XFree86 is a port of X11R6.3 that supports several versions of Intel-based
+Unix.  It is derived from X386 1.2, which was the X server distributed with
+X11R5.  This release consists of many new features and performance improve-
+ments as well as many bug fixes.
+
+For further details about this release, including installation instructions,
+please refer to the Release Notes.
+
+See the Copyright Notice.
+
+Binaries for XFree86 on FreeBSD 2.2.x and 3.0 are available from:
+
+ftp://ftp.XFree86.org/pub/XFree86/current/binaries/
+
+Send email to Rich-Murphey@Rice.edu or XFree86@XFree86.org if you have com-
+ments or suggestions about this file and we'll revise it.
+
+2.  FreeBSD 3.0 and ELF
+
+The FreeBSD-3.0 binary distribution is ELF only.  The Xbin.tgz tarball con-
+tains a.out libraries for compatibility purposes.
+
+3.  Installing The Display Manager (xdm)
+
+The display manager makes your PC look like an X terminal.  That is, it pre-
+sents you with a login screen that runs under X.
+
+The easiest way to automatically start the display manager on boot is to add
+a line in /etc/ttys to start it on one of the unoccupied virtual terminals:
+
+      ttyv4    "/usr/X11R6/bin/xdm -nodaemon" xterm    on secure
+
+You should also make sure that /usr/X11R6/bin/X is a symbolic link to the
+Xserver that matches your video card or edit the file Xservers in
+/usr/X11R6/lib/X11/xdm to specify the pathname of the X server.
+
+The change to /etc/ttys won't take effect until you either reboot or ``kill
+-HUP 1'' to force initd to reread /etc/ttys.  You can also test the display
+manager manually by loging in as root on the console and typing ``xdm -nodae-
+mon''.
+
+4.  Configuring X for Your Hardware
+
+The XF86Config file tells the X server what kind of monitor, video card and
+mouse you have.  You must create it to tell the server what specific hardware
+you have.
+
+It is strongly recommended that you read through the QuickStart guide, and
+use either the `XF86Setup' utility (which requires the VGA16 server to be
+installed), or the `xf86config' utility to generate an XF86Config file.
+
+When you run the `XF86Setup' utility, do NOT touch the mouse until you are
+finished with mouse set up.  Otherwise, the VGA16 server and the mouse device
+driver may get confused and you may experience mouse and/or keyboard input
+problems.
+
+If you are running ``moused'' (see the man page for moused(8)) in FreeBSD
+versions 2.2.1 or later, you MUST specify SysMouse as the mouse protocol type
+and /dev/sysmouse as the mouse device name, regardless of the brand and model
+of your mouse.
+
+If you are NOT running ``moused'', you need to know the interface type of
+your mouse, /dev entry and the protocol type to use.
+
+The interface type can be determined by looking at the connector of the
+mouse.  The serial mouse has a D-Sub female 9- or 25-pin connector.  The bus
+mouse has either a D-Sub male 9-pin connector or a round DIN 9-pin connector.
+The PS/2 mouse is equipped with a small, round DIN 6-pin connector.  The USB
+mouse has a flat rectangular connector.  Some mice come with adapters with
+which the connector can be converted to another.  If you are to use such an
+adapter, remember the connector at the very end of the mouse/adapter pair is
+what matters.
+
+The next thing to decide is a /dev entry for the given interface.  For the
+bus and PS/2 mice, there is little choice: the bus mouse always use
+/dev/mse0, and the PS/2 mouse is always at /dev/psm0.  You can attach multi-
+ple USB mice to your system or to your USB hub.  They are accessible as
+/dev/ums0, /dev/ums1,...  There may be more than one serial port to which the
+serial mouse can be attached.  Many people often assign the first, built-in
+serial port /dev/cuaa0 to the mouse.
+
+If you are not sure which serial device your mouse is plugged into, the easi-
+est way to find out the device is to use ``cat'' or ``kermit'' to look at the
+output of the mouse.  Connect to it and just make sure that it generates out-
+put when the mouse is moved or clicked:
+
+      % cat < /dev/tty00
+
+If you can't find the right mouse device then use ``dmesg|grep sio'' to get a
+list of serial devices that were detected upon booting:
+
+      % dmesg|grep sio
+      sio0 at 0x3f8-0x3ff irq 4 on isa
+
+Then double check the /dev entries corresponding to these devices.  Use the
+script /dev/MAKEDEV to create entries if they don't already exist:
+
+      % cd /dev
+      % sh MAKEDEV tty00
+
+You may want to create a symbolic link /dev/mouse pointing to the real port
+to which the mouse is connected, so that you can easily distinguish which is
+your ``mouse'' port later.
+
+The next step is to guess the appropriate protocol type for the mouse.  In
+FreeBSD 2.2.6 or later, the X server may be able to automatically determine
+the appropriate protocol type, unless your mouse is of a relatively old
+model.  Use the ``Auto'' protocol in these versions.
+
+In other versions of FreeBSD or if the ``Auto'' protocol doesn't work in
+2.2.6, you have to guess a protocol type and try.
+
+There is rule of thumb:
+
+  1.  The bus mice always use the ``BusMouse'' protocol regardless of the
+      brand of the mouse.
+
+  2.  The ``PS/2'' protocol should always be specified for the PS/2 mouse
+      regardless of the brand of the mouse.
+
+           NOTE: There are quite a few PS/2 mouse protocols listed in
+           the man page for XF86Config.  But, ``PS/2'' is the only PS/2
+           mouse protocol type useful in XF86Config for FreeBSD.  The
+           other PS/2 mouse protocol types are not supported in FreeBSD.
+           FreeBSD version 2.2.6 and later directly support these proto-
+           col types in the PS/2 mouse driver psm and it is not neces-
+           sary to tell the X server which PS/2 mouse protocol type is
+           to be used; ``Auto'' should work, otherwise use ``PS/2''.
+
+  3.  You must specify the ``Auto'' protocol for the USB mouse.
+
+           NOTE: Other XFree86 document may mention ``Usb'' as one of
+           keywords for the mouse protocol.  This keyword is not neces-
+           sary, thus, not supported in FreeBSD.  Be sure to use
+           ``Auto'' for the USB mouse.
+
+  4.  The ``Logitech'' protocol is for old mouse models from Logitech.  Mod-
+      ern Logitech mice use either the ``MouseMan'' or ``Microsoft'' proto-
+      col.
+
+  5.  Most 2-button serial mice support the ``Microsoft'' protocol.
+
+  6.  3-button serial mice may work with the ``MouseSystems'' protocol. If it
+      doesn't, it may work with the ``Microsoft'' protocol although the third
+      (middle) button won't function.  3-button serial mice may also work
+      with the ``MouseMan'' protocol under which the third button may func-
+      tion as expected.
+
+  7.  3-button serial mice may have a small switch to choose between ``MS''
+      and ``PC'', or ``2'' and ``3''.  ``MS'' or ``2'' usually mean the
+      ``Microsoft'' protocol.  ``PC'' or ``3'' will choose the ``MouseSys-
+      tems'' protocol.
+
+  8.  If the serial mouse has a roller or a wheel, it may be compatible with
+      the ``IntelliMouse'' protocol.
+
+5.  Running X
+
+8mb of memory is a recommended minimum for running X.  The server, window
+manager, display manager and an xterm take about 8Mb of virtual memory them-
+selves.  Even if their resident set size is smaller, on a 8Mb system that
+leaves very space for other applications such as gcc that expect a few meg
+free.  The R6 X servers may work with 4Mb of memory, but in practice compila-
+tion while running X can take 5 or 10 times as long due to constant paging.
+
+The easiest way for new users to start X windows is to type ``startx >&
+startx.log''.  Error messages are lost unless you redirect them because the
+server takes over the screen.
+
+To get out of X windows, type: ``exit'' in the console xterm.  You can cus-
+tomize your X by creating .xinitrc, .xserverrc, and .twmrc files in your home
+directory as described in the xinit and startx man pages.
+
+6.  Rebuilding Kernels for X
+
+The GENERIC FreeBSD kernels support XFree86 without any modifications
+required.  You do not need to make any changes to the GENERIC kernel or any
+kernel configuration which is a superset.
+
+For a general description of BSD kernel configuration get smm.02.config.ps.Z
+<URL:ftp://gatekeeper.dec.com/pub/BSD/manuals/smm.02.config.ps.Z>.  It is a
+ready-to-print postscript copy of the kernel configuration chapter from the
+system maintainers manual.
+
+If you do decide to reduce your kernel configuration file, do not remove the
+line below (in /sys/arch/i386/conf).  It is required for X support:
+
+      options       UCONSOLE       #X Console support
+
+The generic FreeBSD kernels are configured by default with the syscons
+driver.  To configure your kernel similarly it should have a line like this
+in /usr/src/sys/i386/conf/GENERIC:
+
+      device        sc0  at isa? port "IO_KBD" tty irq 1 vector scintr
+
+The number of virtual consoles can be set using the MAXCONS option:
+
+      options       "MAXCONS=4"         #4 virtual consoles
+
+Otherwise, the default without a line like this is 16.  You must have more
+VTs than gettys as described in the end of section 3, and 4 is a reasonable
+minimum.
+
+The server supports two console drivers: syscons and pcvt.  The syscons
+driver is the default in FreeBSD 1.1.5 and higher.  They are detected at run-
+time and no configuration of the server itself is required.
+
+If you intend to use pcvt as the console driver, be sure to include the fol-
+lowing option in your kernel configuration file.
+
+      options       XSERVER             #Xserver
+
+The number of virtual consoles in pcvt can be set using the following option:
+
+      options       "PCVT_NSCREENS=10"  #10 virtual consoles
+
+The bus mouse driver and the PS/2 mouse driver may not be included, or may be
+included but disabled in your kernel.  If you intend to use these mice, ver-
+ify the following lines in the kernel configuration file:
+
+      device        mse0 at isa? port 0x23c tty irq 5 vector mseintr
+      device        psm0 at isa? port "IO_KBD" conflicts tty irq 12 vector psmintr
+
+The mse0 device is for the bus mouse and the psm device is for the PS/2
+mouse.  Your bus mouse interface card may allow you to change IRQ and the
+port address.  Please refer to the manual of the bus mouse and the manual
+page for mse(4) for details.  There is no provision to change IRQ and the
+port address of the PS/2 mouse.
+
+The XFree86 servers include support for the MIT-SHM extension.  The GENERIC
+kernel does not support this, so if you want to make use of this, you will
+need a kernel configured with SYSV shared memory support.  To do this, add
+the following line to your kernel config file:
+
+      options       SYSVSHM             # System V shared memory
+      options       SYSVSEM             # System V semaphores
+      options       SYSVMSG             # System V message queues
+
+If you are using a SoundBlaster 16 on IRQ 2 (9), then you need a patch for
+sb16_dsp.c.  Otherwise a kernel configured with the SoundBlaster driver will
+claim interrupt 9 doesn't exist and X server will lock up.
+
+S3 cards and serial port COM 4 cannot be installed together on a system
+because the I/O port addresses overlap.
+
+7.  Building X Clients
+
+The easiest way to build a new client (X application) is to use xmkmf if an
+Imakefile is included with it.  Type ``xmkmf -a'' to create the Makefiles,
+then type ``make''.  Whenever you install additional man pages you should
+update whatis.db by running ``makewhatis /usr/X11R6/man''.
+
+Note: Starting with XFree86 2.1 and FreeBSD 1.1, the symbol __386BSD__ no
+longer gets defined either by the compiler or via the X config files for
+FreeBSD systems.  When porting clients to BSD systems, make use of the symbol
+BSD for code which is truly BSD-specific.  The value of the symbol can be
+used to distinguish different BSD releases.  For example, code specific to
+the Net-2 and later releases can use:
+
+     #if (BSD >= 199103)
+
+To ensure that this symbol is correctly defined, include <sys/param.h> in the
+source that requires it.  Note that the symbol CSRG_BASED is defined for *BSD
+systems in XFree86 3.1.1 and later.  This should be used to protect the
+inclusion of <sys/param.h>.
+
+For code that really is specific to a particular i386 BSD port, use
+__FreeBSD__ for FreeBSD, __NetBSD__ for NetBSD, __OpenBSD__ for OpenBSD,
+__386BSD__ for 386BSD, and __bsdi__ for BSD/386.
+
+8.  Thanks
+
+Many thanks to:
+
+   o Pace Willison  for providing initial *BSD support.
+
+   o Amancio Hasty for 386BSD kernel and S3 chipset support.
+
+   o David Greenman, Nate Williams, Jordan Hubbard for FreeBSD kernel sup-
+     port.
+
+   o Rod Grimes, Jordan Hubbard and Jack Velte for the use of Walnut Creek
+     Cdrom's hardware.
+
+   o Orest Zborowski, Simon Cooper and Dirk Hohndel for ideas from the Linux
+     distribution.
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/FreeBSD.sgml,v 3.30 2000/02/10 22:33:36 dawes Exp $
+
+     $XConsortium: FreeBSD.sgml /main/12 1996/10/28 05:43:08 kaleb $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.FreeBSD,v 1.6 2000/03/01 01:48:05 dawes Exp $

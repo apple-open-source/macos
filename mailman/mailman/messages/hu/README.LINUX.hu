@@ -1,12 +1,9 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 
 GNU/LINUX TUDNIVALÓK
-
-    GNU/Linux seems to be the most popular platform on which to run
-    Mailman.  Here are some hints on getting Mailman to run on Linux:
 
     Úgy tûnik, hogy a Mailman futtatásához leggyakrabban használt platform 
     a GNU/Linux. A következõkben néhány Linuxos jótanácsot lehet olvasni
@@ -20,13 +17,13 @@ GNU/LINUX TUDNIVALÓK
     Fontos tudni, hogy ugyanez az eset áll fenn, ha a Linux Mandrake-t 
     biztonságos módban (secure mode) használjuk.
 
+    Úgy néz ki, hogy a Mandrake 9.0-ban változtattak a gcc jogosultságain,
+    ezért hogy mailman felhasználóként is le tudjuk fordítani a programot,
+    fel kell vennünk a mailman felhasználót a cctools csoportba.
+
+
 
 PYTHON CSOMAGOK
-
-    Note that if you installed Python from your Linux distribution's
-    package manager (e.g. .rpms for Redhat-derived systems or .deb for
-    Debian), you must install the `development' package of Python, or
-    you may not get everything you need.
 
     Fontos tudni, hogy ha a Pythont az adott Linux disztribúció csomag-
     kezelõjével (pl. Redhat típusú rendszereknél .rpm-bõl, Debian esetén
@@ -51,6 +48,9 @@ PYTHON CSOMAGOK
     Ilyenkor telepítsük a Python fejlesztõi csomagot is és próbáljuk
     meg újra a Mailman telepítését "configure ; make install" paranccsal.
 
+    Egyéb Linux disztribúcióknál eltérõ módon fordulhat elõ ugyanez a
+    probléma, ámbár többnyire a hibaüzenet ImportErrors formájában 
+    jelenik meg.
 
 
 Local Variables:

@@ -134,7 +134,7 @@ CPSPlugIn::CPSPlugIn ( void )
     
     catch (sInt32 err)
     {
-	    DEBUGLOG( "CPSPlugIn::CPSPlugIn failed: eMemoryAllocError\n");
+	    DEBUGLOG( "CPSPlugIn::CPSPlugIn failed: eMemoryAllocError");
         throw( err );
     }
 } // CPSPlugIn
@@ -422,7 +422,7 @@ sInt32 CPSPlugIn::OpenDirNode ( sOpenDirNode *inData )
 				   
     pNodeList	=	inData->fInDirNodeName;
     
-    DEBUGLOG( "CPSPlugIn::OpenDirNode \n");
+    DEBUGLOG( "CPSPlugIn::OpenDirNode");
 	
 	try
 	{
@@ -431,7 +431,7 @@ sInt32 CPSPlugIn::OpenDirNode ( sOpenDirNode *inData )
 			pathStr = dsGetPathFromListPriv( pNodeList, (char *)"/" );
             Throw_NULL( pathStr, eDSNullNodeName );
             
-            DEBUGLOG( "CPSPlugIn::OpenDirNode path = %s\n", pathStr);
+            DEBUGLOG( "CPSPlugIn::OpenDirNode path = %s", pathStr);
 
             unsigned int prefixLen = strlen(kPasswordServerPrefixStr);
             
@@ -535,7 +535,7 @@ sInt32 CPSPlugIn::OpenDirNode ( sOpenDirNode *inData )
 							freehostent( hostEnt );
 						}
 						
-						DEBUGLOG( "anEntry.ip = %s\n", anEntry.ip );
+						DEBUGLOG( "anEntry.ip = %s", anEntry.ip );
 					}
 					
 					anEntry.ipFromNode = true;
@@ -628,7 +628,7 @@ sInt32 CPSPlugIn::HandleFirstContact( sPSContextData *inContext, const char *inI
 	int sock = -1;
 	sPSServerEntry anEntry;
 	
-	DEBUGLOG( "HandleFirstContact\n");
+	DEBUGLOG( "HandleFirstContact");
 	
 	bzero( &anEntry, sizeof(anEntry) );
 	
@@ -804,7 +804,7 @@ sInt32 CPSPlugIn::BeginServerSession( sPSContextData *inContext, int inSock )
 	
 	try
 	{
-DEBUGLOG( "BeginServerSession, inSock = %d\n", inSock );
+DEBUGLOG( "BeginServerSession, inSock = %d", inSock );
 
 		if ( inSock != -1 )
 		{
@@ -889,7 +889,7 @@ DEBUGLOG( "BeginServerSession, inSock = %d\n", inSock );
 					*end = '\0';
 					
 				strcpy( inContext->mech[count-1].method, tptr );
-				DEBUGLOG( "mech=%s\n", tptr);
+				DEBUGLOG( "mech=%s", tptr);
 				
 				tptr = end;
 				if ( tptr != NULL )
@@ -914,7 +914,7 @@ DEBUGLOG( "BeginServerSession, inSock = %d\n", inSock );
 		
 		if ( siResult != eDSNoErr )
 		{
-			DEBUGLOG( "rsapublic = %l\n", siResult);
+			DEBUGLOG( "rsapublic = %l", siResult);
 			throw( siResult );
 		}
 	}
@@ -934,7 +934,7 @@ DEBUGLOG( "BeginServerSession, inSock = %d\n", inSock );
 sInt32 CPSPlugIn::EndServerSession( sPSContextData *inContext, bool inSendQuit )
 {
 
-DEBUGLOG( "CPSPlugIn::EndServerSession closing %d\n", inContext->fd );
+DEBUGLOG( "CPSPlugIn::EndServerSession closing %d", inContext->fd );
 	
 	gPWSConnMutex->Wait();
 	
@@ -973,7 +973,7 @@ DEBUGLOG( "CPSPlugIn::EndServerSession closing %d\n", inContext->fd );
 	
 	gPWSConnMutex->Signal();
 	
-DEBUGLOG( "CPSPlugIn::EndServerSession opens: %l, closes %l\n", gOpenCount, gCloseCount );
+DEBUGLOG( "CPSPlugIn::EndServerSession opens: %l, closes %l", gOpenCount, gCloseCount );
 
 	return eDSNoErr;
 }
@@ -1002,7 +1002,7 @@ sInt32 CPSPlugIn::GetRSAPublicKey( sPSContextData *inContext, char *inData )
 			serverResult = SendFlushRead( inContext, "RSAPUBLIC", NULL, NULL, buf, sizeof(buf) );
 			if ( serverResult.err != 0 )
 			{
-				DEBUGLOG( "no public key\n");
+				DEBUGLOG( "no public key");
 				throw( (sInt32)eDSAuthServerError );
 			}
 			
@@ -1026,7 +1026,7 @@ sInt32 CPSPlugIn::GetRSAPublicKey( sPSContextData *inContext, char *inData )
         keyStr = bufPtr + 4;
         bits = pwsf_key_read(inContext->rsaPublicKey, &keyStr);
         if (bits == 0) {
-            DEBUGLOG( "no key bits\n");
+            DEBUGLOG( "no key bits");
             throw( (sInt32)eDSAuthServerError );
         }
 		
@@ -1037,7 +1037,7 @@ sInt32 CPSPlugIn::GetRSAPublicKey( sPSContextData *inContext, char *inData )
 	
 	catch( sInt32 err )
 	{
-		DEBUGLOG( "catch in GetRSAPublicKey = %l\n", err);
+		DEBUGLOG( "catch in GetRSAPublicKey = %l", err);
 		siResult = err;
 	}
     
@@ -1431,6 +1431,9 @@ sInt32 CPSPlugIn::SetupSecureSyncSession( sPSContextData *inContext )
 		delete authFile;
 	}
 	
+	if ( siResult != eDSNoErr )
+		DEBUGLOG( "CPSPlugin::SetupSecureSyncSession returning %l", siResult );
+	
     return siResult;
 }
 
@@ -1466,7 +1469,7 @@ sInt32 CPSPlugIn::CleanContextData ( sPSContextData *inContext )
 	   
     if ( inContext == NULL )
     {
-		DEBUGLOG( "CPSPlugIn::CleanContextData eDSBadContextData\n");
+		DEBUGLOG( "CPSPlugIn::CleanContextData eDSBadContextData");
         siResult = eDSBadContextData;
 	}
     else
@@ -2372,7 +2375,7 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 	bool				bMethodCanSetPassword	= false;
 	char 				saslMechNameStr[256];
 	
-    DEBUGLOG( "CPSPlugIn::DoAuthentication\n");
+    DEBUGLOG( "CPSPlugIn::DoAuthentication");
 	
 	try
 	{
@@ -2380,7 +2383,7 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 		Throw_NULL( pContext, eDSBadContextData );
         
 		siResult = GetAuthMethodConstant( pContext, inData->fInAuthMethod, &uiAuthMethod, saslMechNameStr );
-        DEBUGLOG( "GetAuthMethodConstant siResult=%l, uiAuthMethod=%l, mech=%s\n", siResult, uiAuthMethod,saslMechNameStr);
+        DEBUGLOG( "GetAuthMethodConstant siResult=%l, uiAuthMethod=%l, mech=%s", siResult, uiAuthMethod,saslMechNameStr);
 		if ( siResult != eDSNoErr )
 			throw( siResult );
 		
@@ -2439,7 +2442,7 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 			{
 				replicaFile.CalcServerUniqueID( rsaKeyPtr, hexHash );
 				
-				DEBUGLOG( "hexHash=%s\n", hexHash );
+				DEBUGLOG( "hexHash=%s", hexHash );
 				
 				siResult = HandleFirstContact( pContext, NULL, hexHash, rsaKeyPtr );
 			}
@@ -2474,7 +2477,7 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
         if ( !bHasValidAuth && siResult == noErr && RequiresSASLAuthentication( uiAuthMethod ) )
         {
 			siResult = GetAuthMethodSASLName( uiAuthMethod, inData->fInDirNodeAuthOnlyFlag, saslMechNameStr, &bMethodCanSetPassword );
-			DEBUGLOG( "GetAuthMethodSASLName siResult=%l, mech=%s\n", siResult, saslMechNameStr );
+			DEBUGLOG( "GetAuthMethodSASLName siResult=%l, mech=%s", siResult, saslMechNameStr );
 			if ( siResult != eDSNoErr )
 				throw( siResult );
 			
@@ -3077,7 +3080,7 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
 								byteCount = strlen(paramStr) - (sptr - paramStr);
 							}
 							
-							DEBUGLOG( "ulist: %s\n", buf );
+							DEBUGLOG( "ulist: %s", buf );
 							result = SendFlushReadWithMutex( pContext, "GETDISABLEDUSERS", buf, NULL, buf, sizeof(buf) );
 							if ( result.err != 0 )
 								throw( PWSErrToDirServiceError(result) );
@@ -3448,7 +3451,7 @@ sInt32 CPSPlugIn::DoAuthentication ( sDoDirNodeAuth *inData )
     if ( stepData != NULL )
 		free( stepData );
 	
-    DEBUGLOG( "CPSPlugIn::DoAuthentication returning %l\n", siResult);
+    DEBUGLOG( "CPSPlugIn::DoAuthentication returning %l", siResult);
 	return( siResult );
 
 } // DoAuthentication
@@ -3668,7 +3671,7 @@ sInt32 CPSPlugIn::DoAuthMethodPull( sDoDirNodeAuth *inData, sPSContextData *inCo
 				
 				if ( Convert64ToBinary( buf + 6, tptr, syncDataLen - (tptr - bigbuff) + 16, &readLen ) != SASL_OK )
 				{
-					DEBUGLOG( "maxLen=%l\n", syncDataLen - (tptr - bigbuff) + 16);
+					DEBUGLOG( "maxLen=%l", syncDataLen - (tptr - bigbuff) + 16);
 					throw( (sInt32)eDSAuthServerError );
 				}
 				
@@ -3695,7 +3698,7 @@ sInt32 CPSPlugIn::DoAuthMethodPull( sDoDirNodeAuth *inData, sPSContextData *inCo
 		if ( fp == NULL )
 		{
 			free( bigbuff );
-			DEBUGLOG( "CPSPlugIn::could not create a sync file\n");
+			DEBUGLOG( "CPSPlugIn::could not create a sync file");
 			throw( (sInt32)ePlugInError );
 		}
 		
@@ -3710,7 +3713,7 @@ sInt32 CPSPlugIn::DoAuthMethodPull( sDoDirNodeAuth *inData, sPSContextData *inCo
 		if ( fp == NULL )
 		{
 			free( bigbuff );
-			DEBUGLOG( "CPSPlugIn::could not gunzip a sync file\n");
+			DEBUGLOG( "CPSPlugIn::could not gunzip a sync file");
 			throw( (sInt32)ePlugInError );
 		}
 		
@@ -3721,7 +3724,7 @@ sInt32 CPSPlugIn::DoAuthMethodPull( sDoDirNodeAuth *inData, sPSContextData *inCo
 		siResult = stat( inContext->syncFilePath, &sb );
 		if ( siResult != 0 )
 		{
-			DEBUGLOG( "CPSPlugIn::could not stat the sync file.\n");
+			DEBUGLOG( "CPSPlugIn::could not stat the sync file.");
 			throw( (sInt32)ePlugInError );
 		}
 		
@@ -5170,7 +5173,7 @@ CPSPlugIn::DoSASLAuth(
 	sPSContinueData		*pContinue			= NULL;
 	char				*tptr				= NULL;
 	
-    DEBUGLOG( "CPSPlugIn::DoSASLAuth\n");
+    DEBUGLOG( "CPSPlugIn::DoSASLAuth");
 	try
 	{
 		Throw_NULL( inContext, eDSBadContextData );
@@ -5262,7 +5265,7 @@ CPSPlugIn::DoSASLAuth(
             
             r = DoSASLNew( inContext, pContinue );
             if ( r != SASL_OK || inContext->conn == NULL ) {
-                DEBUGLOG( "sasl_client_new failed, err=%d.\n", r);
+                DEBUGLOG( "sasl_client_new failed, err=%d.", r);
                 throw( SASLErrToDirServiceError(r) );
             }
             
@@ -5276,15 +5279,15 @@ CPSPlugIn::DoSASLAuth(
 				char *tmpData = (char *)malloc(len+1);
 				memcpy(tmpData, data, len);
 				tmpData[len] = '\0';
-				DEBUGLOG( "start data=%s\n", tmpData);
+				DEBUGLOG( "start data=%s", tmpData);
 				free(tmpData);
 			}
 #endif
 			
-            //DEBUGLOG( "chosenmech=%s, datalen=%u\n", chosenmech, len);
+            //DEBUGLOG( "chosenmech=%s, datalen=%u", chosenmech, len);
             
             if ( r != SASL_OK && r != SASL_CONTINUE ) {
-                DEBUGLOG( "starting SASL negotiation, err=%d\n", r);
+                DEBUGLOG( "starting SASL negotiation, err=%d", r);
                 throw( SASLErrToDirServiceError(r) );
             }
             
@@ -5321,7 +5324,7 @@ CPSPlugIn::DoSASLAuth(
 			
 			serverResult = SendFlushRead( inContext, buf, NULL, NULL, buf, sizeof(buf) );
             if (serverResult.err != 0) {
-                DEBUGLOG( "server returned an error, err=%d\n", serverResult.err);
+                DEBUGLOG( "server returned an error, err=%d", serverResult.err);
                 throw( PWSErrToDirServiceError(serverResult) );
             }
             
@@ -5339,7 +5342,7 @@ CPSPlugIn::DoSASLAuth(
 				
 				serverResult = SendFlushRead( inContext, buf, NULL, NULL, buf, sizeof(buf) );
 				if (serverResult.err != 0) {
-					DEBUGLOG( "server returned an error, err=%d\n", serverResult.err);
+					DEBUGLOG( "server returned an error, err=%d", serverResult.err);
 					throw( PWSErrToDirServiceError(serverResult) );
 				}
 				
@@ -5362,7 +5365,7 @@ CPSPlugIn::DoSASLAuth(
 							char *tmpData = (char *)malloc(binLen+1);
 							memcpy(tmpData, dataBuf, binLen);
 							tmpData[binLen] = '\0';
-							DEBUGLOG( "server data=%s\n", tmpData);
+							DEBUGLOG( "server data=%s", tmpData);
 							free(tmpData);
 						}
 #endif
@@ -5375,7 +5378,7 @@ CPSPlugIn::DoSASLAuth(
 							char *tmpData = (char *)malloc(len+1);
 							memcpy(tmpData, data, len);
 							tmpData[len] = '\0';
-							DEBUGLOG( "step data=%s\n", tmpData);
+							DEBUGLOG( "step data=%s", tmpData);
 							free(tmpData);
 						}
 #endif
@@ -5394,24 +5397,24 @@ CPSPlugIn::DoSASLAuth(
                     r = SASL_FAIL;
 				
                 if (r != SASL_OK && r != SASL_CONTINUE) {
-                    DEBUGLOG( "sasl_client_step=%d\n", r);
+                    DEBUGLOG( "sasl_client_step=%d", r);
                     throw( SASLErrToDirServiceError(r) );
                 }
                 
                 if (data && len != 0)
                 {
-                    //DEBUGLOG( "sending response length %d\n", len);
+                    //DEBUGLOG( "sending response length %d", len);
                     //DEBUGLOG( "client step data = %s", data );
                     
                     ConvertBinaryToHex( (const unsigned char *)data, len, dataBuf );
                     
-                    DEBUGLOG( "AUTH2 %s\n", dataBuf);
+                    DEBUGLOG( "AUTH2 %s", dataBuf);
 					serverResult = SendFlushRead( inContext, "AUTH2", dataBuf, NULL, buf, sizeof(buf) );
                 }
                 else
                 if (r==SASL_CONTINUE)
                 {
-                    DEBUGLOG( "sending null response\n");
+                    DEBUGLOG( "sending null response");
                     serverResult = SendFlushRead( inContext, "AUTH2 ", NULL, NULL, buf, sizeof(buf) );
                 }
                 else
@@ -5420,7 +5423,7 @@ CPSPlugIn::DoSASLAuth(
                 }
 				
                 if ( serverResult.err != 0 ) {
-                    DEBUGLOG( "server returned an error, err=%d\n", serverResult.err);
+                    DEBUGLOG( "server returned an error, err=%d", serverResult.err);
                     throw( PWSErrToDirServiceError(serverResult) );
                 }
                 
@@ -5441,7 +5444,7 @@ CPSPlugIn::DoSASLAuth(
 				memcpy( *outStepData, dataBuf, binLen );
 				(*outStepData)[binLen] = '\0';
 				
-				//DEBUGLOG( "outStepData = %s\n", *outStepData );
+				//DEBUGLOG( "outStepData = %s", *outStepData );
 			}
 			
             throw( SASLErrToDirServiceError(r) );
@@ -5492,7 +5495,7 @@ CPSPlugIn::DoSASLTwoWayRandAuth(
     tDataBufferPtr outAuthBuff = inData->fOutAuthStepDataResponse;
     tDataBufferPtr inAuthBuff = inData->fInAuthStepData;
     
-    DEBUGLOG( "CPSPlugIn::DoSASLTwoWayRandAuth\n");
+    DEBUGLOG( "CPSPlugIn::DoSASLTwoWayRandAuth");
 	try
 	{
 		Throw_NULL( inContext, eDSBadContextData );
@@ -5536,7 +5539,7 @@ CPSPlugIn::DoSASLTwoWayRandAuth(
             
 			r = DoSASLNew( inContext, pContinue );
 			if ( r != SASL_OK || inContext->conn == NULL ) {
-                DEBUGLOG( "sasl_client_new failed, err=%d.\n", r);
+                DEBUGLOG( "sasl_client_new failed, err=%d.", r);
                 throw( SASLErrToDirServiceError(r) );
             }
             
@@ -5549,7 +5552,7 @@ CPSPlugIn::DoSASLTwoWayRandAuth(
             // flush the read buffer
             serverResult = readFromServer( inContext->fd, buf, sizeof(buf) );
             if (serverResult.err != 0) {
-                DEBUGLOG( "server returned an error, err=%d\n", serverResult.err);
+                DEBUGLOG( "server returned an error, err=%d", serverResult.err);
                 throw( PWSErrToDirServiceError(serverResult) );
             }
             
@@ -5560,7 +5563,7 @@ CPSPlugIn::DoSASLTwoWayRandAuth(
             // get server response
             serverResult = readFromServer(inContext->fd, buf, sizeof(buf));
             if (serverResult.err != 0) {
-                DEBUGLOG( "server returned an error, err=%d\n", serverResult.err);
+                DEBUGLOG( "server returned an error, err=%d", serverResult.err);
                 throw( PWSErrToDirServiceError(serverResult) );
             }
             
@@ -5620,7 +5623,7 @@ CPSPlugIn::DoSASLTwoWayRandAuth(
         else
         if ( pContinue->fAuthPass == 1 )
         {
-            DEBUGLOG( "inAuthBuff->fBufferLength=%l\n", inAuthBuff->fBufferLength);
+            DEBUGLOG( "inAuthBuff->fBufferLength=%l", inAuthBuff->fBufferLength);
             
             // buffer should be:
             // 8 byte DES digest
@@ -5646,10 +5649,10 @@ CPSPlugIn::DoSASLTwoWayRandAuth(
             
             // start sasling
             r = sasl_client_start( inContext->conn, inMechName, NULL, &data, &len, &chosenmech ); 
-            DEBUGLOG( "chosenmech=%s, datalen=%u\n", chosenmech, len);
+            DEBUGLOG( "chosenmech=%s, datalen=%u", chosenmech, len);
             
             if ( r != SASL_OK && r != SASL_CONTINUE ) {
-                DEBUGLOG( "starting SASL negotiation, err=%d\n", r);
+                DEBUGLOG( "starting SASL negotiation, err=%d", r);
                 throw( SASLErrToDirServiceError(r) );
             }
             
@@ -5663,7 +5666,7 @@ CPSPlugIn::DoSASLTwoWayRandAuth(
             pContinue->fDataLen = 0;
             
             if ( r != SASL_OK && r != SASL_CONTINUE ) {
-                DEBUGLOG( "stepping SASL negotiation, err=%d\n", r);
+                DEBUGLOG( "stepping SASL negotiation, err=%d", r);
                 throw( SASLErrToDirServiceError(r) );
             }
             
@@ -5671,14 +5674,14 @@ CPSPlugIn::DoSASLTwoWayRandAuth(
             {
                 ConvertBinaryToHex( (const unsigned char *)data, len, dataBuf );
                 
-                DEBUGLOG( "AUTH2 %s\r\n", dataBuf);
+                DEBUGLOG( "AUTH2 %s", dataBuf);
                 fprintf(inContext->serverOut, "AUTH2 %s\r\n", dataBuf );
                 fflush(inContext->serverOut);
                 
                 // get server response
                 serverResult = readFromServer(inContext->fd, buf, sizeof(buf));
                 if (serverResult.err != 0) {
-                    DEBUGLOG( "server returned an error, err=%d\n", serverResult.err);
+                    DEBUGLOG( "server returned an error, err=%d", serverResult.err);
                     throw( PWSErrToDirServiceError(serverResult) );
                 }
                 
@@ -5864,7 +5867,7 @@ CPSPlugIn::GetServerListFromDSDiscovery( CFMutableArrayRef inOutServerList )
 									// DEBUG
 									if ( true )
 									{
-										DEBUGLOG( "      %l - %l: (%s) %s\n", attrIndex, attrValueIndex,
+										DEBUGLOG( "      %l - %l: (%s) %s", attrIndex, attrValueIndex,
 																pAttrEntry->fAttributeSignature.fBufferData,
 																pValueEntry->fAttributeValueData.fBufferData );
 									}
@@ -5921,7 +5924,7 @@ CPSPlugIn::GetServerListFromDSDiscovery( CFMutableArrayRef inOutServerList )
 		dsRef = 0;
 	}
 		
-DEBUGLOG( "GetServerListFromDSDiscovery = %l\n", status);
+DEBUGLOG( "GetServerListFromDSDiscovery = %l", status);
 	return status;
 }
 
@@ -6044,7 +6047,7 @@ sInt32 CPSPlugIn::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 //seems that the client needs to have a tDirNodeReference 
 //to make the custom call even though it will likely be non-dirnode specific related
 
-DEBUGLOG( "CPSPlugIn::DoPlugInCustomCall\n" );
+DEBUGLOG( "CPSPlugIn::DoPlugInCustomCall" );
 
 	try
 	{

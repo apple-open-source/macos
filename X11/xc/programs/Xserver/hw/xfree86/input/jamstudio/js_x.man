@@ -1,0 +1,67 @@
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/input/jamstudio/js_x.man,v 1.2 2003/02/24 03:24:15 dawes Exp $ 
+.\" shorthand for double quote that works everywhere.
+.ds q \N'34'
+.TH JS_X __drivermansuffix__ __vendorversion__
+.SH NAME
+js_x \- JamStudio input driver
+.SH SYNOPSIS
+.nf
+.B "Section \*qInputDevice\*q"
+.BI "  Identifier \*q" devname \*q
+.B  "  Driver \*qjs_x\*q"
+.BI "  Option \*qDevice\*q   \*q" devpath \*q
+.BI "  Option \*qMaxX\*q  \*q" int \*q
+.BI "  Option \*qMaxY\*q  \*q" int \*q
+.BI "  Option \*qMinX\*q  \*q" int \*q
+.BI "  Option \*qMinY\*q  \*q" int \*q
+.BI "  Option \*qPressMax\*q  \*q" int \*q
+.BI "  Option \*qPressMin\*q  \*q" int \*q
+.BI "  Option \*qPressDiv\*q  \*q" int \*q
+.B EndSection
+.fi
+.SH DESCRIPTION
+.B js_x 
+is an XFree86 input driver for JamStudio devices.
+.PP
+The
+.B js_x 
+driver functions as a pointer input device, and may be used as the
+X server's core pointer.
+.SH SUPPORTED HARDWARE
+This driver supports the KB-Gear JamStudio pentablet.
+This X-Input driver should work on any OS supporting the hiddev raw USB HID driver.
+.SH CONFIGURATION DETAILS
+Please refer to XF86Config(__filemansuffix__) for general configuration
+details and for options that can be used with all input drivers.  This
+section only covers configuration details specific to this driver.
+.RS 8
+.TP 4
+.B Option \fI"Device"\fP \fI"path"\fP
+sets the path to the raw HID device to which the tablet was assigned.
+This option is mandatory.
+.TP
+.B Option \fI"MinX"\fP \fI"int"\fP
+.TP
+.B Option \fI"MaxX"\fP \fI"int"\fP
+.TP
+.B Option \fI"MinY"\fP \fI"int"\fP
+.TP
+.B Option \fI"MaxY"\fP \fI"int"\fP
+sets the minimum and maximum values returned for the absolute X,Y axis of the pen tablet. These values default to 0-8000 for X and 0-6000 for Y. It should generally be safe to leave these values untouched.
+.TP
+.B Option \fI"PressMin\fP \fI"int"\fP
+.TP
+.B Option \fI"PressMax\fP \fI"int"\fP
+sets the minimum and maximum values returned for the pressure sensitive tip. These values default to 0-127. It should generally be safe to leave these values untouched.
+.TP 4
+.B Option \fI"PressDiv"\fP \fI"int"\fP
+sets the divider for the returned pressure value. This option will allow you to return a smaller set of values for the pressure sensitive tip allowing for finer control. The returned value is computed as follows:
+.RS
+.TP
+\fIX / PressDiv = returned value\fP
+where X equals the value read from the tablet.
+.RE
+.SH "SEE ALSO"
+XFree86(1), XF86Config(__filemansuffix__), xf86config(1), Xserver(1), X(__miscmansuffix__).
+.SH AUTHORS
+Brian Goines <bgoines78@comcast.net>

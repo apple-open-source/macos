@@ -1,0 +1,11 @@
+Kot skrbnik seznama morate odobriti naslednje sporoèilo,
+namenjeno za po¹tni seznam:
+
+    Seznam:    	%(listname)s@%(hostname)s
+    Od:    	%(sender)s
+    Zadeva: 	%(subject)s
+    Razlog:  	%(reason)s
+
+Za odobritev ali zavrnitev zahteve obi¹èite stran
+
+    %(admindb_url)s

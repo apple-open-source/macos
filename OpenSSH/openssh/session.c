@@ -633,6 +633,10 @@ do_exec_pty(Session *s, const char *command)
 			cray_init_job(s->pw); /* set up cray jid and tmpdir */
 #endif /* _UNICOS */
 			do_login(s, command);
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+			if (s->tty != NULL)
+				solaris_audit_save_ttyn(s->tty);
+#endif /* BSM */
 		}
 # ifdef LOGIN_NEEDS_UTMPX
 		else
@@ -1220,6 +1224,9 @@ do_nologin(struct passwd *pw)
 		while (fgets(buf, sizeof(buf), f))
 			fputs(buf, stderr);
 		fclose(f);
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+		solaris_audit_nologin();
+#endif /* BSM */
 		fflush(NULL);
 		exit(254);
 	}
@@ -1349,6 +1356,10 @@ do_child(Session *s, const char *command)
 			do_motd();
 #else /* HAVE_OSF_SIA */
 		do_nologin(pw);
+# if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+		if (command != NULL)
+			solaris_audit_save_command(command);
+# endif /* BSM */
 		do_setusercontext(pw);
 #endif /* HAVE_OSF_SIA */
 	}

@@ -5,8 +5,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: Tue Apr 22 08:47:47 2003\n"
-"PO-Revision-Date: 2003-04-22 13:00+0900\n"
+"POT-Creation-Date: Sat Dec 13 14:40:28 2003\n"
+"PO-Revision-Date: 2003-09-24 17:00+0900\n"
 "Last-Translator: Tokio Kikuchi <tkikuchi@is.kochi-u.ac.jp>\n"
 "Language-Team: Japanese <mmjp-users@mm.tkikuchi.net>\n"
 "MIME-Version: 1.0\n"
@@ -14,148 +14,148 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: pygettext.py 1.3\n"
 
-#: Mailman/Archiver/HyperArch.py:112
+#: Mailman/Archiver/HyperArch.py:119
 msgid "size not available"
 msgstr "サイズ情報なし"
 
-#: Mailman/Archiver/HyperArch.py:118
+#: Mailman/Archiver/HyperArch.py:125
 msgid " %(size)i bytes "
 msgstr " %(size)i バイト "
 
-#: Mailman/Archiver/HyperArch.py:249 Mailman/Archiver/HyperArch.py:408
-#: Mailman/Archiver/HyperArch.py:969 Mailman/Archiver/HyperArch.py:1134
+#: Mailman/Archiver/HyperArch.py:279 Mailman/Archiver/HyperArch.py:438
+#: Mailman/Archiver/HyperArch.py:1000 Mailman/Archiver/HyperArch.py:1165
 msgid " at "
 msgstr " ＠ "
 
-#: Mailman/Archiver/HyperArch.py:437
+#: Mailman/Archiver/HyperArch.py:467
 msgid "Previous message:"
 msgstr "前の記事"
 
-#: Mailman/Archiver/HyperArch.py:459
+#: Mailman/Archiver/HyperArch.py:489
 msgid "Next message:"
 msgstr "次の記事"
 
-#: Mailman/Archiver/HyperArch.py:612 Mailman/Archiver/HyperArch.py:648
+#: Mailman/Archiver/HyperArch.py:642 Mailman/Archiver/HyperArch.py:678
 msgid "thread"
 msgstr "スレッド"
 
-#: Mailman/Archiver/HyperArch.py:613 Mailman/Archiver/HyperArch.py:649
+#: Mailman/Archiver/HyperArch.py:643 Mailman/Archiver/HyperArch.py:679
 msgid "subject"
 msgstr "件名"
 
-#: Mailman/Archiver/HyperArch.py:614 Mailman/Archiver/HyperArch.py:650
+#: Mailman/Archiver/HyperArch.py:644 Mailman/Archiver/HyperArch.py:680
 msgid "author"
 msgstr "発信者"
 
-#: Mailman/Archiver/HyperArch.py:615 Mailman/Archiver/HyperArch.py:651
+#: Mailman/Archiver/HyperArch.py:645 Mailman/Archiver/HyperArch.py:681
 msgid "date"
 msgstr "日付"
 
-#: Mailman/Archiver/HyperArch.py:687
+#: Mailman/Archiver/HyperArch.py:717
 msgid "<P>Currently, there are no archives. </P>"
 msgstr "<p>今のところ保存記事はありません."
 
-#: Mailman/Archiver/HyperArch.py:724
+#: Mailman/Archiver/HyperArch.py:755
 msgid "Gzip'd Text%(sz)s"
 msgstr "Gzip圧縮テキスト %(sz)s"
 
-#: Mailman/Archiver/HyperArch.py:729
+#: Mailman/Archiver/HyperArch.py:760
 msgid "Text%(sz)s"
 msgstr "テキスト %(sz)s"
 
-#: Mailman/Archiver/HyperArch.py:819
+#: Mailman/Archiver/HyperArch.py:850
 msgid "figuring article archives\n"
 msgstr "保存書庫作成準備中\n"
 
-#: Mailman/Archiver/HyperArch.py:829
+#: Mailman/Archiver/HyperArch.py:860
 msgid "April"
 msgstr "4月"
 
-#: Mailman/Archiver/HyperArch.py:829
+#: Mailman/Archiver/HyperArch.py:860
 msgid "February"
 msgstr "2月"
 
-#: Mailman/Archiver/HyperArch.py:829
+#: Mailman/Archiver/HyperArch.py:860
 msgid "January"
 msgstr "1月"
 
-#: Mailman/Archiver/HyperArch.py:829
+#: Mailman/Archiver/HyperArch.py:860
 msgid "March"
 msgstr "3月"
 
-#: Mailman/Archiver/HyperArch.py:830
+#: Mailman/Archiver/HyperArch.py:861
 msgid "August"
 msgstr "8月"
 
-#: Mailman/Archiver/HyperArch.py:830
+#: Mailman/Archiver/HyperArch.py:861
 msgid "July"
 msgstr "7月"
 
-#: Mailman/Archiver/HyperArch.py:830
+#: Mailman/Archiver/HyperArch.py:861
 msgid "June"
 msgstr "6月"
 
-#: Mailman/Archiver/HyperArch.py:830 Mailman/i18n.py:102
+#: Mailman/Archiver/HyperArch.py:861 Mailman/i18n.py:102
 msgid "May"
 msgstr "5月"
 
-#: Mailman/Archiver/HyperArch.py:831
+#: Mailman/Archiver/HyperArch.py:862
 msgid "December"
 msgstr "12月"
 
-#: Mailman/Archiver/HyperArch.py:831
+#: Mailman/Archiver/HyperArch.py:862
 msgid "November"
 msgstr "11月"
 
-#: Mailman/Archiver/HyperArch.py:831
+#: Mailman/Archiver/HyperArch.py:862
 msgid "October"
 msgstr "10月"
 
-#: Mailman/Archiver/HyperArch.py:831
+#: Mailman/Archiver/HyperArch.py:862
 msgid "September"
 msgstr "9月"
 
-#: Mailman/Archiver/HyperArch.py:839
+#: Mailman/Archiver/HyperArch.py:870
 msgid "First"
 msgstr "第1"
 
-#: Mailman/Archiver/HyperArch.py:839
+#: Mailman/Archiver/HyperArch.py:870
 msgid "Fourth"
 msgstr "第4"
 
-#: Mailman/Archiver/HyperArch.py:839
+#: Mailman/Archiver/HyperArch.py:870
 msgid "Second"
 msgstr "第2"
 
-#: Mailman/Archiver/HyperArch.py:839
+#: Mailman/Archiver/HyperArch.py:870
 msgid "Third"
 msgstr "第3"
 
-#: Mailman/Archiver/HyperArch.py:841
+#: Mailman/Archiver/HyperArch.py:872
 msgid "%(ord)s quarter %(year)i"
 msgstr "%(year)i年%(ord)s四半期"
 
-#: Mailman/Archiver/HyperArch.py:848
+#: Mailman/Archiver/HyperArch.py:879
 msgid "%(month)s %(year)i"
 msgstr "%(year)i年%(month)s"
 
-#: Mailman/Archiver/HyperArch.py:853
+#: Mailman/Archiver/HyperArch.py:884
 msgid "The Week Of Monday %(day)i %(month)s %(year)i"
 msgstr "%(year)i年%(month)s%(day)i日(月曜日)の週"
 
-#: Mailman/Archiver/HyperArch.py:857
+#: Mailman/Archiver/HyperArch.py:888
 msgid "%(day)i %(month)s %(year)i"
 msgstr "%(year)i年%(month)s%(day)i日"
 
-#: Mailman/Archiver/HyperArch.py:957
+#: Mailman/Archiver/HyperArch.py:988
 msgid "Computing threaded index\n"
 msgstr "スレッド目次作成中\n"
 
-#: Mailman/Archiver/HyperArch.py:1214
+#: Mailman/Archiver/HyperArch.py:1245
 msgid "Updating HTML for article %(seq)s"
 msgstr "記事 %(seq)s 番のHTMLを更新中"
 
-#: Mailman/Archiver/HyperArch.py:1221
+#: Mailman/Archiver/HyperArch.py:1252
 msgid "article file %(filename)s is missing!"
 msgstr "記事ファイル %(filename)s が行方不明!"
 
@@ -199,31 +199,31 @@ msgstr "あなた自身により"
 msgid "by the list administrator"
 msgstr "リスト管理者により"
 
-#: Mailman/Bouncer.py:47 Mailman/Bouncer.py:232
+#: Mailman/Bouncer.py:47 Mailman/Bouncer.py:235
 #: Mailman/Commands/cmd_set.py:182
 msgid "for unknown reasons"
 msgstr "未知の理由により"
 
-#: Mailman/Bouncer.py:179
+#: Mailman/Bouncer.py:182
 msgid "disabled"
 msgstr "配送停止"
 
-#: Mailman/Bouncer.py:184
+#: Mailman/Bouncer.py:187
 msgid "Bounce action notification"
 msgstr "配送エラー処理通知"
 
-#: Mailman/Bouncer.py:239
+#: Mailman/Bouncer.py:242
 msgid " The last bounce received from you was dated %(date)s"
 msgstr "最後のエラーメール受信日付は %(date)s です"
 
-#: Mailman/Bouncer.py:264 Mailman/Deliverer.py:135
+#: Mailman/Bouncer.py:267 Mailman/Deliverer.py:135
 #: Mailman/Handlers/Acknowledge.py:44 Mailman/Handlers/CookHeaders.py:233
 #: Mailman/Handlers/Hold.py:215 Mailman/Handlers/Hold.py:250
-#: Mailman/Handlers/ToDigest.py:215 Mailman/ListAdmin.py:243
+#: Mailman/Handlers/ToDigest.py:216 Mailman/ListAdmin.py:243
 msgid "(no subject)"
 msgstr "(無題)"
 
-#: Mailman/Bouncer.py:266
+#: Mailman/Bouncer.py:269
 msgid "[No bounce details are available]"
 msgstr "[他に詳しい配送エラー情報はありません.]"
 
@@ -235,20 +235,20 @@ msgstr "司会者"
 msgid "Administrator"
 msgstr "管理者"
 
-#: Mailman/Cgi/admin.py:70 Mailman/Cgi/admindb.py:89 Mailman/Cgi/confirm.py:55
+#: Mailman/Cgi/admin.py:76 Mailman/Cgi/admindb.py:89 Mailman/Cgi/confirm.py:55
 #: Mailman/Cgi/edithtml.py:67 Mailman/Cgi/listinfo.py:51
-#: Mailman/Cgi/options.py:71 Mailman/Cgi/private.py:98
+#: Mailman/Cgi/options.py:77 Mailman/Cgi/private.py:98
 #: Mailman/Cgi/rmlist.py:64 Mailman/Cgi/roster.py:57
 #: Mailman/Cgi/subscribe.py:61
 msgid "No such list <em>%(safelistname)s</em>"
 msgstr "<em>%(safelistname)s</em>というリストはありません"
 
-#: Mailman/Cgi/admin.py:85 Mailman/Cgi/admindb.py:105
+#: Mailman/Cgi/admin.py:91 Mailman/Cgi/admindb.py:105
 #: Mailman/Cgi/edithtml.py:85 Mailman/Cgi/private.py:123
 msgid "Authorization failed."
 msgstr "認証失敗"
 
-#: Mailman/Cgi/admin.py:175
+#: Mailman/Cgi/admin.py:181
 msgid ""
 "You have turned off delivery of both digest and\n"
 "                non-digest messages.  This is an incompatible state of\n"
@@ -261,12 +261,12 @@ msgstr ""
 "まとめ読み機能か個別配送機能のどちらかをオンにしておかないと\n"
 "メーリングリストは基本的に利用できなくなります. "
 
-#: Mailman/Cgi/admin.py:179 Mailman/Cgi/admin.py:185 Mailman/Cgi/admin.py:190
-#: Mailman/Cgi/admin.py:1361 Mailman/Gui/GUIBase.py:184
+#: Mailman/Cgi/admin.py:185 Mailman/Cgi/admin.py:191 Mailman/Cgi/admin.py:196
+#: Mailman/Cgi/admin.py:1434 Mailman/Gui/GUIBase.py:186
 msgid "Warning: "
 msgstr "警告: "
 
-#: Mailman/Cgi/admin.py:183
+#: Mailman/Cgi/admin.py:189
 msgid ""
 "You have digest members, but digests are turned\n"
 "                off. Those people will not receive mail."
@@ -274,7 +274,7 @@ msgstr ""
 "あなたは「まとめ読み」を OFF にしましたが, まとめ読み会員が\n"
 "残っています. 彼らはメールを受け取れません."
 
-#: Mailman/Cgi/admin.py:188
+#: Mailman/Cgi/admin.py:194
 msgid ""
 "You have regular list members but non-digestified mail is\n"
 "                turned off.  They will receive mail until you fix this\n"
@@ -283,19 +283,19 @@ msgstr ""
 "あなたは個別配送を OFF にしましたが, 普通配送会員が残っています.\n"
 "この問題をあなたが修正しない限り, 普通配送でメールを受け取りつづけます."
 
-#: Mailman/Cgi/admin.py:212
+#: Mailman/Cgi/admin.py:218
 msgid "%(hostname)s mailing lists - Admin Links"
 msgstr "%(hostname)s メーリングリスト - 管理リンク"
 
-#: Mailman/Cgi/admin.py:241 Mailman/Cgi/listinfo.py:99
+#: Mailman/Cgi/admin.py:247 Mailman/Cgi/listinfo.py:99
 msgid "Welcome!"
 msgstr "ようこそ!"
 
-#: Mailman/Cgi/admin.py:244 Mailman/Cgi/listinfo.py:102
+#: Mailman/Cgi/admin.py:250 Mailman/Cgi/listinfo.py:102
 msgid "Mailman"
 msgstr ""
 
-#: Mailman/Cgi/admin.py:248
+#: Mailman/Cgi/admin.py:254
 msgid ""
 "<p>There currently are no publicly-advertised %(mailmanlink)s\n"
 "            mailing lists on %(hostname)s."
@@ -303,7 +303,7 @@ msgstr ""
 "<p>現在 %(hostname)s で公に広告された %(mailmanlink)s \n"
 "メーリングリストはありません. "
 
-#: Mailman/Cgi/admin.py:254
+#: Mailman/Cgi/admin.py:260
 msgid ""
 "<p>Below is the collection of publicly-advertised\n"
 "            %(mailmanlink)s mailing lists on %(hostname)s.  Click on a list\n"
@@ -314,11 +314,11 @@ msgstr ""
 "の\n"
 "設定ページへお進みください."
 
-#: Mailman/Cgi/admin.py:261
+#: Mailman/Cgi/admin.py:267
 msgid "right "
 msgstr "正しい "
 
-#: Mailman/Cgi/admin.py:263
+#: Mailman/Cgi/admin.py:269
 msgid ""
 "To visit the administrators configuration page for an\n"
 "        unadvertised list, open a URL similar to this one, but with a '/' "
@@ -337,32 +337,32 @@ msgstr ""
 "\n"
 "<p>一般向けのリスト案内は次にあります"
 
-#: Mailman/Cgi/admin.py:270
+#: Mailman/Cgi/admin.py:276
 msgid "the mailing list overview page"
 msgstr "メーリングリスト一覧ページ"
 
-#: Mailman/Cgi/admin.py:272
+#: Mailman/Cgi/admin.py:278
 msgid "<p>(Send questions and comments to "
 msgstr "<p>(質問・コメントの宛先は: "
 
-#: Mailman/Cgi/admin.py:282 Mailman/Cgi/listinfo.py:134 cron/mailpasswds:181
+#: Mailman/Cgi/admin.py:288 Mailman/Cgi/listinfo.py:134 cron/mailpasswds:198
 msgid "List"
 msgstr "リスト"
 
-#: Mailman/Cgi/admin.py:283 Mailman/Cgi/admin.py:549
+#: Mailman/Cgi/admin.py:289 Mailman/Cgi/admin.py:555
 #: Mailman/Cgi/listinfo.py:135
 msgid "Description"
 msgstr "説明"
 
-#: Mailman/Cgi/admin.py:289 Mailman/Cgi/listinfo.py:141 bin/list_lists:116
+#: Mailman/Cgi/admin.py:295 Mailman/Cgi/listinfo.py:141 bin/list_lists:116
 msgid "[no description available]"
 msgstr "[説明無し]"
 
-#: Mailman/Cgi/admin.py:322
+#: Mailman/Cgi/admin.py:328
 msgid "No valid variable name found."
 msgstr "有効な名前が見つかりません."
 
-#: Mailman/Cgi/admin.py:332
+#: Mailman/Cgi/admin.py:338
 msgid ""
 "%(realname)s Mailing list Configuration Help\n"
 "    <br><em>%(varname)s</em> Option"
@@ -370,11 +370,11 @@ msgstr ""
 "%(realname)s メーリングリスト設定ヘルプ\n"
 "    <br><em>%(varname)s</em> オプション"
 
-#: Mailman/Cgi/admin.py:339
+#: Mailman/Cgi/admin.py:345
 msgid "Mailman %(varname)s List Option Help"
 msgstr "Mailman %(varname)s リストオプション・ヘルプ"
 
-#: Mailman/Cgi/admin.py:357
+#: Mailman/Cgi/admin.py:363
 msgid ""
 "<em><strong>Warning:</strong> changing this option here\n"
 "    could cause other screens to be out-of-sync.  Be sure to reload any "
@@ -387,59 +387,59 @@ msgstr ""
 "  このメーリングリストのオプションを変更するため他のページへ行った時には\n"
 "  「再読み込み」をしてください. あるいは"
 
-#: Mailman/Cgi/admin.py:368
+#: Mailman/Cgi/admin.py:374
 msgid "return to the %(categoryname)s options page."
 msgstr "%(categoryname)s オプションページへ戻る"
 
-#: Mailman/Cgi/admin.py:383
+#: Mailman/Cgi/admin.py:389
 msgid "%(realname)s Administration (%(label)s)"
 msgstr "%(realname)s 管理 (%(label)s)"
 
-#: Mailman/Cgi/admin.py:384
+#: Mailman/Cgi/admin.py:390
 msgid "%(realname)s mailing list administration<br>%(label)s Section"
 msgstr "%(realname)s メーリングリスト管理<br>%(label)s の部"
 
-#: Mailman/Cgi/admin.py:400
+#: Mailman/Cgi/admin.py:406
 msgid "Configuration Categories"
 msgstr "設定分類"
 
-#: Mailman/Cgi/admin.py:401
+#: Mailman/Cgi/admin.py:407
 msgid "Other Administrative Activities"
 msgstr "他の管理項目"
 
-#: Mailman/Cgi/admin.py:405
+#: Mailman/Cgi/admin.py:411
 msgid "Tend to pending moderator requests"
 msgstr "保留中の司会要求を処理する"
 
-#: Mailman/Cgi/admin.py:407
+#: Mailman/Cgi/admin.py:413
 msgid "Go to the general list information page"
 msgstr "一般向けのリスト案内ページへ"
 
-#: Mailman/Cgi/admin.py:409
+#: Mailman/Cgi/admin.py:415
 msgid "Edit the public HTML pages"
 msgstr "公開 HTML ページを編集する"
 
-#: Mailman/Cgi/admin.py:411
+#: Mailman/Cgi/admin.py:417
 msgid "Go to list archives"
 msgstr "リストの保存書庫へ行く"
 
-#: Mailman/Cgi/admin.py:417
+#: Mailman/Cgi/admin.py:423
 msgid "Delete this mailing list"
 msgstr "このメーリングリストを消去する"
 
-#: Mailman/Cgi/admin.py:418
+#: Mailman/Cgi/admin.py:424
 msgid " (requires confirmation)<br>&nbsp;<br>"
 msgstr " (確認が必要です)<br>&nbsp;<br>"
 
-#: Mailman/Cgi/admin.py:424
+#: Mailman/Cgi/admin.py:430
 msgid "Logout"
 msgstr "ログアウト"
 
-#: Mailman/Cgi/admin.py:468
+#: Mailman/Cgi/admin.py:474
 msgid "Emergency moderation of all list traffic is enabled"
 msgstr "緊急配送保留が設定されています"
 
-#: Mailman/Cgi/admin.py:479
+#: Mailman/Cgi/admin.py:485
 msgid ""
 "Make your changes in the following section, then submit them\n"
 "        using the <em>Submit Your Changes</em> button below."
@@ -447,11 +447,11 @@ msgstr ""
 "以下の項目を変更して, <em>変更を送信する</em>のボタンを\n"
 " クリックして送信してください."
 
-#: Mailman/Cgi/admin.py:497
+#: Mailman/Cgi/admin.py:503
 msgid "Additional Member Tasks"
 msgstr "その他の会員に関する操作"
 
-#: Mailman/Cgi/admin.py:503
+#: Mailman/Cgi/admin.py:509
 msgid ""
 "<li>Set everyone's moderation bit, including\n"
 "            those members not currently visible"
@@ -459,23 +459,23 @@ msgstr ""
 "<li>全員の発言制限(モデレーション)・ビットをセットする.\n"
 "(隠れ会員を含む)"
 
-#: Mailman/Cgi/admin.py:507
+#: Mailman/Cgi/admin.py:513
 msgid "Off"
 msgstr "オフ"
 
-#: Mailman/Cgi/admin.py:507
+#: Mailman/Cgi/admin.py:513
 msgid "On"
 msgstr "オン"
 
-#: Mailman/Cgi/admin.py:509
+#: Mailman/Cgi/admin.py:515
 msgid "Set"
 msgstr "セット"
 
-#: Mailman/Cgi/admin.py:550
+#: Mailman/Cgi/admin.py:556
 msgid "Value"
 msgstr "値"
 
-#: Mailman/Cgi/admin.py:604
+#: Mailman/Cgi/admin.py:610
 msgid ""
 "Badly formed options entry:\n"
 " %(record)s"
@@ -483,55 +483,105 @@ msgstr ""
 "オプションの項目が不整合:\n"
 " %(record)s"
 
-#: Mailman/Cgi/admin.py:662
+#: Mailman/Cgi/admin.py:668
 msgid "<em>Enter the text below, or...</em><br>"
 msgstr "<em>下に文を入力するか ...</em><br>"
 
-#: Mailman/Cgi/admin.py:664
+#: Mailman/Cgi/admin.py:670
 msgid "<br><em>...specify a file to upload</em><br>"
 msgstr "<br><em>... アップロードするファイルを指定してください.</em><br>"
 
-#: Mailman/Cgi/admin.py:690 Mailman/Cgi/admin.py:693
+#: Mailman/Cgi/admin.py:696 Mailman/Cgi/admin.py:699
 msgid "Topic %(i)d"
 msgstr "話題 %(i)d"
 
-#: Mailman/Cgi/admin.py:694
+#: Mailman/Cgi/admin.py:700 Mailman/Cgi/admin.py:750
 msgid "Delete"
 msgstr "削除"
 
-#: Mailman/Cgi/admin.py:695
+#: Mailman/Cgi/admin.py:701
 msgid "Topic name:"
 msgstr "話題名:"
 
-#: Mailman/Cgi/admin.py:697
+#: Mailman/Cgi/admin.py:703
 msgid "Regexp:"
 msgstr "正規表現:"
 
-#: Mailman/Cgi/admin.py:700 Mailman/Cgi/options.py:956
+#: Mailman/Cgi/admin.py:706 Mailman/Cgi/options.py:976
 msgid "Description:"
 msgstr "説明:"
 
-#: Mailman/Cgi/admin.py:704
+#: Mailman/Cgi/admin.py:710 Mailman/Cgi/admin.py:768
 msgid "Add new item..."
 msgstr "新しい項目を追加..."
 
-#: Mailman/Cgi/admin.py:706
+#: Mailman/Cgi/admin.py:712 Mailman/Cgi/admin.py:770
 msgid "...before this one."
 msgstr "...この前に."
 
-#: Mailman/Cgi/admin.py:707
+#: Mailman/Cgi/admin.py:713 Mailman/Cgi/admin.py:771
 msgid "...after this one."
 msgstr "...この後に."
 
-#: Mailman/Cgi/admin.py:742
+#: Mailman/Cgi/admin.py:746 Mailman/Cgi/admin.py:749
+msgid "Spam Filter Rule %(i)d"
+msgstr ""
+
+#: Mailman/Cgi/admin.py:751
+msgid "Spam Filter Regexp:"
+msgstr ""
+
+#: Mailman/Cgi/admin.py:762 Mailman/Cgi/admindb.py:289
+#: Mailman/Cgi/admindb.py:346 Mailman/Cgi/admindb.py:389
+#: Mailman/Cgi/admindb.py:612
+msgid "Defer"
+msgstr "保留"
+
+#: Mailman/Cgi/admin.py:762 Mailman/Cgi/admindb.py:291
+#: Mailman/Cgi/admindb.py:348 Mailman/Cgi/admindb.py:389
+#: Mailman/Cgi/admindb.py:612 Mailman/Gui/ContentFilter.py:37
+#: Mailman/Gui/Privacy.py:216 Mailman/Gui/Privacy.py:290
+msgid "Reject"
+msgstr "拒否"
+
+#: Mailman/Cgi/admin.py:762 Mailman/Gui/Privacy.py:216
+#: Mailman/Gui/Privacy.py:290
+msgid "Hold"
+msgstr "保留"
+
+#: Mailman/Cgi/admin.py:763 Mailman/Cgi/admindb.py:292
+#: Mailman/Cgi/admindb.py:349 Mailman/Cgi/admindb.py:389
+#: Mailman/Cgi/admindb.py:612 Mailman/Gui/ContentFilter.py:37
+#: Mailman/Gui/Privacy.py:216 Mailman/Gui/Privacy.py:290
+msgid "Discard"
+msgstr "破棄"
+
+#: Mailman/Cgi/admin.py:763 Mailman/Cgi/admindb.py:389
+#: Mailman/Gui/Privacy.py:290
+msgid "Accept"
+msgstr "承認"
+
+#: Mailman/Cgi/admin.py:766 Mailman/Cgi/admindb.py:618
+msgid "Action:"
+msgstr "処置:"
+
+#: Mailman/Cgi/admin.py:778
+msgid "Move rule up"
+msgstr ""
+
+#: Mailman/Cgi/admin.py:779
+msgid "Move rule down"
+msgstr ""
+
+#: Mailman/Cgi/admin.py:812
 msgid "<br>(Edit <b>%(varname)s</b>)"
 msgstr "<br>(<b>%(varname)s</b>を編集)"
 
-#: Mailman/Cgi/admin.py:744
+#: Mailman/Cgi/admin.py:814
 msgid "<br>(Details for <b>%(varname)s</b>)"
 msgstr "<br>(<b>%(varname)s</b>の詳細)"
 
-#: Mailman/Cgi/admin.py:751
+#: Mailman/Cgi/admin.py:821
 msgid ""
 "<br><em><strong>Note:</strong>\n"
 "        setting this value performs an immediate action but does not modify\n"
@@ -541,107 +591,107 @@ msgstr ""
 "この値を設定すると直ちに実行されますが, 恒久的な状態を\n"
 "変更するわけではありません.</em></div>"
 
-#: Mailman/Cgi/admin.py:765
+#: Mailman/Cgi/admin.py:835
 msgid "Mass Subscriptions"
 msgstr "まとめて入会登録"
 
-#: Mailman/Cgi/admin.py:772
+#: Mailman/Cgi/admin.py:842
 msgid "Mass Removals"
 msgstr "まとめて退会処理"
 
-#: Mailman/Cgi/admin.py:779
+#: Mailman/Cgi/admin.py:849
 msgid "Membership List"
 msgstr "会員リスト"
 
-#: Mailman/Cgi/admin.py:786
+#: Mailman/Cgi/admin.py:856
 msgid "(help)"
 msgstr "(ヘルプ)"
 
-#: Mailman/Cgi/admin.py:787
+#: Mailman/Cgi/admin.py:857
 msgid "Find member %(link)s:"
 msgstr "会員検索 %(link)s:"
 
-#: Mailman/Cgi/admin.py:790
+#: Mailman/Cgi/admin.py:860
 msgid "Search..."
 msgstr "検索..."
 
-#: Mailman/Cgi/admin.py:805
+#: Mailman/Cgi/admin.py:877
 msgid "Bad regular expression: "
 msgstr "正規表現が間違っています: "
 
-#: Mailman/Cgi/admin.py:861
+#: Mailman/Cgi/admin.py:933
 msgid "%(allcnt)s members total, %(membercnt)s shown"
 msgstr "会員合計 %(allcnt)s 名, うち %(membercnt)s 名 を表示します"
 
-#: Mailman/Cgi/admin.py:864
+#: Mailman/Cgi/admin.py:936
 msgid "%(allcnt)s members total"
 msgstr "合計 %(allcnt)s 名"
 
-#: Mailman/Cgi/admin.py:887
+#: Mailman/Cgi/admin.py:959
 msgid "unsub"
 msgstr "退会"
 
-#: Mailman/Cgi/admin.py:888
+#: Mailman/Cgi/admin.py:960
 msgid "member address<br>member name"
 msgstr "会員アドレス<br>会員名"
 
-#: Mailman/Cgi/admin.py:889
+#: Mailman/Cgi/admin.py:961
 msgid "hide"
 msgstr "隠れ会員"
 
-#: Mailman/Cgi/admin.py:889
+#: Mailman/Cgi/admin.py:961
 msgid "mod"
 msgstr "発言制限"
 
-#: Mailman/Cgi/admin.py:890
+#: Mailman/Cgi/admin.py:962
 msgid "nomail<br>[reason]"
 msgstr "配送停止<br>[理由]"
 
-#: Mailman/Cgi/admin.py:891
+#: Mailman/Cgi/admin.py:963
 msgid "ack"
 msgstr "受領"
 
-#: Mailman/Cgi/admin.py:891
+#: Mailman/Cgi/admin.py:963
 msgid "not metoo"
 msgstr "控え無"
 
-#: Mailman/Cgi/admin.py:892
+#: Mailman/Cgi/admin.py:964
 msgid "nodupes"
 msgstr "ダブリ無"
 
-#: Mailman/Cgi/admin.py:893
+#: Mailman/Cgi/admin.py:965
 msgid "digest"
 msgstr "まとめ読み"
 
-#: Mailman/Cgi/admin.py:893
+#: Mailman/Cgi/admin.py:965
 msgid "plain"
 msgstr "平文"
 
-#: Mailman/Cgi/admin.py:894
+#: Mailman/Cgi/admin.py:966
 msgid "language"
 msgstr "言語"
 
-#: Mailman/Cgi/admin.py:905
+#: Mailman/Cgi/admin.py:977
 msgid "?"
 msgstr ""
 
-#: Mailman/Cgi/admin.py:906
+#: Mailman/Cgi/admin.py:978
 msgid "U"
 msgstr ""
 
-#: Mailman/Cgi/admin.py:907
+#: Mailman/Cgi/admin.py:979
 msgid "A"
 msgstr ""
 
-#: Mailman/Cgi/admin.py:908
+#: Mailman/Cgi/admin.py:980
 msgid "B"
 msgstr ""
 
-#: Mailman/Cgi/admin.py:979
+#: Mailman/Cgi/admin.py:1051
 msgid "<b>unsub</b> -- Click on this to unsubscribe the member."
 msgstr "<b>退会</b> -- 会員を退会させるには, ここをクリック."
 
-#: Mailman/Cgi/admin.py:981
+#: Mailman/Cgi/admin.py:1053
 msgid ""
 "<b>mod</b> -- The user's personal moderation flag.  If this is\n"
 "        set, postings from them will be moderated, otherwise they will be\n"
@@ -651,7 +701,7 @@ msgstr ""
 "もし、これがセットされていると、この会員からの投稿は司会者の承認が必要に\n"
 "なり、セットされていないと自由に投稿できます."
 
-#: Mailman/Cgi/admin.py:985
+#: Mailman/Cgi/admin.py:1057
 msgid ""
 "<b>hide</b> -- Is the member's address concealed on\n"
 "        the list of subscribers?"
@@ -659,7 +709,7 @@ msgstr ""
 "<b>隠れ会員</b> -- このメンバーのアドレスは\n"
 "    会員名簿では隠しますか?"
 
-#: Mailman/Cgi/admin.py:987
+#: Mailman/Cgi/admin.py:1059
 msgid ""
 "<b>nomail</b> -- Is delivery to the member disabled?  If so, an\n"
 "        abbreviation will be given describing the reason for the disabled\n"
@@ -687,19 +737,19 @@ msgstr ""
 "    配送停止となっている場合はこれになります.\n"
 " </ul>"
 
-#: Mailman/Cgi/admin.py:1002
+#: Mailman/Cgi/admin.py:1074
 msgid ""
 "<b>ack</b> -- Does the member get acknowledgements of their\n"
 "        posts?"
 msgstr "<b>受領</b> -- この会員からの投稿には受領メールを出しますか?"
 
-#: Mailman/Cgi/admin.py:1005
+#: Mailman/Cgi/admin.py:1077
 msgid ""
 "<b>not metoo</b> -- Does the member want to avoid copies of their\n"
 "        own postings?"
 msgstr "<b>控え無</b> -- この会員からの投稿は本人には配送しないようにしますか?"
 
-#: Mailman/Cgi/admin.py:1008
+#: Mailman/Cgi/admin.py:1080
 msgid ""
 "<b>nodupes</b> -- Does the member want to avoid duplicates of the\n"
 "        same message?"
@@ -707,7 +757,7 @@ msgstr ""
 "<b>ダブり無し</b> -- この会員には同じメールを二重に配送\n"
 "しないようにしますか?"
 
-#: Mailman/Cgi/admin.py:1011
+#: Mailman/Cgi/admin.py:1083
 msgid ""
 "<b>digest</b> -- Does the member get messages in digests?\n"
 "        (otherwise, individual messages)"
@@ -715,7 +765,7 @@ msgstr ""
 "<b>まとめ読み</b> -- この会員へは「まとめ読み」で配送しますか?\n"
 "    (でなければ, 普通の個々配送となります)"
 
-#: Mailman/Cgi/admin.py:1014
+#: Mailman/Cgi/admin.py:1086
 msgid ""
 "<b>plain</b> -- If getting digests, does the member get plain\n"
 "        text digests?  (otherwise, MIME)"
@@ -723,49 +773,49 @@ msgstr ""
 "<b>平文</b> -- 「まとめ読み」の場合, この会員へは平文で配送しますか?\n"
 "    (でなければ, MIME 添付を使います)"
 
-#: Mailman/Cgi/admin.py:1016
+#: Mailman/Cgi/admin.py:1088
 msgid "<b>language</b> -- Language preferred by the user"
 msgstr "<b>言語</b> -- ユーザが選んだ言語"
 
-#: Mailman/Cgi/admin.py:1030
+#: Mailman/Cgi/admin.py:1102
 msgid "Click here to hide the legend for this table."
 msgstr "この表の説明を隠すには, ここをクリック."
 
-#: Mailman/Cgi/admin.py:1034
+#: Mailman/Cgi/admin.py:1106
 msgid "Click here to include the legend for this table."
 msgstr "この表の説明を表示するには, ここをクリック."
 
-#: Mailman/Cgi/admin.py:1041
+#: Mailman/Cgi/admin.py:1113
 msgid ""
 "<p><em>To view more members, click on the appropriate\n"
 "        range listed below:</em>"
 msgstr ""
 "<p>他の会員を見るには, 下のリストの適当な範囲をクリックしてください:</em>"
 
-#: Mailman/Cgi/admin.py:1050
+#: Mailman/Cgi/admin.py:1122
 msgid "from %(start)s to %(end)s"
 msgstr "%(start)s から %(end)s まで"
 
-#: Mailman/Cgi/admin.py:1063
+#: Mailman/Cgi/admin.py:1135
 msgid "Subscribe these users now or invite them?"
 msgstr "これらのユーザを直ちに登録しますか?それとも招待しますか?"
 
-#: Mailman/Cgi/admin.py:1065
+#: Mailman/Cgi/admin.py:1137
 msgid "Invite"
 msgstr "招待"
 
-#: Mailman/Cgi/admin.py:1065 Mailman/Cgi/listinfo.py:177
+#: Mailman/Cgi/admin.py:1137 Mailman/Cgi/listinfo.py:177
 msgid "Subscribe"
 msgstr "入会を申し込む"
 
-#: Mailman/Cgi/admin.py:1071
+#: Mailman/Cgi/admin.py:1143
 msgid "Send welcome messages to new subscribees?"
 msgstr "新入会員に歓迎メールを出しますか?"
 
-#: Mailman/Cgi/admin.py:1073 Mailman/Cgi/admin.py:1082
-#: Mailman/Cgi/admin.py:1115 Mailman/Cgi/admin.py:1123
-#: Mailman/Cgi/confirm.py:271 Mailman/Cgi/create.py:327
-#: Mailman/Cgi/create.py:355 Mailman/Cgi/create.py:393
+#: Mailman/Cgi/admin.py:1145 Mailman/Cgi/admin.py:1154
+#: Mailman/Cgi/admin.py:1187 Mailman/Cgi/admin.py:1195
+#: Mailman/Cgi/confirm.py:271 Mailman/Cgi/create.py:338
+#: Mailman/Cgi/create.py:368 Mailman/Cgi/create.py:406
 #: Mailman/Cgi/rmlist.py:228 Mailman/Gui/Archive.py:33
 #: Mailman/Gui/Autoresponse.py:54 Mailman/Gui/Autoresponse.py:62
 #: Mailman/Gui/Autoresponse.py:71 Mailman/Gui/Bounce.py:77
@@ -780,18 +830,18 @@ msgstr "新入会員に歓迎メールを出しますか?"
 #: Mailman/Gui/General.py:315 Mailman/Gui/General.py:325
 #: Mailman/Gui/General.py:345 Mailman/Gui/General.py:373
 #: Mailman/Gui/General.py:396 Mailman/Gui/NonDigest.py:44
-#: Mailman/Gui/NonDigest.py:52 Mailman/Gui/Privacy.py:101
-#: Mailman/Gui/Privacy.py:107 Mailman/Gui/Privacy.py:140
-#: Mailman/Gui/Privacy.py:188 Mailman/Gui/Privacy.py:296
-#: Mailman/Gui/Privacy.py:309 Mailman/Gui/Usenet.py:50
-#: Mailman/Gui/Usenet.py:54 Mailman/Gui/Usenet.py:91 Mailman/Gui/Usenet.py:103
+#: Mailman/Gui/NonDigest.py:52 Mailman/Gui/Privacy.py:110
+#: Mailman/Gui/Privacy.py:116 Mailman/Gui/Privacy.py:149
+#: Mailman/Gui/Privacy.py:197 Mailman/Gui/Privacy.py:305
+#: Mailman/Gui/Privacy.py:318 Mailman/Gui/Usenet.py:52
+#: Mailman/Gui/Usenet.py:56 Mailman/Gui/Usenet.py:93 Mailman/Gui/Usenet.py:105
 msgid "No"
 msgstr "いいえ"
 
-#: Mailman/Cgi/admin.py:1073 Mailman/Cgi/admin.py:1082
-#: Mailman/Cgi/admin.py:1115 Mailman/Cgi/admin.py:1123
-#: Mailman/Cgi/confirm.py:271 Mailman/Cgi/create.py:327
-#: Mailman/Cgi/create.py:355 Mailman/Cgi/create.py:393
+#: Mailman/Cgi/admin.py:1145 Mailman/Cgi/admin.py:1154
+#: Mailman/Cgi/admin.py:1187 Mailman/Cgi/admin.py:1195
+#: Mailman/Cgi/confirm.py:271 Mailman/Cgi/create.py:338
+#: Mailman/Cgi/create.py:368 Mailman/Cgi/create.py:406
 #: Mailman/Cgi/rmlist.py:228 Mailman/Gui/Archive.py:33
 #: Mailman/Gui/Autoresponse.py:54 Mailman/Gui/Autoresponse.py:62
 #: Mailman/Gui/Bounce.py:77 Mailman/Gui/Bounce.py:108
@@ -806,27 +856,27 @@ msgstr "いいえ"
 #: Mailman/Gui/General.py:325 Mailman/Gui/General.py:345
 #: Mailman/Gui/General.py:373 Mailman/Gui/General.py:396
 #: Mailman/Gui/NonDigest.py:44 Mailman/Gui/NonDigest.py:52
-#: Mailman/Gui/Privacy.py:101 Mailman/Gui/Privacy.py:107
-#: Mailman/Gui/Privacy.py:140 Mailman/Gui/Privacy.py:188
-#: Mailman/Gui/Privacy.py:296 Mailman/Gui/Privacy.py:309
-#: Mailman/Gui/Usenet.py:50 Mailman/Gui/Usenet.py:54 Mailman/Gui/Usenet.py:91
-#: Mailman/Gui/Usenet.py:103
+#: Mailman/Gui/Privacy.py:110 Mailman/Gui/Privacy.py:116
+#: Mailman/Gui/Privacy.py:149 Mailman/Gui/Privacy.py:197
+#: Mailman/Gui/Privacy.py:305 Mailman/Gui/Privacy.py:318
+#: Mailman/Gui/Usenet.py:52 Mailman/Gui/Usenet.py:56 Mailman/Gui/Usenet.py:93
+#: Mailman/Gui/Usenet.py:105
 msgid "Yes"
 msgstr "はい"
 
-#: Mailman/Cgi/admin.py:1080
+#: Mailman/Cgi/admin.py:1152
 msgid "Send notifications of new subscriptions to the list owner?"
 msgstr "リスト管理者に新規入会を通知しますか?"
 
-#: Mailman/Cgi/admin.py:1088 Mailman/Cgi/admin.py:1129
+#: Mailman/Cgi/admin.py:1160 Mailman/Cgi/admin.py:1201
 msgid "Enter one address per line below..."
 msgstr "一行にひとつずつアドレスを記入..."
 
-#: Mailman/Cgi/admin.py:1093 Mailman/Cgi/admin.py:1134
+#: Mailman/Cgi/admin.py:1165 Mailman/Cgi/admin.py:1206
 msgid "...or specify a file to upload:"
 msgstr "...又はアップロードするファイルを指定してください:"
 
-#: Mailman/Cgi/admin.py:1098
+#: Mailman/Cgi/admin.py:1170
 msgid ""
 "Below, enter additional text to be added to the\n"
 "    top of your invitation or the subscription notification.  Include at "
@@ -837,19 +887,19 @@ msgstr ""
 "文を入れてください. なお, 最後の行の次には, １行\n"
 "空けておいてください."
 
-#: Mailman/Cgi/admin.py:1113
+#: Mailman/Cgi/admin.py:1185
 msgid "Send unsubscription acknowledgement to the user?"
 msgstr "退会手続き完了の知らせユーザに送りますか?"
 
-#: Mailman/Cgi/admin.py:1121
+#: Mailman/Cgi/admin.py:1193
 msgid "Send notifications to the list owner?"
 msgstr "リスト管理者に通知しますか?"
 
-#: Mailman/Cgi/admin.py:1143
+#: Mailman/Cgi/admin.py:1215
 msgid "Change list ownership passwords"
 msgstr "リスト管理者パスワード変更"
 
-#: Mailman/Cgi/admin.py:1146
+#: Mailman/Cgi/admin.py:1218
 msgid ""
 "The <em>list administrators</em> are the people who have ultimate control "
 "over\n"
@@ -883,91 +933,91 @@ msgstr ""
 "そしてまた, <a href=\"%(adminurl)s/general\">一般オプションの部</a>\n"
 "に司会者のメールアドレスを記入してください."
 
-#: Mailman/Cgi/admin.py:1165
+#: Mailman/Cgi/admin.py:1237
 msgid "Enter new administrator password:"
 msgstr "新しい管理者パスワードを入力してください"
 
-#: Mailman/Cgi/admin.py:1167
+#: Mailman/Cgi/admin.py:1239
 msgid "Confirm administrator password:"
 msgstr "管理者パスワードの確認:"
 
-#: Mailman/Cgi/admin.py:1172
+#: Mailman/Cgi/admin.py:1244
 msgid "Enter new moderator password:"
 msgstr "新しい司会者パスワードを入力してください:"
 
-#: Mailman/Cgi/admin.py:1174
+#: Mailman/Cgi/admin.py:1246
 msgid "Confirm moderator password:"
 msgstr "司会者パスワードの確認:"
 
-#: Mailman/Cgi/admin.py:1184
+#: Mailman/Cgi/admin.py:1256
 msgid "Submit Your Changes"
 msgstr "変更を送信する"
 
-#: Mailman/Cgi/admin.py:1207
+#: Mailman/Cgi/admin.py:1279
 msgid "Moderator passwords did not match"
 msgstr "司会者のパスワードが一致しません.<br>"
 
-#: Mailman/Cgi/admin.py:1217
+#: Mailman/Cgi/admin.py:1289
 msgid "Administrator passwords did not match"
 msgstr "管理者のパスワードが一致しません"
 
-#: Mailman/Cgi/admin.py:1265
+#: Mailman/Cgi/admin.py:1338
 msgid "Already a member"
 msgstr "既に会員です"
 
-#: Mailman/Cgi/admin.py:1268
+#: Mailman/Cgi/admin.py:1341
 msgid "&lt;blank line&gt;"
 msgstr "&lt;空白行&gt;"
 
-#: Mailman/Cgi/admin.py:1269 Mailman/Cgi/admin.py:1272
+#: Mailman/Cgi/admin.py:1342 Mailman/Cgi/admin.py:1345
 msgid "Bad/Invalid email address"
 msgstr "不正なメールアドレス"
 
-#: Mailman/Cgi/admin.py:1275
+#: Mailman/Cgi/admin.py:1348
 msgid "Hostile address (illegal characters)"
 msgstr "非友好的アドレス (不正な文字)"
 
-#: Mailman/Cgi/admin.py:1281
+#: Mailman/Cgi/admin.py:1354
 msgid "Successfully invited:"
 msgstr "招待手続き完了:"
 
-#: Mailman/Cgi/admin.py:1283
+#: Mailman/Cgi/admin.py:1356
 msgid "Successfully subscribed:"
 msgstr "入会手続き完了"
 
-#: Mailman/Cgi/admin.py:1288
+#: Mailman/Cgi/admin.py:1361
 msgid "Error inviting:"
 msgstr "招待手続きのエラー:"
 
-#: Mailman/Cgi/admin.py:1290
+#: Mailman/Cgi/admin.py:1363
 msgid "Error subscribing:"
 msgstr "入会手続きのエラー:"
 
-#: Mailman/Cgi/admin.py:1319
+#: Mailman/Cgi/admin.py:1392
 msgid "Successfully Unsubscribed:"
 msgstr "退会手続き完了"
 
-#: Mailman/Cgi/admin.py:1324
+#: Mailman/Cgi/admin.py:1397
 msgid "Cannot unsubscribe non-members:"
 msgstr "非会員は退会できません:"
 
-#: Mailman/Cgi/admin.py:1336
+#: Mailman/Cgi/admin.py:1409
 msgid "Bad moderation flag value"
 msgstr "発言制限フラグに誤りがあります"
 
-#: Mailman/Cgi/admin.py:1357
+#: Mailman/Cgi/admin.py:1430
 msgid "Not subscribed"
 msgstr "入会していません"
 
-#: Mailman/Cgi/admin.py:1360
+#: Mailman/Cgi/admin.py:1433
 msgid "Ignoring changes to deleted member: %(user)s"
 msgstr "削除された会員の変更を無視: %(user)s"
 
-#: Mailman/Cgi/admin.py:1400
+#: Mailman/Cgi/admin.py:1473
 msgid "Successfully Removed:"
 msgstr "退会手続き完了:"
 
-#: Mailman/Cgi/admin.py:1404
+#: Mailman/Cgi/admin.py:1477
 msgid "Error Unsubscribing:"
 msgstr "退会手続きのエラー:"
 
@@ -1033,35 +1083,16 @@ msgstr "アドレス/名前"
 
 #: Mailman/Cgi/admindb.py:271 Mailman/Cgi/admindb.py:320
 msgid "Your decision"
-msgstr "決済"
+msgstr "決裁"
 
 #: Mailman/Cgi/admindb.py:272 Mailman/Cgi/admindb.py:321
 msgid "Reason for refusal"
 msgstr "拒否の理由"
 
-#: Mailman/Cgi/admindb.py:289 Mailman/Cgi/admindb.py:346
-#: Mailman/Cgi/admindb.py:389 Mailman/Cgi/admindb.py:612
-msgid "Defer"
-msgstr "保留"
-
 #: Mailman/Cgi/admindb.py:290 Mailman/Cgi/admindb.py:347
 #: Mailman/Cgi/admindb.py:612
 msgid "Approve"
 msgstr "承認"
-
-#: Mailman/Cgi/admindb.py:291 Mailman/Cgi/admindb.py:348
-#: Mailman/Cgi/admindb.py:389 Mailman/Cgi/admindb.py:612
-#: Mailman/Gui/ContentFilter.py:37 Mailman/Gui/Privacy.py:207
-#: Mailman/Gui/Privacy.py:281
-msgid "Reject"
-msgstr "拒否"
-
-#: Mailman/Cgi/admindb.py:292 Mailman/Cgi/admindb.py:349
-#: Mailman/Cgi/admindb.py:389 Mailman/Cgi/admindb.py:612
-#: Mailman/Gui/ContentFilter.py:37 Mailman/Gui/Privacy.py:207
-#: Mailman/Gui/Privacy.py:281
-msgid "Discard"
-msgstr "破棄"
 
 #: Mailman/Cgi/admindb.py:300
 msgid "Permanently ban from this list"
@@ -1083,10 +1114,6 @@ msgstr "発信者:"
 msgid "Action to take on all these held messages:"
 msgstr "これら全ての保留メッセージに対する処理:"
 
-#: Mailman/Cgi/admindb.py:389 Mailman/Gui/Privacy.py:281
-msgid "Accept"
-msgstr "承認"
-
 #: Mailman/Cgi/admindb.py:397
 msgid "Preserve messages for the site administrator"
 msgstr "サイト管理者のためにメッセージを保存する"
@@ -1104,8 +1131,8 @@ msgid "<em>The sender is now a member of this list</em>"
 msgstr "<em>送信者はこのリストの会員となりました.</em>"
 
 #: Mailman/Cgi/admindb.py:434
-msgid "Add <b>%(esender)s</b> to a sender filter"
-msgstr "<b>%(esender)s</b>を送信者フィルターに追加する"
+msgid "Add <b>%(esender)s</b> to one of these sender filters:"
+msgstr "<b>%(esender)s</b>を送信者フィルターのどれかに追加する"
 
 #: Mailman/Cgi/admindb.py:439
 msgid "Accepts"
@@ -1153,8 +1180,8 @@ msgstr " バイト"
 msgid "Size:"
 msgstr "サイズ:"
 
-#: Mailman/Cgi/admindb.py:482 Mailman/Handlers/Decorate.py:50
-#: Mailman/Handlers/Scrubber.py:260 Mailman/Handlers/Scrubber.py:261
+#: Mailman/Cgi/admindb.py:482 Mailman/Handlers/Decorate.py:56
+#: Mailman/Handlers/Scrubber.py:268 Mailman/Handlers/Scrubber.py:269
 msgid "not available"
 msgstr "無し"
 
@@ -1181,10 +1208,6 @@ msgstr "<em>ID #%(id)d のメッセージは紛失しています."
 #: Mailman/Cgi/admindb.py:567
 msgid "<em>Message with id #%(id)d is corrupted."
 msgstr "<em>ID #%(id)d のメッセージは壊れています."
-
-#: Mailman/Cgi/admindb.py:618
-msgid "Action:"
-msgstr "処置:"
 
 #: Mailman/Cgi/admindb.py:622
 msgid "Preserve message for site administrator"
@@ -1307,6 +1330,7 @@ msgid "Confirm subscription request"
 msgstr "入会申請を確認"
 
 #: Mailman/Cgi/confirm.py:227
+#, fuzzy
 msgid ""
 "Your confirmation is required in order to complete the\n"
 "    subscription request to the mailing list <em>%(listname)s</em>.  Your\n"
@@ -1320,8 +1344,9 @@ msgid ""
 "    <p>Note: your password will be emailed to you once your subscription is\n"
 "    confirmed.  You can change it by visiting your personal options page.\n"
 "\n"
-"    <p>Or hit <em>Cancel and discard</em> to cancel this subscription\n"
-"    request."
+"    <p>Or hit <em>Cancel my subscription request</em> if you no longer want "
+"to\n"
+"    subscribe to this list."
 msgstr ""
 "<em>%(listname)s</em> メーリングリストへの入会申請を完了\n"
 "させるには, あなたの確認が必要です. あなたの入会設定が以下に示されて\n"
@@ -1517,8 +1542,8 @@ msgstr ""
 "<p>または, <em>キャンセル・破棄</em>ボタンで退会申請を取り消すことも\n"
 "できます."
 
-#: Mailman/Cgi/confirm.py:461 Mailman/Cgi/options.py:673
-#: Mailman/Cgi/options.py:814 Mailman/Cgi/options.py:824
+#: Mailman/Cgi/confirm.py:461 Mailman/Cgi/options.py:693
+#: Mailman/Cgi/options.py:834 Mailman/Cgi/options.py:844
 msgid "Unsubscribe"
 msgstr "退会"
 
@@ -1782,24 +1807,25 @@ msgstr "<br>戻る:"
 msgid "administrative list overview"
 msgstr "管理リスト一覧"
 
-#: Mailman/Cgi/create.py:101
-msgid "List name must not include \"@\": %(listname)s"
+#: Mailman/Cgi/create.py:102
+#, fuzzy
+msgid "List name must not include \"@\": %(safelistname)s"
 msgstr "リスト名には @ を入れることはできません: %(listname)s"
 
-#: Mailman/Cgi/create.py:107 Mailman/Cgi/create.py:185 bin/newlist:134
-#: bin/newlist:168
-msgid "List already exists: %(listname)s"
+#: Mailman/Cgi/create.py:109
+#, fuzzy
+msgid "List already exists: %(safelistname)s"
 msgstr "リストが既にあります: %(listname)s"
 
-#: Mailman/Cgi/create.py:111
+#: Mailman/Cgi/create.py:113
 msgid "You forgot to enter the list name"
 msgstr "リスト名を忘れています."
 
-#: Mailman/Cgi/create.py:115
+#: Mailman/Cgi/create.py:117
 msgid "You forgot to specify the list owner"
 msgstr "リスト管理者を指定してください."
 
-#: Mailman/Cgi/create.py:122
+#: Mailman/Cgi/create.py:124
 msgid ""
 "Leave the initial password (and confirmation) fields\n"
 "                blank if you want Mailman to autogenerate the list\n"
@@ -1808,27 +1834,36 @@ msgstr ""
 "Mailman が自動的にリストパスワードを作成するのがよければ\n"
 "初期パスワード(と確認)の欄を空白にしておいてください."
 
-#: Mailman/Cgi/create.py:130
+#: Mailman/Cgi/create.py:132
 msgid "Initial list passwords do not match"
 msgstr "初期パスワードが一致しません"
 
-#: Mailman/Cgi/create.py:139
+#: Mailman/Cgi/create.py:141
 msgid "The list password cannot be empty<!-- ignore -->"
 msgstr "リストのパスワードを空白にすることはできません"
 
-#: Mailman/Cgi/create.py:151
+#: Mailman/Cgi/create.py:153
 msgid "You are not authorized to create new mailing lists"
 msgstr "あなたは新しいメーリングリストを作成する権限がありません"
 
-#: Mailman/Cgi/create.py:181 bin/newlist:166
+#: Mailman/Cgi/create.py:161
+#, fuzzy
+msgid "Unknown virtual host: %(safehostname)s"
+msgstr "リスト名が不明: %(listname)s"
+
+#: Mailman/Cgi/create.py:192 bin/newlist:166
 msgid "Bad owner email address: %(s)s"
 msgstr "不正な管理者メールアドレス: %(s)s"
 
-#: Mailman/Cgi/create.py:189 bin/newlist:164
+#: Mailman/Cgi/create.py:196 bin/newlist:134 bin/newlist:168
+msgid "List already exists: %(listname)s"
+msgstr "リストが既にあります: %(listname)s"
+
+#: Mailman/Cgi/create.py:200 bin/newlist:164
 msgid "Illegal list name: %(s)s"
 msgstr "不正なリスト名: %(s)s"
 
-#: Mailman/Cgi/create.py:194
+#: Mailman/Cgi/create.py:205
 msgid ""
 "Some unknown error occurred while creating the list.\n"
 "                Please contact the site administrator for assistance."
@@ -1836,15 +1871,15 @@ msgstr ""
 "リスト作成中に理由不明のエラーが発生しました.\n"
 "サイト管理者に連絡して見てもらってください."
 
-#: Mailman/Cgi/create.py:233 bin/newlist:210
+#: Mailman/Cgi/create.py:242 bin/newlist:210
 msgid "Your new mailing list: %(listname)s"
 msgstr "あなたの新しいメーリングリスト: %(listname)s"
 
-#: Mailman/Cgi/create.py:242
+#: Mailman/Cgi/create.py:251
 msgid "Mailing list creation results"
 msgstr "メーリングリスト作成結果"
 
-#: Mailman/Cgi/create.py:248
+#: Mailman/Cgi/create.py:257
 msgid ""
 "You have successfully created the mailing list\n"
 "    <b>%(listname)s</b> and notification has been sent to the list owner\n"
@@ -1854,28 +1889,28 @@ msgstr ""
 "管理者の<b>%(owner)s</b>へ通知が発送されたところです.\n"
 "引き続き ..."
 
-#: Mailman/Cgi/create.py:252
+#: Mailman/Cgi/create.py:261
 msgid "Visit the list's info page"
 msgstr "リストの案内ページへ行く"
 
-#: Mailman/Cgi/create.py:253
+#: Mailman/Cgi/create.py:262
 msgid "Visit the list's admin page"
 msgstr "リスト管理ページへ行く"
 
-#: Mailman/Cgi/create.py:254
+#: Mailman/Cgi/create.py:263
 msgid "Create another list"
 msgstr "別のリストを作成する"
 
-#: Mailman/Cgi/create.py:272
+#: Mailman/Cgi/create.py:281
 msgid "Create a %(hostname)s Mailing List"
 msgstr "%(hostname)s メーリングリストを作成"
 
-#: Mailman/Cgi/create.py:281 Mailman/Cgi/rmlist.py:199
+#: Mailman/Cgi/create.py:290 Mailman/Cgi/rmlist.py:199
 #: Mailman/Gui/Bounce.py:175 Mailman/htmlformat.py:339
 msgid "Error: "
 msgstr "エラー: "
 
-#: Mailman/Cgi/create.py:283
+#: Mailman/Cgi/create.py:292
 msgid ""
 "You can create a new mailing list by entering the\n"
 "    relevant information into the form below.  The name of the mailing list\n"
@@ -1917,35 +1952,35 @@ msgstr ""
 "います. これを一番下の欄に入力してください. サイト管理者のパスワード\n"
 "でも認証が可能です."
 
-#: Mailman/Cgi/create.py:309
+#: Mailman/Cgi/create.py:318
 msgid "List Identity"
 msgstr "リスト識別"
 
-#: Mailman/Cgi/create.py:312
+#: Mailman/Cgi/create.py:322
 msgid "Name of list:"
 msgstr "リストの名前:"
 
-#: Mailman/Cgi/create.py:317
+#: Mailman/Cgi/create.py:328
 msgid "Initial list owner address:"
 msgstr "最初のリスト管理者アドレス:"
 
-#: Mailman/Cgi/create.py:326
+#: Mailman/Cgi/create.py:337
 msgid "Auto-generate initial list password?"
 msgstr "初期パスワードを自動生成しますか?"
 
-#: Mailman/Cgi/create.py:333
+#: Mailman/Cgi/create.py:345
 msgid "Initial list password:"
 msgstr " 初期リストパスワード:"
 
-#: Mailman/Cgi/create.py:338
+#: Mailman/Cgi/create.py:351
 msgid "Confirm initial password:"
 msgstr "初期パスワードの確認:"
 
-#: Mailman/Cgi/create.py:348
+#: Mailman/Cgi/create.py:361
 msgid "List Characteristics"
 msgstr "リストの性格"
 
-#: Mailman/Cgi/create.py:352
+#: Mailman/Cgi/create.py:365
 msgid ""
 "Should new members be quarantined before they\n"
 "    are allowed to post unmoderated to this list?  Answer <em>Yes</em> to "
@@ -1956,7 +1991,7 @@ msgstr ""
 "隔離することにしますか? 新メンバーはデフォルトで司会者の承認が\n"
 "必要であれば, <em>はい</em>を選んでください."
 
-#: Mailman/Cgi/create.py:381
+#: Mailman/Cgi/create.py:394
 msgid ""
 "Initial list of supported languages.  <p>Note that if you do not\n"
 "        select at least one initial language, the list will use the server\n"
@@ -1966,19 +2001,19 @@ msgstr ""
 "選んでおかないと, リストはサーバのデフォルト言語である %(deflang)s を\n"
 "使用します."
 
-#: Mailman/Cgi/create.py:392
+#: Mailman/Cgi/create.py:405
 msgid "Send \"list created\" email to list owner?"
 msgstr "「リスト作成完了」をメールで管理者に知らせますか?"
 
-#: Mailman/Cgi/create.py:401
+#: Mailman/Cgi/create.py:414
 msgid "List creator's (authentication) password:"
 msgstr "リスト作成者の認証パスワード:"
 
-#: Mailman/Cgi/create.py:406
+#: Mailman/Cgi/create.py:419
 msgid "Create List"
 msgstr "リストを作成する"
 
-#: Mailman/Cgi/create.py:407
+#: Mailman/Cgi/create.py:420
 msgid "Clear Form"
 msgstr "記入をクリアー"
 
@@ -2090,59 +2125,66 @@ msgstr "リスト管理一覧ページ"
 #: Mailman/Cgi/listinfo.py:124
 msgid ""
 " to find the management interface for your list.\n"
-"         <p>Send questions or comments to "
+"         <p>If you are having trouble using the lists, please contact "
 msgstr ""
 " で管理作業をおこなうことができます.\n"
-"<p>質問コメントの宛先は: "
+"<p>リストのご利用で問題がありましたら、次の宛先にお願いします: "
 
 #: Mailman/Cgi/listinfo.py:189
 msgid "Edit Options"
 msgstr "オプションを編集"
 
-#: Mailman/Cgi/listinfo.py:196 Mailman/Cgi/options.py:780
+#: Mailman/Cgi/listinfo.py:196 Mailman/Cgi/options.py:800
 #: Mailman/Cgi/roster.py:109
 msgid "View this page in"
 msgstr "言語を選択"
 
-#: Mailman/Cgi/options.py:51 Mailman/Cgi/options.py:68
+#: Mailman/Cgi/options.py:57 Mailman/Cgi/options.py:74
 msgid "CGI script error"
 msgstr "CGI スクリプトエラー"
 
-#: Mailman/Cgi/options.py:54
+#: Mailman/Cgi/options.py:60
 msgid "Invalid options to CGI script."
 msgstr "CGI のオプションが不正です."
 
-#: Mailman/Cgi/options.py:98
+#: Mailman/Cgi/options.py:104
 msgid "No address given"
 msgstr "アドレスが入力されていません"
 
-#: Mailman/Cgi/options.py:110
+#: Mailman/Cgi/options.py:116
 msgid "Illegal Email Address: %(safeuser)s"
 msgstr "不正なメールアドレス: %(safeuser)s"
 
-#: Mailman/Cgi/options.py:117 Mailman/Cgi/options.py:166
-#: Mailman/Cgi/options.py:188
+#: Mailman/Cgi/options.py:123 Mailman/Cgi/options.py:186
+#: Mailman/Cgi/options.py:208
 msgid "No such member: %(safeuser)s."
 msgstr "そのような会員はいません: %(safeuser)s."
 
-#: Mailman/Cgi/options.py:161 Mailman/Cgi/options.py:171
+#: Mailman/Cgi/options.py:172
+#, fuzzy
+msgid ""
+"Your unsubscription request has been\n"
+"                    forwarded to the list administrator for approval."
+msgstr "あなたの退会申請は審査のため, リスト管理者へ転送されました."
+
+#: Mailman/Cgi/options.py:180 Mailman/Cgi/options.py:191
 msgid "The confirmation email has been sent."
 msgstr "確認メールを送信しました."
 
-#: Mailman/Cgi/options.py:182 Mailman/Cgi/options.py:194
-#: Mailman/Cgi/options.py:237
+#: Mailman/Cgi/options.py:202 Mailman/Cgi/options.py:214
+#: Mailman/Cgi/options.py:257
 msgid "A reminder of your password has been emailed to you."
 msgstr "パスワード通知をメールで送信しました."
 
-#: Mailman/Cgi/options.py:211
+#: Mailman/Cgi/options.py:231
 msgid "Authentication failed."
 msgstr "認証失敗"
 
-#: Mailman/Cgi/options.py:243
+#: Mailman/Cgi/options.py:263
 msgid "List subscriptions for %(safeuser)s on %(hostname)s"
 msgstr "%(hostname)s での %(safeuser)s さんのリスト会員登録状況"
 
-#: Mailman/Cgi/options.py:246
+#: Mailman/Cgi/options.py:266
 msgid ""
 "Click on a link to visit your options page for the\n"
 "        requested mailing list."
@@ -2150,15 +2192,15 @@ msgstr ""
 "リンクをクリックして, そのメーリングリストでのあなたのオプションをご覧くださ"
 "い."
 
-#: Mailman/Cgi/options.py:295
+#: Mailman/Cgi/options.py:315
 msgid "Addresses did not match!"
 msgstr "アドレスが一致しません"
 
-#: Mailman/Cgi/options.py:300
+#: Mailman/Cgi/options.py:320
 msgid "You are already using that email address"
 msgstr "あなたは既にそのメールアドレスを使っています."
 
-#: Mailman/Cgi/options.py:312
+#: Mailman/Cgi/options.py:332
 msgid ""
 "The new address you requested %(newaddr)s is already a member of the\n"
 "%(listname)s mailing list, however you have also requested a global change "
@@ -2171,48 +2213,48 @@ msgstr ""
 "ので, 確認していただければ %(safeuser)s で登録されている他のリスト全部に\n"
 "ついて変更いたします."
 
-#: Mailman/Cgi/options.py:321
+#: Mailman/Cgi/options.py:341
 msgid "The new address is already a member: %(newaddr)s"
 msgstr "新アドレスは既に会員です: %(newaddr)s"
 
-#: Mailman/Cgi/options.py:327
+#: Mailman/Cgi/options.py:347
 msgid "Addresses may not be blank"
 msgstr "アドレスは空白にはできません"
 
-#: Mailman/Cgi/options.py:341
+#: Mailman/Cgi/options.py:361
 msgid "A confirmation message has been sent to %(newaddr)s. "
 msgstr "%(newaddr)s 宛てに確認メールを送信しました."
 
-#: Mailman/Cgi/options.py:350
+#: Mailman/Cgi/options.py:370
 msgid "Bad email address provided"
 msgstr "不正なメールアドレス"
 
-#: Mailman/Cgi/options.py:352
+#: Mailman/Cgi/options.py:372
 msgid "Illegal email address provided"
 msgstr "不法なメールアドレス"
 
-#: Mailman/Cgi/options.py:354
+#: Mailman/Cgi/options.py:374
 msgid "%(newaddr)s is already a member of the list."
 msgstr "%(newaddr)s は既にリスト会員です."
 
-#: Mailman/Cgi/options.py:363
+#: Mailman/Cgi/options.py:383
 msgid "Member name successfully changed. "
 msgstr "会員名を変更しました."
 
-#: Mailman/Cgi/options.py:374
+#: Mailman/Cgi/options.py:394
 msgid "Passwords may not be blank"
 msgstr "パスワードは空白にはできません"
 
-#: Mailman/Cgi/options.py:379
+#: Mailman/Cgi/options.py:399
 msgid "Passwords did not match!"
 msgstr "パスワードが一致しません"
 
-#: Mailman/Cgi/options.py:394 Mailman/Commands/cmd_password.py:79
+#: Mailman/Cgi/options.py:414 Mailman/Commands/cmd_password.py:79
 #: Mailman/Commands/cmd_password.py:105
 msgid "Password successfully changed."
 msgstr "パスワードを変更しました."
 
-#: Mailman/Cgi/options.py:403
+#: Mailman/Cgi/options.py:423
 msgid ""
 "You must confirm your unsubscription request by turning\n"
 "                on the checkbox below the <em>Unsubscribe</em> button.  You\n"
@@ -2221,11 +2263,11 @@ msgstr ""
 "あなたは <em>退会</em>ボタンの下のチェックボックスをONにすることで,\n"
 "退会申請を確認しなければなりません. 現時点では退会処理は完了していません!"
 
-#: Mailman/Cgi/options.py:435
+#: Mailman/Cgi/options.py:455
 msgid "Unsubscription results"
 msgstr "退会結果"
 
-#: Mailman/Cgi/options.py:439
+#: Mailman/Cgi/options.py:459
 msgid ""
 "Your unsubscription request has been received and\n"
 "            forwarded on to the list moderators for approval.  You will\n"
@@ -2236,7 +2278,7 @@ msgstr ""
 "リスト管理者へ転送されています. \n"
 "申請についての決定がなされたら, そのことがメールで通知されるでしょう."
 
-#: Mailman/Cgi/options.py:444
+#: Mailman/Cgi/options.py:464
 msgid ""
 "You have been successfully unsubscribed from the\n"
 "            mailing list %(fqdn_listname)s.  If you were receiving digest\n"
@@ -2249,7 +2291,7 @@ msgstr ""
 "もし, まとめ読みを受け取っていれば, 最後のメールが届くかもしれません.\n"
 "退会に関して質問があれば, リスト管理者の %(owneraddr)s までお願いします."
 
-#: Mailman/Cgi/options.py:595
+#: Mailman/Cgi/options.py:615
 msgid ""
 "The list administrator has disabled digest delivery for\n"
 "            this list, so your delivery option has not been set.  However "
@@ -2260,7 +2302,7 @@ msgstr ""
 "  配送オプションは設定できませんでした. しかし, その他の\n"
 "  オプションは設定変更が完了しました."
 
-#: Mailman/Cgi/options.py:599
+#: Mailman/Cgi/options.py:619
 msgid ""
 "The list administrator has disabled non-digest delivery\n"
 "            for this list, so your delivery option has not been set.  "
@@ -2271,63 +2313,63 @@ msgstr ""
 "  配送オプションは設定できませんでした. しかし, その他の\n"
 "  オプションは設定変更が完了しました."
 
-#: Mailman/Cgi/options.py:603
+#: Mailman/Cgi/options.py:623
 msgid "You have successfully set your options."
 msgstr "オプションの設定変更が完了しました."
 
-#: Mailman/Cgi/options.py:606
+#: Mailman/Cgi/options.py:626
 msgid "You may get one last digest."
 msgstr "最後の「まとめ読み」が届くかもしれません."
 
-#: Mailman/Cgi/options.py:675
+#: Mailman/Cgi/options.py:695
 msgid "<em>Yes, I really want to unsubscribe</em>"
 msgstr "<em>はい, 私は本当に退会したいです</em>"
 
-#: Mailman/Cgi/options.py:679
+#: Mailman/Cgi/options.py:699
 msgid "Change My Password"
 msgstr "パスワード変更"
 
-#: Mailman/Cgi/options.py:682
+#: Mailman/Cgi/options.py:702
 msgid "List my other subscriptions"
 msgstr "その他のリストへの入会状況"
 
-#: Mailman/Cgi/options.py:688
+#: Mailman/Cgi/options.py:708
 msgid "Email My Password To Me"
 msgstr "私にパスワードをメールしてください"
 
-#: Mailman/Cgi/options.py:690
+#: Mailman/Cgi/options.py:710
 msgid "password"
 msgstr "パスワード"
 
-#: Mailman/Cgi/options.py:692
+#: Mailman/Cgi/options.py:712
 msgid "Log out"
 msgstr "ログアウト"
 
-#: Mailman/Cgi/options.py:694
+#: Mailman/Cgi/options.py:714
 msgid "Submit My Changes"
 msgstr "変更を送信"
 
-#: Mailman/Cgi/options.py:706
+#: Mailman/Cgi/options.py:726
 msgid "days"
 msgstr "日"
 
-#: Mailman/Cgi/options.py:708
+#: Mailman/Cgi/options.py:728
 msgid "day"
 msgstr "日"
 
-#: Mailman/Cgi/options.py:709
+#: Mailman/Cgi/options.py:729
 msgid "%(days)d %(units)s"
 msgstr ""
 
-#: Mailman/Cgi/options.py:715
+#: Mailman/Cgi/options.py:735
 msgid "Change My Address and Name"
 msgstr "私のアドレスと名前を変更"
 
-#: Mailman/Cgi/options.py:739
+#: Mailman/Cgi/options.py:759
 msgid "<em>No topics defined</em>"
 msgstr "<em>話題が定義されていません</em>"
 
-#: Mailman/Cgi/options.py:747
+#: Mailman/Cgi/options.py:767
 msgid ""
 "\n"
 "You are subscribed to this list with the case-preserved address\n"
@@ -2337,19 +2379,19 @@ msgstr ""
 "あなたは<em>%(cpuser)s</em>(大文字小文字を区別)として\n"
 "入会しました."
 
-#: Mailman/Cgi/options.py:761
+#: Mailman/Cgi/options.py:781
 msgid "%(realname)s list: member options login page"
 msgstr "%(realname)s リスト: 会員オプションログインページ"
 
-#: Mailman/Cgi/options.py:762
+#: Mailman/Cgi/options.py:782
 msgid "email address and "
 msgstr "メールアドレスと"
 
-#: Mailman/Cgi/options.py:765
+#: Mailman/Cgi/options.py:785
 msgid "%(realname)s list: member options for user %(safeuser)s"
 msgstr "%(realname)sリスト: %(safeuser)s 会員オプション"
 
-#: Mailman/Cgi/options.py:790
+#: Mailman/Cgi/options.py:810
 msgid ""
 "In order to change your membership option, you must\n"
 "    first log in by giving your %(extra)smembership password in the section\n"
@@ -2377,19 +2419,19 @@ msgstr ""
 "クッキーを有効にしておいてください. でないと, 変更が有効になりません. \n"
 " "
 
-#: Mailman/Cgi/options.py:804
+#: Mailman/Cgi/options.py:824
 msgid "Email address:"
 msgstr "メールアドレス:"
 
-#: Mailman/Cgi/options.py:808
+#: Mailman/Cgi/options.py:828
 msgid "Password:"
 msgstr "パスワード:"
 
-#: Mailman/Cgi/options.py:810
+#: Mailman/Cgi/options.py:830
 msgid "Log in"
 msgstr "ログイン"
 
-#: Mailman/Cgi/options.py:818
+#: Mailman/Cgi/options.py:838
 msgid ""
 "By clicking on the <em>Unsubscribe</em> button, a\n"
 "    confirmation message will be emailed to you.  This message will have a\n"
@@ -2403,11 +2445,11 @@ msgstr ""
 "(または, メールで確認することもできます; 詳しくは, そのメールに\n"
 "書かれた指示を読んでください). "
 
-#: Mailman/Cgi/options.py:826
+#: Mailman/Cgi/options.py:846
 msgid "Password reminder"
 msgstr "パスワード通知"
 
-#: Mailman/Cgi/options.py:830
+#: Mailman/Cgi/options.py:850
 msgid ""
 "By clicking on the <em>Remind</em> button, your\n"
 "    password will be emailed to you."
@@ -2415,27 +2457,27 @@ msgstr ""
 "<em>通知</em>ボタンをクリックすると, \n"
 "あなたのパスワードがメールで送信されます."
 
-#: Mailman/Cgi/options.py:833
+#: Mailman/Cgi/options.py:853
 msgid "Remind"
 msgstr "通知"
 
-#: Mailman/Cgi/options.py:933
+#: Mailman/Cgi/options.py:953
 msgid "<missing>"
 msgstr "<ありません>"
 
-#: Mailman/Cgi/options.py:944
+#: Mailman/Cgi/options.py:964
 msgid "Requested topic is not valid: %(topicname)s"
 msgstr "要求された話題が間違っています: %(topicname)s"
 
-#: Mailman/Cgi/options.py:949
+#: Mailman/Cgi/options.py:969
 msgid "Topic filter details"
 msgstr "話題フィルターの詳細"
 
-#: Mailman/Cgi/options.py:952
+#: Mailman/Cgi/options.py:972
 msgid "Name:"
 msgstr "名称:"
 
-#: Mailman/Cgi/options.py:954
+#: Mailman/Cgi/options.py:974
 msgid "Pattern (as regexp):"
 msgstr "パターン(正規表現):"
 
@@ -2578,7 +2620,7 @@ msgid ""
 msgstr ""
 "あなたの入会申請を受け付けましたので, まもなく処理されるでしょう.\n"
 "メーリングリストの設定によりますが, あなたの入会申請は,\n"
-"まずメールで確認されまるか リスト司会者によって承認されるかします.\n"
+"まずメールで確認されるか リスト司会者によって承認されるかします.\n"
 "もし, 確認が必要であれば, あなたのもとへその後の指示を書いた\n"
 "確認メールが届くでしょう."
 
@@ -2735,7 +2777,11 @@ msgstr ""
 "あなたはこのメーリングリストに招待されたのではありません.\n"
 "招待は破棄されました. また双方のリスト管理者に警告が行ってます."
 
-#: Mailman/Commands/cmd_confirm.py:77
+#: Mailman/Commands/cmd_confirm.py:71
+msgid "Bad approval password given.  Held message is still being held."
+msgstr ""
+
+#: Mailman/Commands/cmd_confirm.py:80
 msgid "Confirmation succeeded"
 msgstr "確認できました"
 
@@ -3161,23 +3207,29 @@ msgstr "ack (受領) オプションを設定"
 msgid "digest option set"
 msgstr "digest (まとめ読み)オプションを設定"
 
-#: Mailman/Commands/cmd_set.py:298
-msgid "delivery option set"
-msgstr "delivery (配送)オプションを設定"
+#: Mailman/Commands/cmd_set.py:301
+#, fuzzy
+msgid "delivery enabled"
+msgstr "delivery (配送) on"
 
-#: Mailman/Commands/cmd_set.py:310
+#: Mailman/Commands/cmd_set.py:304
+#, fuzzy
+msgid "delivery disabled by user"
+msgstr "; あなたが配送停止しました"
+
+#: Mailman/Commands/cmd_set.py:316
 msgid "myposts option set"
 msgstr "myposts (控え)オプションを設定"
 
-#: Mailman/Commands/cmd_set.py:321
+#: Mailman/Commands/cmd_set.py:327
 msgid "hide option set"
 msgstr "hide (隠れ)オプションを設定"
 
-#: Mailman/Commands/cmd_set.py:333
+#: Mailman/Commands/cmd_set.py:339
 msgid "duplicates option set"
 msgstr "duplicates (ダブリ)オプションを設定"
 
-#: Mailman/Commands/cmd_set.py:345
+#: Mailman/Commands/cmd_set.py:351
 msgid "reminder option set"
 msgstr "reminder (パスワード通知)オプションを設定"
 
@@ -3208,11 +3260,10 @@ msgstr ""
 "        変更に必要ですが, もし省略した場合には自動的に生成されます.\n"
 "        パスワードは忘れないように定期的に通知します.\n"
 "\n"
-"        The next argument may be either: `nodigest' or `digest' (no "
-"quotes!).\n"
-"        If you wish to subscribe an address other than the address you sent\n"
-"        this request from, you may specify `address=<address>' (no brackets\n"
-"        around the email address, and no quotes!)\n"
+"        次の引数は `nondigest' または `digest' (引用符なしで!).\n"
+"        もし, メールを発信したのとは違うアドレスを会員にしたいので\n"
+"        あれば, `address=<アドレス>' の形式で指定できます.\n"
+"        (カッコや引用符は付けないこと!)\n"
 
 #: Mailman/Commands/cmd_subscribe.py:62
 msgid "Bad digest specifier: %(arg)s"
@@ -3372,90 +3423,125 @@ msgstr "普通配送会員:"
 msgid "Digest members:"
 msgstr "まとめ読み会員:"
 
-#: Mailman/Defaults.py:1254
-msgid "Traditional Chinese"
-msgstr "中国語(伝統的)"
+#: Mailman/Defaults.py:1271
+#, fuzzy
+msgid "Catalan"
+msgstr "イタリア語"
 
-#: Mailman/Defaults.py:1255
+#: Mailman/Defaults.py:1272
 msgid "Czech"
 msgstr "チェコ語"
 
-#: Mailman/Defaults.py:1256
+#: Mailman/Defaults.py:1273
+msgid "Danish"
+msgstr "デンマーク語"
+
+#: Mailman/Defaults.py:1274
 msgid "German"
 msgstr "ドイツ語"
 
 # mm_cfg.py
-#: Mailman/Defaults.py:1257
+#: Mailman/Defaults.py:1275
 msgid "English (USA)"
 msgstr "英語 (米国)"
 
-#: Mailman/Defaults.py:1258
+#: Mailman/Defaults.py:1276
 msgid "Spanish (Spain)"
 msgstr "スペイン語 (スペイン)"
 
-#: Mailman/Defaults.py:1259
+#: Mailman/Defaults.py:1277
 msgid "Estonian"
 msgstr "エストニア語"
 
-#: Mailman/Defaults.py:1260
+#: Mailman/Defaults.py:1278
+msgid "Euskara"
+msgstr "バスク語"
+
+#: Mailman/Defaults.py:1279
 msgid "Finnish"
 msgstr "フィンランド語"
 
-#: Mailman/Defaults.py:1261
+#: Mailman/Defaults.py:1280
 msgid "French"
 msgstr "フランス語"
 
-#: Mailman/Defaults.py:1262
-msgid "Simplified Chinese"
-msgstr "中国語(簡体字)"
+#: Mailman/Defaults.py:1281
+msgid "Croatian"
+msgstr ""
 
-#: Mailman/Defaults.py:1263
+#: Mailman/Defaults.py:1282
 msgid "Hungarian"
 msgstr "ハンガリー語"
 
-#: Mailman/Defaults.py:1264
+#: Mailman/Defaults.py:1283
 msgid "Italian"
 msgstr "イタリア語"
 
-#: Mailman/Defaults.py:1265
+#: Mailman/Defaults.py:1284
 msgid "Japanese"
 msgstr "日本語"
 
-#: Mailman/Defaults.py:1266
+#: Mailman/Defaults.py:1285
 msgid "Korean"
 msgstr "韓国語"
 
-#: Mailman/Defaults.py:1267
+#: Mailman/Defaults.py:1286
 msgid "Lithuanian"
 msgstr "リトアニア語"
 
-#: Mailman/Defaults.py:1268
+#: Mailman/Defaults.py:1287
 msgid "Dutch"
 msgstr "オランダ語"
 
-#: Mailman/Defaults.py:1269
+#: Mailman/Defaults.py:1288
 msgid "Norwegian"
 msgstr "ノルウェー語"
 
-#: Mailman/Defaults.py:1270
+#: Mailman/Defaults.py:1289
 msgid "Polish"
 msgstr "ポーランド語"
 
-#: Mailman/Defaults.py:1271
+#: Mailman/Defaults.py:1290
 msgid "Portuguese"
 msgstr "ポルトガル語"
 
-#: Mailman/Defaults.py:1272
+#: Mailman/Defaults.py:1291
 msgid "Portuguese (Brazil)"
 msgstr "ポルトガル語(ブラジル)"
 
-#: Mailman/Defaults.py:1273
+#: Mailman/Defaults.py:1292
+#, fuzzy
+msgid "Romanian"
+msgstr "エストニア語"
+
+#: Mailman/Defaults.py:1293
 msgid "Russian"
 msgstr "ロシア語"
 
-#: Mailman/Defaults.py:1274
+#: Mailman/Defaults.py:1294
+msgid "Serbian"
+msgstr "セルビア語"
+
+#: Mailman/Defaults.py:1295
+#, fuzzy
+msgid "Slovenian"
+msgstr "セルビア語"
+
+#: Mailman/Defaults.py:1296
 msgid "Swedish"
 msgstr "スウェーデン語"
+
+#: Mailman/Defaults.py:1297
+msgid "Ukrainian"
+msgstr "ウクライナ語"
+
+#: Mailman/Defaults.py:1298
+msgid "Chinese (China)"
+msgstr ""
+
+#: Mailman/Defaults.py:1299
+msgid "Chinese (Taiwan)"
+msgstr ""
 
 #: Mailman/Deliverer.py:51
 msgid ""
@@ -4240,15 +4326,15 @@ msgstr "まとめ読みを発送しました."
 msgid "There was no digest to send."
 msgstr "発送すべき, まとめ読みがありません."
 
-#: Mailman/Gui/GUIBase.py:149
+#: Mailman/Gui/GUIBase.py:151
 msgid "Invalid value for variable: %(property)s"
 msgstr "変数の値が不正: %(property)s"
 
-#: Mailman/Gui/GUIBase.py:153
+#: Mailman/Gui/GUIBase.py:155
 msgid "Bad email address for option %(property)s: %(val)s"
 msgstr "%(property)s のオプションについてメールアドレスが不正: %(val)s"
 
-#: Mailman/Gui/GUIBase.py:179
+#: Mailman/Gui/GUIBase.py:181
 msgid ""
 "The following illegal substitution variables were\n"
 "                found in the <code>%(property)s</code> string:\n"
@@ -4261,7 +4347,7 @@ msgstr ""
 " <code>%(bad)s</code>\n"
 "<p>誤りを修正してください. でないと正常な動作ができません."
 
-#: Mailman/Gui/GUIBase.py:193
+#: Mailman/Gui/GUIBase.py:195
 msgid ""
 "Your <code>%(property)s</code> string appeared to\n"
 "                    have some correctable problems in its new value.\n"
@@ -5178,8 +5264,8 @@ msgstr ""
 "問題を回避できます."
 
 #: Mailman/Gui/Membership.py:26
-msgid "Membership&nbsp;Management"
-msgstr "会員管理"
+msgid "Membership&nbsp;Management..."
+msgstr "会員管理..."
 
 #: Mailman/Gui/Membership.py:30
 msgid "Membership&nbsp;List"
@@ -5370,47 +5456,47 @@ msgstr "個別配送のメールの本文の最後にこの文が付け加えられます. "
 msgid "Passwords"
 msgstr "パスワード"
 
-#: Mailman/Gui/Privacy.py:28
-msgid "Privacy options"
-msgstr "プライバシー・オプション"
+#: Mailman/Gui/Privacy.py:37
+msgid "Privacy options..."
+msgstr "プライバシー・オプション..."
 
-#: Mailman/Gui/Privacy.py:32
+#: Mailman/Gui/Privacy.py:41
 msgid "Subscription&nbsp;rules"
 msgstr "入会規則"
 
-#: Mailman/Gui/Privacy.py:33
+#: Mailman/Gui/Privacy.py:42
 msgid "Sender&nbsp;filters"
 msgstr "送信者フィルター"
 
-#: Mailman/Gui/Privacy.py:34
+#: Mailman/Gui/Privacy.py:43
 msgid "Recipient&nbsp;filters"
-msgstr "受信者フィルター"
+msgstr "宛先フィルター"
 
-#: Mailman/Gui/Privacy.py:35
+#: Mailman/Gui/Privacy.py:44
 msgid "Spam&nbsp;filters"
 msgstr "SPAM フィルター"
 
-#: Mailman/Gui/Privacy.py:49 Mailman/Gui/Usenet.py:61
+#: Mailman/Gui/Privacy.py:58 Mailman/Gui/Usenet.py:63
 msgid "None"
 msgstr "無し"
 
-#: Mailman/Gui/Privacy.py:50 Mailman/Gui/Privacy.py:73
+#: Mailman/Gui/Privacy.py:59 Mailman/Gui/Privacy.py:82
 msgid "Confirm"
 msgstr "確認"
 
-#: Mailman/Gui/Privacy.py:51 Mailman/Gui/Privacy.py:74
+#: Mailman/Gui/Privacy.py:60 Mailman/Gui/Privacy.py:83
 msgid "Require approval"
 msgstr "承認"
 
-#: Mailman/Gui/Privacy.py:52 Mailman/Gui/Privacy.py:75
+#: Mailman/Gui/Privacy.py:61 Mailman/Gui/Privacy.py:84
 msgid "Confirm and approve"
 msgstr "確認＋承認"
 
-#: Mailman/Gui/Privacy.py:54 Mailman/Gui/Privacy.py:77
+#: Mailman/Gui/Privacy.py:63 Mailman/Gui/Privacy.py:86
 msgid "What steps are required for subscription?<br>"
 msgstr "入会にはどのような手順が必要ですか?<br>"
 
-#: Mailman/Gui/Privacy.py:55
+#: Mailman/Gui/Privacy.py:64
 msgid ""
 "None - no verification steps (<em>Not\n"
 "                           Recommended </em>)<br>\n"
@@ -5440,7 +5526,7 @@ msgstr ""
 " これにより他人の了解を得ずに入会させるという有害な(あるいは悪意ある)\n"
 " 行為を防ぐことができます."
 
-#: Mailman/Gui/Privacy.py:78
+#: Mailman/Gui/Privacy.py:87
 msgid ""
 "Confirm (*) - email confirmation required <br>\n"
 "                           Require approval - require list administrator\n"
@@ -5465,7 +5551,7 @@ msgstr ""
 " これにより他人の了解を得ずに入会させるという有害な\n"
 " (あるいは悪意ある) 行為を防ぐことができます."
 
-#: Mailman/Gui/Privacy.py:94
+#: Mailman/Gui/Privacy.py:103
 msgid ""
 "This section allows you to configure subscription and\n"
 "            membership exposure policy.  You can also control whether this\n"
@@ -5478,11 +5564,11 @@ msgstr ""
 "保存書庫のプライバシーについては <a href=\"%(admin)s/archive\">\n"
 "保存書庫オプションの部</a> を設定してください.)"
 
-#: Mailman/Gui/Privacy.py:100
+#: Mailman/Gui/Privacy.py:109
 msgid "Subscribing"
 msgstr "入会申請"
 
-#: Mailman/Gui/Privacy.py:102
+#: Mailman/Gui/Privacy.py:111
 msgid ""
 "Advertise this list when people ask what lists are on this\n"
 "             machine?"
@@ -5490,13 +5576,13 @@ msgstr ""
 "このマシンでどんなリストがあるか聞かれた時に\n"
 "広告しますか?"
 
-#: Mailman/Gui/Privacy.py:108
+#: Mailman/Gui/Privacy.py:117
 msgid ""
 "Is the list moderator's approval required for unsubscription\n"
 "             requests?  (<em>No</em> is recommended)"
 msgstr "退会申請には, リスト司会者の承認が必要ですか? (<em>いいえ</em>を推奨)"
 
-#: Mailman/Gui/Privacy.py:111
+#: Mailman/Gui/Privacy.py:120
 msgid ""
 "When members want to leave a list, they will make an\n"
 "             unsubscription request, either via the web or via email.\n"
@@ -5521,17 +5607,17 @@ msgstr ""
 "したい場合もあります. 例えば, 会社のメーリングリストで全ての社員が\n"
 "会員であるようなメーリングリストがこれにあたります."
 
-#: Mailman/Gui/Privacy.py:122
+#: Mailman/Gui/Privacy.py:131
 msgid "Ban list"
 msgstr "排除リスト"
 
-#: Mailman/Gui/Privacy.py:124
+#: Mailman/Gui/Privacy.py:133
 msgid ""
 "List of addresses which are banned from membership in this\n"
 "             mailing list."
 msgstr "このメーリングリストから入会を排除されるアドレスのリスト."
 
-#: Mailman/Gui/Privacy.py:127
+#: Mailman/Gui/Privacy.py:136
 msgid ""
 "Addresses in this list are banned outright from subscribing\n"
 "             to this mailing list, with no further moderation required.  "
@@ -5543,34 +5629,34 @@ msgstr ""
 "司会承認プロセスにはかけません. 1行につき一つ会員アドレスを\n"
 "記入してください; 正規表現を使うには行の最初を ^ で始めてください."
 
-#: Mailman/Gui/Privacy.py:132
+#: Mailman/Gui/Privacy.py:141
 msgid "Membership exposure"
 msgstr "会員名簿の公開"
 
-#: Mailman/Gui/Privacy.py:134
+#: Mailman/Gui/Privacy.py:143
 msgid "Anyone"
 msgstr "誰でも"
 
-#: Mailman/Gui/Privacy.py:134
+#: Mailman/Gui/Privacy.py:143
 msgid "List admin only"
 msgstr "リスト管理者のみ"
 
-#: Mailman/Gui/Privacy.py:134
+#: Mailman/Gui/Privacy.py:143
 msgid "List members"
 msgstr "リスト会員"
 
-#: Mailman/Gui/Privacy.py:135
+#: Mailman/Gui/Privacy.py:144
 msgid "Who can view subscription list?"
 msgstr "誰が会員名簿を見ることができますか?"
 
-#: Mailman/Gui/Privacy.py:137
+#: Mailman/Gui/Privacy.py:146
 msgid ""
 "When set, the list of subscribers is protected by member or\n"
 "             admin password authentication."
 msgstr ""
 "設定されていると会員名簿を見るには 会員または管理者パスワードが必要になる. "
 
-#: Mailman/Gui/Privacy.py:141
+#: Mailman/Gui/Privacy.py:150
 msgid ""
 "Show member addresses so they're not directly recognizable\n"
 "             as email addresses?"
@@ -5578,7 +5664,7 @@ msgstr ""
 "会員のメールアドレスを表示するときに, \n"
 " アドレスであると気付かれないように表示しますか?"
 
-#: Mailman/Gui/Privacy.py:143
+#: Mailman/Gui/Privacy.py:152
 msgid ""
 "Setting this option causes member email addresses to be\n"
 "             transformed when they are presented on list web pages (both in\n"
@@ -5593,7 +5679,7 @@ msgstr ""
 "自動 Web スキャナを 使ってメールアドレスを\n"
 "かき集められないように するためのものです."
 
-#: Mailman/Gui/Privacy.py:153
+#: Mailman/Gui/Privacy.py:162
 msgid ""
 "When a message is posted to the list, a series of\n"
 "            moderation steps are take to decide whether the a moderator "
@@ -5663,15 +5749,15 @@ msgstr ""
 "\n"
 "<p>正規表現でないマッチングを先に実行することにも注意してください."
 
-#: Mailman/Gui/Privacy.py:186
+#: Mailman/Gui/Privacy.py:195
 msgid "Member filters"
 msgstr "会員フィルター"
 
-#: Mailman/Gui/Privacy.py:189
+#: Mailman/Gui/Privacy.py:198
 msgid "By default, should new list member postings be moderated?"
 msgstr "デフォルトで, 新会員からの投稿は制限しますか?"
 
-#: Mailman/Gui/Privacy.py:191
+#: Mailman/Gui/Privacy.py:200
 msgid ""
 "Each list member has a <em>moderation flag</em> which says\n"
 "             whether messages from the list member can be posted directly "
@@ -5710,17 +5796,13 @@ msgstr ""
 "<a href=\"%(adminurl)s/members\">会員管理画面</a>から, いつでも手動で設定\n"
 "できます."
 
-#: Mailman/Gui/Privacy.py:207 Mailman/Gui/Privacy.py:281
-msgid "Hold"
-msgstr "保留"
-
-#: Mailman/Gui/Privacy.py:208
+#: Mailman/Gui/Privacy.py:217
 msgid ""
 "Action to take when a moderated member posts to the\n"
 "             list."
 msgstr "制限付き会員から投稿があったときの動作."
 
-#: Mailman/Gui/Privacy.py:210
+#: Mailman/Gui/Privacy.py:219
 msgid ""
 "<ul><li><b>Hold</b> -- this holds the message for approval\n"
 "             by the list moderators.\n"
@@ -5748,7 +5830,7 @@ msgstr ""
 "<p><li><b>破棄</b> -- 投稿者に通知せずにメールを破棄します.\n"
 "</ul>"
 
-#: Mailman/Gui/Privacy.py:224
+#: Mailman/Gui/Privacy.py:233
 msgid ""
 "Text to include in any\n"
 "             <a href=\"?VARHELP/privacy/sender/member_moderation_action\"\n"
@@ -5759,17 +5841,17 @@ msgstr ""
 "<a href=\"?VARHELP/privacy/sender/member_moderation_action\"\n"
 ">拒否通知</a> に含める文."
 
-#: Mailman/Gui/Privacy.py:229
+#: Mailman/Gui/Privacy.py:238
 msgid "Non-member filters"
 msgstr "非会員フィルター"
 
-#: Mailman/Gui/Privacy.py:232
+#: Mailman/Gui/Privacy.py:241
 msgid ""
 "List of non-member addresses whose postings should be\n"
 "             automatically accepted."
 msgstr "非会員ではあるが投稿を自動的に承認すべきアドレスのリスト."
 
-#: Mailman/Gui/Privacy.py:235
+#: Mailman/Gui/Privacy.py:244
 msgid ""
 "Postings from any of these non-members will be automatically\n"
 "             accepted with no further moderation applied.  Add member\n"
@@ -5780,13 +5862,13 @@ msgstr ""
 "司会プロセスは必要としません. 1行につき一つ会員アドレスを\n"
 "記入してください; 正規表現を使うには行の最初を ^ で始めてください."
 
-#: Mailman/Gui/Privacy.py:241
+#: Mailman/Gui/Privacy.py:250
 msgid ""
 "List of non-member addresses whose postings will be\n"
 "             immediately held for moderation."
 msgstr "投稿があると司会承認のため直ちに保留される非会員のメールアドレス"
 
-#: Mailman/Gui/Privacy.py:244
+#: Mailman/Gui/Privacy.py:253
 msgid ""
 "Postings from any of these non-members will be immediately\n"
 "             and automatically held for moderation by the list moderators.\n"
@@ -5802,13 +5884,13 @@ msgstr ""
 "メールを自分でキャンセルすることもできます. 1行につき一つ会員アドレスを\n"
 "記入してください; 正規表現を使うには行の最初を ^ で始めてください."
 
-#: Mailman/Gui/Privacy.py:252
+#: Mailman/Gui/Privacy.py:261
 msgid ""
 "List of non-member addresses whose postings will be\n"
 "             automatically rejected."
 msgstr "投稿があると自動的に拒否する非会員のメールアドレス"
 
-#: Mailman/Gui/Privacy.py:255
+#: Mailman/Gui/Privacy.py:264
 msgid ""
 "Postings from any of these non-members will be automatically\n"
 "             rejected.  In other words, their messages will be bounced back "
@@ -5832,13 +5914,13 @@ msgstr ""
 "<p>1行につき一つアドレスを\n"
 "記入してください; 正規表現を使うには行の最初を ^ で始めてください."
 
-#: Mailman/Gui/Privacy.py:267
+#: Mailman/Gui/Privacy.py:276
 msgid ""
 "List of non-member addresses whose postings will be\n"
 "             automatically discarded."
 msgstr "投稿があると自動的に破棄する非会員のメールアドレス"
 
-#: Mailman/Gui/Privacy.py:270
+#: Mailman/Gui/Privacy.py:279
 msgid ""
 "Postings from any of these non-members will be automatically\n"
 "             discarded.  That is, the message will be thrown away with no\n"
@@ -5860,13 +5942,13 @@ msgstr ""
 "<p>1行につき一つアドレスを\n"
 "記入してください; 正規表現を使うには行の最初を ^ で始めてください."
 
-#: Mailman/Gui/Privacy.py:282
+#: Mailman/Gui/Privacy.py:291
 msgid ""
 "Action to take for postings from non-members for which no\n"
 "             explicit action is defined."
 msgstr "動作が定義されていない非会員からの投稿があった場合の動作."
 
-#: Mailman/Gui/Privacy.py:285
+#: Mailman/Gui/Privacy.py:294
 msgid ""
 "When a post from a non-member is received, the message's\n"
 "             sender is matched against the list of explicitly\n"
@@ -5891,35 +5973,35 @@ msgstr ""
 "のアドレスリストにあるかをチェックします. もし, 無ければ\n"
 "この動作が適用されます."
 
-#: Mailman/Gui/Privacy.py:297
+#: Mailman/Gui/Privacy.py:306
 msgid ""
 "Should messages from non-members, which are automatically\n"
 "             discarded, be forwarded to the list moderator?"
 msgstr "非会員で自動的に破棄すると決めたメールはリスト司会者へ転送しますか?"
 
-#: Mailman/Gui/Privacy.py:303
+#: Mailman/Gui/Privacy.py:312
 msgid ""
 "This section allows you to configure various filters based on\n"
 "            the recipient of the message."
 msgstr ""
-"このセクションではメールの受信者に基づく様々のフィルターの\n"
+"このセクションではメールの宛先に基づく様々のフィルターの\n"
 "設定を行います."
 
-#: Mailman/Gui/Privacy.py:306
+#: Mailman/Gui/Privacy.py:315
 msgid "Recipient filters"
-msgstr "受信者フィルター"
+msgstr "宛先フィルター"
 
-#: Mailman/Gui/Privacy.py:310
+#: Mailman/Gui/Privacy.py:319
 msgid ""
 "Must posts have list named in destination (to, cc) field\n"
 "             (or be among the acceptable alias names, specified below)?"
 msgstr ""
-"投稿にはリスト名があて先(to, cc) に含まれてい\n"
+"投稿にはリスト名が宛先(to, cc) に含まれてい\n"
 "なければならないでしょうか? (または以下に指定\n"
 "する別名の中に入っていなければな\n"
 "らない)?"
 
-#: Mailman/Gui/Privacy.py:313
+#: Mailman/Gui/Privacy.py:322
 msgid ""
 "Many (in fact, most) spams do not explicitly name their\n"
 "             myriad destinations in the explicit destination addresses - in\n"
@@ -5954,7 +6036,7 @@ msgstr ""
 "</ol>\n"
 "と, 受け付けてくれるようになります. "
 
-#: Mailman/Gui/Privacy.py:331
+#: Mailman/Gui/Privacy.py:340
 msgid ""
 "Alias names (regexps) which qualify as explicit to or cc\n"
 "             destination names for this list."
@@ -5962,7 +6044,7 @@ msgstr ""
 "明示的な To: または Cc: に入っていると このリス\n"
 "    トへの配送を行うような別名(正規表現)."
 
-#: Mailman/Gui/Privacy.py:334
+#: Mailman/Gui/Privacy.py:343
 msgid ""
 "Alternate addresses that are acceptable when\n"
 "             `require_explicit_destination' is enabled.  This option takes "
@@ -6001,11 +6083,11 @@ msgstr ""
 "<p>将来のリリースにおいてはローカルパートへのマッチングは\n"
 " 行われず, 受信アドレス全体に対して行われるようになるでしょう. "
 
-#: Mailman/Gui/Privacy.py:352
+#: Mailman/Gui/Privacy.py:361
 msgid "Ceiling on acceptable number of recipients for a posting."
 msgstr "投稿メールに含まれる受信人の数の上限値."
 
-#: Mailman/Gui/Privacy.py:354
+#: Mailman/Gui/Privacy.py:363
 msgid ""
 "If a posting has this number, or more, of recipients, it is\n"
 "             held for admin approval.  Use 0 for no ceiling."
@@ -6013,7 +6095,7 @@ msgstr ""
 "もし投稿の宛先がこの数を越えていたら, 管理者の\n"
 " 承認を求めます. 上限無しの場合 0に設定してください. "
 
-#: Mailman/Gui/Privacy.py:359
+#: Mailman/Gui/Privacy.py:368
 msgid ""
 "This section allows you to configure various anti-spam\n"
 "            filters posting filters, which can help reduce the amount of "
@@ -6024,15 +6106,43 @@ msgstr ""
 "このセクションでは, 様々な対SPAMフィルターの設定をおこなうことができます.\n"
 "これにより, リスト会員が受け取る SPAM の量を減らすことが可能です."
 
-#: Mailman/Gui/Privacy.py:364
-msgid "Anti-Spam filters"
+#: Mailman/Gui/Privacy.py:373
+#, fuzzy
+msgid "Header filters"
+msgstr "会員フィルター"
+
+#: Mailman/Gui/Privacy.py:376
+#, fuzzy
+msgid "Filter rules to match against the headers of a message."
+msgstr "メールにマッチさせる話題キーワード, 1行につき1個"
+
+#: Mailman/Gui/Privacy.py:378
+msgid ""
+"Each header filter rule has two parts, a list of regular\n"
+"             expressions, one per line, and an action to take.  Mailman\n"
+"             matches the message's headers against every regular expression "
+"in\n"
+"             the rule and if any match, the message is rejected, held, or\n"
+"             discarded based on the action you specify.  Use <em>Defer</em> "
+"to\n"
+"             temporarily disable a rule.\n"
+"\n"
+"             You can have more than one filter rule for your list.  In that\n"
+"             case, each rule is matched in turn, with processing stopped "
+"after\n"
+"             the first match."
+msgstr ""
+
+#: Mailman/Gui/Privacy.py:389
+#, fuzzy
+msgid "Legacy anti-spam filters"
 msgstr "対SPAMフィルター"
 
-#: Mailman/Gui/Privacy.py:367
+#: Mailman/Gui/Privacy.py:392
 msgid "Hold posts with header value matching a specified regexp."
 msgstr "指定した正規表現にマッチするヘッダの投稿は保留する."
 
-#: Mailman/Gui/Privacy.py:368
+#: Mailman/Gui/Privacy.py:393
 msgid ""
 "Use this option to prohibit posts according to specific\n"
 "             header values.  The target value is a regular-expression for\n"
@@ -6063,27 +6173,46 @@ msgstr ""
 " しかし例えばエスケープやブラケットを用いて, 多くの\n"
 " 方法で回避できます."
 
-#: Mailman/Gui/Topics.py:28
+#: Mailman/Gui/Privacy.py:465
+#, fuzzy
+msgid ""
+"Header filter rules require a pattern.\n"
+"                Incomplete filter rules will be ignored."
+msgstr ""
+"話題の指定にはその名前とパターンが必要です.\n"
+"不完全な話題は無視されます."
+
+#: Mailman/Gui/Privacy.py:473
+#, fuzzy
+msgid ""
+"The header filter rule pattern\n"
+"                '%(safepattern)s' is not a legal regular expression.  This\n"
+"                rule will be ignored."
+msgstr ""
+"この話題パターン `%(pattern)s' は正しい正規表現ではありません.\n"
+"破棄します."
+
+#: Mailman/Gui/Topics.py:35
 msgid "Topics"
 msgstr "話題"
 
-#: Mailman/Gui/Topics.py:36
+#: Mailman/Gui/Topics.py:43
 msgid "List topic keywords"
 msgstr "リストの話題キーワード"
 
-#: Mailman/Gui/Topics.py:38
+#: Mailman/Gui/Topics.py:45
 msgid "Disabled"
 msgstr "使用しない"
 
-#: Mailman/Gui/Topics.py:38
+#: Mailman/Gui/Topics.py:45
 msgid "Enabled"
 msgstr "使用する"
 
-#: Mailman/Gui/Topics.py:39
+#: Mailman/Gui/Topics.py:46
 msgid "Should the topic filter be enabled or disabled?"
 msgstr "話題フィルターを使用しますか, しませんか?"
 
-#: Mailman/Gui/Topics.py:41
+#: Mailman/Gui/Topics.py:48
 msgid ""
 "The topic filter categorizes each incoming email message\n"
 "             according to <a\n"
@@ -6128,11 +6257,11 @@ msgstr ""
 "a>\n"
 "の設定変数で何行目までスキャンするか設定できます."
 
-#: Mailman/Gui/Topics.py:62
+#: Mailman/Gui/Topics.py:69
 msgid "How many body lines should the topic matcher scan?"
 msgstr "メール本文の何行目まで話題をスキャンしますか?"
 
-#: Mailman/Gui/Topics.py:64
+#: Mailman/Gui/Topics.py:71
 msgid ""
 "The topic matcher will scan this many lines of the message\n"
 "             body looking for topic keyword matches.  Body scanning stops "
@@ -6157,11 +6286,11 @@ msgstr ""
 "ヘッダだけを見ます) この値を負にしておくと, ヘッダでなさそうな行が\n"
 "出てくるまで本文をスキャンします."
 
-#: Mailman/Gui/Topics.py:75
+#: Mailman/Gui/Topics.py:82
 msgid "Topic keywords, one per line, to match against each message."
 msgstr "メールにマッチさせる話題キーワード, 1行につき1個"
 
-#: Mailman/Gui/Topics.py:77
+#: Mailman/Gui/Topics.py:84
 msgid ""
 "Each topic keyword is actually a regular expression, which is\n"
 "             matched against certain parts of a mail message, specifically "
@@ -6179,7 +6308,7 @@ msgstr ""
 "<code>Keywords:</code> と <code>Subject:</code> \"ヘッダ\" があっても\n"
 "適合検査(マッチング)が行なわれます."
 
-#: Mailman/Gui/Topics.py:116
+#: Mailman/Gui/Topics.py:119
 msgid ""
 "Topic specifications require both a name and\n"
 "                a pattern.  Incomplete topics will be ignored."
@@ -6187,9 +6316,10 @@ msgstr ""
 "話題の指定にはその名前とパターンが必要です.\n"
 "不完全な話題は無視されます."
 
-#: Mailman/Gui/Topics.py:124
+#: Mailman/Gui/Topics.py:128
+#, fuzzy
 msgid ""
-"The topic pattern `%(pattern)s' is not a\n"
+"The topic pattern '%(safepattern)s' is not a\n"
 "                legal regular expression.  It will be discarded."
 msgstr ""
 "この話題パターン `%(pattern)s' は正しい正規表現ではありません.\n"
@@ -6208,57 +6338,62 @@ msgid "News server settings"
 msgstr "ニュースサーバの設定"
 
 #: Mailman/Gui/Usenet.py:40
-msgid ""
-"The Internet address of the machine your News server is\n"
-"             running on."
-msgstr "ニュースサーバが稼動しているマシンのインターネットアドレス."
+msgid "The hostname of the machine your news server is running on."
+msgstr "ニュースサーバが稼動しているマシンのホスト名."
 
-#: Mailman/Gui/Usenet.py:42
+#: Mailman/Gui/Usenet.py:41
 msgid ""
-"The News server is not part of Mailman proper.  You have to\n"
-"             already have access to a NNTP server, and that NNTP server has "
-"to\n"
+"This value may be either the name of your news server, or\n"
+"             optionally of the format name:port, where port is a port "
+"number.\n"
+"\n"
+"             The news server is not part of Mailman proper.  You have to\n"
+"             already have access to an NNTP server, and that NNTP server "
+"must\n"
 "             recognize the machine this mailing list runs on as a machine\n"
 "             capable of reading and posting news."
 msgstr ""
-"ニュースサーバは Mailman の機能ではありません. あなたは既に\n"
+"ここには, ニュースサーバの名前か name:port の形式でオプションの\n"
+"ポート番号を入れます.\n"
+"\n"
+"ニュースサーバは Mailman 固有の機能ではありません. あなたは既に\n"
 " NNTP サーバにアクセス権を持っている必要があり, その\n"
 " NNTPサーバはメーリングリストが稼動しているマシンを\n"
 "「ニュースを読み書きできるホスト」と認識しなければなりません. "
 
-#: Mailman/Gui/Usenet.py:48
+#: Mailman/Gui/Usenet.py:50
 msgid "The name of the Usenet group to gateway to and/or from."
 msgstr "相互配送を行う Usenet のニュースグループ名"
 
-#: Mailman/Gui/Usenet.py:51
+#: Mailman/Gui/Usenet.py:53
 msgid ""
 "Should new posts to the mailing list be sent to the\n"
 "             newsgroup?"
 msgstr "メーリングリストへの投稿をニュースグループに転送しますか?"
 
-#: Mailman/Gui/Usenet.py:55
+#: Mailman/Gui/Usenet.py:57
 msgid ""
 "Should new posts to the newsgroup be sent to the mailing\n"
 "             list?"
 msgstr "ニュースグループへの投稿をメーリングリストに転送しますか?"
 
-#: Mailman/Gui/Usenet.py:58
+#: Mailman/Gui/Usenet.py:60
 msgid "Forwarding options"
 msgstr "転送オプション"
 
-#: Mailman/Gui/Usenet.py:61
+#: Mailman/Gui/Usenet.py:63
 msgid "Moderated"
 msgstr "発言制限付き"
 
-#: Mailman/Gui/Usenet.py:61
+#: Mailman/Gui/Usenet.py:63
 msgid "Open list, moderated group"
 msgstr "リストは公開, グループは発言制限付き"
 
-#: Mailman/Gui/Usenet.py:64
+#: Mailman/Gui/Usenet.py:66
 msgid "The moderation policy of the newsgroup."
 msgstr "ニュースグループの発言制限ポリシー"
 
-#: Mailman/Gui/Usenet.py:66
+#: Mailman/Gui/Usenet.py:68
 msgid ""
 "This setting determines the moderation policy of the\n"
 "             newsgroup and its interaction with the moderation policy of "
@@ -6315,11 +6450,11 @@ msgstr ""
 "これを選ぶと, 普通のMailmanの発言制限プロセスを用いて, 全てのニュース\n"
 "へ転送するメッセージに<tt>Approved</tt>ヘッダを付加します."
 
-#: Mailman/Gui/Usenet.py:92
+#: Mailman/Gui/Usenet.py:94
 msgid "Prefix <tt>Subject:</tt> headers on postings gated to news?"
 msgstr "ニュースへの投稿記事の<tt>Subject:</tt>(件名)に前置きを付けますか?"
 
-#: Mailman/Gui/Usenet.py:93
+#: Mailman/Gui/Usenet.py:95
 msgid ""
 "Mailman prefixes <tt>Subject:</tt> headers with\n"
 "             <a href=\"?VARHELP=general/subject_prefix\">text you can\n"
@@ -6338,15 +6473,15 @@ msgstr ""
 "ようになります. もちろん, 普通のメールに件名に前置きを付けなければ, \n"
 "ニュースにも付きません."
 
-#: Mailman/Gui/Usenet.py:101
+#: Mailman/Gui/Usenet.py:103
 msgid "Mass catch up"
 msgstr "キャッチアップ"
 
-#: Mailman/Gui/Usenet.py:104
+#: Mailman/Gui/Usenet.py:106
 msgid "Should Mailman perform a <em>catchup</em> on the newsgroup?"
 msgstr "ニュースグループを <em>キャッチアップ</em> しますか?"
 
-#: Mailman/Gui/Usenet.py:105
+#: Mailman/Gui/Usenet.py:107
 msgid ""
 "When you tell Mailman to perform a catchup on the newsgroup,\n"
 "             this means that you want to start gating messages to the "
@@ -6364,11 +6499,11 @@ msgstr ""
 " キャッチアップするとメーリングリストのメンバーは以前のメッセージを\n"
 " 見ることはありません."
 
-#: Mailman/Gui/Usenet.py:119
+#: Mailman/Gui/Usenet.py:121
 msgid "Mass catchup completed"
 msgstr "キャッチアップ完了"
 
-#: Mailman/Gui/Usenet.py:131
+#: Mailman/Gui/Usenet.py:133
 msgid ""
 "You cannot enable gatewaying unless both the\n"
 "                <a href=\"?VARHELP=gateway/nntp_host\">news server field</a> "
@@ -6404,15 +6539,15 @@ msgstr "<em>(1 名の隠れ会員 は表示されません)</em>"
 msgid "<em>(%(num_concealed)d private members not shown)</em>"
 msgstr "<em>(%(num_concealed)d 名の隠れ会員 は表示されません)</em>"
 
-#: Mailman/HTMLFormatter.py:137
+#: Mailman/HTMLFormatter.py:138
 msgid "; it was disabled by you"
 msgstr "; あなたが配送停止しました"
 
-#: Mailman/HTMLFormatter.py:139
+#: Mailman/HTMLFormatter.py:140
 msgid "; it was disabled by the list administrator"
 msgstr "; リスト管理者によって配送停止されています"
 
-#: Mailman/HTMLFormatter.py:143
+#: Mailman/HTMLFormatter.py:144
 msgid ""
 "; it was disabled due to excessive bounces.  The\n"
 "            last bounce was received on %(date)s"
@@ -6420,23 +6555,23 @@ msgstr ""
 "; エラーメール多発により配送停止されています.\n"
 "            最後のエラーは %(date)s に受信"
 
-#: Mailman/HTMLFormatter.py:146
+#: Mailman/HTMLFormatter.py:147
 msgid "; it was disabled for unknown reasons"
 msgstr "; 原因不明の理由により配送停止されています"
 
-#: Mailman/HTMLFormatter.py:148
+#: Mailman/HTMLFormatter.py:149
 msgid "Note: your list delivery is currently disabled%(reason)s."
 msgstr "注意: あなたへのメール配送は一時停止されています %(reason)s."
 
-#: Mailman/HTMLFormatter.py:151
+#: Mailman/HTMLFormatter.py:152
 msgid "Mail delivery"
 msgstr "メール配送"
 
-#: Mailman/HTMLFormatter.py:153 Mailman/HTMLFormatter.py:298
+#: Mailman/HTMLFormatter.py:154 Mailman/HTMLFormatter.py:299
 msgid "the list administrator"
 msgstr "リスト管理者"
 
-#: Mailman/HTMLFormatter.py:154
+#: Mailman/HTMLFormatter.py:155
 msgid ""
 "<p>%(note)s\n"
 "\n"
@@ -6454,7 +6589,7 @@ msgstr ""
 "変更してください. もし, 質問があったり助けが必要な場合には, \n"
 "%(mailto)s に連絡してください. "
 
-#: Mailman/HTMLFormatter.py:166
+#: Mailman/HTMLFormatter.py:167
 msgid ""
 "<p>We have received some recent bounces from your\n"
 "            address.  Your current <em>bounce score</em> is %(score)s out of "
@@ -6471,7 +6606,7 @@ msgstr ""
 " このアドレスへの配送に問題が無いように注意してください. あなたの\n"
 " エラー点は, 問題が解決すれば間もなくリセットされます."
 
-#: Mailman/HTMLFormatter.py:178
+#: Mailman/HTMLFormatter.py:179
 msgid ""
 "(Note - you are subscribing to a list of mailing lists, so the %(type)s "
 "notice will be sent to the admin address for your membership, %(addr)s.)<p>"
@@ -6479,7 +6614,7 @@ msgstr ""
 "(注意 - あなたはメーリングリストのリストに入会登録しようとしています. このた"
 "め %(type)s のお知らせは管理者用メールアドレス %(addr)s に送信されます.)"
 
-#: Mailman/HTMLFormatter.py:188
+#: Mailman/HTMLFormatter.py:189
 msgid ""
 "You will be sent email requesting confirmation, to\n"
 "            prevent others from gratuitously subscribing you."
@@ -6487,7 +6622,7 @@ msgstr ""
 "他人がおせっかいで入会手続きをしないように, あなた宛に確認するようにメールが"
 "発信されます. "
 
-#: Mailman/HTMLFormatter.py:191
+#: Mailman/HTMLFormatter.py:192
 msgid ""
 "This is a closed list, which means your subscription\n"
 "            will be held for approval.  You will be notified of the list\n"
@@ -6496,11 +6631,11 @@ msgstr ""
 "これは閉鎖リストです. つまり, あなたの入会登録は承認を受けるまで保留されま"
 "す. 管理者の決定はメールでお知らせします."
 
-#: Mailman/HTMLFormatter.py:194 Mailman/HTMLFormatter.py:201
+#: Mailman/HTMLFormatter.py:195 Mailman/HTMLFormatter.py:202
 msgid "also "
 msgstr "また"
 
-#: Mailman/HTMLFormatter.py:196
+#: Mailman/HTMLFormatter.py:197
 msgid ""
 "You will be sent email requesting confirmation, to\n"
 "            prevent others from gratuitously subscribing you.  Once\n"
@@ -6513,7 +6648,7 @@ msgstr ""
 "発信されます. あなたの確認が完了すると次にリスト管理者の承認のため一旦保留さ"
 "れます. 管理者の決定はメールで通知されるでしょう."
 
-#: Mailman/HTMLFormatter.py:205
+#: Mailman/HTMLFormatter.py:206
 msgid ""
 "This is %(also)sa private list, which means that the\n"
 "            list of members is not available to non-members."
@@ -6521,7 +6656,7 @@ msgstr ""
 "これは %(also)s 限定公開リストです. つまり会員名簿は会員外には公開していませ"
 "ん."
 
-#: Mailman/HTMLFormatter.py:208
+#: Mailman/HTMLFormatter.py:209
 msgid ""
 "This is %(also)sa hidden list, which means that the\n"
 "            list of members is available only to the list administrator."
@@ -6529,20 +6664,20 @@ msgstr ""
 "これは %(also)s 隠しリストです. つまり会員名簿はリスト管理者だけが見ることが"
 "できます. "
 
-#: Mailman/HTMLFormatter.py:211
+#: Mailman/HTMLFormatter.py:212
 msgid ""
 "This is %(also)sa public list, which means that the\n"
 "            list of members list is available to everyone."
 msgstr ""
 "これは %(also)s 公開リストです, つまり会員名簿は誰でも見ることができます"
 
-#: Mailman/HTMLFormatter.py:214
+#: Mailman/HTMLFormatter.py:215
 msgid ""
 " (but we obscure the addresses so they are not\n"
 "                easily recognizable by spammers)."
 msgstr " (その代わり SPAMmer に分かりにくいようにアドレスを書き換えます)."
 
-#: Mailman/HTMLFormatter.py:219
+#: Mailman/HTMLFormatter.py:220
 msgid ""
 "<p>(Note that this is an umbrella list, intended to\n"
 "            have only other mailing lists as members.  Among other things,\n"
@@ -6553,11 +6688,11 @@ msgstr ""
 "います. なによりもまず, 入会確認のメールは '%(sfx)s' をサフィックスにしたアド"
 "レス宛に発送されます."
 
-#: Mailman/HTMLFormatter.py:248
+#: Mailman/HTMLFormatter.py:249
 msgid "<b><i>either</i></b> "
 msgstr "<b><i>か...</i></b>"
 
-#: Mailman/HTMLFormatter.py:253
+#: Mailman/HTMLFormatter.py:254
 msgid ""
 "To unsubscribe from %(realname)s, get a password reminder,\n"
 "        or change your subscription options %(either)senter your "
@@ -6570,11 +6705,11 @@ msgstr ""
 "入会している電子メールアドレスを入れる%(either)s:\n"
 "<p><center> "
 
-#: Mailman/HTMLFormatter.py:260
+#: Mailman/HTMLFormatter.py:261
 msgid "Unsubscribe or edit options"
 msgstr "退会またはオプションの変更"
 
-#: Mailman/HTMLFormatter.py:264
+#: Mailman/HTMLFormatter.py:265
 msgid ""
 "<p>... <b><i>or</i></b> select your entry from\n"
 "                      the subscribers list (see above)."
@@ -6582,73 +6717,73 @@ msgstr ""
 "<p>... <b><i>あるいは</i></b> 会員名簿からあなたの項目を選んでください (上を"
 "参照)."
 
-#: Mailman/HTMLFormatter.py:266
+#: Mailman/HTMLFormatter.py:267
 msgid ""
 " If you leave the field blank, you will be prompted for\n"
 "        your email address"
 msgstr "この欄を空白にした場合は, 次の画面でメールアドレスの入力を要求します."
 
-#: Mailman/HTMLFormatter.py:274
+#: Mailman/HTMLFormatter.py:275
 msgid ""
 "(<i>%(which)s is only available to the list\n"
 "                members.</i>)"
 msgstr "(<i>%(which)s はメーリングリスト会員のみが利用できます.</i>)"
 
-#: Mailman/HTMLFormatter.py:278
+#: Mailman/HTMLFormatter.py:279
 msgid ""
 "(<i>%(which)s is only available to the list\n"
 "            administrator.</i>)"
 msgstr "(<i>%(which)s はリスト管理者だけが見ることができます.</i>"
 
-#: Mailman/HTMLFormatter.py:288
+#: Mailman/HTMLFormatter.py:289
 msgid "Click here for the list of "
 msgstr "ここをクリックして"
 
-#: Mailman/HTMLFormatter.py:290
+#: Mailman/HTMLFormatter.py:291
 msgid " subscribers: "
 msgstr "の会員名簿を見る:"
 
-#: Mailman/HTMLFormatter.py:292
+#: Mailman/HTMLFormatter.py:293
 msgid "Visit Subscriber list"
 msgstr "会員名簿を見る"
 
-#: Mailman/HTMLFormatter.py:295
+#: Mailman/HTMLFormatter.py:296
 msgid "members"
 msgstr "会員"
 
-#: Mailman/HTMLFormatter.py:296
+#: Mailman/HTMLFormatter.py:297
 msgid "Address:"
 msgstr "アドレス:"
 
-#: Mailman/HTMLFormatter.py:299
+#: Mailman/HTMLFormatter.py:300
 msgid "Admin address:"
 msgstr "管理者アドレス:"
 
-#: Mailman/HTMLFormatter.py:302
+#: Mailman/HTMLFormatter.py:303
 msgid "The subscribers list"
 msgstr "会員名簿"
 
-#: Mailman/HTMLFormatter.py:304
+#: Mailman/HTMLFormatter.py:305
 msgid " <p>Enter your "
 msgstr " <p>あなたの"
 
-#: Mailman/HTMLFormatter.py:306
+#: Mailman/HTMLFormatter.py:307
 msgid " and password to visit  the subscribers list: <p><center> "
 msgstr "とパスワードを入力して会員名簿へ進んでください: <p><center> "
 
-#: Mailman/HTMLFormatter.py:311
+#: Mailman/HTMLFormatter.py:312
 msgid "Password: "
 msgstr "パスワード: "
 
-#: Mailman/HTMLFormatter.py:315
+#: Mailman/HTMLFormatter.py:316
 msgid "Visit Subscriber List"
 msgstr "会員名簿のページへ"
 
-#: Mailman/HTMLFormatter.py:345
+#: Mailman/HTMLFormatter.py:346
 msgid "Once a month, your password will be emailed to you as a reminder."
 msgstr "毎月１回パスワードを忘れないようにメールで送信します."
 
-#: Mailman/HTMLFormatter.py:391
+#: Mailman/HTMLFormatter.py:392
 msgid "The current archive"
 msgstr "現在の保存書庫"
 
@@ -6704,7 +6839,7 @@ msgstr ""
 
 #: Mailman/Handlers/Hold.py:69
 msgid "Too many recipients to the message"
-msgstr "受信者が多すぎます"
+msgstr "受信人が多すぎます"
 
 #: Mailman/Handlers/Hold.py:70
 msgid "Please trim the recipient list; it is too long."
@@ -6856,11 +6991,11 @@ msgstr "\"%(realname)s\" メーリングリストに出したメールへの自動応答"
 msgid "The Mailman Replybot"
 msgstr "Mailman 自動応答"
 
-#: Mailman/Handlers/Scrubber.py:180
+#: Mailman/Handlers/Scrubber.py:188
 msgid "HTML attachment scrubbed and removed"
 msgstr "HTMLの添付ファイルは取り除かれています"
 
-#: Mailman/Handlers/Scrubber.py:197 Mailman/Handlers/Scrubber.py:223
+#: Mailman/Handlers/Scrubber.py:205 Mailman/Handlers/Scrubber.py:231
 msgid ""
 "An HTML attachment was scrubbed...\n"
 "URL: %(url)s\n"
@@ -6868,19 +7003,19 @@ msgstr ""
 "HTMLの添付ファイルを取り除きました.\n"
 "URL: %(url)s\n"
 
-#: Mailman/Handlers/Scrubber.py:235
+#: Mailman/Handlers/Scrubber.py:243
 msgid "no subject"
 msgstr "無題"
 
-#: Mailman/Handlers/Scrubber.py:236
+#: Mailman/Handlers/Scrubber.py:244
 msgid "no date"
 msgstr "日付無し"
 
-#: Mailman/Handlers/Scrubber.py:237
+#: Mailman/Handlers/Scrubber.py:245
 msgid "unknown sender"
 msgstr "送信者不明"
 
-#: Mailman/Handlers/Scrubber.py:240
+#: Mailman/Handlers/Scrubber.py:248
 msgid ""
 "An embedded message was scrubbed...\n"
 "From: %(who)s\n"
@@ -6896,7 +7031,7 @@ msgstr ""
 "サイズ: %(size)s バイト\n"
 "URL:    %(url)s\n"
 
-#: Mailman/Handlers/Scrubber.py:264
+#: Mailman/Handlers/Scrubber.py:272
 msgid ""
 "A non-text attachment was scrubbed...\n"
 "Name: %(filename)s\n"
@@ -6912,43 +7047,51 @@ msgstr ""
 "説明:       %(desc)s\n"
 "URL:        %(url)s\n"
 
-#: Mailman/Handlers/Scrubber.py:293
+#: Mailman/Handlers/Scrubber.py:301
 msgid "Skipped content of type %(partctype)s"
 msgstr "MIME タイプ %(partctype)s 飛ばします"
 
-#: Mailman/Handlers/Scrubber.py:316
+#: Mailman/Handlers/Scrubber.py:327
 msgid "-------------- next part --------------\n"
 msgstr ""
 
-#: Mailman/Handlers/ToDigest.py:144
+#: Mailman/Handlers/SpamDetect.py:54
+msgid "The message headers matched a filter rule"
+msgstr ""
+
+#: Mailman/Handlers/SpamDetect.py:121
+msgid "Message rejected by filter rule match"
+msgstr ""
+
+#: Mailman/Handlers/ToDigest.py:145
 msgid "%(realname)s Digest, Vol %(volume)d, Issue %(issue)d"
 msgstr "%(realname)s まとめ読み, %(volume)d 巻, %(issue)d 号"
 
-#: Mailman/Handlers/ToDigest.py:185
+#: Mailman/Handlers/ToDigest.py:186
 msgid "digest header"
 msgstr "まとめ読みヘッダ"
 
-#: Mailman/Handlers/ToDigest.py:188
+#: Mailman/Handlers/ToDigest.py:189
 msgid "Digest Header"
 msgstr "まとめ読み前書き"
 
-#: Mailman/Handlers/ToDigest.py:201
+#: Mailman/Handlers/ToDigest.py:202
 msgid "Today's Topics:\n"
 msgstr "本日の話題:\n"
 
-#: Mailman/Handlers/ToDigest.py:280
+#: Mailman/Handlers/ToDigest.py:281
 msgid "Today's Topics (%(msgcount)d messages)"
 msgstr "本日の話題 (%(msgcount)d 通)"
 
-#: Mailman/Handlers/ToDigest.py:317
+#: Mailman/Handlers/ToDigest.py:318
 msgid "digest footer"
 msgstr "まとめ読みフッタ"
 
-#: Mailman/Handlers/ToDigest.py:320
+#: Mailman/Handlers/ToDigest.py:321
 msgid "Digest Footer"
 msgstr "まとめ読み後書き"
 
-#: Mailman/Handlers/ToDigest.py:334
+#: Mailman/Handlers/ToDigest.py:335
 msgid "End of "
 msgstr "以上: "
 
@@ -7081,39 +7224,39 @@ msgstr "%(dbfile)s の所有者をチェック中"
 msgid "%(dbfile)s owned by %(owner)s (must be owned by %(user)s"
 msgstr "%(dbfile)s の所有者は %(owner)s です. (%(user)s でなければいけません)"
 
-#: Mailman/MailList.py:708
+#: Mailman/MailList.py:720
 msgid "You have been invited to join the %(listname)s mailing list"
 msgstr "あなたは%(listname)s メーリングリストへ入会を招待されています."
 
-#: Mailman/MailList.py:812 Mailman/MailList.py:1176
+#: Mailman/MailList.py:824 Mailman/MailList.py:1213
 msgid " from %(remote)s"
 msgstr " %(remote)s から"
 
-#: Mailman/MailList.py:846
+#: Mailman/MailList.py:858
 msgid "subscriptions to %(realname)s require moderator approval"
 msgstr "%(realname)s への入会には管理者の承認が必要です"
 
-#: Mailman/MailList.py:909 bin/add_members:242
+#: Mailman/MailList.py:922 bin/add_members:242
 msgid "%(realname)s subscription notification"
 msgstr "%(realname)s 入会通知"
 
-#: Mailman/MailList.py:928
+#: Mailman/MailList.py:941
 msgid "unsubscriptions require moderator approval"
 msgstr "退会には管理者の承認が必要です"
 
-#: Mailman/MailList.py:948
+#: Mailman/MailList.py:961
 msgid "%(realname)s unsubscribe notification"
 msgstr "%(realname)s 退会通知"
 
-#: Mailman/MailList.py:1097
+#: Mailman/MailList.py:1122
 msgid "subscriptions to %(name)s require administrator approval"
 msgstr "%(name)s への入会には管理者の承認が必要です"
 
-#: Mailman/MailList.py:1345
+#: Mailman/MailList.py:1382
 msgid "Last autoresponse notification for today"
 msgstr "本日の最新自動応答"
 
-#: Mailman/Queue/BounceRunner.py:179
+#: Mailman/Queue/BounceRunner.py:182
 msgid ""
 "The attached message was received as a bounce, but either the bounce format\n"
 "was not recognized, or no member addresses could be extracted from it.  "
@@ -7137,26 +7280,26 @@ msgstr ""
 "をご覧下さい.\n"
 "\n"
 
-#: Mailman/Queue/BounceRunner.py:189
+#: Mailman/Queue/BounceRunner.py:192
 msgid "Uncaught bounce notification"
 msgstr "自動配送エラー処理の例外通知"
 
-#: Mailman/Queue/CommandRunner.py:85
+#: Mailman/Queue/CommandRunner.py:90
 msgid "Ignoring non-text/plain MIME parts"
 msgstr "text/plainでないMIMEパートを無視"
 
-#: Mailman/Queue/CommandRunner.py:141
+#: Mailman/Queue/CommandRunner.py:146
 msgid ""
 "The results of your email command are provided below.\n"
 "Attached is your original message.\n"
 msgstr ""
 "メールコマンドの結果は以下のとおりです. また, 元のメールを付けています.\n"
 
-#: Mailman/Queue/CommandRunner.py:146
+#: Mailman/Queue/CommandRunner.py:151
 msgid "- Results:"
 msgstr "- 結果:"
 
-#: Mailman/Queue/CommandRunner.py:152
+#: Mailman/Queue/CommandRunner.py:157
 msgid ""
 "\n"
 "- Unprocessed:"
@@ -7164,7 +7307,7 @@ msgstr ""
 "\n"
 "- 処理できず:"
 
-#: Mailman/Queue/CommandRunner.py:156
+#: Mailman/Queue/CommandRunner.py:161
 msgid ""
 "No commands were found in this message.\n"
 "To obtain instructions, send a message containing just the word \"help\".\n"
@@ -7172,7 +7315,7 @@ msgstr ""
 "このメールにはコマンドがありません.\n"
 "利用法を知るには, help とだけ書いたメールを送ってください.\n"
 
-#: Mailman/Queue/CommandRunner.py:161
+#: Mailman/Queue/CommandRunner.py:166
 msgid ""
 "\n"
 "- Ignored:"
@@ -7180,7 +7323,7 @@ msgstr ""
 "\n"
 "- 無視:"
 
-#: Mailman/Queue/CommandRunner.py:163
+#: Mailman/Queue/CommandRunner.py:168
 msgid ""
 "\n"
 "- Done.\n"
@@ -7190,7 +7333,7 @@ msgstr ""
 "- 完了.\n"
 "\n"
 
-#: Mailman/Queue/CommandRunner.py:187
+#: Mailman/Queue/CommandRunner.py:192
 msgid "The results of your email commands"
 msgstr "メールコマンドの結果"
 
@@ -7406,13 +7549,13 @@ msgid "Cannot read both digest and normal members from standard input."
 msgstr "まとめ読みと普通の両方の会員を標準入力から読み込むことはできません."
 
 #: bin/add_members:210 bin/config_list:105 bin/find_member:97 bin/inject:90
-#: bin/list_admins:89 bin/list_members:199 bin/sync_members:222
+#: bin/list_admins:89 bin/list_members:232 bin/sync_members:222
 #: cron/bumpdigests:86
 msgid "No such list: %(listname)s"
 msgstr "%(listname)s というリストはありません"
 
-#: bin/add_members:230 bin/change_pw:158 bin/check_db:114 bin/sync_members:244
-#: cron/bumpdigests:78
+#: bin/add_members:230 bin/change_pw:158 bin/check_db:114 bin/discard:83
+#: bin/sync_members:244 cron/bumpdigests:78
 msgid "Nothing to do."
 msgstr "なにもすることはありません."
 
@@ -8252,15 +8395,15 @@ msgstr "プロパティの値が不正: %(k)s"
 msgid "Bad email address for option %(k)s: %(v)s"
 msgstr "%(k)s のオプションについてメールアドレスが不正: %(v)s"
 
-#: bin/config_list:322
+#: bin/config_list:331
 msgid "Only one of -i or -o is allowed"
 msgstr "-i か -o のどちらかだけを指定してください"
 
-#: bin/config_list:324
+#: bin/config_list:333
 msgid "One of -i or -o is required"
 msgstr "-i か -o の一つを指定してください"
 
-#: bin/config_list:328
+#: bin/config_list:337
 msgid "List name is required"
 msgstr "リスト名が必要です."
 
@@ -8285,6 +8428,45 @@ msgstr "リストを保存中"
 #: bin/convert.py:44 bin/fix_url.py:51
 msgid "%%%"
 msgstr ""
+
+#: bin/discard:19
+msgid ""
+"Discard held messages.\n"
+"\n"
+"Usage:\n"
+"    discard [options] file ...\n"
+"\n"
+"Options:\n"
+"    --help / -h\n"
+"        Print this help message and exit.\n"
+"\n"
+"    --quiet / -q\n"
+"        Don't print status messages.\n"
+msgstr ""
+"保留メールを破棄する.\n"
+"\n"
+"使用法:\n"
+"    discard [オプション] ファイル ...\n"
+"\n"
+"オプション:\n"
+"\n"
+"    --help / -h\n"
+"        このヘルプメッセージを表示して終了する.\n"
+"\n"
+"    --quiet / -q\n"
+"        作業状況を出力しない.\n"
+
+#: bin/discard:94
+msgid "Ignoring non-held message: %(f)s"
+msgstr "保留でないメールを無視: %(f)s"
+
+#: bin/discard:100
+msgid "Ignoring held msg w/bad id: %(f)s"
+msgstr "Id がおかしいメールを無視: %(f)s"
+
+#: bin/discard:112
+msgid "Discarded held msg #%(id)s for list %(listname)s"
+msgstr "%(listname)s リストのメール #%(id)s を破棄"
 
 #: bin/dumpdb:19
 msgid ""
@@ -8740,11 +8922,19 @@ msgid ""
 "    --fullnames / -f\n"
 "        Include the full names in the output.\n"
 "\n"
-"    --preserve\n"
-"    -p\n"
+"    --preserve / -p\n"
 "        Output member addresses case preserved the way they were added to "
 "the\n"
 "        list.  Otherwise, addresses are printed in all lowercase.\n"
+"\n"
+"    --invalid / -i\n"
+"        Print only the addresses in the membership list that are invalid.\n"
+"        Ignores -r, -d, -n.\n"
+"\n"
+"    --unicode / -u\n"
+"        Print addresses which are stored as Unicode objects instead of "
+"normal\n"
+"        string objects.  Ignores -r, -d, -n.\n"
 "\n"
 "    --help\n"
 "    -h\n"
@@ -8788,6 +8978,14 @@ msgstr ""
 "        メールアドレスを表示するときに, 会員が入力したときの大文字/小文字\n"
 "        をそのまま使う. 指定しないと小文字だけに変換される.\n"
 "\n"
+"    --invalid / -i\n"
+"        不正なメールアドレスで登録されている会員だけを出力する.\n"
+"        -r, -d, -n は無視する.\n"
+"\n"
+"    --unicode / -u\n"
+"        文字列でなくユニコードオブジェクトとして保存されているアドレス\n"
+"        を出力する. -r, -d, -n は無視する.\n"
+"\n"
 "    --help / -h\n"
 "        このヘルプメッセージを表示して終了する.\n"
 "\n"
@@ -8796,15 +8994,15 @@ msgstr ""
 "-r も -d も指定しないと, 最初に通常会員が, 次にまとめ読み会員が表示\n"
 "されるが, 配送の状態については表示されない.\n"
 
-#: bin/list_members:162
+#: bin/list_members:191
 msgid "Bad --nomail option: %(why)s"
 msgstr "--nomail オプションが違います: %(why)s"
 
-#: bin/list_members:173
+#: bin/list_members:202
 msgid "Bad --digest option: %(kind)s"
 msgstr "--digest オプションが違います: %(kind)s"
 
-#: bin/list_members:191
+#: bin/list_members:224
 msgid "Could not open file for writing:"
 msgstr "書き込むファイルが開けません:"
 
@@ -9082,41 +9280,41 @@ msgstr ""
 "\n"
 "終了します."
 
-#: bin/mailmanctl:277 cron/mailpasswds:111
+#: bin/mailmanctl:278 cron/mailpasswds:119
 msgid "Site list is missing: %(sitelistname)s"
 msgstr "サイトリスト名がありません: %(sitelistname)s"
 
-#: bin/mailmanctl:294
+#: bin/mailmanctl:295
 msgid "Run this program as root or as the %(name)s user, or use -u."
 msgstr ""
 "このプログラムは root か %(name)s ユーザで実行してください.\n"
 "そうでなければ -u オプションを使ってください."
 
-#: bin/mailmanctl:325
+#: bin/mailmanctl:326
 msgid "No command given."
 msgstr "コマンドがありません."
 
-#: bin/mailmanctl:328
+#: bin/mailmanctl:329
 msgid "Bad command: %(command)s"
 msgstr "コマンドが違います: %(command)s"
 
-#: bin/mailmanctl:333
+#: bin/mailmanctl:334
 msgid "Warning!  You may encounter permission problems."
 msgstr "警告! パーミッションの問題が出るかもしれません."
 
-#: bin/mailmanctl:342
+#: bin/mailmanctl:343
 msgid "Shutting down Mailman's master qrunner"
 msgstr "Mailman のマスター qrunner を停止します"
 
-#: bin/mailmanctl:349
+#: bin/mailmanctl:350
 msgid "Restarting Mailman's master qrunner"
 msgstr "Mailman のマスター qrunner を再起動します"
 
-#: bin/mailmanctl:353
+#: bin/mailmanctl:354
 msgid "Re-opening all log files"
 msgstr "ログファイルを開きなおします"
 
-#: bin/mailmanctl:389
+#: bin/mailmanctl:390
 msgid "Starting Mailman's master qrunner."
 msgstr "Mailman のマスター qrunner を起動します"
 
@@ -9192,6 +9390,61 @@ msgstr "パスワードを変更しました."
 #: bin/mmsitepass:100
 msgid "Password change failed."
 msgstr "パスワードの変更に失敗."
+
+#: bin/msgfmt.py:5
+msgid ""
+"Generate binary message catalog from textual translation description.\n"
+"\n"
+"This program converts a textual Uniforum-style message catalog (.po file) "
+"into\n"
+"a binary GNU catalog (.mo file).  This is essentially the same function as "
+"the\n"
+"GNU msgfmt program, however, it is a simpler implementation.\n"
+"\n"
+"Usage: msgfmt.py [OPTIONS] filename.po\n"
+"\n"
+"Options:\n"
+"    -o file\n"
+"    --output-file=file\n"
+"        Specify the output file to write to.  If omitted, output will go to "
+"a\n"
+"        file named filename.mo (based off the input file name).\n"
+"\n"
+"    -h\n"
+"    --help\n"
+"        Print this message and exit.\n"
+"\n"
+"    -V\n"
+"    --version\n"
+"        Display version information and exit.\n"
+msgstr ""
+"平文の翻訳文からバイナリのメッセージカタログを生成する.\n"
+"\n"
+"このプログラムは平文の Uniforum スタイルのメッセージカタログ (.po ファイル)\n"
+"から, バイナリの GNU カタログ (.mo ファイル) に変換する. このプログラムの\n"
+"機能は基本的に GNU の msgfmt プログラムと同じであるが, 簡単化されている.\n"
+"\n"
+"オプション:\n"
+"    -o ファイル\n"
+"    --output-file=ファイル\n"
+"        書き込む出力ファイルを指定する. 省略すると filename.mo \n"
+"        (入力ファイル名を元にする) になる.\n"
+"\n"
+"    -h\n"
+"    --help\n"
+"        このヘルプメッセージを表示して終了する.\n"
+"\n"
+"    -V\n"
+"    --version\n"
+"        バージョン情報を出力して終了する.\n"
+
+#: bin/msgfmt.py:49
+msgid "Add a non-fuzzy translation to the dictionary."
+msgstr "ファジィでない翻訳を辞書に登録する."
+
+#: bin/msgfmt.py:57
+msgid "Return the generated output."
+msgstr "生成した出力を返す."
 
 #: bin/newlist:19
 msgid ""
@@ -9271,7 +9524,7 @@ msgstr ""
 "が出て入力を要求する.\n"
 "\n"
 "Mailman のリストはそれぞれ2つのパラメータ, つまりメールが出て行くときの\n"
-"ホスト名と, ウェブインターフェースの URL を持っている. Mailman の初期\n"
+"ホスト名と, ウェブインタフェースの URL を持っている. Mailman の初期\n"
 "設定を行うときに, デフォルトが設定される. しかし, 複数の仮想 Mailman \n"
 "サイトを持っているときには, そのデフォルトは作成するリストに合わない\n"
 "かもしれない.\n"
@@ -9613,7 +9866,7 @@ msgstr "リストの案内"
 
 #: bin/rmlist:132
 msgid "stale lock file"
-msgstr ""
+msgstr "古いロックファイル"
 
 #: bin/rmlist:137 bin/rmlist:139
 msgid "private archives"
@@ -9622,6 +9875,36 @@ msgstr "限定公開保存書庫"
 #: bin/rmlist:141 bin/rmlist:143
 msgid "public archives"
 msgstr "公開保存書庫"
+
+#: bin/show_qfiles:3
+msgid ""
+"Show the contents of one or more Mailman queue files.\n"
+"\n"
+"Usage: show_qfiles [options] qfile ...\n"
+"\n"
+"Options:\n"
+"\n"
+"    -q / --quiet\n"
+"        Don't print `helpful' message delimiters.\n"
+"\n"
+"    -h / --help\n"
+"        Print this text and exit.\n"
+"\n"
+"Example: show_qfiles qfiles/shunt/*.pck\n"
+msgstr ""
+"Mailman の qfiles にあるメールの内容を表示する.\n"
+"\n"
+"使用法: show_qfiles [オプション] キューファイル ...\n"
+"\n"
+"オプション:\n"
+"\n"
+"    -q / --quiet\n"
+"        メールの区切りを示す補助メッセージを出力しない.\n"
+"\n"
+"    -h / --help\n"
+"        このヘルプメッセージを出力して終了する.\n"
+"\n"
+"例: show_qfiles qfiles/shunt/*.pck\n"
 
 #: bin/sync_members:19
 msgid ""
@@ -10161,7 +10444,7 @@ msgstr ""
 "    それぞれのメーリングリストについて, template/options.html から\n"
 "    lists/<リスト名>/options.html にコピーする必要があります.\n"
 "\n"
-"    しかし, もしこのファイルをウェブインターフェースから編集した\n"
+"    しかし, もしこのファイルをウェブインタフェースから編集した\n"
 "    のであれば, その変更をこのファイルに適用する必要があります.\n"
 "    もしそうしないと, 変更は失われるでしょう.\n"
 "\n"
@@ -10660,7 +10943,7 @@ msgstr ""
 "    --listname=リスト名\n"
 "        リスト名のリストだけ処理する. でなければ, 全部のリストを処理.\n"
 
-#: cron/disabled:143
+#: cron/disabled:144
 msgid "[disabled by periodic sweep and cull, no message available]"
 msgstr "[定期的清掃と選別で停止. メッセージはありません]"
 
@@ -10735,11 +11018,11 @@ msgstr ""
 "    -h/--help\n"
 "        このメッセージを表示して終了\n"
 
-#: cron/mailpasswds:181
+#: cron/mailpasswds:198
 msgid "Password // URL"
 msgstr "パスワード // URL"
 
-#: cron/mailpasswds:201
+#: cron/mailpasswds:221
 msgid "%(host)s mailing list memberships reminder"
 msgstr "%(host)s メーリングリスト会員通知"
 
@@ -10819,20 +11102,11 @@ msgstr ""
 "        リスト名をあげたリストについてだけ, まとめ読みを送信する.\n"
 "        これが無い場合, 全てのリストの処理をする.\n"
 
-#~ msgid ""
-#~ "Fix the MM2.1b4 archives.\n"
-#~ "\n"
-#~ "Usage: %(PROGRAM)s [options] file ...\n"
-#~ "\n"
-#~ "Where options are:\n"
-#~ "    -h / --help\n"
-#~ "        Print this help message and exit.\n"
-#~ msgstr ""
-#~ "MM2.1b4 の保存書庫を修理する.\n"
-#~ "\n"
-#~ "使用法: %(PROGRAM)s [オプション] ファイル ...\n"
-#~ "\n"
-#~ "オプション:\n"
-#~ "\n"
-#~ "    -h / --help\n"
-#~ "        このメッセージを表示して終了する.\n"
+#~ msgid "delivery option set"
+#~ msgstr "delivery (配送)オプションを設定"
+
+#~ msgid "Traditional Chinese"
+#~ msgstr "中国語(伝統的)"
+
+#~ msgid "Simplified Chinese"
+#~ msgstr "中国語(簡体字)"

@@ -1,0 +1,76 @@
+XCOMM $Xorg: Imakefile,v 1.1 2000/12/12 13:00:42 coskrey Exp $
+
+
+
+
+XCOMM $XFree86: xc/nls/XI18N_OBJS/Imakefile,v 1.7 2003/01/15 03:59:47 dawes Exp $
+
+#ifndef Win32Architecture
+# define XI18NTarget(name)						@@\
+all:: name								@@\
+	MakeDir($(BUILDLIBDIR)/locale/name)				@@\
+	RemoveFile($(BUILDLIBDIR)/locale/name/XI18N_OBJS)			@@\
+	cd $(BUILDLIBDIR)/locale/name && $(LN) $(BUILDLIBTOP)/../../$(CURRENT_DIR)/name XI18N_OBJS @@\
+InstallNamedNonExec(name,XI18N_OBJS,$(XLOCALEDIR)/name)
+#else
+# define XI18NTarget(name)						@@\
+all:: name								@@\
+	MakeDir(Concat($(BUILDLIBDIR:/=\)\locale\,name))		@@\
+	RemoveFile(Concat($(BUILDLIBDIR:/=\)\locale\,name\XI18N_OBJS))	@@\
+	cd Concat($(BUILDLIBDIR:/=\)\locale\,name) && $(LN) Concat($(BUILDLIBTOP:/=\)\..\..\$(CURRENT_DIR:/=\)\,name) XI18N_OBJS @@\
+InstallNamedNonExec(name,XI18N_OBJS,$(XLOCALEDIR)/name)
+#endif
+
+XI18NTarget(C)
+XI18NTarget(armscii-8)
+XI18NTarget(georgian-academy)
+XI18NTarget(georgian-ps)
+XI18NTarget(ibm-cp1133)
+XI18NTarget(iscii-dev)
+XI18NTarget(isiri-3342)
+XI18NTarget(iso8859-1)
+XI18NTarget(iso8859-2)
+XI18NTarget(iso8859-3)
+XI18NTarget(iso8859-4)
+XI18NTarget(iso8859-5)
+XI18NTarget(iso8859-6)
+XI18NTarget(iso8859-7)
+XI18NTarget(iso8859-8)
+XI18NTarget(iso8859-9)
+XI18NTarget(iso8859-10)
+XI18NTarget(iso8859-11)
+XI18NTarget(iso8859-13)
+XI18NTarget(iso8859-14)
+XI18NTarget(iso8859-15)
+XI18NTarget(iso8859-9e)
+XI18NTarget(ja)
+XI18NTarget(ja.JIS)
+XI18NTarget(ja.SJIS)
+XI18NTarget(ko)
+XI18NTarget(koi8-r)
+XI18NTarget(koi8-u)
+XI18NTarget(koi8-c)
+XI18NTarget(microsoft-cp1251)
+XI18NTarget(microsoft-cp1255)
+XI18NTarget(microsoft-cp1256)
+XI18NTarget(mulelao-1)
+XI18NTarget(nokhchi-1)
+XI18NTarget(tatar-cyr)
+XI18NTarget(tscii-0)
+XI18NTarget(vi_VN.tcvn)
+XI18NTarget(vi_VN.viscii)
+XI18NTarget(zh_CN)
+XI18NTarget(zh_CN.gbk)
+XI18NTarget(zh_HK.big5hkscs)
+XI18NTarget(zh_TW)
+XI18NTarget(zh_TW.big5)
+XI18NTarget(th_TH)
+XI18NTarget(en_US.UTF-8)
+XI18NTarget(ja_JP.UTF-8)
+XI18NTarget(ko_KR.UTF-8)
+XI18NTarget(th_TH.UTF-8)
+XI18NTarget(zh_TW.UTF-8)
+#ifdef UXPArchitecture
+XI18NTarget(ja.U90)
+XI18NTarget(ja.S90)
+#endif /* UXPArchitecture */

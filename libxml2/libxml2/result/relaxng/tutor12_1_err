@@ -1,2 +1,1 @@
-error detected at relaxng.c:7141
-extra data on the document
+./test/relaxng/tutor12_1.rng validates

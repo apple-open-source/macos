@@ -1,0 +1,30 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/input/ur98/Imakefile,v 1.1 2002/11/22 03:49:15 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = xf86Ur-98.c
+OBJS = xf86Ur-98.o
+
+DRIVER = ur98
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86SRC)/loader -I$(XF86OSSRC) \
+       -I$(SERVERSRC)/include -I$(SERVERSRC)/mi -I$(XINCLUDESRC) -I$(EXTINCSRC)
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget($(DRIVER),$(OBJS))
+
+InstallObjectModule($(DRIVER),$(MODULEDIR),input/linux)
+
+#if !defined(XF86DriverSDK)
+InstallModuleManPage($(DRIVER))
+#endif
+
+DependTarget()
+
+InstallDriverSDKObjectModule($(DRIVER),$(DRIVERSDKMODULEDIR),input/linux)

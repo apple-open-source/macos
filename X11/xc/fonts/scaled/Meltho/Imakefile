@@ -1,0 +1,31 @@
+XCOMM $XFree86: xc/fonts/scaled/Meltho/Imakefile,v 1.2 2003/01/10 13:29:34 eich Exp $
+
+FONTS = SyrCOMAdiabene.otf SyrCOMAntioch.otf SyrCOMBatnan.otf \
+      SyrCOMBatnanBold.otf SyrCOMCtesiphon.otf SyrCOMEdessa.otf \
+      SyrCOMJerusalem.otf SyrCOMJerusalemBold.otf SyrCOMJerusalemItalic.otf \
+      SyrCOMJerusalemOutline.otf SyrCOMKharput.otf SyrCOMMalankara.otf \
+      SyrCOMMardin.otf SyrCOMMardinBold.otf SyrCOMMidyat.otf \
+      SyrCOMNisibin.otf SyrCOMNisibinOutline.otf SyrCOMQenNeshrin.otf \
+      SyrCOMTalada.otf SyrCOMTurAbdin.otf SyrCOMUrhoy.otf SyrCOMUrhoyBold.otf
+
+OBJS = $(FONTS)
+
+FONTINSTDIR = $(FONTDIR)/OTF
+
+MakeFontsDir(fonts.scale)
+
+#if UseFreetype2
+MakeFcCache($(FONTS))
+#endif
+
+InstallFonts($(FONTINSTDIR))
+InstallFontScale($(FONTINSTDIR))
+InstallEncodingsDir($(ENCODINGSSRC),$(FONTINSTDIR))
+#if UseFreetype2
+InstallFcCache($(FONTINSTDIR))
+#endif
+
+#ifdef IHaveSubdirs
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif

@@ -1,0 +1,478 @@
+// Hungarian keyboard symbols for XKB and PC keyboard
+//
+// (C) 2002 Peter Soos <sp@osb.hu>
+//
+// Permission is granted to anyone to use, distribute and modify
+// this file in any way, provided that the above copyright notice
+// is left intact and the author of the modification summarizes
+// the changes in this header.
+//
+// This file is distributed without any expressed or implied warranty.
+//
+// It describes the differences between a very simple US/ASCII keyboard
+// layout and some widely used Hungarian keyboard layouts.
+// Tested on Linux with XFree86 3.3.6
+//
+// $XFree86: xc/programs/xkbcomp/symbols/hu,v 1.7 2002/12/13 04:18:03 dawes Exp $
+
+
+// Default layout
+default partial
+xkb_symbols "default" {
+    include "hu(uni_102_qwertz_comma)"
+};
+
+// Standard layout
+partial
+xkb_symbols "standard" {
+    include "hu(uni_102_qwertz_comma)"
+};
+
+// Main layouts
+
+// l2_101_qwertz_comma:
+// ISO-8859-2 (Latin 2) based 101 key qwertz layout with decimal comma on keypad
+// You have to set your locale settings to ISO-8859-1 based settings
+// or unset them.
+partial
+xkb_symbols "l2_101_qwertz_comma" {
+    name[Group1] = "Hungarian";
+    include "hu(def_l2)"
+    include "hu(def_101)"
+    include "hu(def_qwertz)"
+    include "hu(def_comma)"
+    include "hu(def_common)"
+};
+
+// l2_101_qwertz_dot:
+// ISO-8859-2 (Latin 2) based 101 key qwertz layout with decimal dot on keypad
+// You have to set your locale settings to ISO-8859-1 based settings
+// or unset them.
+partial
+xkb_symbols "l2_101_qwertz_dot" {
+    name[Group1] = "Hungarian";
+    include "hu(def_l2)"
+    include "hu(def_101)"
+    include "hu(def_qwertz)"
+    include "hu(def_dot)"
+    include "hu(def_common)"
+};
+
+// l2_101_qwerty_comma:
+// ISO-8859-2 (Latin 2) based 101 key qwerty layout with decimal comma on keypad
+// You have to set your locale settings to ISO-8859-1 based settings
+// or unset them.
+partial
+xkb_symbols "l2_101_qwerty_comma" {
+    name[Group1] = "Hungarian";
+    include "hu(def_l2)"
+    include "hu(def_101)"
+    include "hu(def_qwerty)"
+    include "hu(def_comma)"
+    include "hu(def_common)"
+};
+
+// l2_101_qwerty_dot:
+// ISO-8859-2 (Latin 2) based 101 key qwerty layout with decimal dot on keypad
+// You have to set your locale settings to ISO-8859-1 based settings
+// or unset them.
+partial
+xkb_symbols "l2_101_qwerty_dot" {
+    name[Group1] = "Hungarian";
+    include "hu(def_l2)"
+    include "hu(def_101)"
+    include "hu(def_qwerty)"
+    include "hu(def_dot)"
+    include "hu(def_common)"
+};
+
+// l2_102_qwertz_comma:
+// ISO-8859-2 (Latin 2) based 102 key qwertz layout with decimal comma on keypad
+// You have to set your locale settings to ISO-8859-1 based settings
+// or unset them.
+partial
+xkb_symbols "l2_102_qwertz_comma" {
+    name[Group1] = "Hungarian";
+    include "hu(def_l2)"
+    include "hu(def_102)"
+    include "hu(def_qwertz)"
+    include "hu(def_comma)"
+    include "hu(def_common)"
+};
+
+// l2_102_qwertz_dot:
+// ISO-8859-2 (Latin 2) based 102 key qwertz layout with decimal dot on keypad
+// You have to set your locale settings to ISO-8859-1 based settings
+// or unset them.
+partial
+xkb_symbols "l2_102_qwertz_dot" {
+    name[Group1] = "Hungarian";
+    include "hu(def_l2)"
+    include "hu(def_102)"
+    include "hu(def_qwertz)"
+    include "hu(def_dot)"
+    include "hu(def_common)"
+};
+
+// l2_102_qwerty_comma:
+// ISO-8859-2 (Latin 2) based 102 key qwerty layout with decimal comma on keypad
+// You have to set your locale settings to ISO-8859-1 based settings
+// or unset them.
+partial
+xkb_symbols "l2_102_qwerty_comma" {
+    name[Group1] = "Hungarian";
+    include "hu(def_l2)"
+    include "hu(def_102)"
+    include "hu(def_qwerty)"
+    include "hu(def_comma)"
+    include "hu(def_common)"
+};
+
+// l2_102_qwerty_dot:
+// ISO-8859-2 (Latin 2) based 102 key qwerty layout with decimal dot on keypad
+// You have to set your locale settings to ISO-8859-1 based settings
+// or unset them.
+partial
+xkb_symbols "l2_102_qwerty_dot" {
+    name[Group1] = "Hungarian";
+    include "hu(def_l2)"
+    include "hu(def_102)"
+    include "hu(def_qwerty)"
+    include "hu(def_dot)"
+    include "hu(def_common)"
+};
+
+// uni_101_qwertz_comma:
+// Unicode based 101 key qwertz layout with decimal comma on keypad
+// You have to set your locale settings (at least LC_CTYPE) to hu_HU.
+partial
+xkb_symbols "uni_101_qwertz_comma" {
+    name[Group1] = "Hungarian";
+    include "hu(def_uni)"
+    include "hu(def_101)"
+    include "hu(def_qwertz)"
+    include "hu(def_comma)"
+    include "hu(def_common)"
+};
+
+// uni_101_qwertz_dot:
+// Unicode based 101 key qwertz layout with decimal dot on keypad
+// You have to set your locale settings (at least LC_CTYPE) to hu_HU.
+partial
+xkb_symbols "uni_101_qwertz_dot" {
+    name[Group1] = "Hungarian";
+    include "hu(def_uni)"
+    include "hu(def_101)"
+    include "hu(def_qwertz)"
+    include "hu(def_dot)"
+    include "hu(def_common)"
+};
+
+// uni_101_qwerty_comma:
+// Unicode based 101 key qwerty layout with decimal comma on keypad
+// You have to set your locale settings (at least LC_CTYPE) to hu_HU.
+partial
+xkb_symbols "uni_101_qwerty_comma" {
+    name[Group1] = "Hungarian";
+    include "hu(def_uni)"
+    include "hu(def_101)"
+    include "hu(def_qwerty)"
+    include "hu(def_comma)"
+    include "hu(def_common)"
+};
+
+// uni_101_qwerty_dot:
+// Unicode based 101 key qwerty layout with decimal dot on keypad
+// You have to set your locale settings (at least LC_CTYPE) to hu_HU.
+partial
+xkb_symbols "uni_101_qwerty_dot" {
+    name[Group1] = "Hungarian";
+    include "hu(def_uni)"
+    include "hu(def_101)"
+    include "hu(def_qwerty)"
+    include "hu(def_dot)"
+    include "hu(def_common)"
+};
+
+// uni_102_qwertz_comma:
+// Unicode based 102 key qwertz layout with decimal comma on keypad
+// You have to set your locale settings (at least LC_CTYPE) to hu_HU.
+partial
+xkb_symbols "uni_102_qwertz_comma" {
+    name[Group1] = "Hungarian";
+    include "hu(def_uni)"
+    include "hu(def_102)"
+    include "hu(def_qwertz)"
+    include "hu(def_comma)"
+    include "hu(def_common)"
+};
+
+// uni_102_qwertz_dot:
+// Unicode based 102 key qwertz layout with decimal dot on keypad
+// You have to set your locale settings (at least LC_CTYPE) to hu_HU.
+partial
+xkb_symbols "uni_102_qwertz_dot" {
+    name[Group1] = "Hungarian";
+    include "hu(def_uni)"
+    include "hu(def_102)"
+    include "hu(def_qwertz)"
+    include "hu(def_dot)"
+    include "hu(def_common)"
+};
+
+// uni_102_qwerty_comma:
+// Unicode based 102 key qwerty layout with decimal comma on keypad
+// You have to set your locale settings (at least LC_CTYPE) to hu_HU.
+partial
+xkb_symbols "uni_102_qwerty_comma" {
+    name[Group1] = "Hungarian";
+    include "hu(def_uni)"
+    include "hu(def_102)"
+    include "hu(def_qwerty)"
+    include "hu(def_comma)"
+    include "hu(def_common)"
+};
+
+// uni_102_qwerty_dot:
+// Unicode based 102 key qwerty layout with decimal dot on keypad
+// You have to set your locale settings (at least LC_CTYPE) to hu_HU.
+partial
+xkb_symbols "uni_102_qwerty_dot" {
+    name[Group1] = "Hungarian";
+    include "hu(def_uni)"
+    include "hu(def_102)"
+    include "hu(def_qwerty)"
+    include "hu(def_dot)"
+    include "hu(def_common)"
+};
+
+// Partial layouts
+
+// def_uni:
+// Unicode based Hungarian keybaord using the (recommended) Hungarian
+// locale (hu_HU).
+// This is the standard setting for Hungarian, but some applications
+// (e.g. LyX, Applixware) does not support this setting. In this case try
+// hu(l2_*_*).
+// You have to set your locale settings (at least LC_CTYPE) to hu_HU.
+// If you have to use another locale (eg. us) try the hu(l2_*_*).
+
+hidden partial alphanumeric_keys
+xkb_symbols "def_uni" {
+
+    key <AD07> {        [                u, U                ],
+                        [         EuroSign                   ]       };
+    key <AC02> {        [                s, S                ],
+                        [          dstroke                   ]       };
+    key <AC03> {        [                d, D                ],
+                        [          Dstroke                   ]       };
+    key <AC08> {        [                k, K                ],
+                        [          lstroke                   ]       };
+    key <AC09> {        [                l, L                ],
+                        [          Lstroke                   ]       };
+    key <AD11> {        [     odoubleacute, Odoubleacute     ],
+                        [         division                   ]       };
+    key <BKSL> {        [     udoubleacute, Udoubleacute     ],
+                        [         currency                   ]       };
+};
+
+// def_l2:
+// Hungarian keybaord used with us or another ISO-8859-1 based locale
+// settings resulting 8 bit compatible, ISO-8859-2 (Latin 2) compatible
+// layout for some applications (e.g. LyX, Applixware) wich unable to
+// handle Unicode based keysyms.
+// If you use the standard Hungarian locale (hu_HU) use the hu(uni_*_*)
+// instead.
+
+hidden partial alphanumeric_keys
+xkb_symbols "def_l2" {
+    key <AC02> {        [                s, S                ],
+                        [              eth                   ]       };
+    key <AC03> {        [                d, D                ],
+                        [              Eth                   ]       };
+    key <AC08> {        [                k, K                ],
+                        [    threesuperior                   ]       };
+    key <AC09> {        [                l, L                ],
+                        [         sterling                   ]       };
+    key <AD11> {        [           otilde, Otilde           ],
+                        [         division                   ]       };
+    key <BKSL> {        [      ucircumflex, Ucircumflex      ],
+                        [         currency                   ]       };
+};
+
+// def_102:
+// The standard Hungarian 102 key layout
+
+hidden partial alphanumeric_keys
+xkb_symbols "def_102" {
+    key <TLDE> {        [                0, section          ],
+                        [          notsign                   ]       };
+};
+
+// def_101:
+// An alternative layout for 101 key keyboards
+
+hidden partial alphanumeric_keys
+xkb_symbols "def_101" {
+    key <TLDE> {        [           iacute, Iacute           ],
+                        [                0, section          ]       };
+};
+
+// def_qwertz:
+// The standard Hungaryan qwertz layout
+
+hidden partial alphanumeric_keys
+xkb_symbols "def_qwertz" {
+    key <AB01> {        [                y, Y                ],
+                        [          greater                   ]       };
+    key <AD06> {        [                z, Z                ]       };
+};
+
+// def_qwerty:
+// The qwerty layout for people who familiar with the standard US layout
+
+hidden partial alphanumeric_keys
+xkb_symbols "def_qwerty" {
+    key <AB01> {        [                z, Z                ],
+                        [          greater                   ]       };
+    key <AD06> {        [                y, Y                ]       };
+};
+
+// def_comma:
+// The Hungarian standard is the comma on the keypad not decimal dot
+hidden partial keypad_keys
+xkb_symbols "def_comma" {
+   key  <KPDL> {        [        KP_Delete, comma            ]       };
+};
+
+// def_dot:
+// The Hungarian standard is the comma on the keypad not decimal dot,
+// but programmers hate it
+hidden partial keypad_keys
+xkb_symbols "def_dot" {
+   key  <KPDL> {        [        KP_Delete, KP_Decimal       ]       };
+};
+
+// def_common:
+// The common part of all Hungarian layout above
+hidden partial alphanumeric_keys modifier_keys
+xkb_symbols "def_common" {
+
+    // Alphanumeric section
+    key <AE01> {        [                1, apostrophe       ],
+                        [       asciitilde, dead_tilde       ]       };
+    key <AE02> {        [                2, quotedbl         ],
+                        [       dead_caron, caron            ]       };
+    key <AE03> {        [                3, plus             ],
+                        [      asciicircum, dead_circumflex  ]       };
+    key <AE04> {        [                4, exclam           ],
+                        [       dead_breve, breve            ]       };
+    key <AE05> {        [                5, percent          ],
+                        [   dead_abovering, degree           ]       };
+    key <AE06> {        [                6, slash            ],
+                        [      dead_ogonek, ogonek           ]       };
+    key <AE07> {        [                7, equal            ],
+                        [            grave, dead_grave       ]       };
+    key <AE08> {        [                8, parenleft        ],
+                        [    dead_abovedot, degree           ]       };
+    key <AE09> {        [                9, parenright       ],
+                        [       dead_acute, acute            ]       };
+    key <AE10> {        [       odiaeresis, Odiaeresis       ],
+                        [ dead_doubleacute, doubleacute      ]       };
+    key <AE11> {        [       udiaeresis, Udiaeresis       ],
+                        [   dead_diaeresis, diaeresis        ]       };
+    key <AE12> {        [           oacute, Oacute           ],
+                        [     dead_cedilla, cedilla          ]       };
+
+    key <AD01> {        [                q, Q                ],
+                        [        backslash                   ]       };
+    key <AD02> {        [                w, W                ],
+                        [              bar                   ]       };
+    key <AD08> {        [                i, I                ],
+                        [           Iacute                   ]       };
+    key <AD12> {        [           uacute, Uacute           ],
+                        [         multiply                   ]       };
+
+    key <AC04> {        [                f, F                ],
+                        [      bracketleft                   ]       };
+    key <AC05> {        [                g, G                ],
+                        [     bracketright                   ]       };
+    key <AC07> {        [                j, J                ],
+                        [           iacute                   ]       };
+    key <AC10> {        [           eacute, Eacute           ],
+                        [           dollar                   ]       };
+    key <AC11> {        [           aacute, Aacute           ],
+                        [           ssharp                   ]       };
+
+    key <LSGT> {        [           iacute, Iacute           ],
+                        [             less                   ]       };
+    key <AB02> {        [                x, X                ],
+                        [       numbersign                   ]       };
+    key <AB03> {        [                c, C                ],
+                        [        ampersand                   ]       };
+    key <AB04> {        [                v, V                ],
+                        [               at                   ]       };
+    key <AB05> {        [                b, B                ],
+                        [        braceleft                   ]       };
+    key <AB06> {        [                n, N                ],
+                        [       braceright                   ]       };
+    key <AB07> {        [                m, M                ],
+                        [             less                   ]       };
+    key <AB08> {        [            comma, question         ],
+                        [        semicolon                   ]       };
+    key <AB09> {        [           period, colon            ],
+                        [          greater                   ]       };
+    key <AB10> {        [            minus, underscore       ],
+                        [         asterisk                   ]       };
+    key <RALT> {        [      Mode_switch, Multi_key        ]       };
+    key <LALT> {        [            Alt_L, Meta_L           ]       };
+
+    // End alphanumeric section
+
+    // begin modifier mappings
+    modifier_map Shift  { Shift_L };
+    modifier_map Lock   { Caps_Lock };
+    modifier_map Control{ Control_L };
+    modifier_map Mod3   { Mode_switch };
+};
+
+partial
+xkb_symbols "Sundeadkeys" {
+    include "hu(default)" // for consistent naming
+};
+
+partial
+xkb_symbols "sundeadkeys" {
+    include "hu(Sundeadkeys)" // for consistent naming
+};
+
+partial
+xkb_symbols "nodeadkeys" {
+    // modify the default Hungarian layout to not have any dead keys
+    include "hu(default)"
+    key <AE01> {        [                1, apostrophe       ],
+                        [       asciitilde                   ]       };
+    key <AE02> {        [                2, quotedbl         ],
+                        [            caron                   ]       };
+    key <AE03> {        [                3, plus             ],
+                        [      asciicircum                   ]       };
+    key <AE04> {        [                4, exclam           ],
+                        [            breve                   ]       };
+    key <AE05> {        [                5, percent          ],
+                        [           degree                   ]       };
+    key <AE06> {        [                6, slash            ],
+                        [           ogonek                   ]       };
+    key <AE07> {        [                7, equal            ],
+                        [            grave                   ]       };
+    key <AE08> {        [                8, parenleft        ],
+                        [         abovedot                   ]       };
+    key <AE09> {        [                9, parenright       ],
+                        [            acute                   ]       };
+    key <AE10> {        [       odiaeresis, Odiaeresis       ],
+                        [      doubleacute                   ]       };
+    key <AE11> {        [       udiaeresis, Udiaeresis       ],
+                        [        diaeresis                   ]       };
+    key <AE12> {        [           oacute, Oacute           ],
+                        [          cedilla                   ]       };
+
+};

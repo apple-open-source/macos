@@ -1,6 +1,7 @@
-! Apple Internal 56K Modem (V.92)   Version 1.9   Date: June/10/03  Time: 10:00am
+! Apple Internal 56K Modem (V.92)   Version 2.0   Date: Oct/10/03  Time: 10:00am
 @ORIGINATE
 @ANSWER
+note "Version 2.0" 3
 ifstr 5 1 "0"
 serreset 115200, 0, 8, 1
 jump 2
@@ -35,8 +36,10 @@ jump 100
 @LABEL 4
 matchclr
 matchstr 1 5 "D1\13\10"
+matchstr 2 6 "J1\13\10"
 write "ATI12\13"
 matchread 90
+ASK 2 "Modem does not support V.92"
 jump 100
 !
 @LABEL 5
@@ -61,6 +64,29 @@ DTRSet
 flush
 pause 90
 jump 5
+!
+@LABEL 6
+flush
+matchclr
+matchstr 1 7   "OK\13\10"
+matchstr 2 101 "ERROR\13\10"
+write "AT&F92E0\13"
+!To disable PCM upstream, just add "!" at the beginning of the above line,
+!then remove the "!" from the line below. 
+!write "AT&F92E0+PIG=1\13"
+pause 5
+matchread 90
+inctries
+iftries 3 101
+!
+! Reset the Modem on setup failure
+!
+DTRClear
+pause 5
+DTRSet
+flush
+pause 90
+jump 6
 !
 @LABEL 7
 ifstr 4 8 "1"
@@ -107,12 +133,12 @@ jump 19
 ! Display ASK dialog with message.  Goto label 107 if dialog canceled.
 ! 
 ifstr 1 16 ""
-ASK 2 "Pick up the phone & dial ^1.  Hit OK when the phone rings, then hangup." 107
+ASK 2 "Pick up the phone and dial ^1.  Click OK when the phone rings, then hang up." 107
 note "Manual dialing initiated" 3
 jump 18
 !
 @LABEL 16
-ASK 2 "Pick up the phone & dial the number.  Hit OK when the phone rings, then hangup." 107
+ASK 2 "Pick up the phone and dial the number.  Click OK when the phone rings, then hang up." 107
 note "Manual dialing initiated" 3
 !
 @LABEL 18
@@ -202,6 +228,8 @@ matchstr 12 81  "+ER: "
 matchstr 13 83  "COMPRESSION: "
 matchstr 14 83  "+DR: "
 matchstr 15 33  "CONNECT "
+matchstr 16 83	"+DR:"
+matchstr 17 81	"+ER:"
 matchread 700
 ifANSWER 32
 jump 101
@@ -515,7 +543,8 @@ matchstr 10 84 "CLASS\13"
 matchstr 11 84 "COMP/"
 matchstr 12 84 "COMP\13"
 matchstr 13 84 "V\13"
-matchstr 14 89 "CONNECT "
+matchstr 14 84 "V44"
+matchstr 15 89 "CONNECT "
 matchread 30
 jump 32
 !

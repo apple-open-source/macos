@@ -1,10 +1,10 @@
-Este é um lembrete, enviado de mes em mes, sobre os membros de 
+Este é um lembrete, enviado de mês em mês, sobre os membros de 
 sua lista de discussão %(hostname)s. Isto inclui seus dados de 
-inscrição e como usa-lo para modificar ou se desiscrever de uma 
+inscrição e como usa-lo para modificar ou se desinscrever de uma 
 lista.
 
 Você pode visitar a URL para modificar seu status de membro ou 
-configuração, incluindo descadastramenentos, ajustando a entrega 
+configuração, incluindo desinscrição, ajustando a entrega 
 no estilo digest ou desativando a entrega (e.g. para férias) e 
 assim por diante.
 

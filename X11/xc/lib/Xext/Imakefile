@@ -1,0 +1,44 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:45:50 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/lib/Xext/Imakefile,v 1.12 2002/10/16 00:37:27 dawes Exp $
+
+#define DoNormalLib NormalLibXext
+#define DoSharedLib SharedLibXext
+#define DoExtraLib SharedLibXext
+#define DoDebugLib DebugLibXext
+#define DoProfileLib ProfileLibXext
+#define LibName Xext
+#define SoRev SOXEXTREV
+#define LibHeaders NO
+
+#include <Threads.tmpl>
+
+#ifdef SharedXextReqs
+REQUIREDLIBS = SharedXextReqs
+#endif
+
+#if HasShm
+      SHMSRCS = XShm.c
+      SHMOBJS = XShm.o
+#endif
+
+#if Malloc0ReturnsNull
+ALLOC_DEFINES = Malloc0ReturnsNullDefines
+#endif
+
+      DEFINES = $(ALLOC_DEFINES)
+     INCLUDES = -I$(XLIBSRC)
+         SRCS = globals.c extutil.c XMultibuf.c XShape.c $(SHMSRCS)  \
+		MITMisc.c XTestExt1.c XSync.c Xdbe.c XLbx.c \
+		XSecurity.c XAppgroup.c Xcup.c DPMS.c XEVI.c
+         OBJS = globals.o extutil.o XMultibuf.o XShape.o $(SHMOBJS) \
+		MITMisc.o XTestExt1.o XSync.o Xdbe.o XLbx.o \
+		XSecurity.o XAppgroup.o Xcup.o DPMS.o XEVI.o
+     LINTLIBS = $(LINTXLIB)
+
+#include <Library.tmpl>
+
+DependTarget()

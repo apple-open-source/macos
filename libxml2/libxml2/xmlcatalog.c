@@ -29,6 +29,7 @@
 #include <libxml/parser.h>
 #include <libxml/globals.h>
 
+#if defined(LIBXML_CATALOG_ENABLED) && defined(LIBXML_OUTPUT_ENABLED)
 static int shell = 0;
 static int sgml = 0;
 static int noout = 0;
@@ -37,9 +38,8 @@ static int add = 0;
 static int del = 0;
 static int convert = 0;
 static int verbose = 0;
-static char *filename;
+static char *filename = NULL;
 
-#ifdef LIBXML_CATALOG_ENABLED
 
 #ifndef XML_SGML_DEFAULT_CATALOG
 #define XML_SGML_DEFAULT_CATALOG "/etc/sgml/catalog"
@@ -194,7 +194,7 @@ static void usershell(void) {
 		if (ans == NULL) {
 		    printf("No entry for PUBLIC %s\n", argv[0]);
 		} else {
-		    printf("%s\n", ans);
+		    printf("%s\n", (char *) ans);
 		    xmlFree(ans);
 		}
 	    }
@@ -206,7 +206,7 @@ static void usershell(void) {
 		if (ans == NULL) {
 		    printf("No entry for SYSTEM %s\n", argv[0]);
 		} else {
-		    printf("%s\n", ans);
+		    printf("%s\n", (char *) ans);
 		    xmlFree(ans);
 		}
 	    }
@@ -256,7 +256,7 @@ static void usershell(void) {
 		if (ans == NULL) {
 		    printf("Resolver failed to find an answer\n");
 		} else {
-		    printf("%s\n", ans);
+		    printf("%s\n", (char *) ans);
 		    xmlFree(ans);
 		}
 	    }
@@ -539,7 +539,7 @@ int main(int argc, char **argv) {
 		    printf("No entry for PUBLIC %s\n", argv[i]);
 		    exit_value = 4;
 		} else {
-		    printf("%s\n", ans);
+		    printf("%s\n", (char *) ans);
 		    xmlFree(ans);
 		}
 	    } else {
@@ -549,14 +549,14 @@ int main(int argc, char **argv) {
 		    printf("No entry for SYSTEM %s\n", argv[i]);
 		    exit_value = 4;
 		} else {
-		    printf("%s\n", ans);
+		    printf("%s\n", (char *) ans);
 		    xmlFree(ans);
 		}
 	    }
 	}
     }
     if ((!sgml) && ((add) || (del) || (create) || (convert))) {
-	if (noout) {
+	if (noout && filename && *filename) {
 	    FILE *out;
 
 	    out = fopen(filename, "w");
@@ -580,8 +580,8 @@ int main(int argc, char **argv) {
     return(exit_value);
 }
 #else
-int main(int argc, char **argv) {
-    fprintf(stderr, "libxml was not compiled with catalog support\n");
+int main(int argc ATTRIBUTE_UNUSED, char **argv ATTRIBUTE_UNUSED) {
+    fprintf(stderr, "libxml was not compiled with catalog and output support\n");
     return(1);
 }
 #endif

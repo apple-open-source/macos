@@ -1,0 +1,13 @@
+Da du er listeadministrator, får du følgende forespørgsel om
+at godkende eller afvise følgende e-mail til listen:
+
+    Liste:   %(listname)s@%(hostname)s
+    Fra:     %(sender)s
+    Emne:    %(subject)s
+    Grunn:   %(reason)s
+
+For at godkende eller afvise forespørgslen besøg denne web-side
+
+    %(admindb_url)s
+        
+når du får tid.

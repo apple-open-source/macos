@@ -54,7 +54,7 @@
 # include <floatingpoint.h>
 #endif /* HAVE_FLOATINGPOINT_H */
 
-void fatal(const char *fmt,...)
+void pwsf_fatal(const char *fmt,...)
 {
     fprintf(stderr, fmt);
 }
@@ -70,13 +70,13 @@ void ssh_log(const char *fmt,...)
 {
     fprintf(stderr, fmt);
 }
-void verbose(const char *fmt,...)
+void pwsf_verbose(const char *fmt,...)
 {
     printf(fmt);
 }
 
 
-//RCSID("$Id: entropy.c,v 1.2 2003/03/18 19:29:07 snsimon Exp $");
+//RCSID("$Id: entropy.c,v 1.2.14.1 2004/02/27 21:51:51 snsimon Exp $");
 
 #ifndef offsetof
 # define offsetof(type, member) ((size_t) &((type *)0)->member)
@@ -116,9 +116,9 @@ int get_random_bytes(unsigned char *buf, int len)
 
 	/* Sanity checks */
 	if (sizeof(EGD_SOCKET) > sizeof(addr.sun_path))
-		fatal("Random pool path is too long");
+		pwsf_fatal("Random pool path is too long");
 	if (len > 255)
-		fatal("Too many bytes to read from EGD");
+		pwsf_fatal("Too many bytes to read from EGD");
 
 	memset(&addr, '\0', sizeof(addr));
 	addr.sun_family = AF_UNIX;
@@ -201,7 +201,7 @@ seed_rng(void)
 
 	if (!get_random_bytes(buf, sizeof(buf))) {
 		if (!RAND_status())
-			fatal("Entropy collection failed and entropy exhausted");
+			pwsf_fatal("Entropy collection failed and entropy exhausted");
 	} else {
 		RAND_add(buf, sizeof(buf), sizeof(buf));
 	}
@@ -349,7 +349,7 @@ stir_gettimeofday(double entropy_estimate)
 	struct timeval tv;
 	
 	if (gettimeofday(&tv, NULL) == -1)
-		fatal("Couldn't gettimeofday: %s", strerror(errno));
+		pwsf_fatal("Couldn't gettimeofday: %s", strerror(errno));
 
 	RAND_add(&tv, sizeof(tv), entropy_estimate);
 	
@@ -418,11 +418,11 @@ hash_output_from_command(entropy_source_t *src, char *hash)
 	if (devnull == -1) {
 		devnull = open("/dev/null", O_RDWR);
 		if (devnull == -1)
-			fatal("Couldn't open /dev/null: %s", strerror(errno));
+			pwsf_fatal("Couldn't open /dev/null: %s", strerror(errno));
 	}
 	
 	if (pipe(p) == -1)
-		fatal("Couldn't open pipe: %s", strerror(errno));
+		pwsf_fatal("Couldn't open pipe: %s", strerror(errno));
 
 	(void)gettimeofday(&tv_start, NULL); /* record start time */
 
@@ -430,7 +430,7 @@ hash_output_from_command(entropy_source_t *src, char *hash)
 		case -1: /* Error */
 			close(p[0]);
 			close(p[1]);
-			fatal("Couldn't fork: %s", strerror(errno));
+			pwsf_fatal("Couldn't fork: %s", strerror(errno));
 			/* NOTREACHED */
 		case 0: /* Child */
 			dup2(devnull, STDIN_FILENO);
@@ -567,7 +567,7 @@ prng_check_seedfile(char *filename) {
 	if (lstat(filename, &st) == -1) {
 		/* Fail on hard errors */
 		if (errno != ENOENT)
-			fatal("Couldn't stat random seed file \"%s\": %s", filename,
+			pwsf_fatal("Couldn't stat random seed file \"%s\": %s", filename,
 				strerror(errno));
 
 		return(0);
@@ -575,11 +575,11 @@ prng_check_seedfile(char *filename) {
 
 	/* regular file? */
 	if (!S_ISREG(st.st_mode))
-		fatal("PRNG seedfile %.100s is not a regular file", filename);
+		pwsf_fatal("PRNG seedfile %.100s is not a regular file", filename);
 
 	/* mode 0600, owned by root or the current user? */
 	if (((st.st_mode & 0177) != 0) || !(st.st_uid == original_uid))
-		fatal("PRNG seedfile %.100s must be mode 0600, owned by uid %d",
+		pwsf_fatal("PRNG seedfile %.100s must be mode 0600, owned by uid %d",
 			 filename, getuid());
 
 	return(1);
@@ -602,7 +602,7 @@ prng_write_seedfile(void) {
 	
 	pw = getpwuid(original_uid);
 	if (pw == NULL)
-		fatal("Couldn't get password entry for current user (%i): %s", 
+		pwsf_fatal("Couldn't get password entry for current user (%i): %s", 
 			original_uid, strerror(errno));
 				
 	/* Try to ensure that the parent directory is there */
@@ -621,11 +621,11 @@ prng_write_seedfile(void) {
 	prng_check_seedfile(filename);
 	
 	if ((fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0600)) == -1)
-		fatal("couldn't access PRNG seedfile %.100s (%.100s)", filename, 
+		pwsf_fatal("couldn't access PRNG seedfile %.100s (%.100s)", filename, 
 			strerror(errno));
 	
 	if (atomicio(write, fd, &seed, sizeof(seed)) != sizeof(seed))
-		fatal("problem writing PRNG seedfile %.100s (%.100s)", filename, 
+		pwsf_fatal("problem writing PRNG seedfile %.100s (%.100s)", filename, 
 			 strerror(errno));
 
 	close(fd);
@@ -640,7 +640,7 @@ prng_read_seedfile(void) {
 	
 	pw = getpwuid(original_uid);
 	if (pw == NULL)
-		fatal("Couldn't get password entry for current user (%i): %s", 
+		pwsf_fatal("Couldn't get password entry for current user (%i): %s", 
 			original_uid, strerror(errno));
 			
 	snprintf(filename, sizeof(filename), "%.512s/%s", pw->pw_dir, 
@@ -649,7 +649,7 @@ prng_read_seedfile(void) {
 	debug("loading PRNG seed from file %.100s", filename);
 
 	if (!prng_check_seedfile(filename)) {
-		verbose("Random seed file not found, creating new");
+		pwsf_verbose("Random seed file not found, creating new");
 		prng_write_seedfile();
 		
 		/* Reseed immediatly */
@@ -661,11 +661,11 @@ prng_read_seedfile(void) {
 	/* open the file and read in the seed */
 	fd = open(filename, O_RDONLY);
 	if (fd == -1)
-		fatal("could not open PRNG seedfile %.100s (%.100s)", filename, 
+		pwsf_fatal("could not open PRNG seedfile %.100s (%.100s)", filename, 
 			strerror(errno));
 
 	if (atomicio(read, fd, &seed, sizeof(seed)) != sizeof(seed)) {
-		verbose("invalid or short read from PRNG seedfile %.100s - ignoring",
+		pwsf_verbose("invalid or short read from PRNG seedfile %.100s - ignoring",
 			filename);
 		memset(seed, '\0', sizeof(seed));
 	}
@@ -695,7 +695,7 @@ prng_read_commands(char *cmdfilename)
 
 	f = fopen(cmdfilename, "r");
 	if (!f) {
-		fatal("couldn't read entropy commands file %.100s: %.100s",
+		pwsf_fatal("couldn't read entropy commands file %.100s: %.100s",
 		    cmdfilename, strerror(errno));
 	}
 
@@ -826,7 +826,7 @@ seed_rng(void)
 	void *old_sigchld_handler;
 
 	if (!prng_initialised)
-		fatal("RNG not initialised");
+		pwsf_fatal("RNG not initialised");
 	
 	/* Make sure some other sigchld handler doesn't reap our entropy */
 	/* commands */
@@ -836,12 +836,12 @@ seed_rng(void)
 	debug("Seeded RNG with %i bytes from system calls", (int)stir_from_system());
 
 	if (!RAND_status())
-		fatal("Not enough entropy in RNG");
+		pwsf_fatal("Not enough entropy in RNG");
 
 	signal(SIGCHLD, old_sigchld_handler);
 
 	if (!RAND_status())
-		fatal("Couldn't initialise builtin random number generator -- exiting.");
+		pwsf_fatal("Couldn't initialise builtin random number generator -- exiting.");
 }
 
 void init_rng(void) 
@@ -850,7 +850,7 @@ void init_rng(void)
 
 	/* Read in collection commands */
 	if (!prng_read_commands(SSH_PRNG_COMMAND_FILE))
-		fatal("PRNG initialisation failed -- exiting.");
+		pwsf_fatal("PRNG initialisation failed -- exiting.");
 
 	/* Set ourselves up to save a seed upon exit */
 	prng_seed_saved = 0;		

@@ -1,0 +1,67 @@
+'\"! eqn | mmdoc
+'\"macro stdmacro
+.ds Vn Version 1.2
+.ds Dt 6 March 1997
+.ds Re Release 1.2.0
+.ds Dp Feb 16 02:56
+.ds Dm  Feb 10 17:2
+.ds Xs 51469 3 xquerycontextinfoext.gl
+.TH GLXQUERYCONTEXTINFOEXT
+.SH NAME
+glXQueryContextInfoEXT
+\- query context information
+
+.SH C SPECIFICATION
+int \f3glXQueryContextInfoEXT\fP(
+Display \fI*dpy\fP,
+.nf
+.ta \w'\f3int \fPglXQueryContextInfoEXT( 'u
+	GLXContext \fIctx\fP,
+	int \fIattribute\fP,
+	int \fI*value\fP )
+.fi
+
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+.TP \w'\fIattribute\fP\ \ 'u 
+\f2dpy\fP
+Specifies the connection to the X server.
+
+.TP
+\f2ctx\fP
+Specifies a GLX rendering context.
+
+.TP
+\f2attribute\fP
+The visual ID that the context was created with.
+
+.TP
+\f2value\fP
+The X screen the the context was created for.
+
+.TP
+_param5
+The context with which this context shares display lists.
+or \f3NULL\fP if this context does not share display lists.
+
+.SH DESCRIPTION
+\f3glXQueryContextInfoEXT\fP  returns the the visual id, screen number, and share list 
+of \f2ctx\fP. This call may cause a round trip to the server.
+.P
+\f3glXQueryContextInfoEXT\fP is part of the \f3EXT_import_context\fP extension,
+not part of the core GLX command set. If \f3GLX_EXT_import_context\fP
+is included in the string returned by \f3glXQueryExtensionsString\fP,
+when called with argument \f3GLX_EXTENSIONS\fP,
+extension \f3EXT_import_context\fP is supported.
+
+.SH ERRORS
+\f3GLXBadContext\fP is generated if \f2ctx\fP does not
+refer to a valid context.
+
+.SH SEE ALSO
+\f3glXCreateContext\fP,
+\f3glXQueryVersion\fP,
+\f3glXQueryExtensionsString\fP
+

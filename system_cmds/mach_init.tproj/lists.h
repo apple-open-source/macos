@@ -34,6 +34,8 @@
 #import <mach/boolean.h>
 #import <servers/bootstrap_defs.h>
 
+#import <bsm/audit.h>
+
 #ifndef NULL
 #define	NULL	((void *)0)
 #endif NULL
@@ -87,14 +89,15 @@ struct server {
 	server_t	*next;		/* list of all servers */
 	server_t	*prev;
 	servertype_t	servertype;
-	cmd_t		cmd;		/* server command to exec */
-	int			uid;		/* uid to exec server with */
+	int		uid;		/* uid to exec server with */
+	auditinfo_t	auinfo;		/* server's audit information */
 	mach_port_t	port;		/* server's priv bootstrap port */
 	mach_port_t	task_port;	/* server's task port */
 	pid_t		pid;		/* server's pid */
 	int		activity;		/* count of checkins/registers this instance */
 	int		active_services;/* count of active services */
 	bootstrap_info_t *bootstrap; /* bootstrap context */
+	cmd_t		cmd;		/* server command to exec */
 };
 
 #define	NO_PID	(-1)
@@ -105,7 +108,8 @@ extern server_t *new_server(
 	bootstrap_info_t 	*bootstrap,
 	const char			*cmd,
 	int					uid,
-	servertype_t		servertype);
+	servertype_t		servertype,
+	auditinfo_t		auinfo);
 
 extern service_t 		*new_service(
 	bootstrap_info_t	*bootstrap,

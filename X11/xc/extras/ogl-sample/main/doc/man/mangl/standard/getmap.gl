@@ -1,0 +1,132 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,tbl|eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(GetMap,return evaluator parameters)
+_names(GetMap,[dfi]v)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies the symbolic name of a map.
+Accepted values are
+_const(MAP1_COLOR_4),
+_const(MAP1_INDEX),
+_const(MAP1_NORMAL),
+_const(MAP1_TEXTURE_COORD_1),
+_const(MAP1_TEXTURE_COORD_2),
+_const(MAP1_TEXTURE_COORD_3),
+_const(MAP1_TEXTURE_COORD_4),
+_const(MAP1_VERTEX_3),
+_const(MAP1_VERTEX_4),
+_const(MAP2_COLOR_4),
+_const(MAP2_INDEX),
+_const(MAP2_NORMAL),
+_const(MAP2_TEXTURE_COORD_1),
+_const(MAP2_TEXTURE_COORD_2),
+_const(MAP2_TEXTURE_COORD_3),
+_const(MAP2_TEXTURE_COORD_4),
+_const(MAP2_VERTEX_3), and
+_const(MAP2_VERTEX_4).
+_phead(_param2)
+Specifies which parameter to return.
+Symbolic names
+_const(COEFF),
+_const(ORDER), and
+_const(DOMAIN) are accepted.
+_phead(_param3)
+Returns the requested data.
+.SH DESCRIPTION
+_cmnd(Map1) and _cmnd(Map2) define evaluators.
+_cmnd returns evaluator parameters.
+_param1 chooses a map,
+_param2 selects a specific parameter,
+and _param3 points to storage where the values will be returned.
+.P
+The acceptable values for the _param1 parameter are described
+in the _cmnd(Map1) and _cmnd(Map2) reference pages.
+.P
+_param2 can assume the following values:
+.TP 15
+_const(COEFF)
+_param3 returns the control points for the evaluator function.
+One-dimensional evaluators return $order$ control points,
+and two-dimensional evaluators return $uorder ~times~ vorder$ control points.
+Each control point consists of one, two, three, or four integer,
+single-precision floating-point,
+or double-precision floating-point values,
+depending on the type of the evaluator.
+The GL returns two-dimensional control points in row-major order,
+incrementing the $uorder$ index quickly
+and the $vorder$ index after each row.
+Integer values,
+when requested,
+are computed by rounding the internal floating-point values to the
+nearest integer values. 
+.TP
+_const(ORDER)
+_param3 returns the order of the evaluator function.
+One-dimensional evaluators return a single value,
+$order$. The initial value is 1.
+Two-dimensional evaluators return two values,
+$uorder$ and $vorder$. The initial value is 1,1. 
+.TP
+_const(DOMAIN)
+_param3 returns the linear $u$ and $v$ mapping parameters.
+One-dimensional evaluators return two values,
+$u1$ and $u2$,
+as specified by _cmnd(Map1).
+Two-dimensional evaluators return four values
+($u1$, $u2$, $v1$, and $v2$)
+as specified by _cmnd(Map2).
+Integer values,
+when requested,
+are computed by rounding the internal floating-point values to the
+nearest integer values.
+.SH NOTES
+If an error is generated,
+no change is made to the contents of _param3.
+.SH ERRORS
+_const(INVALID_ENUM) is generated if either _param1 or _param2 is not
+an accepted value.
+.P
+_const(INVALID_OPERATION) is generated if _cmnd
+is executed between the execution of _cmnd(Begin)
+and the corresponding execution of _cmnd(End).
+.SH SEE ALSO
+_cmnd(EvalCoord),
+_cmnd(Map1),
+_cmnd(Map2)

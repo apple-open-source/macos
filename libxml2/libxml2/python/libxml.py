@@ -1,4 +1,5 @@
 import libxml2mod
+import types
 
 #
 # Errors raised by the wrappers when some tree handling failed.
@@ -34,30 +35,30 @@ class ioWrapper:
 
     def io_close(self):
         if self.__io == None:
-	    return(-1)
-	self.__io.close()
-	self.__io = None
-	return(0)
+            return(-1)
+        self.__io.close()
+        self.__io = None
+        return(0)
 
     def io_flush(self):
         if self.__io == None:
-	    return(-1)
-	self.__io.flush()
-	return(0)
+            return(-1)
+        self.__io.flush()
+        return(0)
 
     def io_read(self, len = -1):
         if self.__io == None:
-	    return(-1)
+            return(-1)
         if len < 0:
-	    return(self.__io.read())
-	return(self.__io.read(len))
+            return(self.__io.read())
+        return(self.__io.read(len))
 
     def io_write(self, str, len = -1):
         if self.__io == None:
-	    return(-1)
+            return(-1)
         if len < 0:
-	    return(self.__io.write(str))
-	return(self.__io.write(str, len))
+            return(self.__io.write(str))
+        return(self.__io.write(str, len))
 
 class ioReadWrapper(ioWrapper):
     def __init__(self, _obj, enc = ""):
@@ -79,18 +80,37 @@ class ioReadWrapper(ioWrapper):
 
 class ioWriteWrapper(ioWrapper):
     def __init__(self, _obj, enc = ""):
-        ioWrapper.__init__(self, _obj)
-        self._o = libxml2mod.xmlCreateOutputBuffer(self, enc)
+#        print "ioWriteWrapper.__init__", _obj
+        if type(_obj) == type(''):
+	    print "write io from a string"
+	    self.o = None
+	elif type(_obj) == types.InstanceType:
+	    print "write io from instance of %s" % (_obj.__class__)
+	    ioWrapper.__init__(self, _obj)
+	    self._o = libxml2mod.xmlCreateOutputBuffer(self, enc)
+	else:
+	    file = libxml2mod.outputBufferGetPythonFile(_obj)
+	    if file != None:
+		ioWrapper.__init__(self, file)
+	    else:
+	        ioWrapper.__init__(self, _obj)
+	    self._o = _obj
 
     def __del__(self):
-        print "__del__"
+#        print "__del__"
         self.io_close()
         if self._o != None:
             libxml2mod.xmlOutputBufferClose(self._o)
         self._o = None
 
+    def flush(self):
+        self.io_flush()
+        if self._o != None:
+            libxml2mod.xmlOutputBufferClose(self._o)
+        self._o = None
+
     def close(self):
-        self.io_close()
+        self.io_flush()
         if self._o != None:
             libxml2mod.xmlOutputBufferClose(self._o)
         self._o = None
@@ -110,24 +130,24 @@ class SAXCallback:
 
     def startElement(self, tag, attrs):
         """called at the start of every element, tag is the name of
-	   the element, attrs is a dictionary of the element's attributes"""
+           the element, attrs is a dictionary of the element's attributes"""
         pass
 
     def endElement(self, tag):
         """called at the start of every element, tag is the name of
-	   the element"""
+           the element"""
         pass
 
     def characters(self, data):
         """called when character data have been read, data is the string
-	   containing the data, multiple consecutive characters() callback
-	   are possible."""
+           containing the data, multiple consecutive characters() callback
+           are possible."""
         pass
 
     def cdataBlock(self, data):
         """called when CDATA section have been read, data is the string
-	   containing the data, multiple consecutive cdataBlock() callback
-	   are possible."""
+           containing the data, multiple consecutive cdataBlock() callback
+           are possible."""
         pass
 
     def reference(self, name):
@@ -140,7 +160,7 @@ class SAXCallback:
 
     def processingInstruction(self, target, data):
         """called when a PI has been found, target contains the PI name and
-	   data is the associated data in the PI"""
+           data is the associated data in the PI"""
         pass
 
     def comment(self, content):
@@ -149,42 +169,42 @@ class SAXCallback:
 
     def externalSubset(self, name, externalID, systemID):
         """called when a DOCTYPE declaration has been found, name is the
-	   DTD name and externalID, systemID are the DTD public and system
-	   identifier for that DTd if available"""
+           DTD name and externalID, systemID are the DTD public and system
+           identifier for that DTd if available"""
         pass
 
     def internalSubset(self, name, externalID, systemID):
         """called when a DOCTYPE declaration has been found, name is the
-	   DTD name and externalID, systemID are the DTD public and system
-	   identifier for that DTD if available"""
+           DTD name and externalID, systemID are the DTD public and system
+           identifier for that DTD if available"""
         pass
 
     def entityDecl(self, name, type, externalID, systemID, content):
         """called when an ENTITY declaration has been found, name is the
-	   entity name and externalID, systemID are the entity public and
-	   system identifier for that entity if available, type indicates
-	   the entity type, and content reports it's string content"""
+           entity name and externalID, systemID are the entity public and
+           system identifier for that entity if available, type indicates
+           the entity type, and content reports it's string content"""
         pass
 
     def notationDecl(self, name, externalID, systemID):
         """called when an NOTATION declaration has been found, name is the
-	   notation name and externalID, systemID are the notation public and
-	   system identifier for that notation if available"""
+           notation name and externalID, systemID are the notation public and
+           system identifier for that notation if available"""
         pass
 
     def attributeDecl(self, elem, name, type, defi, defaultValue, nameList):
         """called when an ATTRIBUTE definition has been found"""
-	pass
+        pass
 
     def elementDecl(self, name, type, content):
         """called when an ELEMENT definition has been found"""
-	pass
+        pass
 
     def entityDecl(self, name, publicId, systemID, notationName):
         """called when an unparsed ENTITY declaration has been found,
-	   name is the entity name and publicId,, systemID are the entity
-	   public and system identifier for that entity if available,
-	   and notationName indicate the associated NOTATION"""
+           name is the entity name and publicId,, systemID are the entity
+           public and system identifier for that entity if available,
+           and notationName indicate the associated NOTATION"""
         pass
 
     def warning(self, msg):
@@ -259,63 +279,63 @@ class xmlCore:
     # 
     import sys
     if float(sys.version[0:3]) < 2.2:
-	def __getattr__(self, attr):
-	    if attr == "parent":
-		ret = libxml2mod.parent(self._o)
-		if ret == None:
-		    return None
-		return xmlNode(_obj=ret)
-	    elif attr == "properties":
-		ret = libxml2mod.properties(self._o)
-		if ret == None:
-		    return None
-		return xmlAttr(_obj=ret)
-	    elif attr == "children":
-		ret = libxml2mod.children(self._o)
-		if ret == None:
-		    return None
-		return xmlNode(_obj=ret)
-	    elif attr == "last":
-		ret = libxml2mod.last(self._o)
-		if ret == None:
-		    return None
-		return xmlNode(_obj=ret)
-	    elif attr == "next":
-		ret = libxml2mod.next(self._o)
-		if ret == None:
-		    return None
-		return xmlNode(_obj=ret)
-	    elif attr == "prev":
-		ret = libxml2mod.prev(self._o)
-		if ret == None:
-		    return None
-		return xmlNode(_obj=ret)
-	    elif attr == "content":
-		return libxml2mod.xmlNodeGetContent(self._o)
-	    elif attr == "name":
-		return libxml2mod.name(self._o)
-	    elif attr == "type":
-		return libxml2mod.type(self._o)
-	    elif attr == "doc":
-		ret = libxml2mod.doc(self._o)
-		if ret == None:
-		    if self.type == "document_xml" or self.type == "document_html":
-			return xmlDoc(_obj=self._o)
-		    else:
-			return None
-		return xmlDoc(_obj=ret)
-	    raise AttributeError,attr
+        def __getattr__(self, attr):
+            if attr == "parent":
+                ret = libxml2mod.parent(self._o)
+                if ret == None:
+                    return None
+                return xmlNode(_obj=ret)
+            elif attr == "properties":
+                ret = libxml2mod.properties(self._o)
+                if ret == None:
+                    return None
+                return xmlAttr(_obj=ret)
+            elif attr == "children":
+                ret = libxml2mod.children(self._o)
+                if ret == None:
+                    return None
+                return xmlNode(_obj=ret)
+            elif attr == "last":
+                ret = libxml2mod.last(self._o)
+                if ret == None:
+                    return None
+                return xmlNode(_obj=ret)
+            elif attr == "next":
+                ret = libxml2mod.next(self._o)
+                if ret == None:
+                    return None
+                return xmlNode(_obj=ret)
+            elif attr == "prev":
+                ret = libxml2mod.prev(self._o)
+                if ret == None:
+                    return None
+                return xmlNode(_obj=ret)
+            elif attr == "content":
+                return libxml2mod.xmlNodeGetContent(self._o)
+            elif attr == "name":
+                return libxml2mod.name(self._o)
+            elif attr == "type":
+                return libxml2mod.type(self._o)
+            elif attr == "doc":
+                ret = libxml2mod.doc(self._o)
+                if ret == None:
+                    if self.type == "document_xml" or self.type == "document_html":
+                        return xmlDoc(_obj=self._o)
+                    else:
+                        return None
+                return xmlDoc(_obj=ret)
+            raise AttributeError,attr
     else:
-	parent = property(get_parent, None, None, "Parent node")
-	children = property(get_children, None, None, "First child node")
-	last = property(get_last, None, None, "Last sibling node")
-	next = property(get_next, None, None, "Next sibling node")
-	prev = property(get_prev, None, None, "Previous sibling node")
-	properties = property(get_properties, None, None, "List of properies")
-	content = property(get_content, None, None, "Content of this node")
-	name = property(get_name, None, None, "Node name")
-	type = property(get_type, None, None, "Node type")
-	doc = property(get_doc, None, None, "The document this node belongs to")
+        parent = property(get_parent, None, None, "Parent node")
+        children = property(get_children, None, None, "First child node")
+        last = property(get_last, None, None, "Last sibling node")
+        next = property(get_next, None, None, "Next sibling node")
+        prev = property(get_prev, None, None, "Previous sibling node")
+        properties = property(get_properties, None, None, "List of properies")
+        content = property(get_content, None, None, "Content of this node")
+        name = property(get_name, None, None, "Node name")
+        type = property(get_type, None, None, "Node type")
+        doc = property(get_doc, None, None, "The document this node belongs to")
 
     #
     # Serialization routines, the optional arguments have the following
@@ -333,30 +353,34 @@ class xmlCore:
     # is allocated/freed every time but convenient.
     #
     def xpathEval(self, expr):
-	doc = self.doc
-	if doc == None:
-	    return None
-	ctxt = doc.xpathNewContext()
-	ctxt.setContextNode(self)
-	res = ctxt.xpathEval(expr)
-	ctxt.xpathFreeContext()
-	return res
+        doc = self.doc
+        if doc == None:
+            return None
+        ctxt = doc.xpathNewContext()
+        ctxt.setContextNode(self)
+        res = ctxt.xpathEval(expr)
+        ctxt.xpathFreeContext()
+        return res
 
-    #
-    # Selecting nodes using XPath, faster because the context
-    # is allocated just once per xmlDoc.
-    #
+#    #
+#    # Selecting nodes using XPath, faster because the context
+#    # is allocated just once per xmlDoc.
+#    #
+#    # Removed: DV memleaks c.f. #126735
+#    #
+#    def xpathEval2(self, expr):
+#        doc = self.doc
+#        if doc == None:
+#            return None
+#        try:
+#            doc._ctxt.setContextNode(self)
+#        except:
+#            doc._ctxt = doc.xpathNewContext()
+#            doc._ctxt.setContextNode(self)
+#        res = doc._ctxt.xpathEval(expr)
+#        return res
     def xpathEval2(self, expr):
-	doc = self.doc
-	if doc == None:
-	    return None
-        try:
-            doc._ctxt.setContextNode(self)
-        except:
-            doc._ctxt = doc.xpathNewContext()
-            doc._ctxt.setContextNode(self)
-	res = doc._ctxt.xpathEval(expr)
-	return res
+        return self.xpathEval(expr)
 
     # support for python2 iterators
     def walk_depth_first(self):
@@ -370,7 +394,7 @@ class xmlCore:
             self.doc._ctxt.xpathFreeContext()
         except:
             pass
-        libxml2mod.freeDoc(self._o)
+        libxml2mod.xmlFreeDoc(self._o)
 
 
 #
@@ -497,7 +521,7 @@ class parserCtxtCore:
     def __del__(self):
         if self._o != None:
             libxml2mod.xmlFreeParserCtxt(self._o)
-	self._o = None
+        self._o = None
 
     def setErrorHandler(self,f,arg):
         """Register an error handler that will be called back as
@@ -510,6 +534,11 @@ class parserCtxtCore:
         """Return (f,arg) as previously registered with setErrorHandler
            or (None,None)."""
         return libxml2mod.xmlParserCtxtGetErrorHandler(self._o)
+
+    def addLocalCatalog(self, uri):
+        """Register a local catalog with the parser"""
+        return libxml2mod.addLocalCatalog(self._o, uri)
+    
 
 def _xmlTextReaderErrorFunc((f,arg),msg,severity,locator):
     """Intermediate callback to wrap the locator"""
@@ -546,6 +575,7 @@ class xmlTextReaderCore:
         else:
             # assert f is _xmlTextReaderErrorFunc
             return arg
+
 
 # WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
 #

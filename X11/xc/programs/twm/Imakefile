@@ -1,0 +1,58 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:05 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/twm/Imakefile,v 3.14 2002/10/08 20:54:04 keithp Exp $
+
+#if HasMkstemp
+  MKTMP_DEFINES = -DHAS_MKSTEMP
+#endif
+         YFLAGS = -d
+        DEPLIBS = $(DEPXMULIB) $(DEPXTOOLLIB) XkbClientDepLibs $(DEPXLIB)
+LOCAL_LIBRARIES = $(XMULIB) $(XTOOLLIB) XkbClientLibs $(XLIB)
+       LINTLIBS = $(LINTXMU) $(LINTXTOOLLIB) $(LINTXLIB)
+        DEFINES = $(SIGNAL_DEFINES) $(MKTMP_DEFINES) XkbClientDefines
+
+           SRCS = gram.c lex.c deftwmrc.c add_window.c gc.c list.c twm.c \
+		parse.c menus.c events.c resize.c util.c version.c iconmgr.c \
+		cursor.c icons.c session.c
+
+           OBJS = gram.o lex.o deftwmrc.o add_window.o gc.o list.o twm.o \
+		parse.o menus.o events.o resize.o util.o version.o iconmgr.o \
+		cursor.o icons.o session.o
+
+all::
+
+SpecialCObjectRule(parse,$(_NOOP_),'-DSYSTEM_INIT_FILE="'$(TWMDIR)'/system.twmrc"')
+#if !HasPutenv
+SpecialCObjectRule(util,$(_NOOP_),-DNOPUTENV XkbClientDefines)
+#endif
+
+LexFile(lex)
+
+YaccFile(gram,$(YFLAGS))
+
+includes:: deftwmrc.c 
+
+depend:: deftwmrc.c 
+
+clean::
+	RemoveFile(deftwmrc.c)
+
+deftwmrc.c:  system.twmrc
+	$(RM) $@
+	echo '/* ' >>$@
+	echo ' * This file is generated automatically from the default' >>$@
+	echo ' * twm bindings file system.twmrc by the twm Imakefile.' >>$@
+	echo ' */' >>$@
+	echo '' >>$@
+	echo 'char *defTwmrc[] = {' >>$@
+	sed -f deftwmrc.sed <system.twmrc >>$@
+	echo '    (char *) 0 };' >>$@
+
+ComplexProgramTarget(twm)
+InstallNonExecFile(system.twmrc,$(TWMDIR))
+
+LinkConfDirectory(twm,.,twm,.)
+

@@ -1,0 +1,65 @@
+XCOMM $XConsortium: WinLib.tmpl,v 1.1 94/01/08 18:32:51 rws Exp $
+XCOMM $XFree86: xc/config/cf/cygwin.tmpl,v 3.14 2003/01/12 02:44:25 dawes Exp $
+
+#if UseCygIPC
+#define SharedX11Reqs -lcygipc
+#else
+#define SharedX11Reqs 
+#endif
+#define SharedOldXReqs $(LDPRELIB) $(XLIBONLY)
+#define SharedXReqs $(XTOOLLIB) $(XPLIB) $(XLIB) $(LDPOSTLIBS)
+#define SharedXtReqs $(LDPRELIB) $(SMLIB) $(ICELIB) $(XLIBONLY)
+#define SharedXawReqs $(LDPRELIB) $(XMULIB) $(XTOOLLIB) $(XPMLIB) $(XLIB)
+#define SharedXaw6Reqs $(LDPRELIB) $(XMULIB) $(XTOOLLIB) $(XPMLIB) $(XLIB)
+#define SharedXmuReqs $(LDPRELIB) $(XTOOLLIB) $(XLIB)
+#define SharedXextReqs $(LDPRELIB) $(XLIBONLY)
+#define SharedXiReqs $(LDPRELIB) $(XLIB)
+#define SharedPexReqs $(LDPRELIB) $(XLIBONLY)
+#define SharedXtstReqs $(LDPRELIB) $(XLIB)
+#define SharedXieReqs $(LDPRELIB) $(XLIBONLY)
+#define SharedSMReqs $(LDPRELIB) $(ICELIB)
+#define SharedXpReqs $(LDPRELIB) $(XAUTHLIB) $(EXTENSIONLIB) $(XLIBONLY)
+#define SharedXvReqs $(LDPRELIB) $(XLIB)
+#define SharedGLReqs	$(LDPRELIB) $(XLIB)
+#define SharedGLUReqs	$(LDPRELIB) $(XLIB) $(GLXLIB)
+XCOMM #define SharedXfontReqs $(LDPRELIB) $(XLIB)
+#define SharedXxf86vmReqs $(LDPRELIB) $(XLIB) 
+#define SharedXxf86miscReqs $(LDPRELIB) $(XLIB)
+#define SharedXpmReqs $(LDPRELIB) $(XLIB)
+#define SharedXxf86dgaReqs $(LDPRELIB) $(XLIB)
+#define SharedXssReqs $(LDPRELIB) $(XLIB) $(EXTENSIONLIB) $(XTOOLLIB)
+#define SharedDPSReqs $(LDPRELIB) $(SMLIB) $(ICELIB) $(XTOOLLIB) $(XLIB)
+#define SharedDPSTKReqs  $(LDPRELIB) $(SMLIB) $(ICELIB) $(XTOOLLIB) $(DPSLIB) $(XLIB)
+#define SharedXrenderReqs $(LDPRELIB) $(EXTENSIONLIB) $(XLIB)
+#define SharedpsresReqs $(LDPRELIB) $(SMLIB) $(ICELIB) $(XTOOLLIB) $(XLIB)
+#define SharedXmuuReqs $(LDPRELIB) $(XTOOLLIB) $(XLIB)
+#define SharedXrandrReqs $(LDPRELIB) $(XRENDERLIB) $(XLIB)
+#define SharedXcursorReqs $(LDPRELIB) $(XRENDERLIB) $(XLIB) 
+
+
+#ifndef FixupLibReferences
+#define FixupLibReferences()						@@\
+XMULIBONLY = -lXmu							@@\
+XMULIB = $(XMULIBONLY) $(XTOOLLIB) $(XLIB)
+#endif
+
+#ifndef XawClientLibs
+#define XawClientLibs $(XAWLIB) $(XMULIBONLY) $(XTOOLLIB) $(XPMLIB) $(XLIB)
+#endif
+
+
+/*
+ * Suffix for Windows resource source files
+ */
+
+#ifndef RCsuf
+#define RCsuf rc
+#endif
+
+/*
+ * Suffix for Windows resource compiled files
+ */
+
+#ifndef RESsuf
+#define RESsuf res
+#endif

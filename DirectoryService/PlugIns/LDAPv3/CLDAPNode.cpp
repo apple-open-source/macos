@@ -38,10 +38,12 @@
 #include <sasl.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
+#include <SystemConfiguration/SystemConfiguration.h>
 
 #include "CLDAPNode.h"
 #include "CLDAPv3Plugin.h"
 #include "CLog.h"
+#include "DSLDAPUtils.h"
 
 #define OCSEPCHARS			" '()$"
 
@@ -58,6 +60,45 @@ typedef struct saslDefaults
 bool CLDAPNode::fCheckThreadActive   = false;
 
 class CLDAPv3Plugin;
+
+
+
+bool checkReachability(struct sockaddr *destAddr);
+bool checkReachability(struct sockaddr *destAddr)
+{
+	SCNetworkReachabilityRef	target	= NULL;
+	SCNetworkConnectionFlags	flags;
+	bool						ok		= false;
+
+
+	target = SCNetworkReachabilityCreateWithAddress(NULL, destAddr);
+	if (target == NULL) {
+		// can't determine the reachability
+		goto done;
+	}
+
+	if (!SCNetworkReachabilityGetFlags(target, &flags)) {
+		// can't get the reachability flags
+		goto done;
+	}
+
+	if (!(flags & kSCNetworkFlagsReachable)) {
+		// the destination address is not reachable with the current network config
+		goto done;
+	}
+
+	if (flags & kSCNetworkFlagsConnectionRequired) {
+		// a connection must first be established to reach the destination address
+		goto done;
+	}
+
+	ok = true;	// the destination is reachable!
+
+  done :
+
+	if (target) CFRelease(target);
+	return(ok);
+}
 
 int sasl_interact( LDAP *ld, unsigned flags, void *inDefaults, void *inInteract );
 int sasl_interact( LDAP *ld, unsigned flags, void *inDefaults, void *inInteract )
@@ -826,8 +867,8 @@ void	CLDAPNode::GetSchema	( sLDAPContextData *inContext )
 	sInt32					siResult		= eDSNoErr;
 	sLDAPConfigData		   *pConfig			= nil;
 	LDAPMessage			   *LDAPResult		= nil;
-	BerElement			   *ber;
-	struct berval		  **bValues;
+	BerElement			   *ber				= nil;
+	struct berval		  **bValues			= nil;
 	char				   *pAttr			= nil;
 	sObjectClassSchema	   *aOCSchema		= nil;
 	bool					bSkipToTag		= true;
@@ -1549,8 +1590,8 @@ char** CLDAPNode::GetNamingContexts( LDAP *inHost, int inSearchTO, uInt32 *outCo
 	LDAPMessage		   *result				= nil;
 	int					ldapReturnCode		= 0;
 	char			   *attrs[2]			= {"namingContexts",NULL};
-	BerElement		   *ber;
-	struct berval	  **bValues;
+	BerElement		   *ber					= nil;
+	struct berval	  **bValues				= nil;
 	char			   *pAttr				= nil;
 	char			  **outMapSearchBases	= nil;
 
@@ -1652,6 +1693,8 @@ char** CLDAPNode::GetNamingContexts( LDAP *inHost, int inSearchTO, uInt32 *outCo
 		}
 	}
 	
+	DSSearchCleanUp(inHost, ldapMsgId);
+
 	return( outMapSearchBases );
 
 } // GetNamingContexts
@@ -1671,8 +1714,8 @@ sInt32 CLDAPNode::GetSchemaMessage ( LDAP *inHost, int inSearchTO, LDAPMessage *
 	char			   *sattrs[2]		= {"subschemasubentry",NULL};
 	char			   *attrs[2]		= {"objectclasses",NULL};
 	char			   *subschemaDN		= nil;
-	BerElement		   *ber;
-	struct berval	  **bValues;
+	BerElement		   *ber				= nil;
+	struct berval	  **bValues			= nil;
 	char			   *pAttr			= nil;
 
 	try
@@ -1763,6 +1806,8 @@ sInt32 CLDAPNode::GetSchemaMessage ( LDAP *inHost, int inSearchTO, LDAPMessage *
 			}
 		}
 		
+		DSSearchCleanUp(inHost, ldapMsgId);
+
 		if (subschemaDN != nil)
 		{
 			//here we call to get the actual subschema record
@@ -1821,6 +1866,8 @@ sInt32 CLDAPNode::GetSchemaMessage ( LDAP *inHost, int inSearchTO, LDAPMessage *
 					result = nil;
 				}
 			}
+			
+			DSSearchCleanUp(inHost, ldapMsgId);
 		}
 	}
 
@@ -3220,8 +3267,8 @@ sInt32 CLDAPNode::GetReplicaListMessage( LDAP *inHost, int inSearchTO, char *inC
 	LDAPMessage		   *result			= nil;
 	int					ldapReturnCode	= 0;
 	char			   *attrs[2]		= {"altserver",NULL};
-	BerElement		   *ber;
-	struct berval	  **bValues;
+	BerElement		   *ber				= nil;
+	struct berval	  **bValues			= nil;
 	bool				bAltServerAdded = false;
 
 	//search for the specific LDAP record altServer at the rootDSE which may contain
@@ -3338,6 +3385,8 @@ sInt32 CLDAPNode::GetReplicaListMessage( LDAP *inHost, int inSearchTO, char *inC
 		}
 	}
 	
+	DSSearchCleanUp(inHost, ldapMsgId);
+
 	if (bAltServerAdded && (inConfigServerString != nil) )
 	{
 		CFStringRef aCFString = CFStringCreateWithCString( NULL, inConfigServerString, kCFStringEncodingMacRoman );
@@ -3361,8 +3410,8 @@ sInt32 CLDAPNode::ExtractReplicaListMessage( LDAP *inHost, int inSearchTO, sLDAP
     int					ldapMsgId		= 0;
 	LDAPMessage		   *result			= nil;
 	int					ldapReturnCode	= 0;
-	BerElement		   *ber;
-	struct berval	  **bValues;
+	BerElement		   *ber				= nil;
+	struct berval	  **bValues			= nil;
 	char			   *pAttr			= nil;
 	LDAPControl		  **serverctrls		= nil;
 	LDAPControl		  **clientctrls		= nil;
@@ -3583,6 +3632,8 @@ sInt32 CLDAPNode::ExtractReplicaListMessage( LDAP *inHost, int inSearchTO, sLDAP
 		}
 	}
 	
+	DSSearchCleanUp(inHost, ldapMsgId);
+
 	if ( repListAttr != nil )
 	{
 		free(repListAttr);
@@ -3800,6 +3851,8 @@ bool CLDAPNode::ReachableAddress( struct addrinfo *addrInfo )
 	// if it wasn't local
 	if( bReturn == false )
 	{
+		bReturn = checkReachability(addrInfo->ai_addr);
+/*
 		struct ifaddrs *ifa_list = nil, *ifa = nil;
 		
 		if( getifaddrs(&ifa_list) != -1 )
@@ -3818,6 +3871,7 @@ bool CLDAPNode::ReachableAddress( struct addrinfo *addrInfo )
 			}
 			freeifaddrs(ifa_list);
 		}
+*/
 	}
 	return bReturn;
 }
@@ -3836,8 +3890,8 @@ void CLDAPNode::CheckSASLMethods( sLDAPNodeStruct *inLDAPNodeStruct, CLDAPv3Conf
 			LDAPMessage		   *result				= nil;
 			int					ldapReturnCode		= 0;
 			char			   *attrs[2]			= { "supportedSASLMechanisms",NULL };
-			BerElement		   *ber					= NULL;
-			struct berval	  **bValues				= NULL;
+			BerElement		   *ber					= nil;
+			struct berval	  **bValues				= nil;
 			char			   *pAttr				= nil;
 			struct timeval		tv					= { 0, 0 };
 

@@ -1,0 +1,15 @@
+XCOMM $XFree86: xc/programs/xedit/lisp/lisp.cf,v 1.6 2002/11/08 08:00:57 paulo Exp $
+
+#if 0
+#ifndef BuildSharedLispModules
+#if HasDlopen
+#define BuildSharedLispModules	YES
+#else
+#define BuildSharedLispModules	NO
+#endif
+#endif
+#else
+#define BuildSharedLispModules	NO
+#endif
+
+LISPDIR		= $(LIBDIR)/xedit/lisp

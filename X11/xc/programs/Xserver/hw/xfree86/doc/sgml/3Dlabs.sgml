@@ -1,0 +1,91 @@
+<!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN">
+
+<article>
+<title>Information for 3DLabs Chipset Users
+<author>The XFree86 Project Inc.
+<date>25 June 1999
+<toc>
+
+<sect>Supported hardware <p>
+
+This server supports the following 3DLabs chipsets:
+<itemize>
+<item>GLINT 500TX with IBM RGB526 RAMDAC
+<item>GLINT MX plus Delta with IBM RGB526 and IBM RGB640 RAMDAC
+<item>GLINT MX plus Gamma with IBM RGB526 and IBM RGB640 RAMDAC
+<item>Permedia with IBM RGB526 RAMDAC
+<item>Permedia 2 (classic, 2a, 2v)
+<item>Permedia 3
+</itemize>
+
+<sect>Features <p>
+<itemize>
+<item>accelerated
+<item>hardware cursor
+<item>DPMS support
+<item>supported color depths
+<itemize>
+<item>GLINT MX/500TX: 8/16/32 bpp
+<item>Permedia: 8/16/32 bpp
+<item>Permedia 2: 8/16/24/32 bpp
+<item>Permedia 3: depth 8 (bpp 8), 15, 16 (bpp 16) and 24 (bpp 32)
+</itemize>
+</itemize>
+
+<sect>XF86Config Option <p>
+<descrip>
+<tag>Option "sw_cursor"</tag>
+disable the hardware cursor.
+<tag>Option "no_pixmap_cache"</tag>
+disables use of the pixmap cache. Might be useful if drawing errors occur.
+<tag>Option "no_accel"</tag>
+completely disables acceleration. Usually not recommended.
+<tag>Option "pci_retry"</tag>
+stall the PCI bus while the graphics engine is busy. While this might 
+give slightly higher performance, you run the risk of disturbing other
+devices that are waiting to be serviced by the processor. This option may
+cause problems with SCSI cards, serial connections, sound cards, etc.
+<tag>Option "firegl_3000"</tag>
+needed for the Diamond Fire GL 3000 in order to use the primary output
+on that card. The second screen is currently not supported.
+<tag>Option "overclock_mem"</tag>
+Run the memory at a higher clock. Useful on some cards with display glitches
+at higher resolutions. But adds the risk to damage the hardware. Use with
+caution.
+</descrip>
+
+<sect>Bugs and Limitations<p>
+<itemize>
+<item>The 500TX and MX chipsets cannot switch modes, therefore only the first
+mode on the modes line is available.
+<item>In some color depths without acceleration there are color problems.
+<item>While the server is accelerated, there is room for improvement. As our
+development is focusing on XFree86-4.0 we are not planning to change that in
+the 3.3.x branch. XFree86-4.0 will include a significantly faster server.
+<item>The Permedia 3 chipset has still some minor problems, see the README.pm3
+file in the glint driver source directory for more details.
+</itemize>
+
+<sect>Authors<p>
+<itemize>
+<item>Alan Hourihane <it>&lt;alanh@fairlite.demon.co.uk&gt;</it>
+<item>Dirk Hohndel <it>&lt;hohndel@XFree86.org&gt;</it>
+<item>Stefan Dirsch <it>&lt;sndirsch@suse.de&gt;</it>
+<item>Helmut Fahrion <it>&lt;hf@suse.de&gt;</it>
+<item>Sven Luther <it>&lt;luther@dpt-info.u-strasbg.fr&gt;</it>
+<item>Special thanks to Elsa AG, Aachen for making it possible for us to
+develop this server and furnishing us with plenty of boards and information
+to help us on the way
+<item>Very special thanks to SuSE GmbH, Nuernberg for allowing some of us to
+work on this server on paid time, thereby financing development of this
+server.
+<item>Special thanks for Appian Graphics for having provided board and
+documentation for the Permedia3 chip.
+</itemize>
+
+<verb>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/3Dlabs.sgml,v 1.4 2000/10/17 09:07:03 alanh Exp $
+</verb>
+
+</article>
+

@@ -153,11 +153,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.1</string>
+	<string>2.0.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.1</string>
+	<string>2.0.2</string>
 	<key>CFPlugInDynamicRegisterFunction</key>
 	<string></string>
 	<key>CFPlugInDynamicRegistration</key>
@@ -305,6 +305,37 @@
 //842
 //843
 //844
+		842C24BF0561685200C9FCCD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = CPolicyGlobalXML.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		842C24C00561685200C9FCCD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = CPolicyGlobalXML.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		842C24C10561685200C9FCCD = {
+			fileRef = 842C24BF0561685200C9FCCD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		842C24C20561685200C9FCCD = {
+			fileRef = 842C24C00561685200C9FCCD;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
 		842E228903DFC6B800DD284B = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -451,6 +482,12 @@
 				8448FC9D040187B200DD284C,
 				8448FC9E040187B200DD284C,
 				8448FC9F040187B200DD284C,
+				84D59339056ED8EB00159B58,
+				84D59338056ED8EB00159B58,
+				842C24BF0561685200C9FCCD,
+				842C24C00561685200C9FCCD,
+				84FC489305582EE000FEBC57,
+				84FC489405582EE000FEBC57,
 				842E802004B4CCF100EE46D9,
 				84F0E0A603E6A96C00DD284B,
 				84F0E0A503E6A96C00DD284B,
@@ -494,6 +531,9 @@
 				84BB552104B109F60073079A,
 				842E802204B4CCF100EE46D9,
 				842E802504B4E53100EE46D9,
+				84FC489605582EE000FEBC57,
+				842C24C20561685200C9FCCD,
+				84D5933A056ED8EB00159B58,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -526,6 +566,9 @@
 				84BB551E04B109F40073079A,
 				84BB552004B109F50073079A,
 				842E802604B4E53100EE46D9,
+				84FC489505582EE000FEBC57,
+				842C24C10561685200C9FCCD,
+				84D5933B056ED8EB00159B58,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -601,11 +644,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.1</string>
+	<string>1.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.1</string>
+	<string>1.2</string>
 </dict>
 </plist>
 ";
@@ -959,6 +1002,37 @@
 			target = 089C1673FE841209C02AAC07;
 			targetProxy = 84F64BAF04CDBA9A009610BC;
 		};
+		84D59338056ED8EB00159B58 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = CPolicyBase.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84D59339056ED8EB00159B58 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = CPolicyBase.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84D5933A056ED8EB00159B58 = {
+			fileRef = 84D59338056ED8EB00159B58;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84D5933B056ED8EB00159B58 = {
+			fileRef = 84D59339056ED8EB00159B58;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		84F0E0A503E6A96C00DD284B = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
@@ -981,6 +1055,37 @@
 			proxyType = 1;
 			remoteGlobalIDString = 089C1673FE841209C02AAC07;
 			remoteInfo = PasswordServerPlugin;
+		};
+		84FC489305582EE000FEBC57 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = CPolicyXML.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84FC489405582EE000FEBC57 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = CPolicyXML.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84FC489505582EE000FEBC57 = {
+			fileRef = 84FC489305582EE000FEBC57;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84FC489605582EE000FEBC57 = {
+			fileRef = 84FC489405582EE000FEBC57;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
 		};
 //840
 //841

@@ -9,11 +9,11 @@ O que isto te afeta?
 1) As mensagens intencionadas a toda a lista devem ser enviadas para: %(listaddr)s.
 
 2) Será lhe fornecida uma senha aleatória para prevenir que outras pessoas 
-te descadastrem sem seu conhecimento. Ela será lhe passada em um email 
+te descadastrar sem seu conhecimento. Ela será lhe passada em um email 
 separado, que já terá recebido. Não se preocupe se esquecer desta 
 senha; um lembrete lhe será enviada por email a cada mês.
 
-3) Se tiver acesso a Web, você poderá usa-la a qualquer omento para 
+3) Se tiver acesso a Web, você poderá usa-la a qualquer momento para 
 se descadastrar desta lista, para mudar para o modo normal de 
 recebimento ou digest, para visualizar as mensagens enviadas para 
 a lista (que estarão disponíveis após a lista receber mensagens 
@@ -22,9 +22,9 @@ por um dia, por exemplo), etc. O endereço Web para estes recursos
 
     %(listinfo_url)s
 
-4) Se nào tiver acesso WWW, você poderá fazer estas mesmas coisas 
+4) Se não tiver acesso WWW, você poderá fazer estas mesmas coisas 
 por email. Envie um email para %(requestaddr)s 
-com o asssunto ou mensagem contendo apenas a palavra "help" 
+com o assunto ou mensagem contendo apenas a palavra "help" 
 (sem as aspas). Você receberá uma resposta automática lhe dando 
 outras instruções. 
 

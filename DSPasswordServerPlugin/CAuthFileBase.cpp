@@ -420,6 +420,39 @@ CAuthFileBase::pwLock(void)
 }
 
 
+//----------------------------------------------------------------------------------------------------
+//	pwLock
+//
+//	Returns: TRUE if the lock is obtained.
+//----------------------------------------------------------------------------------------------------
+bool
+CAuthFileBase::pwLock( unsigned long inMillisecondsToWait )
+{
+	const long millisecondsPerTry = 25;
+	long tries = inMillisecondsToWait / millisecondsPerTry;
+	bool locked = false;
+	
+	if ( pwFile != NULL )
+	{
+		if ( tries <= 0 )
+			tries = 1;
+		
+		while ( tries-- > 0 )
+		{
+			if ( flock( fileno(pwFile), LOCK_EX | LOCK_NB ) == 0 )
+			{
+				locked = true;
+				break;
+			}
+			
+			usleep( millisecondsPerTry * 1000 );
+		}
+	}
+	
+	return locked;
+}
+
+
 void
 CAuthFileBase::pwUnlock(void)
 {
@@ -1481,47 +1514,78 @@ CAuthFileBase::addHashes( const char *inRealm, PWFileEntry *inOutPasswordRec )
 	ConvertBinaryToHex( smblmHash, 16, &inOutPasswordRec->digest[1].digest[1] );
 	
 	// DIGEST-MD5		[ 2 ]
-	pwLen = strlen(inOutPasswordRec->passwordStr);
-	
-	{
-	    HASH HA1;
-	    char userID[35];
-		
-		this->passwordRecRefToString( inOutPasswordRec, userID );
-	    DigestCalcSecret( (unsigned char *)userID,
-							(unsigned char *)inRealm,
-							(unsigned char *)inOutPasswordRec->passwordStr,
-							pwLen,
-							HA1 );
-	    
-	    /*
-	     * A1 = { H( { username-value, ":", realm-value, ":", passwd } ),
-	     * ":", nonce-value, ":", cnonce-value }
-	     */
-		
-		// not enough room to store "*cmusaslsecretDIGEST-MD5" so truncate to 20 chars
-	    strncpy( inOutPasswordRec->digest[2].method, "*cmusaslsecretDIGEST-MD5", SASL_MECHNAMEMAX );
-		inOutPasswordRec->digest[2].method[SASL_MECHNAMEMAX] = '\0';
-		inOutPasswordRec->digest[2].digest[0] = HASHLEN;
-	    memcpy( &inOutPasswordRec->digest[2].digest[1], HA1, HASHLEN );
-	}
+	this->addHashDigestMD5( inRealm, inOutPasswordRec );
 	
 	// CRAM-MD5			[ 3 ]
-	{
-		HMAC_MD5_STATE state;
-		
-		hmac_md5_precalc( &state, (unsigned char *)inOutPasswordRec->passwordStr, pwLen );
-		strncpy( inOutPasswordRec->digest[3].method, "*cmusaslsecretCRAM-MD5", SASL_MECHNAMEMAX );
-		inOutPasswordRec->digest[3].method[SASL_MECHNAMEMAX] = '\0';
-		inOutPasswordRec->digest[3].digest[0] = sizeof(HMAC_MD5_STATE);
-		memcpy( &inOutPasswordRec->digest[3].digest[1], &state, sizeof(HMAC_MD5_STATE) );
-	}
+	this->addHashCramMD5( inOutPasswordRec );
 	
 	// KERBEROS			[ 4 ]
 	// Kerberos doesn't currently store a hash here, we just store the realm name.
 	// combined with the user name, we can call the KDC to get the kerberos hashes
 }
 #endif
+
+
+void
+CAuthFileBase::addHashDigestMD5( const char *inRealm, PWFileEntry *inOutPasswordRec )
+{
+	long pwLen;
+	HASH HA1;
+	char userID[35];
+		
+	// DIGEST-MD5		[ 2 ]
+	pwLen = strlen(inOutPasswordRec->passwordStr);
+	
+	this->passwordRecRefToString( inOutPasswordRec, userID );
+	DigestCalcSecret( (unsigned char *)userID,
+						(unsigned char *)inRealm,
+						(unsigned char *)inOutPasswordRec->passwordStr,
+						pwLen,
+						HA1 );
+	
+	/*
+		* A1 = { H( { username-value, ":", realm-value, ":", passwd } ),
+		* ":", nonce-value, ":", cnonce-value }
+		*/
+	
+	// not enough room to store "*cmusaslsecretDIGEST-MD5" so truncate to 20 chars
+	strncpy( inOutPasswordRec->digest[2].method, "*cmusaslsecretDIGEST-MD5", SASL_MECHNAMEMAX );
+	inOutPasswordRec->digest[2].method[SASL_MECHNAMEMAX] = '\0';
+	inOutPasswordRec->digest[2].digest[0] = HASHLEN;
+	memcpy( &inOutPasswordRec->digest[2].digest[1], HA1, HASHLEN );
+}
+
+
+void
+CAuthFileBase::addHashCramMD5( PWFileEntry *inOutPasswordRec )
+{
+	unsigned long pwLen;
+	
+	// CRAM-MD5			[ 3 ]
+	strncpy( inOutPasswordRec->digest[3].method, "*cmusaslsecretCRAM-MD5", SASL_MECHNAMEMAX );
+	inOutPasswordRec->digest[3].method[SASL_MECHNAMEMAX] = '\0';
+	
+	this->getHashCramMD5( (unsigned char *)inOutPasswordRec->passwordStr,
+						  strlen(inOutPasswordRec->passwordStr),
+						  (unsigned char *)&inOutPasswordRec->digest[3].digest[1],
+						  &pwLen );
+						  
+	inOutPasswordRec->digest[3].digest[0] = (unsigned char)pwLen;
+}
+
+
+void
+CAuthFileBase::getHashCramMD5( const unsigned char *inPassword, long inPasswordLen, unsigned char *outHash, unsigned long *outHashLen )
+{
+	HMAC_MD5_STATE state;
+	
+	if ( inPassword == NULL || outHash == NULL || outHashLen == NULL )
+		return;
+	
+	hmac_md5_precalc( &state, inPassword, inPasswordLen );
+	*outHashLen = sizeof(HMAC_MD5_STATE);
+	memcpy( outHash, &state, sizeof(HMAC_MD5_STATE) );
+}
 
 
 //-----------------------------------------------------------------------------
@@ -2262,7 +2326,8 @@ int
 CAuthFileBase::DisableStatus(PWFileEntry *inOutPasswordRec, Boolean *outChanged)
 {
 	PWAccessFeatures *access;
-    
+    int result = kAuthOK;
+	
     if ( inOutPasswordRec == NULL || outChanged == NULL )
         return kAuthFail;
         
@@ -2276,61 +2341,106 @@ CAuthFileBase::DisableStatus(PWFileEntry *inOutPasswordRec, Boolean *outChanged)
 	if ( inOutPasswordRec->access.isDisabled )
 		return kAuthUserDisabled;
 	
+	result = pwsf_TestDisabledStatus( access, &pwFileHeader.access, (struct tm *)&inOutPasswordRec->creationDate, (struct tm *)&inOutPasswordRec->lastLogin, &inOutPasswordRec->failedLoginAttempts );
+	
+	// update the user record
+	if ( result == kAuthUserDisabled )
+	{
+		bool markDisabled = true;
+		
+		// Note: maxMinutesOfNonUse is special
+		// If a user logs in in the nick-of-time on a replica, then synchronizing should un-disable the
+		// account. Therefore, we do not want to toggle the disabled bit.
+		if ( access->maxMinutesOfNonUse > 0 )
+		{
+			if ( LoginTimeIsStale( &inOutPasswordRec->lastLogin, access->maxMinutesOfNonUse ) )
+				markDisabled = false;
+		}
+		else
+		if ( pwFileHeader.access.maxMinutesOfNonUse > 0 &&
+			 LoginTimeIsStale( &inOutPasswordRec->lastLogin, pwFileHeader.access.maxMinutesOfNonUse ) )
+		{
+			markDisabled = false;
+		}
+		
+		if ( markDisabled )
+		{
+			inOutPasswordRec->access.isDisabled = true;
+			*outChanged = true;
+		}
+	}
+	
+    return result;
+}
+
+
+//------------------------------------------------------------------------------------
+//	pwsf_TestDisabledStatus
+//
+//	Returns: kAuthUserDisabled or kAuthOK
+//
+//  <inOutFailedLoginAttempts> is set to 0 if the failed login count is exceeded.
+//------------------------------------------------------------------------------------
+
+int pwsf_TestDisabledStatus( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, struct tm *inCreationDate, struct tm *inLastLoginTime, UInt16 *inOutFailedLoginAttempts )
+{
+	bool setToDisabled = false;
+	
     // test policies in the user record
-    if ( (access->maxFailedLoginAttempts > 0 && inOutPasswordRec->failedLoginAttempts >= access->maxFailedLoginAttempts) )
+	if ( inAccess->maxFailedLoginAttempts > 0 )
+	{
+		if ( *inOutFailedLoginAttempts >= inAccess->maxFailedLoginAttempts )
+		{
+			// for failed login attempts, if the maximum is exceeded, set the isDisabled flag on the record
+			// and reset <maxFailedLoginAttempts> so that the account can be re-enabled later.
+			*inOutFailedLoginAttempts = 0;
+			setToDisabled = true;
+		}
+    }
+	else
+	// test policies in the global record
+    if ( inGAccess->maxFailedLoginAttempts > 0 &&
+         *inOutFailedLoginAttempts >= inGAccess->maxFailedLoginAttempts )
     {
         // for failed login attempts, if the maximum is exceeded, set the isDisabled flag on the record
         // and reset <maxFailedLoginAttempts> so that the account can be re-enabled later.
-        inOutPasswordRec->access.isDisabled = true;
-        inOutPasswordRec->failedLoginAttempts = 0;
-        *outChanged = true;
-        return kAuthUserDisabled;
+		*inOutFailedLoginAttempts = 0;
+		setToDisabled = true;
     }
+	
+	// usingHardExpirationDate
+	if ( inAccess->usingHardExpirationDate )
+	{
+		if ( TimeIsStale(&(inAccess->hardExpireDateGMT)) ) 
+			setToDisabled = true;
+	}
+	else
+	if ( inGAccess->usingHardExpirationDate && TimeIsStale(&inGAccess->hardExpireDateGMT) )
+		setToDisabled = true;
+	
+	// maxMinutesUntilDisabled
+	if ( inAccess->maxMinutesUntilDisabled > 0 )
+	{
+		if ( LoginTimeIsStale((BSDTimeStructCopy *)inCreationDate, inAccess->maxMinutesUntilDisabled) ) 
+			setToDisabled = true;
+	}
+	else
+	if ( inGAccess->maxMinutesUntilDisabled > 0 && LoginTimeIsStale((BSDTimeStructCopy *)inCreationDate, inGAccess->maxMinutesUntilDisabled) )
+	{
+		setToDisabled = true;
+	}
+	
+	if ( inAccess->maxMinutesOfNonUse > 0 )
+	{
+		if ( LoginTimeIsStale( (BSDTimeStructCopy *)inLastLoginTime, inAccess->maxMinutesOfNonUse) )
+			setToDisabled = true;
+	}
+	else
+    if ( inGAccess->maxMinutesOfNonUse > 0 &&
+		 LoginTimeIsStale( (BSDTimeStructCopy *)inLastLoginTime, inGAccess->maxMinutesOfNonUse) )
+    	setToDisabled = true;
     
-    if ( (access->usingHardExpirationDate && TimeIsStale(&(access->hardExpireDateGMT))) ||
-         (access->maxMinutesUntilDisabled > 0 && LoginTimeIsStale( &inOutPasswordRec->creationDate, access->maxMinutesUntilDisabled ))
-   	   )
-    {	
-        inOutPasswordRec->access.isDisabled = true;
-        *outChanged = true;
-        return kAuthUserDisabled;
-    }
-    
-	// Note: maxMinutesOfNonUse is special
-	// If a user logs in in the nick-of-time on a replica, then synchronizing should un-disable the
-	// account. Therefore, we do not want to toggle the disabled bit.
-	if ( access->maxMinutesOfNonUse > 0 && LoginTimeIsStale(&inOutPasswordRec->lastLogin, access->maxMinutesOfNonUse) )
-        return kAuthUserDisabled;
-    
-    // test policies in the global record
-    if ( pwFileHeader.access.maxFailedLoginAttempts > 0 &&
-         inOutPasswordRec->failedLoginAttempts >= pwFileHeader.access.maxFailedLoginAttempts )
-    {
-        // for failed login attempts, if the maximum is exceeded, set the isDisabled flag on the record
-        // and reset <maxFailedLoginAttempts> so that the account can be re-enabled later.
-        inOutPasswordRec->access.isDisabled = true;
-        inOutPasswordRec->failedLoginAttempts = 0;
-        *outChanged = true;
-        return kAuthUserDisabled;
-    }
-    
-    if ( (pwFileHeader.access.usingHardExpirationDate && TimeIsStale(&pwFileHeader.access.hardExpireDateGMT)) ||
-         (pwFileHeader.access.maxMinutesUntilDisabled > 0 && LoginTimeIsStale( &inOutPasswordRec->creationDate, pwFileHeader.access.maxMinutesUntilDisabled ))
-   	   )
-    {
-        inOutPasswordRec->access.isDisabled = true;
-        *outChanged = true;
-        return kAuthUserDisabled;
-    }
-    
-    // Note: maxMinutesOfNonUse is special
-	// If a user logs in in the nick-of-time on a replica, then synchronizing should un-disable the
-	// account. Therefore, we do not want to toggle the disabled bit.
-	if ( pwFileHeader.access.maxMinutesOfNonUse > 0 &&
-		 LoginTimeIsStale(&inOutPasswordRec->lastLogin, pwFileHeader.access.maxMinutesOfNonUse) )
-    	return kAuthUserDisabled;
-    
-    return kAuthOK;
+	return ( setToDisabled ? kAuthUserDisabled : kAuthOK );
 }
 
 
@@ -2343,18 +2453,61 @@ CAuthFileBase::DisableStatus(PWFileEntry *inOutPasswordRec, Boolean *outChanged)
 int
 CAuthFileBase::ChangePasswordStatus(PWFileEntry *inPasswordRec)
 {
+	int result;
+	
 	if ( inPasswordRec->access.isAdminUser )
 		return kAuthOK;
 	
-    if ( (inPasswordRec->access.newPasswordRequired) || 
-         (inPasswordRec->access.usingExpirationDate && TimeIsStale( &inPasswordRec->access.expirationDateGMT )) ||
-         (inPasswordRec->access.maxMinutesUntilChangePassword > 0 && LoginTimeIsStale( &inPasswordRec->modDateOfPassword, inPasswordRec->access.maxMinutesUntilChangePassword )) ||
-		 (pwFileHeader.access.usingExpirationDate && TimeIsStale( &pwFileHeader.access.expirationDateGMT )) ||
-         (pwFileHeader.access.maxMinutesUntilChangePassword > 0 && LoginTimeIsStale( &inPasswordRec->modDateOfPassword, pwFileHeader.access.maxMinutesUntilChangePassword ))
-         
-       )
+	result = pwsf_ChangePasswordStatus( &inPasswordRec->access, &pwFileHeader.access, (struct tm *)&inPasswordRec->modDateOfPassword );
+	
+    return result;
+}
+
+
+//------------------------------------------------------------------------------------------------
+//	pwsf_ChangePasswordStatus
+//
+//	Returns: kAuthOK, kAuthPasswordNeedsChange, kAuthPasswordExpired
+//------------------------------------------------------------------------------------------------
+
+int pwsf_ChangePasswordStatus( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, struct tm *inModDateOfPassword )
+{
+	bool needsChange = false;
+	
+	if ( inAccess->newPasswordRequired )
+	{
+		needsChange = true;
+	}
+	else
+	{
+		// usingExpirationDate
+		if ( inAccess->usingExpirationDate )
+		{
+			if ( TimeIsStale( &inAccess->expirationDateGMT ) )
+				needsChange = true;
+		}
+		else
+		if ( inGAccess->usingExpirationDate && TimeIsStale( &inGAccess->expirationDateGMT ) )
+		{
+			needsChange = true;
+		}
+		
+		// maxMinutesUntilChangePassword
+		if ( inAccess->maxMinutesUntilChangePassword > 0 )
+		{
+			if ( LoginTimeIsStale( (BSDTimeStructCopy *)inModDateOfPassword, inAccess->maxMinutesUntilChangePassword ) )
+				needsChange = true;
+		}
+		else
+		if ( inGAccess->maxMinutesUntilChangePassword > 0 && LoginTimeIsStale( (BSDTimeStructCopy *)inModDateOfPassword, inGAccess->maxMinutesUntilChangePassword ) )
+		{
+			needsChange = true;
+		}
+	}
+	
+	if ( needsChange )
     {
-        if ( inPasswordRec->access.canModifyPasswordforSelf || inPasswordRec->access.isAdminUser )
+        if ( inAccess->canModifyPasswordforSelf )
             return kAuthPasswordNeedsChange;
         else
         	return kAuthPasswordExpired;
@@ -2374,11 +2527,23 @@ CAuthFileBase::ChangePasswordStatus(PWFileEntry *inPasswordRec)
 int
 CAuthFileBase::RequiredCharacterStatus(PWFileEntry *inPasswordRec, const char *inPassword)
 {
-    Boolean requiresAlpha = (inPasswordRec->access.requiresAlpha || pwFileHeader.access.requiresAlpha );
-    Boolean requiresNumeric = (inPasswordRec->access.requiresNumeric || pwFileHeader.access.requiresNumeric );
-    UInt16 minChars = (inPasswordRec->access.minChars > 0) ? inPasswordRec->access.minChars : pwFileHeader.access.minChars;
-    UInt16 maxChars = (inPasswordRec->access.maxChars > 0) ? inPasswordRec->access.maxChars : pwFileHeader.access.maxChars;
-	Boolean passwordCannotBeName = (inPasswordRec->access.passwordCannotBeName || pwFileHeader.access.passwordCannotBeName );
+	return pwsf_RequiredCharacterStatus( &(inPasswordRec->access), &(pwFileHeader.access), inPasswordRec->usernameStr, inPassword );
+}
+
+
+//------------------------------------------------------------------------------------------------
+//	pwsf_RequiredCharacterStatus
+//
+//	Returns: enum of Reposonse Codes (CAuthFileCPP.h)
+//------------------------------------------------------------------------------------------------
+
+int pwsf_RequiredCharacterStatus(PWAccessFeatures *access, PWGlobalAccessFeatures *inGAccess, const char *inUsername, const char *inPassword)
+{
+    Boolean requiresAlpha = (access->requiresAlpha || inGAccess->requiresAlpha );
+    Boolean requiresNumeric = (access->requiresNumeric || inGAccess->requiresNumeric );
+    UInt16 minChars = (access->minChars > 0) ? access->minChars : inGAccess->minChars;
+    UInt16 maxChars = (access->maxChars > 0) ? access->maxChars : inGAccess->maxChars;
+	Boolean passwordCannotBeName = (access->passwordCannotBeName || inGAccess->passwordCannotBeName );
 	
     UInt16 len = strlen(inPassword);
     
@@ -2429,11 +2594,11 @@ CAuthFileBase::RequiredCharacterStatus(PWFileEntry *inPasswordRec, const char *i
 	
 	if ( passwordCannotBeName )
 	{
-		UInt16 unameLen = strlen( inPasswordRec->usernameStr );
+		UInt16 unameLen = strlen( inUsername );
 		UInt16 smallerLen = ((len < unameLen) ? len : unameLen);
 		
 		// disallow the smaller substring, case-insensitive
-		if ( strncasecmp( inPassword, inPasswordRec->usernameStr, smallerLen ) == 0 )
+		if ( strncasecmp( inPassword, inUsername, smallerLen ) == 0 )
 			return kAuthPasswordNeedsChange;
 	}
 	

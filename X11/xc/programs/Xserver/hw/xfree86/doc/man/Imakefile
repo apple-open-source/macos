@@ -1,0 +1,29 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/doc/man/Imakefile,v 3.8 2002/12/22 00:46:53 dawes Exp $
+
+MANDIR = $(LIBMANDIR)
+MANSUFFIX = $(LIBMANSUFFIX)
+
+all::
+
+#if 0
+
+InstallManPage(XF86DGA,$(MANDIR))
+#if ExpandNamNames
+InstallManPageAliases(XF86DGA,$(MANDIR),XF86DGAQueryExtension XF86DGAQueryVersion XF86DGAQueryDirectVideo XF86DGAGetVideo XF86DGADirectVideo XF86DGASetVidPage XF86DGASetViewPort XF86DGAViewPortChanged XF86DGAGetViewPortSize XF86DGAInstallColormap XF86DGAForkApp)
+#endif
+
+#endif
+
+#if 0
+
+InstallManPage(XF86Misc,$(MANDIR))
+#if ExpandNamNames
+InstallManPageAliases(XF86Misc,$(MANDIR),XF86MiscQueryExtension XF86MiscQueryVersion XF86MiscGetSaver XF86MiscSetSaver XF86MiscGetMouseSettings XF86MiscSetMouseSettings XF86MiscGetKbdSettings XF86MiscSetKbdSettings)
+#endif
+
+#endif
+
+InstallManPageLong(XF86VM,$(MANDIR),XF86VidMode)
+#if ExpandManNames
+InstallManPageAliases(XF86VidMode,$(MANDIR),XF86VidModeQueryExtension XF86VidModeQueryVersion XF86VidModeGetModeLine XF86VidModeGetAllModeLines XF86VidModeDeleteModeLine XF86VidModeModModeLine XF86VidModeSwitchMode XF86VidModeSwitchToMode XF86VidModeLockModeSwitch XF86VidModeGetMonitor XF86VidModeGetViewPort XF86VidModeSetViewPort XF86VidModeValidateModeLine XF86VidModeSetClientVersion XF86VidModeGetDotClocks XF86VidModeGetGamma XF86VidModeSetGamma XF86VidModeSetGammaRamp XF86VidModeGetGammaRamp XF86VidModeGetGammaRampSize XF86VidModeGetPermissions)
+#endif

@@ -1,0 +1,3 @@
+#!/bin/sh
+TIME=$(date "+%h %d %H:%M:%S")
+echo "$TIME audit warning: $@" >> /etc/security/audit_messages

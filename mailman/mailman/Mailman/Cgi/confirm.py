@@ -235,8 +235,8 @@ def subscription_prompt(mlist, doc, cookie, userdesc):
     <p>Note: your password will be emailed to you once your subscription is
     confirmed.  You can change it by visiting your personal options page.
 
-    <p>Or hit <em>Cancel and discard</em> to cancel this subscription
-    request.""") + '<p><hr>'
+    <p>Or hit <em>Cancel my subscription request</em> if you no longer want to
+    subscribe to this list.""") + '<p><hr>'
     if mlist.subscribe_policy in (2, 3):
         # Confirmation is required
         result = _("""Your confirmation is required in order to continue with

@@ -1,0 +1,11 @@
+#include "../../Xi18nLib.conf"
+
+ EXTRA_INCLUDES = -I../../..
+      XI18NLIBNAME = xlcDef
+           SRCS = lcDefConv.c
+           OBJS = ${SRCS:.c=.o}
+   REQUIREDLIBS = -L$(XENVLIBDIR) -lX11 -lc
+
+LinkSourceFile(lcDefConv.c, ../../..)
+
+Xi18nLibraryTarget(xlcDef)

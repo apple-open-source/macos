@@ -1,0 +1,74 @@
+# Makefile for ttf2pfb
+#
+# This Makefile assumes that you've already built and installed
+# the FreeType library.
+
+VPATH = @srcdir@
+srcdir = @srcdir@
+
+RM = @RM@
+RMF = @RM@ -f
+
+INSTALL = @INSTALL@
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+
+CC = @CC@
+CPP = @CPP@
+
+LIBTOOL = ../../libtool
+MKINSTALLDIRS = $(srcdir)/../../mkinstalldirs
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+bindir = @bindir@
+mandir = @mandir@
+
+CFLAGS = @CFLAGS@ @XX_CFLAGS@
+CPPFLAGS = @CPPFLAGS@ @DEFS@
+FT_CFLAGS = $(CFLAGS) $(CPPFLAGS)
+LDFLAGS = @LDFLAGS@ @LIBS@
+LIBDIR = ../../lib
+
+SRC = t1asm.c ttf2pfb.c
+
+PROGRAMS = t1asm ttf2pfb
+
+default all: $(PROGRAMS)
+
+t1asm: t1asm.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+ttf2pfb: ttf2pfb.o $(LIBDIR)/libttf.la
+	$(LIBTOOL) --mode=link $(CC) $(FT_CFLAGS) -o $@ $< \
+			       $(LIBDIR)/libttf.la $(LDFLAGS)
+
+clean:
+	$(RMF) *.o *BAK *CKP *~ a.out core
+
+realclean: clean
+	$(RMF) $(PROGRAMS)
+	$(RM) -rf .libs/
+
+distclean: realclean
+	$(RMF) *~ *.orig core *.core
+	$(RMF) config.cache config.log config.status Makefile
+
+.c.o:
+	$(CC) -c $(FT_CFLAGS) $<
+
+install: $(PROGRAMS)
+	$(MKINSTALLDIRS) $(bindir)
+	for P in $(PROGRAMS) ; do \
+	  $(LIBTOOL) --mode=install $(INSTALL_PROGRAM) $$P $(bindir)/$$P ; \
+	done
+	$(INSTALL_PROGRAM) $(srcdir)/getafm $(bindir)/getafm
+
+uninstall:
+	-for P in $(PROGRAMS) ; do \
+	  $(LIBTOOL) --mode=uninstall $(RM) $(bindir)/$$P ; \
+	done
+
+.PHONY: all clean realclean distclean install uninstall
+
+# end of Makefile

@@ -1,0 +1,61 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:57 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/xrx/helper/Imakefile,v 1.2 2001/04/23 16:17:13 tsi Exp $
+
+XCOMM Define UseWWW in order to use the www program to perform the GET request
+XCOMM #define UseWWW YES
+
+          RXSRC = ../rx
+    RX_INCLUDES = -I$(RXSRC)
+
+#if UseWWW
+  DEFINES = StrcasecmpDefines -DXUSE_WWW
+ INCLUDES = $(RX_INCLUDES)
+
+GETURL_SRCS = GetUrl.c
+GETURL_OBJS = GetUrl.o
+
+#else /* UseWWW */
+
+   CONN_DEFINES = -DTCPCONN
+  TRANS_DEFINES = -DTRANS_CLIENT
+# if HasBSD44Sockets
+   SOCK_DEFINES = -DBSD44SOCKETS
+# endif
+ DEPEND_DEFINES = $(TRANS_DEFINES) $(CONN_DEFINES) DependDefines
+
+  DEFINES = StrcasecmpDefines \
+	$(CONN_DEFINES) $(SOCK_DEFINES) $(TRANS_DEFINES) $(POLL_DEFINES)
+ INCLUDES = $(TRANS_INCLUDES) $(RX_INCLUDES)
+
+GETURL_SRCS = GetUrl.c httptran.c transport.c
+GETURL_OBJS = GetUrl.o httptran.o
+#endif /* UseWWW */
+
+PARAMS_SRCS = PRead.c PParse.c BuildReq.c
+PARAMS_OBJS = PRead.o PParse.o BuildReq.o
+
+MISC_SRCS = XUrls.c XAuth.c XDpyName.c Prefs.c
+MISC_OBJS = XUrls.o XAuth.o XDpyName.o Prefs.o
+
+SRCS = helper.c $(PARAMS_SRCS) $(GETURL_SRCS) $(MISC_SRCS)
+OBJS = helper.o $(PARAMS_OBJS) $(GETURL_OBJS) $(MISC_OBJS)
+
+LOCAL_LIBRARIES = $(XTOOLLIB) $(XAUTHLIB) $(XMULIB) $(XEXTLIB) $(XLIB)
+DEPLIBS = $(DEPXTOOLLIB) $(DEPXAUTHLIB) $(DEPXMULIB) $(DEPXEXTLIB) $(DEPXLIB)
+
+ComplexProgramTarget(xrx);
+
+#if !UseWWW
+LinkFile(transport.c,$(TRANSCOMMSRC)/transport.c)
+#endif
+LinkFile(PRead.c,$(RXSRC)/PRead.c)
+LinkFile(PParse.c,$(RXSRC)/PParse.c)
+LinkFile(BuildReq.c,$(RXSRC)/BuildReq.c)
+LinkFile(XUrls.c,$(RXSRC)/XUrls.c)
+LinkFile(XAuth.c,$(RXSRC)/XAuth.c)
+LinkFile(XDpyName.c,$(RXSRC)/XDpyName.c)
+LinkFile(Prefs.c,$(RXSRC)/Prefs.c)

@@ -1,0 +1,6 @@
+XCOMM $XFree86: xc/programs/Xserver/GL/mesa/src/swrast_setup/module/Imakefile,v 1.1 2002/05/31 18:12:41 dawes Exp $
+
+#define IHaveModules
+
+#include "../Imakefile"
+

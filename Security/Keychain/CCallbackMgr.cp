@@ -130,7 +130,8 @@ void CCallbackMgr::RemoveCallback(SecKeychainCallback inCallbackFunction)
 		MacOSError::throwMe(errSecInvalidCallback);
 }
 
-void CCallbackMgr::AlertClients(SecKeychainEvent inEvent,
+void CCallbackMgr::AlertClients(const list<CallbackInfo> &eventCallbacks,
+								SecKeychainEvent inEvent,
 								pid_t inPid,
                                 const Keychain &inKeychain,
                                 const Item &inItem)
@@ -138,15 +139,10 @@ void CCallbackMgr::AlertClients(SecKeychainEvent inEvent,
     secdebug("kcnotify", "dispatch event %ld pid %d keychain %p item %p",
         inEvent, inPid, &inKeychain, !!inItem ? &*inItem : NULL);
 
-    // Deal with events that we care about ourselves first.
-    if (inEvent == kSecDeleteEvent && inKeychain.get() && inItem.get())
-        inKeychain->didDeleteItem(inItem.get());
-
 	// Iterate through callbacks, looking for those registered for inEvent
 	const SecKeychainEventMask theMask = 1U << inEvent;
 
-	for ( CallbackInfoListIterator ix = CCallbackMgr::Instance().mEventCallbacks.begin();
-		ix != CCallbackMgr::Instance().mEventCallbacks.end(); ++ix )
+	for (ConstCallbackInfoListIterator ix = eventCallbacks.begin(); ix != eventCallbacks.end(); ++ix)
 	{
 		if (!(ix->mEventMask & theMask))
 			continue;
@@ -175,40 +171,54 @@ void CCallbackMgr::AlertClients(SecKeychainEvent inEvent,
 * 			If it wasn't 'us', we should remove our cached reference to the item that was deleted.
 *
 ***********************************************************************************/
-void CCallbackMgr::Event (Listener::Domain domain, Listener::Event whichEvent, NameValueDictionary &dictionary)
+void CCallbackMgr::Event(Listener::Domain domain, Listener::Event whichEvent, NameValueDictionary &dictionary)
 {
     // Decode from userInfo the event type, 'keychain' CFDict, and 'item' CFDict
 	SecKeychainEvent	thisEvent = whichEvent;
 
     pid_t thisPid;
-	const NameValuePair* pidRef = dictionary.FindByName (PID_KEY);
+	const NameValuePair* pidRef = dictionary.FindByName(PID_KEY);
 	if (pidRef == 0)
 	{
 		thisPid = 0;
 	}
 	else
 	{
-		thisPid = *reinterpret_cast<pid_t*>(pidRef->Value ().data ());
+		thisPid = *reinterpret_cast<pid_t*>(pidRef->Value().data());
 	}
 
 	Keychain thisKeychain = 0;
-	
-	// make sure we have a database identifier
-	if (dictionary.FindByName (SSUID_KEY) != 0)
-	{
-		DLDbIdentifier dbid = NameValueDictionary::MakeDLDbIdentifierFromNameValueDictionary (dictionary);
-		thisKeychain = globals().storageManager.keychain (dbid);
-	}
-	
-    const NameValuePair* item = dictionary.FindByName (ITEM_KEY);
     Item thisItem;
+	list<CallbackInfo> eventCallbacks;
 
-    if (item && thisKeychain)
-    {
-        PrimaryKey pk(item->Value ());
-		thisItem = thisKeychain->item(pk);
-    }
+	{
+		// Lock the global API lock before doing stuff with StorageManager.
+		StLock<Mutex> _(globals().apiLock);
+
+		// make sure we have a database identifier
+		if (dictionary.FindByName (SSUID_KEY) != 0)
+		{
+			DLDbIdentifier dbid = NameValueDictionary::MakeDLDbIdentifierFromNameValueDictionary (dictionary);
+			thisKeychain = globals().storageManager.keychain(dbid);
+		}
+		
+		const NameValuePair* item = dictionary.FindByName(ITEM_KEY);
+		
+		if (item && thisKeychain)
+		{
+			PrimaryKey pk(item->Value());
+			thisItem = thisKeychain->item(pk);
+		}
+
+		// Deal with events that we care about ourselves first.
+		if (thisEvent == kSecDeleteEvent && thisKeychain.get() && thisItem.get())
+			thisKeychain->didDeleteItem(thisItem.get());
+
+		eventCallbacks = CCallbackMgr::Instance().mEventCallbacks;
+		// We can safely release the global API lock now since thisKeychain and thisItem
+		// are CFRetained and will be until they go out of scope.
+	}
 
     // Notify our process of this event.
-	CCallbackMgr::AlertClients(thisEvent, thisPid, thisKeychain, thisItem);
+	CCallbackMgr::AlertClients(eventCallbacks, thisEvent, thisPid, thisKeychain, thisItem);
 }

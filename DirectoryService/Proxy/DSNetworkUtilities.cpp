@@ -480,6 +480,7 @@ int DSNetworkUtilities::InitializeTCP ( void )
 			}
 		}
 
+		close(sock);
 		sIPAddrCount = ipcount;
 		sTCPAvailable = true;
 		DSNetworkUtilities::Signal();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -87,6 +87,15 @@ static char copyright[] =
 #include <unistd.h>
 #include <utmp.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+
+#include <bsm/libbsm.h>
+#include <bsm/audit_uevents.h>
+
 #ifdef USE_PAM
 #include <pam/pam_appl.h>
 #include <pam/pam_misc.h>
@@ -107,6 +116,9 @@ void	 timedout __P((int));
 #ifdef KERBEROS
 int	 klogin __P((struct passwd *, char *, char *, char *));
 #endif
+void 	au_success();
+void 	au_fail(char *, int);
+
 
 extern void login __P((struct utmp *));
 
@@ -128,6 +140,9 @@ int	authok;
 struct	passwd *pwd;
 int	failures;
 char	term[64], *hostname, *username = NULL, *tty;
+
+#define NA_EVENT_STR_SIZE 25
+au_tid_t tid;
 
 int
 main(argc, argv)
@@ -153,6 +168,8 @@ main(argc, argv)
 	pid_t pid;
 #endif
 
+	char auditsuccess = 1;
+
 	(void)signal(SIGALRM, timedout);
 	(void)alarm(timeout);
 	(void)signal(SIGQUIT, SIG_IGN);
@@ -160,6 +177,7 @@ main(argc, argv)
 	(void)setpriority(PRIO_PROCESS, 0, 0);
 
 	openlog("login", LOG_ODELAY, LOG_AUTH);
+
 
 	/*
 	 * -p is used by getty to tell login not to destroy the environment
@@ -228,27 +246,44 @@ main(argc, argv)
 	else
 		tty = ttyn;
 
+	/* Set the terminal id */
+	audit_set_terminal_id(&tid);
+	if (fstat(STDIN_FILENO, &st) < 0) {
+		fprintf(stderr, "login: Unable to stat terminal\n");
+		au_fail("Unable to stat terminal", 1);
+		exit(-1);
+	}
+	if (S_ISCHR(st.st_mode)) {
+		tid.port = st.st_rdev;
+	} else {
+		tid.port = 0;
+	}
+
 #ifdef USE_PAM
 	rval = pam_start("login", username, &conv, &pamh);
 	if( rval != PAM_SUCCESS ) {
 		fprintf(stderr, "login: PAM Error:  %s\n", pam_strerror(pamh, rval));
+		au_fail("PAM Error", 1);
 		exit(1);
 	}
 	rval = pam_set_item(pamh, PAM_TTY, tty);
 	if( rval != PAM_SUCCESS ) {
 		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, rval));
+		au_fail("PAM Error", 1);
 		exit(1);
 	}
 
 	rval = pam_set_item(pamh, PAM_RHOST, hostname);
 	if( rval != PAM_SUCCESS ) {
 		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, rval));
+		au_fail("PAM Error", 1);
 		exit(1);
 	}
 
 	rval = pam_set_item(pamh, PAM_USER_PROMPT, "login: ");
 	if( rval != PAM_SUCCESS ) {
 		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, rval));
+		au_fail("PAM Error", 1);
 		exit(1);
 	}
 
@@ -261,6 +296,7 @@ main(argc, argv)
 
 	if( (pwd != NULL) && fflag && ((uid == 0) || (uid == pwd->pw_uid)) ){
 		rval = 0;
+		auditsuccess = 0; /* we've simply opened a terminal window */
 	} else {
 
 		rval = pam_authenticate(pamh, 0);
@@ -268,6 +304,11 @@ main(argc, argv)
 				(rval == PAM_USER_UNKNOWN) ||
 				(rval == PAM_CRED_INSUFFICIENT) ||
 				(rval == PAM_AUTHINFO_UNAVAIL))) {
+			/* 
+			 * we are not exiting here, but this corresponds to 
+		 	 * a failed login event, so set exitstatus to 1 
+			 */
+			au_fail("Login incorrect", 1);
 			badlogin(username);
 			printf("Login incorrect\n");
 			rootlogin = 0;
@@ -283,6 +324,7 @@ main(argc, argv)
 			pam_get_item(pamh, PAM_USER, (void *)&username);
 			badlogin(username);
 			printf("Login incorrect\n");
+			au_fail("Login incorrect", 1);
 			exit(1);
 		}
 
@@ -292,8 +334,10 @@ main(argc, argv)
 		}
 		if( rval != PAM_SUCCESS ) {
 			fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, rval));
+			au_fail("PAM error", 1);
 			exit(1);
 		}
+
 	}
 
 	rval = pam_get_item(pamh, PAM_USER, (void *)&username);
@@ -303,12 +347,14 @@ main(argc, argv)
 	rval = pam_open_session(pamh, 0);
 	if( rval != PAM_SUCCESS ) {
 		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, rval));
+		au_fail("PAM error", 1);
 		exit(1);
 	}
 
 	rval = pam_setcred(pamh, PAM_ESTABLISH_CRED);
 	if( rval != PAM_SUCCESS ) {
 		fprintf(stderr, "login: PAM Error: %s\n", pam_strerror(pamh, rval));
+		au_fail("PAM error", 1);
 		exit(1);
 	}
 
@@ -336,8 +382,9 @@ main(argc, argv)
 		 * for nonexistent name (mistyped username).
 		 */
 		if (failures && strcmp(tbuf, username)) {
-			if (failures > (pwd ? 0 : 1))
+			if (failures > (pwd ? 0 : 1)) {
 				badlogin(tbuf);
+			}
 			failures = 0;
 		}
 		(void)strcpy(tbuf, username);
@@ -400,6 +447,7 @@ main(argc, argv)
 				syslog(LOG_NOTICE,
 				    "LOGIN %s REFUSED ON TTY %s",
 				     pwd->pw_name, tty);
+			au_fail("Login refused on terminal", 0);
 			continue;
 		}
 
@@ -412,8 +460,10 @@ main(argc, argv)
 		if (++cnt > 3) {
 			if (cnt >= 10) {
 				badlogin(username);
+				au_fail("Login incorrect", 1);
 				sleepexit(1);
 			}
+			au_fail("Login incorrect", 1);
 			sleep((u_int)((cnt - 3) * 5));
 		}
 	}
@@ -428,25 +478,32 @@ main(argc, argv)
 	if (!rootlogin)
 		checknologin();
 
+	/* Audit successful login */
+	if (auditsuccess)
+		au_success();
+
 	setegid(pwd->pw_gid);
 	seteuid(rootlogin ? 0 : pwd->pw_uid);
 
-      	/* First do a stat in case the homedir is automounted */
-      	stat(pwd->pw_dir,&st);
+	/* First do a stat in case the homedir is automounted */
+	stat(pwd->pw_dir,&st);
 
 	if (chdir(pwd->pw_dir) < 0) {
 		(void)printf("No home directory %s!\n", pwd->pw_dir);
-		if (chdir("/"))
+		if (chdir("/")) {
 			exit(0);
+		}
 		pwd->pw_dir = "/";
 		(void)printf("Logging in with home = \"/\".\n");
 	}
+
 	seteuid(euid);
 	setegid(egid);
 
 	quietlog = access(_PATH_HUSHLOGIN, F_OK) == 0;
 
 	/* Nothing else left to fail -- really log in. */
+
 	memset((void *)&utmp, 0, sizeof(utmp));
 	(void)time(&utmp.ut_time);
 	(void)strncpy(utmp.ut_name, username, sizeof(utmp.ut_name));
@@ -546,6 +603,7 @@ main(argc, argv)
 	else
 		(void) setuid(pwd->pw_uid);
 
+	
 	execlp(pwd->pw_shell, tbuf, 0);
 	err(1, "%s", pwd->pw_shell);
 }
@@ -555,6 +613,142 @@ main(argc, argv)
 #else
 #define	NBUFSIZ		(MAXLOGNAME + 1)
 #endif
+
+/*
+ * The following tokens are included in the audit record for successful login attempts
+ * header
+ * subject
+ * return
+ */ 
+void au_success()
+{
+	token_t *tok;
+	int aufd;
+	au_mask_t aumask;
+	auditinfo_t auinfo;
+	uid_t uid = pwd->pw_uid;
+	gid_t gid = pwd->pw_gid;
+	pid_t pid = getpid();
+	long au_cond;
+
+	/* If we are not auditing, don't cut an audit record; just return */
+ 	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
+		fprintf(stderr, "login: Could not determine audit condition\n");
+		exit(1);
+	}
+	if (au_cond == AUC_NOAUDIT)
+		return;
+
+	/* Compute and Set the user's preselection mask */ 
+	if(au_user_mask(pwd->pw_name, &aumask) == -1) {
+		fprintf(stderr, "login: Could not set audit mask\n");
+		exit(1);
+	}
+
+	/* Set the audit info for the user */
+	auinfo.ai_auid = uid;
+	auinfo.ai_asid = pid;
+	bcopy(&tid, &auinfo.ai_termid, sizeof(auinfo.ai_termid));
+	bcopy(&aumask, &auinfo.ai_mask, sizeof(auinfo.ai_mask));
+	if(setaudit(&auinfo) != 0) {
+		fprintf(stderr, "login: setaudit failed:  %s\n", strerror(errno));
+		exit(1);
+	}
+
+	if((aufd = au_open()) == -1) {
+		fprintf(stderr, "login: Audit Error: au_open() failed\n");
+		exit(1);
+	}
+
+	/* The subject that is created (euid, egid of the current process) */
+	if((tok = au_to_subject32(uid, geteuid(), getegid(), 
+			uid, gid, pid, pid, &tid)) == NULL) {
+		fprintf(stderr, "login: Audit Error: au_to_subject32() failed\n");
+		exit(1);
+	}
+	au_write(aufd, tok);
+
+	if((tok = au_to_return32(0, 0)) == NULL) {
+		fprintf(stderr, "login: Audit Error: au_to_return32() failed\n");
+		exit(1);
+	}
+	au_write(aufd, tok);
+
+	if(au_close(aufd, 1, AUE_login) == -1) {
+		fprintf(stderr, "login: Audit Record was not committed.\n");
+		exit(1);
+	}
+}
+
+/*
+ * The following tokens are included in the audit record for successful login attempts
+ * header
+ * subject
+ * text
+ * return
+ */ 
+void au_fail(char *errmsg, int na)
+{
+	token_t *tok;
+	int aufd;
+	long au_cond;
+	uid_t uid;
+	gid_t gid;
+	pid_t pid = getpid();
+
+	/* If we are not auditing, don't cut an audit record; just return */
+ 	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
+		fprintf(stderr, "login: Could not determine audit condition\n");
+		exit(1);
+	}
+	if (au_cond == AUC_NOAUDIT)
+		return;
+
+	if((aufd = au_open()) == -1) {
+		fprintf(stderr, "login: Audit Error: au_open() failed\n");
+		exit(1);
+	}
+
+	if(na) {
+		/* Non attributable event */
+		/* Assuming that login is not called within a users' session => auid,asid == -1 */
+		if((tok = au_to_subject32(-1, geteuid(), getegid(), -1, -1, 
+				pid, -1, &tid)) == NULL) {
+
+			fprintf(stderr, "login: Audit Error: au_to_subject32() failed\n");
+			exit(1);
+		}
+	}
+	else {
+		/* we know the subject -- so use its value instead */
+		uid = pwd->pw_uid;
+		gid = pwd->pw_gid;
+		if((tok = au_to_subject32(uid, geteuid(), getegid(), 
+				uid, gid, pid, pid, &tid)) == NULL) {
+			fprintf(stderr, "login: Audit Error: au_to_subject32() failed\n");
+			exit(1);
+		}
+	}
+	au_write(aufd, tok);
+
+	/* Include the error message */
+	if((tok = au_to_text(errmsg)) == NULL) {
+		fprintf(stderr, "login: Audit Error: au_to_text() failed\n");
+		exit(1);
+	}
+	au_write(aufd, tok);
+
+	if((tok = au_to_return32(1, errno)) == NULL) {
+		fprintf(stderr, "login: Audit Error: au_to_return32() failed\n");
+		exit(1);
+	}
+	au_write(aufd, tok);
+
+	if(au_close(aufd, 1, AUE_login) == -1) {
+		fprintf(stderr, "login: Audit Error: au_close()  was not committed\n");
+		exit(1);
+	}
+}
 
 void
 getloginname()
@@ -642,6 +836,8 @@ checknologin()
 	if ((fd = open(_PATH_NOLOGIN, O_RDONLY, 0)) >= 0) {
 		while ((nchars = read(fd, tbuf, sizeof(tbuf))) > 0)
 			(void)write(fileno(stdout), tbuf, nchars);
+
+		au_fail("No login", 0);
 		sleepexit(0);
 	}
 }

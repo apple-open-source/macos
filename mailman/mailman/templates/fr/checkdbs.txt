@@ -3,5 +3,5 @@ de votre décision à l'adresse :
 
 	%(adminDB)s 
 
-Traitez ceux-ci aussi rapidement que possible.  Cet avis de requêtes
-en attente, s'il y en a, vous sera envoyé quotidiennement.
+A traiter aussi rapidement que possible.  Cet avis de requêtes
+en attente (s'il y en a...)r vous sera envoyé quotidiennement.

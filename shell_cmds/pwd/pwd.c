@@ -60,18 +60,6 @@ char *getcwd_logical __P((char *, size_t));
 void  usage __P((void));
 int   main __P((int, char *[]));
 
-#ifdef __APPLE__
-char
-*getcwd_physical(pt, size)
-	char *pt;
-	size_t size;
-{
-	unsetenv("PWD");
-	return getcwd(pt, size);
-}
-#define getcwd getcwd_physical
-#endif
-
 int
 main(argc, argv)
 	int argc;

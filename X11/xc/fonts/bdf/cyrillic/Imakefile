@@ -1,0 +1,116 @@
+XCOMM $XFree86: xc/fonts/bdf/cyrillic/Imakefile,v 3.3 2002/12/15 01:48:56 dawes Exp $
+
+OBJS = FontObj(crox1c) FontObj(crox1cb) FontObj(crox1cbo) FontObj(crox1co) \
+	FontObj(crox1h) FontObj(crox1hb) FontObj(crox1hbo) FontObj(crox1ho) \
+	FontObj(crox1t) FontObj(crox1tb) FontObj(crox1tbo) FontObj(crox1to) \
+	FontObj(crox2c) FontObj(crox2cb) FontObj(crox2cbo) FontObj(crox2co) \
+	FontObj(crox2h) FontObj(crox2hb) FontObj(crox2hbo) FontObj(crox2ho) \
+	FontObj(crox2t) FontObj(crox2tb) FontObj(crox2tbo) FontObj(crox2to) \
+	FontObj(crox3c) FontObj(crox3cb) FontObj(crox3cbo) FontObj(crox3co) \
+	FontObj(crox3h) FontObj(crox3hb) FontObj(crox3hbo) FontObj(crox3ho) \
+	FontObj(crox3t) FontObj(crox3tb) FontObj(crox3tbo) FontObj(crox3to) \
+	FontObj(crox4h) FontObj(crox4hb) FontObj(crox4hbo) FontObj(crox4ho) \
+	FontObj(crox4t) FontObj(crox4tb) FontObj(crox4tbo) FontObj(crox4to) \
+	FontObj(crox5h) FontObj(crox5hb) FontObj(crox5hbo) FontObj(crox5ho) \
+	FontObj(crox5t) FontObj(crox5tb) FontObj(crox5tbo) FontObj(crox5to) \
+	FontObj(crox6h) FontObj(crox6hb) FontObj(crox6hbo) FontObj(crox6ho) \
+	FontObj(crox6t) FontObj(crox6tb) FontObj(crox6tbo) FontObj(crox6to) \
+	FontObj(koi10x16b) FontObj(koi10x20) FontObj(koi12x24) \
+	FontObj(koi12x24b) FontObj(koi5x8) FontObj(koi6x10) \
+	FontObj(koi6x13) FontObj(koi6x13b) FontObj(koi6x9) \
+	FontObj(koi7x14) FontObj(koi7x14b) FontObj(koi8x13) \
+	FontObj(koi8x16) FontObj(koi8x16b) FontObj(koi9x15) \
+	FontObj(koi9x15b) FontObj(koi9x18) FontObj(koi9x18b) \
+	FontObj(koinil2) FontObj(proof9x16) FontObj(screen8x16) \
+	FontObj(screen8x16b)
+
+FONTINSTDIR = $(FONTDIR)/cyrillic
+
+MakeFonts()
+
+FontTarget(crox1c)
+FontTarget(crox1cb)
+FontTarget(crox1cbo)
+FontTarget(crox1co)
+FontTarget(crox1h)
+FontTarget(crox1hb)
+FontTarget(crox1hbo)
+FontTarget(crox1ho)
+FontTarget(crox1t)
+FontTarget(crox1tb)
+FontTarget(crox1tbo)
+FontTarget(crox1to)
+FontTarget(crox2c)
+FontTarget(crox2cb)
+FontTarget(crox2cbo)
+FontTarget(crox2co)
+FontTarget(crox2h)
+FontTarget(crox2hb)
+FontTarget(crox2hbo)
+FontTarget(crox2ho)
+FontTarget(crox2t)
+FontTarget(crox2tb)
+FontTarget(crox2tbo)
+FontTarget(crox2to)
+FontTarget(crox3c)
+FontTarget(crox3cb)
+FontTarget(crox3cbo)
+FontTarget(crox3co)
+FontTarget(crox3h)
+FontTarget(crox3hb)
+FontTarget(crox3hbo)
+FontTarget(crox3ho)
+FontTarget(crox3t)
+FontTarget(crox3tb)
+FontTarget(crox3tbo)
+FontTarget(crox3to)
+FontTarget(crox4h)
+FontTarget(crox4hb)
+FontTarget(crox4hbo)
+FontTarget(crox4ho)
+FontTarget(crox4t)
+FontTarget(crox4tb)
+FontTarget(crox4tbo)
+FontTarget(crox4to)
+FontTarget(crox5h)
+FontTarget(crox5hb)
+FontTarget(crox5hbo)
+FontTarget(crox5ho)
+FontTarget(crox5t)
+FontTarget(crox5tb)
+FontTarget(crox5tbo)
+FontTarget(crox5to)
+FontTarget(crox6h)
+FontTarget(crox6hb)
+FontTarget(crox6hbo)
+FontTarget(crox6ho)
+FontTarget(crox6t)
+FontTarget(crox6tb)
+FontTarget(crox6tbo)
+FontTarget(crox6to)
+FontTarget(koi10x16b)
+FontTarget(koi10x20)
+FontTarget(koi12x24)
+FontTarget(koi12x24b)
+FontTarget(koi5x8)
+FontTarget(koi6x10)
+FontTarget(koi6x13)
+FontTarget(koi6x13b)
+FontTarget(koi6x9)
+FontTarget(koi7x14)
+FontTarget(koi7x14b)
+FontTarget(koi8x13)
+FontTarget(koi8x16)
+FontTarget(koi8x16b)
+FontTarget(koi9x15)
+FontTarget(koi9x15b)
+FontTarget(koi9x18)
+FontTarget(koi9x18b)
+FontTarget(koinil2)
+FontTarget(proof9x16)
+FontTarget(screen8x16)
+FontTarget(screen8x16b)
+
+InstallFonts($(FONTINSTDIR))
+InstallFontAliases($(FONTINSTDIR))
+InstallEncodingsDir($(ENCODINGSSRC),$(FONTINSTDIR))

@@ -1,0 +1,91 @@
+// $Xorg: es,v 1.3 2000/08/17 19:54:42 cpqbld Exp $
+
+
+
+// Modified for a real Spanish Keyboard by Jon Tombs
+// $XFree86: xc/programs/xkbcomp/symbols/es,v 3.5 2001/01/17 23:45:58 dawes Exp $
+
+partial default alphanumeric_keys 
+xkb_symbols "basic" {
+
+    // Describes the differences between a very simple en_US
+    // keyboard and a very simple Spanish keybaord
+
+    name[Group1]= "Spanish";
+
+    key <TLDE> {	[       masculine,     ordfeminine      ],	
+    			[	backslash,       backslash	]	};
+    key <LSGT> {	[	     less,	   greater	],
+			[	      bar,       brokenbar	]	};
+    key <AE01> {	[         	1,	exclam 		],
+			[	      bar,	exclamdown	]	};
+    key <AE02> {	[               2,        quotedbl     	],	
+			[	       at,	 oneeighth	]	};
+    key <AE03> {	[               3,  periodcentered     	],	
+			[      numbersign,        sterling	]	};
+    key <AE04> {	[               4,          dollar     	],	
+			[      asciitilde,          dollar	]	};
+    key <AE06> {	[               6,       ampersand     	],	
+			[	  notsign,     fiveeighths	]	};
+    key <AE07> {	[               7,           slash     	]	};
+    key <AE08> {	[               8,       parenleft     	]	};
+    key <AB08> {	[           comma,       semicolon     	]	};
+    key <AE10> {	[               0,           equal     	]	};
+    key <AE09> {	[               9,      parenright     	]	};
+    key <AB09> {	[          period,           colon     	]	};
+    key <AB10> {	[           minus,      underscore     	]	};
+    key	<AC10> {	[	   ntilde,          Ntilde  	],	
+			[      asciitilde,dead_doubleacute	]	};
+    key <AE11> {	[      apostrophe,        question      ]	};
+    key <AC11> {	[      dead_acute,  dead_diaeresis 	],	
+			[	braceleft,       braceleft	]	};
+    key <BKSL> {	[	 ccedilla,        Ccedilla	],
+			[      braceright,      dead_breve	]	};
+    key <AD11> {	[      dead_grave, dead_circumflex 	],	
+			[     bracketleft,  dead_abovering	]	};
+    key <AE12> {	[      exclamdown,    questiondown	],
+			[      asciitilde,      asciitilde	]	};
+    key <AD12> {	[            plus,        asterisk	],
+			[    bracketright,     dead_macron	]	};
+    key <AD03> {        [               e,               E      ],
+                        [        EuroSign,            cent      ]	};
+
+    // End alphanumeric section
+
+    // Begin modifier mappings
+    modifier_map Shift  { Shift_L };
+    modifier_map Lock   { Caps_Lock };
+    modifier_map Control{ Control_L };
+    modifier_map Mod3   { Mode_switch };
+};
+
+partial alphanumeric_keys 
+xkb_symbols "Sundeadkeys" {
+    include "es(basic)"
+
+    key <AC11> {	[     SunFA_Acute, SunFA_Diaeresis 	],	
+			[	braceleft,       braceleft	]	};
+    key <AD11> {	[     SunFA_Grave,    SunFA_Circum     	],	
+			[     bracketleft,  dead_abovering	]	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "sundeadkeys" {
+    include "es(Sundeadkeys)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "nodeadkeys" {
+    include "es(basic)"
+
+    key	<AC10> {	[	   ntilde,          Ntilde  	],	
+			[      asciitilde,     doubleacute	]	};
+    key <AC11> {	[           acute,       diaeresis 	],	
+			[	braceleft,       braceleft	]	};
+    key <BKSL> {	[	 ccedilla,        Ccedilla	],
+			[      braceright,           breve	]	};
+    key <AD11> {	[	    grave,     asciicircum     	],	
+			[     bracketleft,          degree	]	};
+    key <AD12> {	[            plus,        asterisk	],
+			[    bracketright,          macron	]	};
+};

@@ -1,0 +1,6 @@
+XCOMM $XConsortium$
+
+MakeEqnDoc(encoding_doc,encoding_doc.ms)
+MakeSimpleDoc(encoding_toc,encoding_toc.ms)
+MakeEqnDoc(protocol_doc,protocol_doc.ms)
+MakeSimpleDoc(protocol_toc,protocol_toc.ms)

@@ -1,0 +1,13 @@
+Ovo je Mailmanova obavijest o odbijenim akcijama:
+
+    Lista:      %(listname)s
+    Clan: 	    %(addr)s
+    Akcija:     Pretplata %(negative)s%(did)s.
+    Razlog:     Prekomjereno ili fatalno odbijanje.
+    %(but)s
+
+%(reenable)s
+Obavijest o okidackom odbijanju (triggering bounce) je prikvacena dolje.
+
+Pitanja?  
+Kontaktirajte Mailmanovog site administratora na %(owneraddr)s.

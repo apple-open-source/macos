@@ -1,0 +1,42 @@
+'\"! eqn | mmdoc
+'\"macro stdmacro
+.ds Vn Version 1.2
+.ds Dt 6 March 1997
+.ds Re Release 1.2.0
+.ds Dp Feb 16 02:56
+.ds Dm  Feb 10 17:2
+.ds Xs 12384 2 xisdirect.gl
+.TH GLXISDIRECT
+.SH NAME
+glXIsDirect
+\- indicate whether direct rendering is enabled
+
+.SH C SPECIFICATION
+Bool \f3glXIsDirect\fP(
+Display \fI*dpy\fP,
+.nf
+.ta \w'\f3Bool \fPglXIsDirect( 'u
+	GLXContext \fIctx\fP )
+.fi
+
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+.TP \w'\f2dpy\fP\ \ 'u 
+\f2dpy\fP
+Specifies the connection to the X server.
+.TP
+\f2ctx\fP
+Specifies the GLX context that is being queried.
+.SH DESCRIPTION
+\f3glXIsDirect\fP returns \f3True\fP if \f2ctx\fP is a direct rendering context,
+\f3False\fP otherwise.
+Direct rendering contexts pass rendering commands directly from the calling
+process's address space to the rendering system,
+bypassing the X server.
+Nondirect rendering contexts pass all rendering commands to the X server.
+.SH ERRORS
+\f3GLXBadContext\fP is generated if \f2ctx\fP is not a valid GLX context.
+.SH SEE ALSO
+\f3glXCreateContext\fP

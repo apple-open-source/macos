@@ -744,7 +744,6 @@ enqueueDataGated(UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep)
     }
     if (TxQ->enqueueThresholdExceeded())
         setStateGated(TxQ->getState(), PD_S_TXQ_MASK);
-    startTxEngine();
     return kIOReturnSuccess;
 }
 
@@ -1196,6 +1195,7 @@ inline void Apple16X50UARTSync::startTxEngine()
     if (OffLine) return;
     if (!(State & PD_S_TX_BUSY))
         FrameTimer->setTimeoutUS(1);
+    State |= PD_S_TX_BUSY;
     DEBUG_IOLog("%s::startTxEngine()\n", Name);
     //  Provider->causeInterrupt(0);
 }

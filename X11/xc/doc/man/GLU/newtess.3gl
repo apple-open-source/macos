@@ -1,0 +1,30 @@
+'\" e
+'\"! eqn | mmdoc
+'\"macro stdmacro
+.ds Vn Version 1.2
+.ds Dt 6 March 1997
+.ds Re Release 1.2.0
+.ds Dp May 02 11:53
+.ds Dm 37 newtess.g
+.ds Xs 16871 3 newtess.gl
+.TH GLUNEWTESS 3G
+.SH NAME
+.B "gluNewTess
+\- create a tessellation object
+
+.SH C SPECIFICATION
+GLUtesselator* \f3gluNewTess\fP( void )
+.nf
+.fi
+
+.EQ
+delim $$
+.EN
+.SH DESCRIPTION
+\%\f3gluNewTess\fP creates and returns a pointer to a new tessellation object.
+This object must be referred to when calling
+tessellation functions.  A return value of
+0 means that there is not enough memory to allocate the object.
+.SH SEE ALSO
+\%\f3gluTessBeginPolygon(3G)\fP, \%\f3gluDeleteTess(3G)\fP, \%\f3gluTessCallback(3G)\fP
+

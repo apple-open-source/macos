@@ -512,6 +512,8 @@ Duration AbsoluteToDuration( AbsoluteTime result );
 
 OSStatus DelayForHardware( AbsoluteTime time );
 
+OSStatus DelayUntil( AbsoluteTime time );
+
 OSStatus DelayFor( Duration theDuration );
 
 void SysDebugStr( const char * from );

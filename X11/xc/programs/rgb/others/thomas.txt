@@ -1,0 +1,274 @@
+0 0 0			black
+255 255 255		white
+255 0 0			red
+0 255 0			green
+0 0 255			blue
+0 255 255		cyan
+255 0 211		magenta
+255 255 0		yellow
+255 138 0		orange
+159 211 0		green yellow
+0 255 159		spring green
+0 138 255		sky blue
+148 0 211		violet
+255 0 148		violet red
+105 105 105		dim gray
+174 174 174		gray
+174 174 174		grey
+211 211 211		light grey
+211 211 211		light gray
+105 105 105		dim grey
+199 21 133		medium violet red
+114 33 188		blue violet
+218 107 212		orchid
+172 77 166		medium orchid
+106 37 102		dark orchid
+103 7 72		maroon
+76 46 87		plum
+146 62 112		thistle
+171 197 255		light blue
+61 98 208		medium blue
+100 149 237		cornflower blue
+0 0 142			navy blue
+0 0 142			navy
+12 62 99		midnight blue
+72 209 204		turquoise
+62 172 181		medium turquoise
+29 111 117		dark turquoise
+52 152 202		light steel blue
+55 121 153		steel blue
+126 125 160		cadet blue
+117 134 190		slate blue
+95 109 154		medium slate blue
+51 62 99		dark slate blue
+60 64 74		dark slate grey
+60 64 74		dark slate gray
+0 83 0			dark green
+79 79 47		dark olive green
+85 192 52		forest green
+107 142 35		medium forest green
+46 155 28		lime green
+60 141 35		medium spring green
+152 255 152		pale green
+43 167 112		sea green
+27 134 86		medium sea green
+41 171 151		aquamarine
+21 135 118		medium aquamarine
+75 211 0 		yellow green
+254 197 68		gold
+184 134 11		medium goldenrod
+218 165 32		goldenrod
+229 199 117		wheat
+189 167 107		khaki
+176 155 125		tan
+178 143 86		sandy brown
+142 107 35		sienna
+103 67 0		brown
+101 46 46		indian red
+255 174 185		pink
+248 137 117		coral
+248 109 104		salmon
+226 65 42		orange red
+136 18 13		firebrick
+0 0 0 			gray0
+3 3 3 			gray1
+5 5 5 			gray2
+8 8 8 			gray3
+10 10 10 		gray4
+13 13 13 		gray5
+15 15 15 		gray6
+18 18 18 		gray7
+20 20 20 		gray8
+23 23 23 		gray9
+26 26 26 		gray10
+28 28 28 		gray11
+31 31 31 		gray12
+33 33 33 		gray13
+36 36 36 		gray14
+38 38 38 		gray15
+41 41 41 		gray16
+43 43 43 		gray17
+46 46 46 		gray18
+48 48 48 		gray19
+51 51 51 		gray20
+54 54 54 		gray21
+56 56 56 		gray22
+59 59 59 		gray23
+61 61 61 		gray24
+64 64 64 		gray25
+66 66 66 		gray26
+69 69 69 		gray27
+71 71 71 		gray28
+74 74 74 		gray29
+77 77 77 		gray30
+79 79 79 		gray31
+82 82 82 		gray32
+84 84 84 		gray33
+87 87 87 		gray34
+89 89 89 		gray35
+92 92 92 		gray36
+94 94 94 		gray37
+97 97 97 		gray38
+99 99 99 		gray39
+102 102 102 		gray40
+105 105 105 		gray41
+107 107 107 		gray42
+110 110 110 		gray43
+112 112 112 		gray44
+115 115 115 		gray45
+117 117 117 		gray46
+120 120 120 		gray47
+122 122 122 		gray48
+125 125 125 		gray49
+127 127 127 		gray50
+130 130 130 		gray51
+133 133 133 		gray52
+135 135 135 		gray53
+138 138 138 		gray54
+140 140 140 		gray55
+143 143 143 		gray56
+145 145 145 		gray57
+148 148 148 		gray58
+150 150 150 		gray59
+153 153 153 		gray60
+156 156 156 		gray61
+158 158 158 		gray62
+161 161 161 		gray63
+163 163 163 		gray64
+166 166 166 		gray65
+168 168 168 		gray66
+171 171 171 		gray67
+173 173 173 		gray68
+176 176 176 		gray69
+179 179 179 		gray70
+181 181 181 		gray71
+184 184 184 		gray72
+186 186 186 		gray73
+189 189 189 		gray74
+191 191 191 		gray75
+194 194 194 		gray76
+196 196 196 		gray77
+199 199 199 		gray78
+201 201 201 		gray79
+204 204 204 		gray80
+207 207 207 		gray81
+209 209 209 		gray82
+212 212 212 		gray83
+214 214 214 		gray84
+217 217 217 		gray85
+219 219 219 		gray86
+222 222 222 		gray87
+224 224 224 		gray88
+227 227 227 		gray89
+229 229 229 		gray90
+232 232 232 		gray91
+235 235 235 		gray92
+237 237 237 		gray93
+240 240 240 		gray94
+242 242 242 		gray95
+245 245 245 		gray96
+247 247 247 		gray97
+250 250 250 		gray98
+252 252 252 		gray99
+255 255 255 		gray100
+0 0 0 			grey0
+3 3 3 			grey1
+5 5 5 			grey2
+8 8 8 			grey3
+10 10 10 		grey4
+13 13 13 		grey5
+15 15 15 		grey6
+18 18 18 		grey7
+20 20 20 		grey8
+23 23 23 		grey9
+26 26 26 		grey10
+28 28 28 		grey11
+31 31 31 		grey12
+33 33 33 		grey13
+36 36 36 		grey14
+38 38 38 		grey15
+41 41 41 		grey16
+43 43 43 		grey17
+46 46 46 		grey18
+48 48 48 		grey19
+51 51 51 		grey20
+54 54 54 		grey21
+56 56 56 		grey22
+59 59 59 		grey23
+61 61 61 		grey24
+64 64 64 		grey25
+66 66 66 		grey26
+69 69 69 		grey27
+71 71 71 		grey28
+74 74 74 		grey29
+77 77 77 		grey30
+79 79 79 		grey31
+82 82 82 		grey32
+84 84 84 		grey33
+87 87 87 		grey34
+89 89 89 		grey35
+92 92 92 		grey36
+94 94 94 		grey37
+97 97 97 		grey38
+99 99 99 		grey39
+102 102 102 		grey40
+105 105 105 		grey41
+107 107 107 		grey42
+110 110 110 		grey43
+112 112 112 		grey44
+115 115 115 		grey45
+117 117 117 		grey46
+120 120 120 		grey47
+122 122 122 		grey48
+125 125 125 		grey49
+127 127 127 		grey50
+130 130 130 		grey51
+133 133 133 		grey52
+135 135 135 		grey53
+138 138 138 		grey54
+140 140 140 		grey55
+143 143 143 		grey56
+145 145 145 		grey57
+148 148 148 		grey58
+150 150 150 		grey59
+153 153 153 		grey60
+156 156 156 		grey61
+158 158 158 		grey62
+161 161 161 		grey63
+163 163 163 		grey64
+166 166 166 		grey65
+168 168 168 		grey66
+171 171 171 		grey67
+173 173 173 		grey68
+176 176 176 		grey69
+179 179 179 		grey70
+181 181 181 		grey71
+184 184 184 		grey72
+186 186 186 		grey73
+189 189 189 		grey74
+191 191 191 		grey75
+194 194 194 		grey76
+196 196 196 		grey77
+199 199 199 		grey78
+201 201 201 		grey79
+204 204 204 		grey80
+207 207 207 		grey81
+209 209 209 		grey82
+212 212 212 		grey83
+214 214 214 		grey84
+217 217 217 		grey85
+219 219 219 		grey86
+222 222 222 		grey87
+224 224 224 		grey88
+227 227 227 		grey89
+229 229 229 		grey90
+232 232 232 		grey91
+235 235 235 		grey92
+237 237 237 		grey93
+240 240 240 		grey94
+242 242 242 		grey95
+245 245 245 		grey96
+247 247 247 		grey97
+250 250 250 		grey98
+252 252 252 		grey99
+255 255 255 		grey100

@@ -61,9 +61,24 @@ typedef struct sComData
 	uInt32				fPID;
 	uInt32				fPort;
 	uInt32				fIPAddress;
+	mach_msg_audit_trailer_t fTail;
 	sObject				obj[ 10 ];
 	char				data[ 1 ];
 } sComData;
+
+typedef struct sComProxyData
+{
+	mach_msg_header_t	head;
+	mach_msg_type_t		type;
+	uInt32				fDataSize;
+	uInt32				fDataLength;
+	uInt32				fMsgID;
+	uInt32				fPID;
+	uInt32				fPort;
+	uInt32				fIPAddress;
+	sObject				obj[ 10 ];
+	char				data[ 1 ];
+} sComProxyData;
 
 const uInt32 kMsgBlockSize	= 1024 * 4;					// Set to average of 4k
 const uInt32 kObjSize		= sizeof( sObject ) * 10;	// size of object struct
@@ -81,9 +96,8 @@ typedef struct sIPCMsg
 	uInt32				fPort;
 	sObject				obj[ 10 ];
 	char				fData[ kIPCMsgLen ];
-	mach_msg_security_trailer_t	fTail;	//this is the largest trailer struct
-										//we never set this and we never send it
-										//but we have the bucket large enough to receive it
+	mach_msg_audit_trailer_t	fTail;	//this is the largest trailer struct
+										//we have the bucket large enough to receive it
 } sIPCMsg;
 
 

@@ -1,0 +1,46 @@
+--- rman.c.~1~	Wed Nov 20 13:33:52 1996
++++ rman.c	Fri Oct 24 00:10:56 1997
+@@ -3583,6 +3583,43 @@
+ 			}
+ 			free(sobuf);
+ 		}
++	} else {
++#define GZIP "/bin/gzip"
++		char * gz = malloc(strlen(p)+3+1);
++		sprintf(gz, "%s.gz", p);
++		if (stat(gz, &fileinfo)==0) {
++			/* first, figure out how big */
++			char * cmd = malloc(strlen(gz) + strlen(GZIP) + 7 + 1);
++			char buffer[512];
++			unsigned long compr, uncomp;
++			FILE * proc;
++			sprintf(cmd, "%s -l \"%s\"", GZIP, gz);
++			proc = popen(cmd, "r");
++			fgets(buffer, sizeof buffer, proc); /* label line */
++			fgets(buffer, sizeof buffer, proc); /* length line */
++			sscanf(buffer, "%lu %lu", &compr, &uncomp);
++			fclose(proc);
++			/* Boy, don't you wish stat would do that? */
++			sobuf = malloc(uncomp + 1);
++			if (sobuf!=NULL) {
++				/* suck in entire file, as above */
++				sprintf(cmd, "%s -dc \"%s\"", GZIP, gz);
++				proc = popen(cmd, "r");
++				if (proc!=NULL) {
++					if(fread(sobuf, 1, uncomp, proc)) {
++						sobuf[uncomp]='\0';
++						for (q=sobuf; (q=strstr(q," \\}"))!=NULL; q+=3) *q='\n';
++						source_subfile(sobuf);
++						err = 0;
++					}
++					fclose(proc);
++				}
++				free(sobuf);
++			}
++			free(cmd);
++		}
++		free(gz);
++
+ 	}
+ 
+ 	if (err) {

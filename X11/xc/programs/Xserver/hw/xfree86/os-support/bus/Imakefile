@@ -1,0 +1,148 @@
+XCOMM $XConsortium: Imakefile /main/16 1996/10/27 18:07:43 kaleb $
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bus/Imakefile,v 1.30 2003/02/23 20:26:49 tsi Exp $
+
+#include <Server.tmpl>
+
+#if defined(LinuxArchitecture) && defined(AlphaArchitecture)
+
+XCOMM Alpha (Linux) PCI driver
+
+PCIDRVRSRC = axpPci.c
+PCIDRVROBJ = axpPci.o
+
+#elif defined(LinuxArchitecture) && defined(SparcArchitecture)
+
+XCOMM Sparc SBUS driver and generic Linux PCI driver
+
+PCIDRVRSRC = linuxPci.c
+PCIDRVROBJ = linuxPci.o
+SBUSDRVSRC = Sbus.c
+SBUSDRVOBJ = Sbus.o
+
+#elif defined(SunArchitecture) && defined(SparcArchitecture)
+
+XCOMM Sparc SBUS & PCI drivers
+
+PCIDRVRSRC = sparcPci.c
+PCIDRVROBJ = sparcPci.o
+SBUSDRVSRC = Sbus.c
+SBUSDRVOBJ = Sbus.o
+
+#elif defined(LinuxArchitecture) && \
+      (defined(PpcArchitecture) || \
+       defined(MipsArchitecture) || \
+       defined(ia64Architecture) || \
+       defined(Mc68020Architecture) || \
+       defined(Arm32Architecture) || \
+       defined(HPArchitecture) || \
+       defined(s390Architecture) || \
+       defined(SuperHArchitecture) || \
+       defined(SuperHebArchitecture))
+
+XCOMM generic linux PCI driver (using /proc/bus/pci, requires kernel 2.2)
+
+PCIDRVRSRC = linuxPci.c
+PCIDRVROBJ = linuxPci.o
+
+#elif defined(OpenBSDArchitecture) && \
+	(defined(PpcArchitecture) || \
+	defined(AlphaArchitecture) || \
+	defined(Sparc64Architecture))
+
+XCOMM OpenBSD/alpha, OpenBSD/powerpc and OpenBSD/sparc64
+
+PCIDRVRSRC = freebsdPci.c
+PCIDRVROBJ = freebsdPci.o
+
+#elif defined(NetBSDArchitecture) && defined(PpcArchitecture)
+
+XCOMM NetBSD/powerpc
+
+PCIDRVRSRC = netbsdPci.c
+PCIDRVROBJ = netbsdPci.o
+
+#elif defined(PpcArchitecture)
+
+XCOMM PowerPC PCI drivers
+
+PCIDRVRSRC = ppcPci.c
+PCIDRVROBJ = ppcPci.o
+
+#elif defined(LinuxArchitecture) && \
+     (defined(i386Architecture) || defined(x86_64Architecture))
+
+XCOMM ix86 PCI driver with OS fallback for Linux
+
+PCIDRVRSRC = ix86Pci.c linuxPci.c
+PCIDRVROBJ = ix86Pci.o linuxPci.o
+
+#elif defined(FreeBSDArchitecture) && defined(AlphaArchitecture)
+
+
+XCOMM generic FreeBSD PCI driver (using /dev/pci)
+
+PCIDRVRSRC = freebsdPci.c
+PCIDRVROBJ = freebsdPci.o
+
+#elif defined(NetBSDArchitecture) && defined(AlphaArchitecture)
+
+XCOMM Alpha (NetBSD) PCI driver
+
+PCIDRVRSRC = netbsdPci.c
+PCIDRVROBJ = netbsdPci.o
+
+#elif defined(i386Architecture) || \
+      defined(ia64Architecture) || \
+      defined(x86_64Architecture)
+
+XCOMM ix86 PCI driver
+
+PCIDRVRSRC = ix86Pci.c
+PCIDRVROBJ = ix86Pci.o
+XCOMM PCIDRVRSRC = linuxPci.c
+XCOMM PCIDRVROBJ = linuxPci.o
+
+#else
+XCOMM no PCI driver -- shouldn't get here
+#endif
+
+#if defined(SparcArchitecture)
+# if !defined(SunArchitecture)
+PCIARCHSRC = sparcPci.c
+PCIARCHOBJ = sparcPci.o
+# endif
+#elif defined(ia64Architecture)
+PCIARCHSRC = ia64Pci.c 460gxPCI.c e8870PCI.c zx1PCI.c
+PCIARCHOBJ = ia64Pci.o 460gxPCI.o e8870PCI.o zx1PCI.o
+#endif
+
+SRCS = Pci.c $(PCIDRVRSRC) $(SBUSDRVSRC) $(PCIARCHSRC)
+OBJS = Pci.o $(PCIDRVROBJ) $(SBUSDRVOBJ) $(PCIARCHOBJ)
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) \
+	   -I$(SERVERSRC)/include -I$(XINCLUDESRC)
+
+NormalLibraryObjectRule()
+SubdirLibraryRule($(OBJS))
+
+/*
+ * egcs 1.1.2 as provided with some Linux distributions has an optimisation
+ * bug that results in bad code for this file.
+ */
+#if Egcs112Bug
+SpecialCObjectRule(Pci,NullParameter,-O0)
+#endif
+
+#if defined(SunArchitecture) && defined(SparcArchitecture)
+
+LFS_DEFINES = `getconf LFS_CFLAGS`
+
+SpecialCObjectRule(sparcPci,NullParameter,$(LFS_DEFINES))
+
+#endif
+
+DependTarget()

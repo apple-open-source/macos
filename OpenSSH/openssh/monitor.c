@@ -142,6 +142,12 @@ int mm_answer_gss_indicate_mechs(int, Buffer *);
 int mm_answer_gss_localname(int, Buffer *);
 #endif
 
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+int mm_answer_bad_pw(int, Buffer *);
+int mm_answer_maxtrys(int, Buffer *);
+int mm_answer_not_console(int, Buffer *);
+#endif /* BSM */
+
 static Authctxt *authctxt;
 static BIGNUM *ssh1_challenge = NULL;	/* used for ssh1 rsa auth */
 
@@ -201,6 +207,11 @@ struct mon_table mon_dispatch_proto20[] = {
 #endif
     {MONITOR_REQ_KEYALLOWED, MON_ISAUTH, mm_answer_keyallowed},
     {MONITOR_REQ_KEYVERIFY, MON_AUTH, mm_answer_keyverify},
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+    {MONITOR_REQ_AUDIT_BAD_PW, MON_PERMIT, mm_answer_bad_pw},
+    {MONITOR_REQ_AUDIT_MAXTRYS, MON_PERMIT, mm_answer_maxtrys},
+    {MONITOR_REQ_AUDIT_NOT_CONSOLE, MON_PERMIT, mm_answer_not_console},
+#endif /* BSM */
     {0, 0, NULL}
 };
 
@@ -246,6 +257,11 @@ struct mon_table mon_dispatch_proto15[] = {
 #ifdef KRB5
     {MONITOR_REQ_KRB5, MON_ONCE|MON_AUTH, mm_answer_krb5},
 #endif
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+    {MONITOR_REQ_AUDIT_BAD_PW, MON_PERMIT, mm_answer_bad_pw},
+    {MONITOR_REQ_AUDIT_MAXTRYS, MON_PERMIT, mm_answer_maxtrys},
+    {MONITOR_REQ_AUDIT_NOT_CONSOLE, MON_PERMIT, mm_answer_not_console},
+#endif /* BSM */
     {0, 0, NULL}
 };
 
@@ -1449,6 +1465,50 @@ mm_answer_term(int socket, Buffer *req)
 	/* Terminate process */
 	exit (res);
 }
+
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+
+/* Report that the user or password is invalid */
+
+int
+mm_answer_bad_pw(int socket, Buffer *m)
+{
+	char *what;
+
+	debug3("%s", __func__);
+
+	what = buffer_get_string(m, NULL);
+	solaris_audit_bad_pw(what);
+	xfree(what);
+
+	return (0);
+}
+
+/* Report that too many attemps have been made */
+
+int
+mm_answer_maxtrys(int socket, Buffer *m)
+{
+	debug3("%s", __func__);
+
+	solaris_audit_maxtrys();
+
+	return (0);
+}
+
+/* Report that console access is not allowed */
+
+int
+mm_answer_not_console(int socket, Buffer *m)
+{
+	debug3("%s", __func__);
+
+	solaris_audit_not_console();
+
+	return (0);
+}
+
+#endif /* BSM */
 
 void
 monitor_apply_keystate(struct monitor *pmonitor)

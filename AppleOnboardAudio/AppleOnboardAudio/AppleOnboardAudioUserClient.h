@@ -16,7 +16,6 @@ class AppleOnboardAudio;
 
 // Structure Definitions:
 //
-
 typedef enum HardwarePluginType {
 	kCodec_Unknown = 0,
 	kCodec_TAS3004,

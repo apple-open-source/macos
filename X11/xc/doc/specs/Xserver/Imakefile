@@ -1,0 +1,20 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:42:41 cpqbld Exp $
+XCOMM $XFree86: xc/doc/specs/Xserver/Imakefile,v 1.2 2001/04/23 15:53:56 dawes Exp $
+
+MakeTblDoc(ddx,ddx.tbl.ms)
+
+MakeSimpleDoc(fontlib,fontlib.ms)
+
+MakeSimpleDoc(appgroup,appgroup.ms)
+
+MakeLatexDoc(secint,secint.tex)
+
+MakeLatexDoc(analysis,analysis.tex)
+
+InstallRoffDoc(ddx)
+InstallRoffDoc(fontlib)
+InstallRoffDoc(appgroup)
+
+InstallLatexDoc(secint)
+InstallLatexDoc(analysis)
+

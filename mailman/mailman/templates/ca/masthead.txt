@@ -1,0 +1,18 @@
+Envii les submissions de  llista de correu  %(real_name)s a
+	%(got_list_email)s
+
+Per subscriure's o donar-se de baixa via 'World Wide Web', visiti
+
+	%(got_listinfo_url)s
+
+o si vol fer-ho via email, envii'n un amb la paraula 'ajuda' en el títol o 
+en el cos del missatge a
+
+	%(got_request_email)s
+
+Pot accedir a la persona que gestiona la llista a 
+
+	%(got_owner_email)s
+
+Quan respongui, si us plau, canvii el títol de manera que sigui més específic que
+"Re: Contents of %(real_name)s digest..."

@@ -1,0 +1,12 @@
+XCOMM $XFree86: xc/programs/dpsexec/Imakefile,v 1.2 2001/03/11 15:27:36 herrb Exp $
+XCOMM XTOOLLIB is currently needed by our version of DPSLIB
+
+        DEPLIBS = $(DEPDPSLIB) $(DEPXTOOLLIB) $(DEPXLIB)
+LOCAL_LIBRARIES = $(DPSLIB) $(XTOOLLIB) $(XLIB)
+  SYS_LIBRARIES = MathLibrary
+
+SRCS = dpsexec.c
+
+OBJS = dpsexec.o
+
+ComplexProgramTarget(dpsexec)

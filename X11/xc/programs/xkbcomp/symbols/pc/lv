@@ -1,0 +1,36 @@
+
+// based on
+// Latvian keyboard map by Ilya Ketris <Ilya.Ketris@ipro.lv>
+//
+// $XFree86: xc/programs/xkbcomp/symbols/pc/lv,v 1.2 2002/11/22 04:03:28 dawes Exp $
+
+partial default alphanumeric_keys modifier_keys
+xkb_symbols "basic" {
+
+    include "pc/latin"
+
+    name[Group1]="Latvian";
+
+    key <AE04>	{ [         4,     dollar,     EuroSign,         cent ]	};
+
+    key <AD03>	{ [         e,          E,      emacron,      Emacron ]	};
+    key <AD04>	{ [         r,          R,     rcedilla,     Rcedilla ]	};
+    key <AD07>	{ [         u,          U,      umacron,      Umacron ]	};
+    key <AD08>	{ [         i,          I,      imacron,      Imacron ]	};
+    key <AD09>	{ [         o,          O,      omacron,      Omacron ]	};
+
+    key <AC01>	{ [         a,          A,      amacron,      Amacron ]	};
+    key <AC02>	{ [         s,          S,       scaron,       Scaron ]	};
+    key <AC05>	{ [         g,          G,     gcedilla,     Gcedilla ]	};
+    key <AC08>	{ [         k,          K,     kcedilla,     Kcedilla ]	};
+    key <AC09>	{ [         l,          L,     lcedilla,     Lcedilla ]	};
+    key <AC11>	{ [apostrophe, quotedbl, leftdoublequotemark, doublelowquotemark ] };
+
+    key <AB01>	{ [         z,          Z,       zcaron,       Zcaron ]	};
+    key <AB03>	{ [         c,          C,       ccaron,       Ccaron ]	};
+    key <AB06>	{ [         n,          N,     ncedilla,     Ncedilla ]	};
+
+    key <RALT>  { type[Group1]="TWO_LEVEL",
+                  [ ISO_Level3_Shift, Multi_key ]   };
+    modifier_map Mod5   { <RALT> };
+};

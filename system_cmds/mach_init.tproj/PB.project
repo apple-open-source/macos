@@ -9,7 +9,7 @@
         HEADERSEARCH = (); 
         "H_FILES" = ("bootstrap_internal.h", "error_log.h", "lists.h"); 
         "M_FILES" = (); 
-        "OTHER_LIBS" = (); 
+        "OTHER_LIBS" = (bsm); 
         "OTHER_LINKED" = ("bootstrap.c", "error_log.c", "lists.c", "rpc_services.c"); 
         "OTHER_SOURCES" = (
             "Makefile.preamble", 

@@ -1,0 +1,31 @@
+define(`_define',defn(`define'))dnl
+define(`_ifdef',defn(`ifdef'))dnl
+define(`_ifelse',defn(`ifelse'))dnl
+define(`_eval',defn(`eval'))dnl
+define(`_len',defn(`len'))dnl
+define(`_incr',defn(`incr'))dnl
+define(`_sinclude',defn(`sinclude'))dnl
+changecom()dnl
+define(`_C_',defn(`dnl'))dnl
+undefine(`define')undefine(`ifdef')dnl
+undefine(`shift')undefine(`divert')undefine(`incr')dnl
+undefine(`decr')undefine(`eval')undefine(`len')undefine(`index')dnl
+undefine(`substr')undefine(`include')undefine(`sinclude')dnl
+changequote(@<,>@)dnl
+_define(_makelist,@<_dolist(translit($1,@< >@,@<,>@))>@)dnl
+_define(_dolist,@<dnl
+_ifelse($#,1,$1,$#,2,$1@<+ >@$2,$#,3,$1@<+ >@$2@<+ >@$3,$#,dnl
+4,$1@<+ >@$2@<+ >@$3@<+ >@$4)>@)dnl
+_define(_namenum,@<0>@)dnl
+_define(_tmpnam,maketemp)dnl
+_define(_const,@<\f3GL_$1\fP>@)dnl
+_define(_xconst,@<\f3$1\fP>@)dnl
+_define(_glxconst,@<\f3GLX_$1\fP>@)dnl
+_define(_glxerror,@<\f3GLX$1\fP>@)dnl
+_define(_gluconst,@<\f3GLU_$1\fP>@)dnl
+_define(_econst,@<bold GL_$1>@)dnl
+_define(_hex,@<@<$>@$1>@)dnl
+_define(_setup,@<_ifdef(@<_filters>@,@<'\"! _filters() | mmdoc
+>@)dnl
+'\"macro stdmacro
+>@)dnl

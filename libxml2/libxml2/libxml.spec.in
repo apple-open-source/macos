@@ -61,32 +61,13 @@ at parse time or later once the document has been modified.
 
 %build
 %configure
-make LIBTOOL=/usr/bin/libtool
+make
+(cd doc/examples ; make clean)
 
 %install
 rm -fr %{buildroot}
 
 %makeinstall
-
-#
-# this is a bit ugly but tries to generate the bindings for all versions
-# of python installed
-#
-for i in %{prefix}/include/python*
-do
-    py_version=`echo $i | sed "s+%{prefix}/include/python++"`
-    if test -x %{prefix}/bin/python$py_version
-    then
-        echo generating bindings for Python $py_version
-      (cd python ; make clean ; \
-         make PYTHON="%{prefix}/bin/python$py_version" \
-            PYTHON_INCLUDES="%{prefix}/include/python$py_version" \
-            PYTHON_VERSION="$py_version"; \
-%makeinstall PYTHON="%{prefix}/bin/python$py_version" \
-            PYTHON_INCLUDES="%{prefix}/include/python$py_version" \
-            PYTHON_VERSION="$py_version" )
-    fi
-done
 
 %clean
 rm -fr %{buildroot}
@@ -116,6 +97,7 @@ rm -fr %{buildroot}
 %doc AUTHORS ChangeLog NEWS README Copyright TODO
 %doc doc/*.html doc/html doc/*.gif doc/*.png
 %doc doc/tutorial doc/libxml2-api.xml
+%doc doc/examples
 
 %{_libdir}/lib*.so
 %{_libdir}/*a

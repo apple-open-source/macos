@@ -42,7 +42,9 @@ typedef enum GpioAttributes {
 	kGPIO_CodecIRQEnable,
 	kGPIO_CodecIRQDisable,
 	kGPIO_TypeIsAnalog,
-	kGPIO_TypeIsDigital
+	kGPIO_TypeIsDigital,
+	kGPIO_IsDefault,
+	kGPIO_IsAlternate
 };
 
 //	If this enumeration changes then please apply the same changes to the DiagnosticSupport sources.
@@ -96,7 +98,9 @@ typedef enum {
 	kHeadphoneDetectInterrupt,
 	kLineInputDetectInterrupt,
 	kLineOutputDetectInterrupt,
-	kSpeakerDetectInterrupt
+	kSpeakerDetectInterrupt,
+	kComboInDetectInterrupt,
+	kComboOutDetectInterrupt
 } PlatformInterruptSource;
 
 //	If this enumeration changes then please apply the same changes to the DiagnosticSupport sources.
@@ -236,6 +240,14 @@ typedef struct {
 } i2cDescriptor;
 typedef i2cDescriptor * i2cDescriptorPtr;
 
+//	[3517297]
+
+typedef enum ComboStateMachineState {
+	kComboStateMachine_handle_jack_insert				=	0,
+	kComboStateMachine_handle_metal_change,
+	kComboStateMachine_handle_plastic_change
+};
+
 //	If this structure changes then please apply the same changes to the DiagnosticSupport sources.
 typedef struct {
 	PlatformInterfaceObjectType				platformType;
@@ -265,6 +277,9 @@ public:
 	virtual IOReturn		performPlatformSleep ( void ) { return kIOReturnError; }
 	virtual IOReturn		performPlatformWake ( IOService * device ) { return kIOReturnError; }
 	virtual	void			setWorkLoop(IOWorkLoop* inWorkLoop) {return;}					
+
+	static void				threadedRegisterInterrupts (PlatformInterface *self, IOService * device);
+	virtual void			threadedMemberRegisterInterrupts (IOService * device);
 
 	//
 	// Codec Methods
@@ -347,8 +362,8 @@ public:
 
 	virtual GpioAttributes	 getInternalSpeakerID() {return kGPIO_Unknown;}
 
-	virtual	GpioAttributes	getLineOutConnected(bool ignoreCombo = false) {return kGPIO_Unknown;}
 	virtual	GpioAttributes	getLineInConnected() {return kGPIO_Unknown;}
+	virtual	GpioAttributes	getLineOutConnected() {return kGPIO_Unknown;}
 
 	virtual IOReturn 		setLineOutMuteState( GpioAttributes muteState ) {return kIOReturnError;}
 	virtual GpioAttributes 	getLineOutMuteState() {return kGPIO_Unknown;}
@@ -358,6 +373,11 @@ public:
 	virtual IOReturn 		setSpeakerMuteState( GpioAttributes muteState ) {return kIOReturnError;}
 	virtual GpioAttributes 	getSpeakerMuteState() {return kGPIO_Unknown;}
 	
+	virtual void			enableAmplifierMuteRelease ( void );		//	[3514762]
+
+
+	static void				comboInDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
+	static void				comboOutDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
 	static void				headphoneDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
 	static void				speakerDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
 	static void				lineInDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
@@ -383,7 +403,6 @@ public:
 	//
 	virtual	IODBDMAChannelRegisters *	GetInputChannelRegistersVirtualAddress ( IOService * dbdmaProvider ) { return NULL; }
 	virtual	IODBDMAChannelRegisters *	GetOutputChannelRegistersVirtualAddress ( IOService * dbdmaProvider ) { return NULL; }
-	virtual void						LogDBDMAChannelRegisters ( void );
 
 	//	
 	//	User Client Support
@@ -399,13 +418,22 @@ protected:
 
 	static UInt32			sInstanceCount;
 	UInt32					mInstanceIndex;
-
+	bool					mEnableAmplifierMuteRelease;								//	[3514762]
+	bool					mInterruptsHaveBeenRegistered;								//	[3585556]	Don't allow multiple registrations or unregistrations of interrupts!
+	
 	AppleOnboardAudio *		mProvider;
 
-	GPIOSelector			mComboInAssociation;		//	[3453799]
-	GPIOSelector			mComboOutAssociation;		//	[3453799]
-	GpioAttributes			mComboInJackState;			//	[3453799]
-	GpioAttributes			mComboOutJackState;			//	[3453799]
+    thread_call_t			mRegisterInterruptsThread;									//  [3517442] mpc
+
+	GPIOSelector			mComboInAssociation;										//	[3453799]
+	GPIOSelector			mComboOutAssociation;										//	[3453799]
+	GpioAttributes			mComboInJackState;											//	[3453799]
+	GpioAttributes			mComboOutJackState;											//	[3453799]
+
+	virtual void			RunComboStateMachine ( IOCommandGate * cg, PlatformInterface * platformInterface, UInt32 detectState, UInt32 typeSenseState, UInt32 analogJackType );	//	[3517297]
+	virtual bool			testIsInputJack ( UInt32 analogJackType );					//	[3564007]
+	ComboStateMachineState	mComboStateMachine[kNumberOfActionSelectors];				//	[3517297]
+
 };
 
 #endif	/*	__PLATFORMINTERFACE__	*/

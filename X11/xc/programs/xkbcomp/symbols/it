@@ -1,0 +1,85 @@
+// $Xorg: it,v 1.3 2000/08/17 19:54:43 cpqbld Exp $
+
+
+
+
+// $XFree86: xc/programs/xkbcomp/symbols/it,v 3.5 2001/01/17 23:45:58 dawes Exp $
+
+partial default alphanumeric_keys 
+xkb_symbols "basic" {
+
+    // Describes the differences between a very simple en_US
+    // keyboard and a very simple Italian keybaord
+
+    name[Group1]= "Italian";
+
+    key <TLDE> {	[       backslash,             bar      ]	};
+    key <AE02> {	[               2,        quotedbl     	]	};
+    key <AE03> {	[               3,        sterling     	]	};
+    key <AE06> {	[               6,       ampersand     	]	};
+    key <AE07> {	[               7,           slash     	]	};
+    key <AE08> {	[               8,       parenleft     	]	};
+    key <AB08> {	[           comma,       semicolon     	]	};
+    key <AE10> {	[               0,           equal     	]	};
+    key <AE09> {	[               9,      parenright     	]	};
+    key <AB09> {	[          period,           colon     	]	};
+    key <AB10> {	[           minus,      underscore     	]	};
+    key	<AC10> {	[	   ograve,        ccedilla  	],	
+			[              at,dead_doubleacute	]	};
+    key <AE11> {	[      apostrophe,        question      ],	
+			[	    grave,    questiondown	]	};
+    key <AC11> {	[          agrave,          degree 	],	
+			[      numbersign,      numbersign	]	};
+    key <AD11> {	[	   egrave,          eacute     	],	
+			[     bracketleft,  dead_abovering	]	};
+    key <AE12> {	[          igrave,     asciicircum	],	
+			[      asciitilde,     dead_ogonek	]	};
+    key <AD12> {	[            plus,        asterisk     	],	
+			[    bracketright,     dead_macron     	]      	};
+    key <LSGT> {	[	    less,        greater	],
+			[	     bar,	brokenbar	]	};
+    key <BKSL> {	[          ugrave,         section	]	};
+    key <AD03> {        [               e,               E      ],
+                        [        EuroSign,            cent      ]	};
+
+    // End alphanumeric section
+
+    // begin modifier mappings
+    
+    modifier_map Shift  { Shift_L };
+    modifier_map Lock   { Caps_Lock };
+    modifier_map Control{ Control_L };
+    modifier_map Mod3   { Mode_switch };
+};
+
+partial alphanumeric_keys 
+xkb_symbols "Sundeadkeys" {
+
+    // For naming consistency
+
+    include "it(basic)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "sundeadkeys" {
+
+    // For naming consistency
+
+    include "it(Sundeadkeys)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "nodeadkeys" {
+
+    // Modifies the basic italian layout to eliminate all dead keys
+
+    include "it(basic)"
+    key	<AC10> {	[	   ograve,        ccedilla  	],	
+			[              at,     doubleacute	]	};
+    key <AD11> {	[	   egrave,          eacute     	],	
+			[     bracketleft,          degree	]	};
+    key <AE12> {	[          igrave,     asciicircum	],	
+			[      asciitilde,          ogonek	]	};
+    key <AD12> {	[            plus,        asterisk     	],	
+			[    bracketright,          macron     	]      	};
+};

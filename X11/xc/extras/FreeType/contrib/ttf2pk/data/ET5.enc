@@ -1,0 +1,119 @@
+% ET5.enc
+%
+%
+% This is LaTeX ET5 encoding for Vietnamese.
+%
+%
+% LIGKERN question quoteleft =: questiondown ;
+% LIGKERN exclam quoteleft =: exclamdown ;
+% LIGKERN hyphen hyphen =: endash ;
+% LIGKERN endash hyphen =: emdash ;
+% LIGKERN quoteleft quoteleft =: quotedblleft ;
+% LIGKERN quoteright quoteright =: quotedblright ;
+% LIGKERN comma comma =: quotedblbase ;
+%
+% LIGKERN f i =: fi ;
+% LIGKERN f l =: fl ;
+% LIGKERN f f =: ff ;
+% LIGKERN ff i =: ffi ;
+% LIGKERN ff l =: ffl ;
+%
+%   We blow away kerns to and from spaces (TeX doesn't have a
+%   space) and also remove any kerns from the numbers.
+%
+% LIGKERN space {} * ; * {} space ;
+% LIGKERN zero {} * ; * {} zero ;
+% LIGKERN one {} * ; * {} one ;
+% LIGKERN two {} * ; * {} two ;
+% LIGKERN three {} * ; * {} three ;
+% LIGKERN four {} * ; * {} four ;
+% LIGKERN five {} * ; * {} five ;
+% LIGKERN six {} * ; * {} six ;
+% LIGKERN seven {} * ; * {} seven ;
+% LIGKERN eight {} * ; * {} eight ;
+% LIGKERN nine {} * ; * {} nine ;
+
+/ET5encoding [
+% 0x00
+  /Abrevehookabove /Abrevetilde /Acircumflextilde /Yhookabove
+  /Ytilde /Ydotbelow /Sigma /Upsilon
+  /Phi /Psi /Omega /ff
+  /fi /fl /ffi /ffl
+% 0x10
+  /dotlessi /dotlessj /grave /acute
+  /caron /breve /macron /ring
+  /cedilla /germandbls /ae /oe
+  /oslash /AE /OE /Oslash
+% 0x20
+  /.notdef /exclam /quotedblright /numbersign
+  /dollar /percent /ampersand /quoteright
+  /parenleft /parenright /asterisk /plus
+  /comma /hyphen /period /slash
+% 0x30
+  /zero /one /two /three
+  /four /five /six /seven
+  /eight /nine /colon /semicolon
+  /exclamdown /equal /questiondown /question
+% 0x40
+  /at /A /B /C
+  /D /E /F /G
+  /H /I /J /K
+  /L /M /N /O
+% 0x50
+  /P /Q /R /S
+  /T /U /V /W
+  /X /Y /Z /bracketleft
+  /quotedblleft /bracketright /circumflex /dotaccent
+% 0x60
+  /quoteleft /a /b /c
+  /d /e /f /g
+  /h /i /j /k
+  /l /m /n /o
+% 0x70
+  /p /q /r /s
+  /t /u /v /w
+  /x /y /z /endash
+  /emdash /hungarumlaut /tilde /dieresis
+% 0x80
+  /Adotbelow /Abreveacute /Abrevegrave /Abrevedotbelow
+  /Acircumflexacute /Acircumflexgrave /Acircumflexhookabove /Acircumflexdotbelow
+  /Etilde /Edotbelow /Ecircumflexacute /Ecircumflexgrave
+  /Ecircumflexhookabove /Ecircumflextilde /Ecircumflexdotbelow /Ocircumflexacute
+% 0x90
+  /Ocircumflexgrave /Ocircumflexhookabove /Ocircumflextilde /Ocircumflexdotbelow
+  /Ohorndotbelow /Ohornacute /Ohorngrave /Ohornhookabove
+  /Idotbelow /Ohookabove /Odotbelow /Ihookabove
+  /Uhookabove /Utilde /Udotbelow /Ygrave
+% 0xA0
+  /Otilde /abreveacute /abrevegrave /abrevedotbelow
+  /acircumflexacute /acircumflexgrave /acircumflexhookabove /acircumflexdotbelow
+  /etilde /edotbelow /ecircumflexacute /ecircumflexgrave
+  /ecircumflexhookabove /ecircumflextilde /ecircumflexdotbelow /ocircumflexacute
+% 0xB0
+  /ocircumflexgrave /ocircumflexhookabove /ocircumflextilde /Ohorntilde
+  /Ohorn /ocircumflexdotbelow /ohorngrave /ohornhookabove
+  /idotbelow /Uhorndotbelow /Uhornacute /Uhorngrave
+  /Uhornhookabove /ohorn /ohornacute /Uhorn
+% 0xC0
+  /Agrave /Aacute /Acircumflex /Atilde
+  /Ahookabove /Abreve /abrevehookabove /abrevetilde
+  /Egrave /Eacute /Ecircumflex /Ehookabove
+  /Igrave /Iacute /Itilde /ygrave
+% 0xD0
+  /Dbar /uhornacute /Ograve /Oacute
+  /Ocircumflex /adotbelow /yhookabove /uhorngrave
+  /uhornhookabove /Ugrave /Uacute /ytilde
+  /ydotbelow /Yacute /ohorntilde /uhorn
+% 0xE0
+  /agrave /aacute /acircumflex /atilde
+  /ahookabove /abreve /uhorntilde /acircumflextilde
+  /egrave /eacute /ecircumflex /ehookabove
+  /igrave /iacute /itilde /ihookabove
+% 0xF0
+  /dbar /uhorndotbelow /ograve /oacute
+  /ocircumflex /otilde /ohookabove /odotbelow
+  /udotbelow /ugrave /uacute /utilde
+  /uhookabove /yacute /ohorndotbelow /Uhorntilde
+] def
+
+% eof

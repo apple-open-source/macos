@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -67,6 +64,7 @@ enum {
     kK2FCR1PCI1ClkEnable				= 1 << 14,			// PCI1_ClkEnable
     kK2FCR1FWClkEnable					= 1 << 15,			// FW_ClkEnable
     kK2FCR1FWReset						= 1 << 16,			// FW_Reset_L
+    kK2FCR1I2S1SWReset					= 1 << 18,			// I2S1_SW_Reset
     kK2FCR1GBClkEnable					= 1 << 22,			// GB_ClkEnable
     kK2FCR1GBPwrDown					= 1 << 23,			// GB_PwrDown
     kK2FCR1GBReset						= 1 << 24,			// GB_Reset_L
@@ -249,6 +247,7 @@ private:
 	const OSSymbol 	*keyLargo_getHostKeyLargo;
 	const OSSymbol 	*keyLargo_powerI2S;
 	const OSSymbol 	*keyLargo_setPowerSupply;
+    const OSSymbol	*keyLargo_EnableI2SModem;
     const OSSymbol	*mac_io_publishChildren;
     const OSSymbol	*mac_io_publishChild;
     const OSSymbol	*k2_enableFireWireClock;
@@ -357,6 +356,7 @@ private:
 
 	void resetUniNEthernetPhy(void);
     void enablePCIDeviceClock(UInt32 mask, bool enable, IOService *nub);
+    void EnableI2SModem(bool enable);
     bool performFunction(IOPlatformFunction *func, void *pfParam1 = 0,
 			void *pfParam2 = 0, void *pfParam3 = 0, void *pfParam4 = 0);
     void logClockState();
@@ -379,11 +379,6 @@ public:
 					bool waitForFunction, void *param1, void *param2,
 					void *param3, void *param4);
   
-    virtual IOReturn callPlatformFunction( const char * functionName,
-					   bool waitForFunction,
-					   void *param1, void *param2,
-					   void *param3, void *param4 );
-
 	virtual long long syncTimeBase(void);
 	virtual void	  recalibrateBusSpeeds(void);
 

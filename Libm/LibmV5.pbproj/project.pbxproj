@@ -3521,7 +3521,7 @@
 			buildSettings = {
 				DEBUGGING_SYMBOLS = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 47;
+				DYLIB_CURRENT_VERSION = 47.1;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-DBUILDING_FOR_CARBONCORE_LEGACY=1 -dynamic -fno-schedule-insns -fno-schedule-insns2 -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes -Wall";
@@ -4112,7 +4112,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 47;
+				DYLIB_CURRENT_VERSION = 47.1;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-DBUILDING_FOR_CARBONCORE_LEGACY=1 -dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
@@ -4706,7 +4706,7 @@
 			buildSettings = {
 				DEBUGGING_SYMBOLS = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 47;
+				DYLIB_CURRENT_VERSION = 47.1;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-DBUILDING_FOR_CARBONCORE_LEGACY=1 -dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
@@ -5509,7 +5509,7 @@
 			buildSettings = {
 				DEBUGGING_SYMBOLS = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 47;
+				DYLIB_CURRENT_VERSION = 47.1;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-DBUILDING_FOR_CARBONCORE_LEGACY=1 -dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
@@ -6518,7 +6518,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 47;
+				DYLIB_CURRENT_VERSION = 47.1;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-DBUILDING_FOR_CARBONCORE_LEGACY=1 -dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
@@ -7554,7 +7554,7 @@
 			buildSettings = {
 				DEBUGGING_SYMBOLS = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 47;
+				DYLIB_CURRENT_VERSION = 47.1;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-DBUILDING_FOR_CARBONCORE_LEGACY=1 -dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
@@ -7787,7 +7787,7 @@
 				BUILD_SETTING = "";
 				DEBUGGING_SYMBOLS = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 47;
+				DYLIB_CURRENT_VERSION = 47.1;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-dynamic -fno-schedule-insns -fno-schedule-insns2 -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes -Wall";
@@ -7896,7 +7896,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 47;
+				DYLIB_CURRENT_VERSION = 47.1;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
@@ -8006,7 +8006,7 @@
 			buildSettings = {
 				DEBUGGING_SYMBOLS = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 47;
+				DYLIB_CURRENT_VERSION = 47.1;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
@@ -8117,7 +8117,7 @@
 			buildSettings = {
 				DEBUGGING_SYMBOLS = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 47;
+				DYLIB_CURRENT_VERSION = 47.1;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
@@ -8232,7 +8232,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 47;
+				DYLIB_CURRENT_VERSION = 47.1;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";
@@ -8348,7 +8348,7 @@
 			buildSettings = {
 				DEBUGGING_SYMBOLS = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 47;
+				DYLIB_CURRENT_VERSION = 47.1;
 				LIBRARY_STYLE = DYNAMIC;
 				OPTIMIZATION_CFLAGS = "-O3";
 				OTHER_CFLAGS = "-dynamic -fschedule-insns -finline-functions -funroll-all-loops -Wno-long-double -Wstrict-prototypes";

@@ -1724,6 +1724,9 @@ ni_status NiLib2::ValidateName( const char* user, ni_proplist *pl, ni_index prop
 		return NI_OK;
 	}
 
+	if ( prop_index == NI_INDEX_NULL )
+		return NI_OK;
+	
 	propkey = pl->nipl_val[prop_index].nip_name;
 	if (propkey == NULL)
 	{

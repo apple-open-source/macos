@@ -1,0 +1,17 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:49 cpqbld Exp $
+
+          SRCS = xkbprint.c utils.c psgeom.c
+          OBJS = xkbprint.o utils.o psgeom.o
+        DEPLIBS = $(DEPXKBFILELIB) $(DEPXLIBONLY)
+LOCAL_LIBRARIES = $(XKBFILELIB) $(XLIB)
+
+EXTRA_INCLUDES = -I$(EXTINCSRC)
+
+#ifdef SGIArchitecture
+EXTRA_LIBRARIES = -lmalloc
+#endif
+
+ComplexProgramTarget(xkbprint)
+
+clean::
+	RemoveFiles(*.xkm *.ps)

@@ -141,6 +141,12 @@ class RejectMessage(HandlerError):
     def __init__(self, notice=None):
         if notice is None:
             notice = _('Your message was rejected')
+        if notice.endswith('\n\n'):
+            pass
+        elif notice.endswith('\n'):
+            notice += '\n'
+        else:
+            notice += '\n\n'
         self.__notice = notice
 
     def notice(self):

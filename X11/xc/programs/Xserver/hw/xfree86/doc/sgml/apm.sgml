@@ -1,0 +1,121 @@
+<!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN" [
+<!ENTITY % defs SYSTEM "defs.ent"> %defs;
+]>
+
+<article>
+<title> Information for Alliance Promotion chipset users
+<author> Loïc Grenié (<email>grenie@math.jussieu.fr</email>),
+	 Henrik Harmsen (<email>Henrik.Harmsen@erv.ericsson.se</email>)
+<date> 6 March 2000
+<ident>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/apm.sgml,v 1.3 2000/03/08 05:38:43 dawes Exp $
+</ident>
+<toc>
+
+<sect> Support chipsets
+<p>
+The apm driver in the SVGA server is for Alliance Promotion
+graphics chipsets. The following chipsets are supported:
+
+<itemize>
+<item> 6422
+
+	Old chipset. The driver is still very unstable, including computer
+	crashes. You would prefer using XFree86 3.3.x for this chipset.
+
+
+<item> AT24
+
+	As found in Diamond Stealth Video 2500. Quite similar to AT3D.
+
+<item> AT25, AT3D
+
+	AT3D is found in Hercules Stingray 128/3D. Most other Voodoo
+	Rush based cards use the AT25 which is identical except it
+	doesn't have the 3D stuff in it.
+</itemize>
+
+<sect> Acceleration
+<p>
+The apm driver uses the XAA (XFree86 Acceleration Architecture) in the 
+SVGA server. It has support for the following acceleration:
+
+<itemize>
+<item> Bitblts (rectangle copy operation)
+<item> Lines (solid, single pixel)
+<item> Filled rectangles
+<item> CPU->Screen image transfers.
+<item> CPU->Screen colour expansion (text accel).
+<item> Screen->Screen colour expansion (cached text accel).
+<item> Mono 8x8 pattern fill. Not for 6422.
+<item> Colour 8x8 pattern fill (in 8bpp). Not for 6422.
+<item> Hardware cursor.
+<item> Pixmap caching.
+</itemize>
+
+All in 8, 16 and 32 bpp modes. In 24bpp mode only Bitblts and Filled rectangles
+is supported.  Also VESA DPMS power save mode is fully supported with "standby",
+"suspend" and "off" modes (set with with the "xset dpms" command).
+
+<sect> DGA
+<p>
+Full DGA 2.0 support with framebuffer access and drawing acceleration.
+
+<sect> Video
+<p>
+A limited hardware support for video decoding on AT24 and AT25/3D. It can
+display an image in YUV colours inside the desktop. There are some more exotic
+formats (YUV 4.1.1, YUV 4.0.0, RGB 8,16.32bpp).
+
+<sect> Shadow framebuffer
+<p>
+There is a mode, called shadow framebuffer, where the graphics is only used
+to display the images. All rendering is done in memory in a so-called shadow
+framebuffer. This mode is useful if you need lots of reading in the video
+memory. You will have to put
+<verb>
+  Option "ShadowFB"
+</verb>
+
+in your XF86Config file.
+
+<sect> Configuration
+<p>
+First: Please run the xf86config program to create a correct
+configuration.
+
+You can turn off hardware cursor by inserting the following line in the
+Device section of the XF86Config file:
+<verb>
+  Option "SWcursor"
+</verb>
+
+Or turn off hardware acceleration:
+<verb>
+  Option "noaccel"
+</verb>
+
+Or turn off MMIO
+
+<verb>
+  Option "nolinear"
+</verb>
+
+Please don't specify the amount of video RAM you have or which chipset
+you have in the config file, let the driver probe for this. Also please
+don't put any "clocks" line in the device section since these chips have
+a fully programmable clock that can take (almost) any modeline you throw
+at it. It might fail at some specific clock values but you should just
+try a slightly different clock and it should work.
+
+<sect> glide2x
+<p>
+There is support for the XF86Rush extension for use with the glide2x library.
+
+<sect> Questions
+<p>
+Any questions regarding this driver should be sent to Loïc Grenié. It should
+be possible to add support for the 3210 chipset if someone needs it.
+
+
+</article>

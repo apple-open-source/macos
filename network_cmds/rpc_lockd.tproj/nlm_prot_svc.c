@@ -32,13 +32,14 @@
 #endif
 
 // XXX
-void retry_blockingfilelocklist(void);
+void retry_blockingfilelocklist(netobj *fh);
+extern int need_retry_blocked_locks; /* need to call retry_blockingfilelocklist() */
 
 #define _RPCSVC_CLOSEDOWN 120
 #ifndef lint
 /*static char sccsid[] = "from: @(#)nlm_prot.x 1.8 87/09/21 Copyr 1987 Sun Micro";*/
 /*static char sccsid[] = "from: * @(#)nlm_prot.x	2.1 88/08/01 4.0 RPCSRC";*/
-static char rcsid[] = "$Id: nlm_prot_svc.c,v 1.4 2003/07/24 05:11:22 lindak Exp $";
+static char rcsid[] = "$Id: nlm_prot_svc.c,v 1.4.36.1 2004/04/16 15:50:05 lindak Exp $";
 #endif /* not lint */
 extern int _rpcpmstart;		/* Started by a port monitor ? */
 extern int _rpcfdtype;		/* Whether Stream or Datagram ? */
@@ -230,18 +231,21 @@ nlm_prog_1(struct svc_req *rqstp, SVCXPRT *transp)
 	if (result != NULL && !svc_sendreply(transp, xdr_result, result)) {
 		svcerr_systemerr(transp);
 	}
+	if (need_retry_blocked_locks) {
+		// XXX sending granted messages before unlock response
+		// XXX causes unlock response to be corrupted?
+		// XXX so do this after we send any response
+		netobj *fh = NULL;
+		if ((local == (char *(*)(char *, struct svc_req *)) nlm_unlock_1_svc) ||
+		    (local == (char *(*)(char *, struct svc_req *)) nlm_unlock_msg_1_svc))
+			fh = &argument.nlm_unlock_1_arg.alock.fh;
+		retry_blockingfilelocklist(fh);
+	}
 	if (!svc_freeargs(transp, xdr_argument, (caddr_t) &argument)) {
 		syslog(LOG_ERR, "unable to free arguments");
 		exit(1);
 	}
 	_rpcsvcdirty = 0;
-	if ((local == (char *(*)(char *, struct svc_req *)) nlm_unlock_1_svc) ||
-	    (local == (char *(*)(char *, struct svc_req *)) nlm_unlock_msg_1_svc)) {
-		// XXX sending granted messages before unlock response
-		// XXX causes unlock response to be corrupted?
-		// XXX so do this after we send any response
-		retry_blockingfilelocklist();
-	}
 	return;
 }
 
@@ -411,19 +415,21 @@ nlm_prog_3(struct svc_req *rqstp, SVCXPRT *transp)
 	if (result != NULL && !svc_sendreply(transp, xdr_result, result)) {
 		svcerr_systemerr(transp);
 	}
+	if (need_retry_blocked_locks) {
+		// XXX sending granted messages before unlock response
+		// XXX causes unlock response to be corrupted?
+		// XXX so do this after we send any response
+		netobj *fh = NULL;
+		if ((local == (char *(*)(char *, struct svc_req *)) nlm_unlock_1_svc) ||
+		    (local == (char *(*)(char *, struct svc_req *)) nlm_unlock_msg_1_svc))
+			fh = &argument.nlm_unlock_3_arg.alock.fh;
+		retry_blockingfilelocklist(fh);
+	}
 	if (!svc_freeargs(transp, xdr_argument, (caddr_t) &argument)) {
 		syslog(LOG_ERR, "unable to free arguments");
 		exit(1);
 	}
 	_rpcsvcdirty = 0;
-	if ((local == (char *(*)(char *, struct svc_req *)) nlm_unlock_1_svc) ||
-	    (local == (char *(*)(char *, struct svc_req *)) nlm_unlock_msg_1_svc) ||
-	    (local == (char *(*)(char *, struct svc_req *)) nlm_free_all_3_svc)) {
-		// XXX sending granted messages before unlock response
-		// XXX causes unlock response to be corrupted?
-		// XXX so do this after we send any response
-		retry_blockingfilelocklist();
-	}
 	return;
 }
 
@@ -593,18 +599,20 @@ nlm_prog_4(struct svc_req *rqstp, SVCXPRT *transp)
 	if (result != NULL && !svc_sendreply(transp, xdr_result, result)) {
 		svcerr_systemerr(transp);
 	}
+	if (need_retry_blocked_locks) {
+		// XXX sending granted messages before unlock response
+		// XXX causes unlock response to be corrupted?
+		// XXX so do this after we send any response
+		netobj *fh = NULL;
+		if ((local == (char *(*)(char *, struct svc_req *)) nlm4_unlock_4_svc) ||
+		    (local == (char *(*)(char *, struct svc_req *)) nlm4_unlock_msg_4_svc))
+			fh = &argument.nlm4_unlock_4_arg.alock.fh;
+		retry_blockingfilelocklist(fh);
+	}
 	if (!svc_freeargs(transp, xdr_argument, (caddr_t) &argument)) {
 		syslog(LOG_ERR, "unable to free arguments");
 		exit(1);
 	}
 	_rpcsvcdirty = 0;
-	if ((local == (char *(*)(char *, struct svc_req *)) nlm4_unlock_4_svc) ||
-	    (local == (char *(*)(char *, struct svc_req *)) nlm4_unlock_msg_4_svc) ||
-	    (local == (char *(*)(char *, struct svc_req *)) nlm4_free_all_4_svc)) {
-		// XXX sending granted messages before unlock response
-		// XXX causes unlock response to be corrupted?
-		// XXX so do this after we send any response
-		retry_blockingfilelocklist();
-	}
 	return;
 }

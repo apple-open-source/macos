@@ -1,0 +1,67 @@
+XCOMM $XFree86: xc/programs/Xserver/afb/Imakefile,v 3.7 2002/05/31 18:45:54 dawes Exp $
+XCOMM $XConsortium: Imakefile,v 1.38 94/03/11 18:47:47 dpw Exp $
+#define IHaveModules
+#include <Server.tmpl>
+
+#ifdef XFree86Version
+#if DoLoadableServer
+MODSRC = afbmodule.c
+MODOBJ = afbmodule.o
+#endif
+#endif
+
+SRCS1 =	 afbgc.c afbwindow.c afbfont.c afbfillrct.c afbpntwin.c afbpixmap.c \
+	 afbimage.c afbline.c afbbres.c afbhrzvert.c afbbresd.c afbpushpxl.c \
+	 afbzerarc.c afbfillarc.c afbfillsp.c afbsetsp.c afbscrinit.c \
+	 afbclip.c afbbitblt.c afbgetsp.c afbpolypnt.c afbbltC.c afbbltX.c \
+	 afbbltCI.c afbbltO.c afbbltG.c afbcmap.c afbtileC.c afbtileG.c \
+	 afbmisc.c afbbstore.c
+
+SRCS =	 $(SRCS1) afbseg.c afbbltC.c afbbltX.c afbbltCI.c afbbltO.c afbbltG.c \
+	 afbtileC.c afbtileG.c $(MODSRC)
+
+OBJS =   afbgc.o afbwindow.o afbfont.o afbpixmap.o afbfillsp.o afbsetsp.o \
+	 afbscrinit.o afbclip.o afbbitblt.o afbgetsp.o afbbltC.o afbbltX.o \
+	 afbbltCI.o afbbltO.o afbbltG.o afbcmap.o afbimage.o afbzerarc.o \
+	 afbfillarc.o afbply1rct.o afbtileC.o afbtileG.o afbfillrct.o \
+	 afbpolypnt.o afbmisc.o afbbstore.o afbbresd.o afbimggblt.o \
+	 afbpushpxl.o afbplygblt.o afbtegblt.o afbpntwin.o afbpntarea.o \
+	 afbbres.o afbhrzvert.o afbline.o afbseg.o $(MODOBJ)
+
+INCLUDES = -I. -I../cfb -I../mfb -I../mi -I../include -I$(XINCLUDESRC) \
+	   -I$(FONTINCSRC) $(EXTRAINCLUDES)
+LINTDEFS = -DMFBPOLYGLYPHBLT=afbPolyGlyphBltWhite \
+	   -DMFBIMAGEGLYPHBLT=afbImageGlyphBltWhite \
+	   -DEQWHOLEWORD=MFB_EQWHOLEWORD_WHITE -DOPEQ=MFB_OPEQ_WHITE
+
+LINTLIBS = ../dix/llib-ldix.ln ../os/llib-los.ln \
+		../mfb/llib-lmfb.ln ../mi/llib-lmi.ln
+
+ModuleObjectRule()
+LibraryModuleTarget(afb,$(OBJS))
+LintLibraryTarget(afb,$(SRCS1))
+NormalLintTarget($(LINTDEFS) $(SRCS1))
+
+ObjectFromSpecialSource(afbseg,afbline,-DPOLYSEGMENT)
+
+ObjectFromSpecialSource(afbbltC,afbblt,-DMROP=Mcopy)
+
+ObjectFromSpecialSource(afbbltX,afbblt,-DMROP=Mxor)
+
+ObjectFromSpecialSource(afbbltCI,afbblt,-DMROP=McopyInverted)
+
+ObjectFromSpecialSource(afbbltO,afbblt,-DMROP=Mor)
+
+ObjectFromSpecialSource(afbbltG,afbblt,-DMROP=0)
+
+ObjectFromSpecialSource(afbtileC,afbtile,-DMROP=Mcopy)
+
+ObjectFromSpecialSource(afbtileG,afbtile,-DMROP=0)
+
+InstallLibraryModule(afb,$(MODULEDIR),.)
+
+DependTarget()
+
+InstallDriverSDKLibraryModule(afb,$(DRIVERSDKMODULEDIR),.)
+
+InstallDriverSDKNonExecFile(afb.h,$(DRIVERSDKINCLUDEDIR))

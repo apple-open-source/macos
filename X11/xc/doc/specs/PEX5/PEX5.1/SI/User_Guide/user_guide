@@ -1,0 +1,1711 @@
+.\"##
+.\" $Xorg: user_guide,v 1.3 2000/08/17 19:42:18 cpqbld Exp $
+.\"##
+.\"## 
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc.
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the name of Sun Microsystems
+.\"## not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission. 
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.\"##
+.\"## Copyright (c) 1990, 1991 X Consortium
+.\"##
+.\"## Permission is hereby granted, free of charge, to any person obtaining
+.\"## a copy of this software and associated documentation files (the
+.\"## ``Software''), to deal in the Software without restriction, including
+.\"## without limitation the rights to use, copy, modify, merge, publish,
+.\"## distribute, sublicense, and/or sell copies of the Software, and to
+.\"## permit persons to whom the Software is furnished to do so, subject to
+.\"## the following conditions:
+.\"##
+.\"## The above copyright notice and this permission notice shall be
+.\"## included in all copies or substantial portions of the Software.
+.\"##
+.\"## THE SOFTWARE IS PROVIDED ``AS IS'', WITHOUT WARRANTY OF ANY KIND,
+.\"## EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\"## MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\"## IN NO EVENT SHALL THE X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\"## OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\"## ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\"## OTHER DEALINGS IN THE SOFTWARE.
+.\"##
+.\"## Except as contained in this notice, the name of the X Consortium shall
+.\"## not be used in advertising or otherwise to promote the sale, use or
+.\"## other dealings in this Software without prior written authorization
+.\"## from the X Consortium.
+.PL FULL
+.EF ''X11R5''
+.OF ''X11R5''
+.T#
+.DN "PEX-SI User Guide"
+.H C "Getting Started" start
+.LP
+This document introduces you to the \s-1PEX-SI\s+1 release.
+Chapter 
+.XR @NumberOf(start) 
+describes the available documents and directs you to the documents 
+most likely to help you use or port the \s-1PEX-SI\s+1.
+A list of related references is given at the end of this chapter.  Chapter
+.XR @NumberOf(source_tree)  
+describes the directory hierarchy of the source code and how it fits
+into the \s-1X11\s+1 source tree.
+The remaining chapters provide information on how to use the
+\s-1PEX-SI\s+1 Application Programmer's Interface (\s-1PEX-API\s+1), the
+\s-1PEX-SI\s+1 Model Extension to the standard \s-1X\s+1 server (\s-1PEX-ME\s+1),
+and the clients and test programs provided with the release. 
+.LP
+The appendices include:
+.BP
+The functionality and implementation-specific parameters of
+the \s-1PEX-ME\s+1
+.BP
+A description of the archive format used for \s-1PEX-API PHIGS\s+1 archival.
+.H 2 "Documents" 
+.LP
+The \s-1PEX-SI\s+1 provides several documents.  All of them can be found in subdirectories
+of the \fL\s-1extensions/doc/PEX/SI\fR\s+1 directory.
+.IP "\fI\s-1PEX-SI\s+1 User Guide\fR"
+.IX "User Guide" "" "\fIUser Guide\fR"
+.IX "Documentation" "User Guide" "" "\fIUser Guide\fR"
+.IX "directories" "User_Guide" "" "\fL\s-1User_Guide\fR\s+1"
+This is the document you are now reading.  It is in the \fL\s-1User_Guide\fR\s+1
+subdirectory.
+.IP "\fI\s-1PEX-SI\s+1 Graphics Library Manual Pages\fR"
+.IX "Graphics Library Manual Pages" "" "\fIGraphics Library Manual Pages\fR"
+.IX "Documentation" "Graphics Library Manual Pages" "" "\fIGraphics Library Manual Pages"
+.IX "client-side"
+.IX "Application Programmer's Interface, (API)" "" "Application Programmer's Interface, (\s-1API\s+1)"
+.IX "PHIGS" "" "\s-1PHIGS\s+1"
+.IX "PHIGS PLUS" "" "\s-1PHIGS PLUS\s+1"
+.IX "directories" "PHIGS" "" "\fL\s-1PHIGS\fR\s+1"
+.IX "PEX-API" "" "\s-1PEX-API\s+1"
+This document contains descriptions of the functions 
+provided by the \s-1PEX-API\s+1.
+The \fIGraphics Library Manual Pages\fR document is made up of what are commonly
+called ``man'' pages (man is an abbreviation of manual).
+Each function has its own man page entry.
+.IP
+The \s-1PHIGS\s+1 and \s-1PHIGS PLUS\s+1 functions in this library form an 
+Application Programmer's Interface (\s-1API\s+1) above the \s-1PEX\s+1 protocol. 
+The man pages describe the functionality of all of the \s-1API\s+1 functions
+and include implementation-specific information.
+This document can be printed in its entirety or it can be accessed on-line.
+See the \s-1README\s+1 file in the \fL\s-1PHIGS\fR\s+1
+subdirectory for more information on the man pages.
+.br
+\f(BINote:\fR  The entire document is over 800 pages long and may take over an hour to
+format and print.
+.IP "\fI\s-1PEX-SI\s+1 Architecture Specification\fR"
+.IX "Architecture Specification" "" "\fIArchitecture Specification\fR"
+.IX "Documentation" "Architecture Specification" "" "\fIArchitecture Specification\fR"
+.IX "directories" "Arch_Spec" "" "\fL\s-1Arch_Spec\fR\s+1"
+This document describes the general architecture of \s-1PEX-SI\s+1.
+It includes descriptions of the components and features of the \s-1PEX-SI\s+1 design.
+It is located in the \s-1\fLArch_Spec\s+1\fR subdirectory.
+.IP "\fI\s-1PEX-SI\s+1 Porting Guide\fR"
+.IX "Porting Guide" "" "\fIPorting Guide\fR"
+.IX "Documentation" "Porting Guide" "" "\fIPorting Guide\fR"
+.IX "directories" "Portg_Guide" "" "\fL\s-1Portg_Guide\fR\s+1"
+The \fIPorting Guide\fR is an extension of the \fIArchitecture Specification\fR.
+It contains detailed information on how \s-1PEX-SI\s+1 is implemented and 
+how to customize and port it for your needs.
+The document is located in the \fL\s-1Portg_Guide\fR\s+1 subdirectory.
+.H 2 "Expected Audiences"
+.LP
+The \s-1PEX-SI\s+1 documentation has been designed to satisfy four audiences
+interested in porting and using various levels of the \s-1PEX-SI\s+1 code:
+.LP
+.nf
+.ta 1.5i +1.5i
+\fICompiler\fR	
+.IX "User Types" "Compiler"
+.fi
+.RS
+This person is interested in getting \s-1PEX-SI\s+1 compiled \fIas is\fR,
+and in using, running, or writing clients as quickly as possible.
+The \fIUser Guide\fR is the document most useful to this person.
+.RE
+.LP
+.nf
+.ta 1.5i +1.5i
+\fICustomizer\fR
+.IX "User Types" "Customizer"
+.fi
+.RS
+This person is interested in easy modifications of \s-1PEX-SI\s+1.
+This may include changing implementation-dependent capabilities and
+parameters, but does not involve changing code.
+This person should read the \fIUser Guide\fR and the sections 
+on customization in the \fIPorting Guide\fR.
+.RE
+.LP
+.nf
+.ta 1.5i +1.5i
+\fIPorter\fR
+.IX "User Types" "Porter"
+.fi
+.RS
+This person is interested in porting \s-1PEX-SI\s+1 to specific software
+and/or hardware.
+This includes changing and optimizing the code for specific devices.
+This person should read the \fIUser Guide\fR, the \fIArchitecture Specification\fR, 
+and the \fIPorting Guide\fR.
+.RE
+.LP
+.nf
+.ta 1.5i +1.5i
+\fIModifier\fR
+.IX "User Types" "Modifier"
+.fi
+.RS
+This person wants to change or add significant capabilities to \s-1PEX\s+1.
+This person should join the \s-1PEX\s+1 architecture team and mold the
+\s-1PEX\s+1 Protocol to address their needs.
+.RE
+.LP
+All of the documentation and code assumes that the reader is familiar with the C
+programming language, the \s-1X11\s+1 Window System, \s-1PHIGS\s+1, \s-1PHIGS PLUS\s+1, 
+and \s-1PEX\s+1.
+References for information on these subjects are given in Section
+.XR @NumberOf(add_ref).
+.H 2 "Additional References" add_ref
+.IX "Documentation" "additional references"
+.LP
+\fI\s-1PEX\s+1 Introduction and Overview\fP (v 3.2; 10 October 1988):\ \   
+an introduction to the goals and structure 
+of the \s-1PEX\s+1 project, with a glossary of \s-1PEX\s+1 terms.
+\fIIt is widely recognized that this document is out of date.\fR
+.LP
+\fI\s-1PEX\s+1 Protocol Specification\fP (v 5.0P; 14 September 1990):\ \ 
+a description of the protocol extensions to the 
+X Window System that comprise \s-1PEX\s+1.
+.LP
+\fI\s-1PEX\s+1 Protocol Encoding Document:\ \ \fP (v 5.0P; 14 September 1990):\ \ 
+the bit bindings of the \s-1PEX\s+1 protocol.
+.LP
+\fIX11 Server Extensions\fP (28 August 1987):\ \   
+a description of the interface between the MIT X11 
+Sample Server and portable extensions in general.
+.LP
+\fIDefinition of the Porting Layer for the \s-1X\s+1 v11 Sample Server\fP 
+(1 March 1988)
+.LP
+\fIXlib \(em C Language \s-1X\s+1 Interface\fP (X v11 R4) 
+.LP
+\fIX Toolkit Intrinsics \(em C Language Interface\fP (X v11 R4, March 1988)
+.LP
+\fIISO/IEC 9592-1:1989(E), Information Processing Systems \(em Computer Graphics
+\(em Programmer's Hierarchical Interactive Graphics System (\s-1PHIGS\s+1),
+Part 1:\ \ Functional Description\fP
+.LP
+\fIDraft proposed \s-1PHIGS PLUS, ISO/IEC\s+1 SC24-N454\fP (20 March 1990)
+.H C "Source Tree Description" source_tree
+.IX "directory hierarchy"
+.LP
+This chapter familiarizes you with the directory hierarchy of \s-1PEX-SI\s+1.
+It describes the \s-1PEX-SI\s+1 files and libraries. 
+It also assumes that you are ``\s-1X\s+1-literate.''
+.sp .2
+.PS
+#
+#------------------Tree Layout Diagram------------------#
+#
+########--include-##########
+Include:
+	box ht .3i wid .7i "\fL\s-1include\s+1\fR"
+line up .25i from Include.n
+move down .25i from Include.s
+Pex_i:
+	box ht .2i wid .4i "\fL\s-1PEX\s+1\fR"
+line down .25i from Include.s to Pex_i.n 
+#######--lib--##########
+move right .5i from Include.e
+Lib:	
+	box ht .3i wid .5i "\fL\s-1lib\s+1\fR"
+move up .5i from Lib.n
+Top:
+	box ht .3i wid 1.375i "\fL\s-1extensions\s+1\fR"
+line down from Top.s to Lib.n
+move down .25i from Lib.s
+Pex_l:
+	box ht .2i wid .4i "\fL\s-1PEX\s+1\fR"
+line down .25i from Lib.s to Pex_l.n 
+#########--server--############
+move right .5i from Lib.e
+Server:	
+	box ht .3i wid .7i "\fL\s-1server\s+1\fR"
+line up .25i from Server.n
+move down .25i from Server.s
+Pex_s:
+	box ht .2i wid .4i "\fL\s-1PEX\s+1\fR"
+line down .25i from Server.s to Pex_s.n 
+########--test--##########
+move right .5i from Server.e
+Test:	
+	box ht .3i wid .5i "\fL\s-1test\s+1\fR"
+line up .25i from Test.n                          #####  These two lines 
+line from top of first line to top of last line   #### have to stay together
+move down .25i from Test.s
+Pex_t:
+	box ht .2i wid .6i "\fL\s-1InsPEX\s+1\fR"
+line down .25i from Test.s to Pex_t.n 
+.PE
+.sp .3i
+.FN "PEX-SI Directory Hierarchy" menu
+.IX "directories" "extensions" "" "\fL\s-1extensions\fR\s+1"
+.sp 
+.H 2 "\f(LBmit/doc/extensions/PEX/SI\fR"
+.IX "directories" "doc" "" "\fL\s-1doc\s+1\fR"
+.IX "directories" "Arch_Spec" "" "\fL\s-1Arch_Spec\s+1\fR"
+.IX "directories" "User_Guide" "" "\fL\s-1User_Guide\s+1\fR"
+.IX "directories" "Portg_Guide" "" "\fL\s-1Portg_Guide\s+1\fR"
+.IX "directories" "PHIGS" "" "\fL\s-1PHIGS\s+1\fR"
+.PS
+##########--doc--###########
+Doc:
+	box ht .3i wid .5i "\fL\s-1doc\s+1\fR"
+line up .25i from Doc.n
+move down .5i from Doc.s 
+move left 1.4i
+Arch_Spec:
+	box ht .2i wid .8i "\fL\s-1Arch_Spec\s+1\fR"
+line up .25i from Arch_Spec.n
+move right .15i from Arch_Spec.e
+User_Guide:
+	box ht .2i wid 1i "\fL\s-1User_Guide\s+1\fR"
+line up .25i from User_Guide.n
+move right .15i from User_Guide.e
+Portg_Guide:
+	box ht .2i wid 1i "\fL\s-1Portg_Guide\s+1\fR"
+line up .25i from Portg_Guide.n
+move right .15i from Portg_Guide.e
+PHIGS:
+	box ht .2i wid .8i "\fL\s-1PHIGS\s+1\fR"
+line up .25i from PHIGS.n
+line from end of 4th last line to end of last line
+line down .15i from Doc.s
+.PE
+.FN "\fL\s-1doc\fP\s+1 source tree" doc_tree
+.LP
+The \fL\s-1doc\fR\s+1 subdirectory contains the source for, and PostScript versions
+of, all of the \s-1PEX-SI\s+1 documentation.
+There is a subdirectory for each document and a \s-1README\s+1 file in each
+document subdirectory that provides more information on the contents of that subdirectory.
+.bp
+.H 2 "\f(LBmit/fonts/PEX\fR"
+.IX "directories" "fonts" "" "\fL\s-1fonts\s+1\fR"
+.LP
+This subdirectory contains the source for the \s-1PEX-SI\s+1 font compiler
+and the font definitions.
+These programs are designed to enable a \s-1PEX-SI\s+1 user to define stroke
+fonts, and to use them within a \s-1PEX\s+1 client.
+Refer to the \fIPEX-SI Porting Guide\fR for more information on using the 
+\s-1PEX-SI\s+1 predefined fonts, and on creating new fonts.
+.H 2 "\f(LBmit/extensions/include/PEX\fR"
+.IX "directories" "include" "" "\fL\s-1include\s+1\fR"
+.LP
+This subdirectory contains the client, server, and shared \fL\s-1include\fR\s+1 files.
+These files define the constants and protocol structures used by the client library
+and the server for creating and reading \s-1PEX\s+1 packets.
+.H 2 "\f(LB/mit/extensions/lib/PEX\fR"
+.IX "directories" "lib" "" "\fL\s-1lib\s+1\fR"
+.PS
+#######--lib--##########
+Lib:
+	box ht .3i wid .5i "\fL\s-1lib\s+1\fR"
+line up .25i from Lib.n
+move down .25i from Lib.s
+Pex_l:
+	box ht .2i wid .4i "\fL\s-1PEX\s+1\fR"
+line down .25i from Lib.s to Pex_l.n 
+move down .5i from Pex_l.s
+move left 2.25i
+C_binding:
+	box ht .2i wid .8i "\fL\s-1c_binding\s+1\fR"
+line up .25i from C_binding.n
+move right .25i from C_binding.e
+move down .25
+Cp:
+	box ht .2i wid .6i "\fL\s-1cp\s+1\fR"
+line up .6i from Cp.n
+move right .25i from Cp.e
+move up .25
+Css:
+	box ht .2i wid .6i "\fL\s-1css\s+1\fR"
+line up .25i from Css.n
+move right .25i from Css.e
+move down .25
+Error:
+	box ht .2i wid .6i "\fL\s-1error\s+1\fR"
+line up .6i from Error.n
+move right .25i from Error.e
+move up .25
+Include_l:
+	box ht .2i wid .6i "\fL\s-1include\s+1\fR"
+line up .25i from Include_l.n
+move right .25i from Include_l.e
+move down .25
+Input:
+	box ht .2i wid .6i "\fL\s-1input\s+1\fR"
+line up .6i from Input.n
+move right .25i from Input.e
+move up .25
+Lib_2:
+	box ht .2i wid .6i "\fL\s-1lib\s+1\fR"
+line up .25i from Lib_2.n
+move right .25i from Lib_2.e
+move down .25
+Pex:
+	box ht .2i wid .6i "\fL\s-1pex\s+1\fR"
+line up .6i from Pex.n
+move right .25i from Pex.e
+move up .25
+Util:
+	box ht .2i wid .6i "\fL\s-1util\s+1\fR"
+line up .25i from Util.n
+move right .25i from Util.e
+move down .25
+Ws:
+	box ht .2i wid .6i "\fL\s-1ws\s+1\fR"
+line up .6i from Ws.n
+move right .25i from Ws.e
+move up .25
+Ws_type:
+	box ht .2i wid .8i "\fL\s-1ws_type\s+1\fR"
+line up .25i from Ws_type.n
+move right .25i from Ws_type.e
+line from end of 11th last line to end of last line
+line down .15i from Pex_l.s
+.PE
+.FN "\fL\s-1lib\fP\s+1 source tree" lib_tree
+.LP
+This subdirectory contains all of the source for the \s-1PEX-API\s+1 library.
+It contains several subdirectories that separate the files into functional groups.
+The subdirectories of \fL\s-1lib/PEX\s+1\fR contain:
+.IP \fL\s-1c_binding\s+1\fR 12
+The C binding.  All of the public entry points are contained in this directory.
+.IP \fL\s-1cp\s+1\fR 12
+Internal control and distribution code, and the \s-1PHIGS\s+1 Monitor.
+The source code in this subdirectory directs \s-1PHIGS\s+1 operations to
+the appropriate resource, and handles toolkit initialization and
+top level event processing.
+.IP \fL\s-1css\s+1\fR 12
+The \s-1CSS\s+1 source code for client-side structure storage.
+.IP \fL\s-1error\s+1\fR 12
+The internal error buffering and reporting source code.
+.IP \fL\s-1include\s+1\fR 12
+The public and private header files.
+.IP \fL\s-1input\s+1\fR 12
+The input device control and realization source code.
+.IP \fL\s-1lib\s+1\fR 12
+The run-time files.
+.IP \fL\s-1pex\s+1\fR 12
+The \s-1PEX\s+1 protocol wrappers.
+This code stands by itself and can be used independently of the rest of the library.
+Not all wrappers reflect 5.0P protocol, only the ones that the \s-1PEX-API\s+1 uses.
+.IP \fL\s-1util\s+1\fR 12
+Miscellaneous utility code used by any of the other directories.
+.IP \fL\s-1ws\s+1\fR 12
+The workstation control and management code.
+.IP \fL\s-1ws_type\s+1\fR 12
+The Workstation Description Table (\s-1WDT\s+1) and workstation type code,
+and the workstation type attribute setting code.
+The source code in this subdirectory handles \s-1WDT\s+1 initialization
+and modification.
+.LP
+For more information on the contents of these subdirectories,
+see the \fI\s-1PEX-SI\s+1 Porting Guide\fR.
+.H 2 "\f(LBmit/extensions/server/PEX\fP"
+.IX "directories" "server" "" "\fL\s-1server\s+1\fR"
+.IX "directories" "ddpex" "" "\fL\s-1ddpex\s+1\fR"
+.IX "directories" "dipex" "" "\fL\s-1dipex\s+1\fR"
+.IX "directories" "ospex" "" "\fL\s-1ospex\s+1\fR"
+.IX "directories" "include" "" "\fL\s-1server/include\s+1\fR"
+.IX "directories" "mi" "" "\fL\s-1mi\s+1\fR"
+.IX "ddPex" "" "dd\s-1PEX\s+1"
+.IX "diPex" "" "di\s-1PEX\s+1"
+.IX "osPex" "" "os\s-1PEX\s+1"
+.PS
+#########--server--############
+Server:	
+	box ht .3i wid .7i "\fL\s-1server\s+1\fR"
+line up .25i from Server.n
+move down .25i from Server.s
+Pex_s:
+	box ht .2i wid .4i "\fL\s-1PEX\s+1\fR"
+line down .25i from Server.s to Pex_s.n 
+move down .5i from Pex_s.s
+move left 1.5i
+Ddpex:
+	box ht .2i wid .5i "\fL\s-1ddpex\s+1\fR"
+line up .25i from Ddpex.n
+move right .75i from Ddpex.e
+Dipex:
+	box ht .2i wid .5i "\fL\s-1dipex\s+1\fR"
+line up .25i from Dipex.n
+move right .75i from Dipex.e
+Include_2:
+	box ht .2i wid .7i "\fL\s-1include\s+1\fR"
+line up .25i from Include_2.n
+move right .75i from Include_2.e
+Ospex:
+	box ht .2i wid .7i "\fL\s-1ospex\s+1\fR"
+line up .25i from Ospex.n
+line from end of 4th last line to end of last line
+line down .15i from Pex_s.s 
+#------ Expansion of dipex directory ------#
+move down .5i from Dipex.s
+move left .03i
+Dispatch:
+	box ht .2i wid .8i "\fL\s-1dispatch\s+1\fR"
+line up .25i from Dispatch.n
+move right .2i from Dispatch.e
+Objects:
+	box ht .2i wid .6i "\fL\s-1objects\s+1\fR"
+line up .25i from Objects.n
+move right .2i from Objects.e
+Swap:
+	box ht .2i wid .6i "\fL\s-1swap\s+1\fR"
+line up .25i from Swap.n
+line from end of 3rd last line to end of last line
+line down .15i from Dipex.s 
+#------ Expansion of ddpex directory ------#
+move down .25i from Ddpex.s
+Mi:
+	box ht .2i wid .4i "\fL\s-1mi\s+1\fR"
+line down .25i from Ddpex.s to Mi.n 
+line down .4i from Mi.s
+move down .75i from Mi.s
+move left 1i
+Include_d:
+	box ht .2i wid .6i "\fL\s-1include\s+1\fR"
+line up .25i from Include_d.n
+move right .15i from Include_d.e
+Level0:
+	box ht .2i wid .6i "\fL\s-1level0\s+1\fR"
+line up .25i from Level0.n
+move right .15i from Level0.e
+Level1:
+	box ht .2i wid .6i "\fL\s-1level1\s+1\fR"
+line up .25i from Level1.n
+move right .15i from Level1.e
+Level2:
+	box ht .2i wid .6i "\fL\s-1level2\s+1\fR"
+line up .25i from Level2.n
+move right .15i from Level2.e
+Level3:
+	box ht .2i wid .6i "\fL\s-1level3\s+1\fR"
+line up .25i from Level3.n
+move right .15i from Level3.e
+Level4:
+	box ht .2i wid .6i "\fL\s-1level4\s+1\fR"
+line up .25i from Level4.n
+move right .15i from Level4.e
+Shared:
+	box ht .2i wid .6i "\fL\s-1shared\s+1\fR"
+line up .25i from Shared.n
+line from end of 7th last line to end of last line
+.PE
+.FN "\fL\s-1server\fP\s+1 source tree" server_tree
+.LP
+The \fL\s-1server\s+1\fR subdirectory contains all of the source for the
+\s-1PEX\s+1 extension to the \s-1X\s+1 server.
+It has subdirectories for the server \fL\s-1include\fR\s+1 files,
+the device-independent code (di\s-1PEX\s+1), the device-dependent
+code (dd\s-1PEX\s+1), and the operating system dependent code (os\s-1PEX\s+1).
+.LP
+The \s-1\fLddpex\fR\s+1 subdirectory is intended to contain subdirectories for
+different vendors.
+The \s-1PEX-SI\s+1 code provides only one subdirectory, which contains the
+machine-independent code (\fL\s-1mi\fR\s+1).
+The \fL\s-1mi\fR\s+1 subdirectory has divided the \s-1PEX-SI\s+1 dd\s-1PEX\s+1
+code into several subdirectories that correspond to the design of \s-1PEX-SI\s+1.
+.LP
+The \fL\s-1ddpex/mi/include\s+1\fR subdirectory contains all of the files that
+are included by the ddpex source code.  These files are not included
+by any other \s-1PEX-SI\s+1 code.
+.LP
+The \s-1\fLddpex/mi/level0\fR\s+1 subdirectory is a place holder for
+implementations that require a foundation layer other than ddx.
+\s-1PEX-SI\s+1 does not use this subdirectory.
+.LP
+The remaining subdirectories correspond to the five modules that make up
+the \s-1PEX-ME\s+1 code.  (See the \fIPEX-SI Architecture Specification\fR
+for a description of each of these modules.)
+.RS
+.IP \s-1\fLddpex/level1\fR\s+1 18
+The 3D Rendering Module
+.IP \s-1\fLddpex/level2\fR\s+1 18
+The Transformation Module
+.IP \s-1\fLddpex/level3\fR\s+1 18
+The Rendering Control Module
+.IP \s-1\fLddpex/level4\fR\s+1 18
+The \s-1PHIGS\s+1 Workstation Module
+.IP \s-1\fLddpex/shared\fR\s+1 18
+The Shared Resources Module
+.RE
+.LP
+The \fL\s-1dipex\s+1\fR subdirectory divides the di\s-1PEX\s+1 source
+into three subdirectories.
+The \fL\s-1dipex/dispatch\fR\s+1 subdirectory contains source code that ``dispatches''
+requests to the \fL\s-1swap\fR\s+1 and \fL\s-1objects\fR\s+1 subdirectories as
+required.
+It also contains the di\s-1PEX\s+1 initialization source code, and the source
+code for utilities that can be used by dd\s-1PEX\s+1 and os\s-1PEX\s+1.
+The \fL\s-1dipex/objects\fR\s+1 subdirectory contains all request handling
+source code.  This code routes requests to the appropriate dd\s-1PEX\s+1 module.
+The \fL\s-1dipex/swap\fR\s+1 subdirectory contains byte-swapping and
+floating-point conversion code.
+.LP
+The \s-1\fLospex\fR\s+1 subdirectory is designed to contain subdirectories for
+specific operating system code.
+.H 2 "\f(LBmit/extensions/test/InsPEX\fR"
+.PS
+########--test--##########
+Test:	
+	box ht .3i wid .5i "\fL\s-1test\s+1\fR"
+line up .25i from Test.n
+move down .5i from Test.s
+Inspex:
+	box ht .2i wid .7i "\fL\s-1InsPEX\s+1\fR"
+line down .5i from Test.s to Inspex.n 
+#------ Expansion of Inspex directory ------#
+move down .5i from Inspex.s
+move left .5i
+Include:
+	box ht .2i wid .6i "\fL\s-1include\s+1\fR"
+line up .25i from Include.n
+move right .15i from Include.e
+Testcases:
+	box ht .2i wid .8i "\fL\s-1testcases\s+1\fR"
+line up .25i from Testcases.n
+move right .15i from Testcases.e
+Tools:
+	box ht .2i wid .6i "\fL\s-1tools\s+1\fR"
+line up .25i from Tools.n
+line from end of 3rd last line to end of last line
+line down .15i from Inspex.s 
+.PE
+.FN "\fL\s-1test\fP\s+1 source tree" test_tree
+.LP
+This \fL\s-1test\fR\s+1 directory contains sources 
+for the Ins\s-1PEX\s+1 test suite.
+.LP
+Ins\s-1PEX\s+1 is an automated test suite that uses the \s-1PHIGS/PHIGS PLUS\s+1
+language binding to test the \s-1PEX-SI\s+1 implementation.
+It performs operations via calls to the \s-1PHIGS\s+1 functions, and
+tests for the expected results using Xlib and the \s-1PHIGS\s+1 binding itself.
+Information on using Ins\s-1PEX\s+1 is in Chapter
+.XR @NumberOf(inspex).
+There is also a \s-1README\s+1 in the \s-1\fLInsPEX\s+1\fR directory
+that covers the information that is in this document.
+.LP
+The main execution script, \fL\s-1inspex.sh\fR\s+1, resides in the InsPEX directory. 
+The three subdirectories include, tools, and testcases
+contain supporting programs for the main execution script.
+The \fL\s-1InsPEX/include\s+1\fR subdirectory contains
+implementation-dependent \fL\s-1include\fR\s+1 files.
+These files should be modified to suit a particular implementation before the suite is run.
+.LP
+.IX "directories" "InsPEX/testcases" "" "\fL\s-1InsPEX/testcases\fR\s+1"
+The \fL\s-1InsPEX/testcases\s+1\fR subdirectory contains subdirectories for
+several tests written either in C, or in the interpreter language. 
+.LP
+.IX "directories" "InsPEX/tools" "" "\fL\s-1InsPEX/tools\fR\s+1"
+The \fL\s-1InsPEX/tools\fR\s+1 subdirectory contains subdirectories for three
+supporting programs:\ \  \fL\s-1inspector\fR\s+1 contains
+the source for \fIInspector\fR, the image comparison tool; \fL\s-1newt\fR\s+1
+contains the library-independent source for the interpreter;
+and \fL\s-1pexint\fR\s+1 contains the InsPEX-specific source for the interpreter.
+.\".IP "\fL\s-1.../InsPEX/refimages\s+1\fR" 
+.\".IX "directories" "InsPEX/refimages" "" "\fL\s-1InsPEX/refimages\fR\s+1"
+.\".IX "images"
+.\"A set of reference images.
+.LP
+.H 2 "\f(LBmit/demos/gpc\fR"
+.IX "benchmarking"
+.IX "directories" "gpc" "" "\fL\s-1gpc\s+1\fR"
+.IX "directories" "gpc/benchmarks" "" "\fL\s-1gpc/benchmarks\s+1\fR"
+.IX "directories" "gpc/objects" "" "\fL\s-1gpc/objects\s+1\fR"
+.IX "directories" "gpc/tests" "" "\fL\s-1gpc/tests\s+1\fR"
+.sp 2
+This directory contains the source for the Graphics Performance Characterization
+(\s-1GPC\s+1) programs.  It has three subdirectories:\ \ 
+\fL\s-1benchmarks\fR\s+1 contains the \s-1GPC\s+1 approved benchmarking
+files that can be used for gauging the performance of your
+implementation; \fL\s-1objects\fR\s+1 contains other demo
+programs; and \fL\s-1tests\fR\s+1 contains reference images that can be used to verify an 
+implementation, and documentation describing the images.
+A \s-1README\s+1 file describing use limitaitons and how to use the benchmarking
+programs is located in the \fL\s-1gpc\fR\s+1 directory.
+For additional instructions and information, see Chapter
+.XR @NumberOf(gpc).
+.H C "Using PEX-API" graph_lib
+.IX "PEX-API" "" "\s-1PEX-API\s+1" "" PAGE MAJOR
+.IX "PHIGS PLUS" "" "\s-1PHIGS PLUS\s+1
+.IX "PHIGS " "" "\s-1PHIGS\s+1
+.IX "Application Programmer's Interface, (API)" "" "Application Programmer's Interface, (\s-1API\s+1)"
+.IX "PHIGS Graphics Library" "" "\s-1PHIGS\s+1 Graphics Library"
+.IX "PEX-API"
+.LP
+The \s-1PEX-SI PHIGS\s+1 graphics library provides the client-side support
+for \s-1PEX-SI\s+1.
+It uses \s-1PHIGS\s+1 and \s-1PHIGS PLUS\s+1 as the 
+Application Programmer's Interface to the \s-1PEX\s+1 protocol (\s-1PEX-API\s+1).
+The complete set of functions available in the \s-1PEX-API\s+1 are
+described in the \fI\s-1PEX-SI\s+1 Graphics Library Manual Pages\fR.
+The binding for \s-1PEX-API\s+1 nearly conforms to the \s-1IS\s+1 \s-1PHIGS\s+1 C Binding 
+(ISO DIS 9593-4:199x(E), 1 August 1990); however, some deviations have been made.
+This information (as well as other important information) is described in the 
+\s-1INTRO PHIGS\s+1 manual page.
+.LP
+Because a C binding has not yet been defined for \s-1PHIGS PLUS\s+1, a binding 
+was developed to match the form of the \s-1PEX-SI PHIGS\s+1 binding.
+.LP
+There are several files needed by the client to use the \s-1PEX-SI\s+1 graphics library.
+.IP "\fL\s-1libphigs.a\fR\s+1"
+.IX "libphigs.a" 
+The \s-1PEX-API\s+1 module that is linked with your client.
+.IP "\fL\s-1phigsmon\fR\s+1" 
+.IX "PHIGS Monitor" "" "\s-1PHIGS\s+1 Monitor" 
+.IX "PM" "" "\s-1PM\s+1" "" PRINT "See \s-1PHIGS\s+1 Monitor"
+The \s-1PHIGS\s+1 Monitor (\s-1PM\s+1) is a run-time module that runs as 
+a child process of the client.
+The \s-1PM\s+1 is automatically started by \s-1PEX-API\s+1 when a client is run.
+Note that the \s-1PM\s+1 is optional. (See the \s-1OPEN PEX\s+1
+Graphics Library man page for more information.)
+.IP "\fL\s-1PHIGSerr.txt\fR\s+1"
+.IX "PHIGSerr.txt" "" "\s-1PHIGS\s+1err.txt"
+A run-time support file needed by \s-1PEX-API\s+1.
+.IP "\fL\s-1PHIGSfnc.txt\fR\s+1" 
+.IX "PHIGSfnc.txt" "" "\s-1PHIGS\s+1fnc.txt"
+A run-time support file needed by \s-1PEX-API\s+1.
+.IP "\fL\s-1phigs.h\fR\s+1"
+.IX "include files" "phigs.h"
+.IX "phigs.h" 
+The header file that must be included when you are using the library.
+\fL\s-1phigs.h\fR\s+1 itself includes some \s-1X\s+1 header files.
+.LP
+The \s-1PM\s+1 and support files can be found in
+the (default) subdirectory \fL\s-1/usr/lib/X11/PEX\s+1\fR, 
+and the header file \fL\s-1phigs.h\fR\s+1 can be found
+in \fL\s-1/usr/include/X11/phigs\s+1\fR.
+See the \fL\s-1Imakefile\fR\s+1 in the various \fL\s-1mit/demos/auto_box\s+1\fR 
+or \fL\s-1mit/demos/beach_ball\s+1\fR subdirectories
+for examples of building \s-1PEX-SI\s+1 clients.
+.IX "phigsmon"
+.LP
+.IX "phigs.h"
+.IX "Graphics Library"
+.IX "PHIGSerr.txt" "" \s-1PHIGS\s+1err.txt"
+.IX "PHIGSfnc.txt" "" \s-1PHIGS\s+1fnc.txt"
+.IX "PHIGS Monitor, (PM)" "" "\s-1PHIGS\s+1 Monitor, (\s-1PM\s+1)"
+.IX "include files" "phigs.h"
+\f(BINote:\fR\ \ If you did not \fL\s-1make install\fR\s+1 when you built
+the \s-1PEX-SI\s+1, you will find the \s-1API\s+1 library and
+the \fL\s-1PHIGSfnc.txt\fR\s+1 and \fL\s-1PHIGSerr.txt\fR\s+1 files in 
+the \fL\s-1mit/extensions/lib/PEX\s+1\fR subdirectory, and
+the \s-1PM\s+1 and the \fL\s-1phigs.h\fR\s+1 file
+in the \fL\s-1mit/extensions/lib/PEX/lib\fR\s+1 subdirectory below it.
+.LP
+\f(BINote:\fR
+You must provide \fL\s-1include\fR\s+1 paths for the \s-1X\s+1 and \s-1PEX\s+1 
+header files when you compile your clients.
+You also need to link the \s-1PEX\s+1 library and the standard \s-1X\s+1 library, 
+\fL\s-1libX11.a\fR\s+1, with your clients when you build them.
+If the PEXAPIDIR environment variable is set the API looks for the run-time
+files there, otherwise it looks in the \fL\s-1/usr/lib/X11/PEX\fR\s+1 directory.
+.IX "PEXAPIDIR" "" "\s-1PEXAPIDIR\s+1"
+If this environment variable does not exist, or the files are not in that directory, an 
+the \s-1OPEN PHIGS\s+1 function generates an error message and the client exits.
+.LP
+The \s-1PM\s+1 is a child process of a \s-1PEX\s+1 client.  The \s-1PM\s+1 performs
+the following:
+.IX "PHIGS Monitor" "" "\s-1PHIGS\s+1 Monitor" "" PAGE MAJOR
+.BP
+Processes window system and input device events associated with a client's
+\s-1PHIGS\s+1 workstations.
+.BP
+Implements the window system event response policy.
+.BP
+Issues the required \s-1PEX\s+1 and \s-1X\s+1 calls to enforce that policy.
+.BP
+Maintains the \s-1PHIGS\s+1 input event queue and services event requests 
+and inquiries from the client side \s-1API\s+1 code.
+.BP
+Contains the Central Structure Store (\s-1CSS\s+1) for \s-1PHIGS\s+1 workstations
+using servers that do not support structure storage.
+.LP
+The \s-1API\s+1 communicates with the \s-1PM\s+1 through \s-1UNIX\s+1
+sockets by default; the compiler symbol \s-1PEX_API_SOCKET_IPC\s+1
+is defined in the \fI.cf\fR configuration file.
+To force the client to use System V shared memory 
+instead of \s-1UNIX\s+1 sockets, you must remove the
+\s-1PEX_API_SOCKET_IPC\s+1 definition before the Graphics Library is compiled. 
+.LP
+Running \s-1PEX-SI\s+1 with the \s-1PM\s+1 is optional.
+Instructions for using this option are given in the \s-1OPEN PEX\s+1 man page 
+and in the \fI\s-1PEX-SI\s+1 Porting Guide\fR 
+(in the section on customizing \s-1PEX-API\s+1).
+.LP
+.H C "Using PEX-ME"
+.IX "PEX-ME" "" "\s-1PEX-ME\s+1" "" PAGE MAJOR
+.IX "Model Extension" 
+.IX "server extension"
+.LP
+The \s-1PEX-SI\s+1 server code provides a Model Extension (\s-1PEX-ME\s+1)
+to the standard \s-1X\s+1 server.
+It is made up of several libraries that are described in the 
+\fIArchitecture Specification\fR and the \fIPorting Guide\fR.
+These libraries are linked with your \s-1X\s+1 server if you have chosen
+to do so at build time.
+See the section on potential problems in the \fIPorting Guide\fR if you 
+have had problems building the \s-1PEX-SI\s+1 server.
+.LP
+\s-1PEX-ME\s+1 is started exactly the same way as the standard \s-1X\s+1 server.
+See the man pages provided for the server with the \s-1X\s+1 release
+for additional information.
+\s-1PEX-ME\s+1 looks for and loads a default \s-1PEX\s+1 font when the server is started.
+This font is placed in the default directory \fL\s-1/usr/lib/X11/fonts/PEX\s+1\fR 
+when a \fL\s-1make install\fR\s+1 is done.
+If the font is not found there, \s-1PEX-ME\s+1 looks for the environment
+variable \s-1PEX_FONTPATH\s+1 for a path to the font.  If the font cannot
+be found there, or that variable is not defined, the server is started but
+\s-1PEX-ME\s+1 is not initialized and \s-1PEX\s+1 requests return an error.
+.IX "PEX_FONTPATH" "" "\s-1PEX_FONTPATH\s+1"
+.LP
+\s-1PEX-ME\s+1 follows the same search criteria when looking for \s-1PEX\s+1 fonts 
+to load for the \s-1PEX OPEN FONT\s+1 request.
+An error is returned for this request if the font cannot be found.
+.H C "Using InsPEX" inspex
+.H 2 Introduction
+.IX "InsPEX" "" "Ins\s-1PEX\s+1" "" PAGE MAJOR
+.IX "test suite"
+.LP
+This chapter introduces Ins\s-1PEX\s+1, the \s-1PEX-SI\s+1 test suite, and
+gives detailed instructions on how to use it and how to interpret
+the results from using the tests.
+.H 3 "Purpose of the Ins\s-1PEX\s+1 Test Suite"
+.LP
+The goal of Ins\s-1PEX\s+1 is to test compliance of the
+\s-1PEX-SI PHIGS/PHIGS PLUS\s+1 C binding (in connection with a
+\s-1PEX\s+1 server) with the \s-1PHIGS\s+1 and \s-1PHIGS PLUS\s+1 standard.
+It is not intended to verify \s-1PEX\s+1 at the protocol level.
+Nor is it intended to be a complete \s-1PHIGS\s+1 conformance test suite,
+or to be a useful performance metric.
+.LP
+Ins\s-1PEX\s+1 is intended to be portable and useful for developers porting the
+\s-1PEX\s+1 Sample Implementation (\s-1PEX-SI\s+1) to different hardware platforms.
+.H 3 "Description of Test Methods"
+.LP
+Ins\s-1PEX\s+1 uses two techniques to test the \s-1PEX\s+1 implementation:
+.IP \(bu
+Completely automatic testing, using \s-1PHIGS\s+1 inquiry functions to read
+back system states and data structures, and \s-1X\s+1 functions to read
+back pixel values.
+.IP \(bu
+Testing through image comparison, comparing what is rendered on the
+screen (retrieved with \s-1X\s+1 functions) with a set of known good images.
+Slight differences in implementations may require a one-time manual
+calibration, in which case a user must inspect images flagged as
+different and mark them as acceptable or not acceptable.
+An \s-1X\s+1-based tool is provided for this purpose.
+.LP
+.IX "Inspector"
+Many tests use an interpreter for faster execution time and more efficient
+test development.  Tests requiring verification of pixels use Xlib to retrieve 
+pixel and color map information.  The resulting images are either verified 
+automatically or are compared against saved images.  An \s-1X\s+1-based tool, Inspector,
+is supplied for comparing images against saved reference images and saving the 
+new images as acceptable images if desired.
+.H 3 "The NewT Interpreter"
+.IX "NewT"
+.IX "interpreter"
+.LP
+In order to reduce the total execution time of the Ins\s-1PEX\s+1 test suite,
+as well as to shorten the edit-compile-run cycle for test developers,
+many tests in Ins\s-1PEX\s+1 are written for the NewT interpreter.  NewT (for
+New Tool) is a package developed at Sun Microsystems, Inc., for the creation of
+special-purpose interpreters.  The interpreter language's syntax contains elements of
+csh and C and is tailored for testing.  Ins\s-1PEX\s+1
+contains as an integral part \fIpexint\fR, an interpreter for \s-1PHIGS\s+1 and
+graphics testing functions.  The source files for \fIpexint\fR are included,
+so that the interpreter's functions can be modified and extended.
+.LP
+.IX "NewT"
+.IX "interpreter"
+A man page in the NewT source directory includes an explanation of how the
+interpreter is built, a description of the language syntax, and instructions
+on how to use the interpreter.
+.H 3 "Image Comparison and the Inspector"
+.IX "Inspector"
+.IX "InsPEX" "" "Ins\s-1PEX\s+1"
+.IX "test suite"
+.LP
+Unlike \s-1X\s+1, the \s-1PEX\s+1 standard does not contain rigid requirements
+for pixel accuracy; it is expected that different hardware and
+software implementations will render primitives differently.  In
+order to provide the test suite with the flexibility to handle
+wide-ranging implementations, an image comparison method is
+used.
+.LP
+The Ins\s-1PEX\s+1 test suite is supplied with a set of reference
+images for the tests that use image comparison.  When the
+test is run, the image retrieved from the screen is compared
+against the reference image.  If it matches, the test succeeds;
+otherwise, the test fails and the non-matching image is saved
+for later examination.
+The test failure message in the log will state that image comparison is
+required.
+.LP
+.IX "Inspector" 
+After the test has been run, the suite user can run
+Inspector, an \s-1X\s+1-based tool for comparing images from test
+suite runs against the reference images.  Inspector displays
+the images side by side and provides a function for highlighting
+differences between the images.  If the user decides that
+the differing image is acceptable, he can accept the
+image and move it into a directory of local reference images.
+Subsequent runs of the test can then compare against
+this local reference, and pass if they match the previously approved image.
+If the user marks the image under comparison
+as rejected, subsequent test images that match this image
+are logged as matching a known bad image.
+.LP
+The recommended test sequence, then, is to do a complete run of
+the test suite, invoke the Inspector and verify or reject
+any images that do not match the references; then, do another
+run of Ins\s-1PEX\s+1 that takes into account the results of
+the Inspector session.
+.H 2 "Building the Suite"
+.IX "pexint"
+.IX "libinspex.a"
+.LP
+The Ins\s-1PEX\s+1 suite is not built automatically when the rest of
+the \s-1PEX-SI\s+1 is built.  The image comparison tool, \fL\s-1inspector\fR\s+1,
+must be compiled separately as described below.
+The interpreter and the C-based tests are meant to be compiled by
+the test suite's run script, \fL\s-1inspex.sh\fR\s+1.
+The interpreter is preserved after compilation, but the individual C tests
+are deleted after they are compiled and run to save disk space.
+(The \fL\s-1-keep\fR\s+1 command line argument will preserve the individual
+C tests.  For more information on \s-1\fL-keep\fR\s+1 see Table
+.XR @NumberOf(inspex_options) in Section
+.XR @NumberOf(inspex_args)).
+.LP 
+If the user wishes to compile \fL\s-1pexint\fR\s+1 separately, this can
+be done using the \fL\s-1Makefile\fR\s+1 in the \fL\s-1tools/pexint\fR\s+1 directory.
+Please examine this \fL\s-1Makefile\fR\s+1 to ensure that all paths are properly
+specified on your system, and
+note that it is vital to supply \fL\s-1CPPFLAGS=-DNEWT\fR\s+1 as an
+argument to make in order for the interpreter to be built correctly.
+.H 3 "Compiling Inspector"
+.LP
+Versions of Inspector are available using the XView toolkit supplied
+on the contrib tape for X11R4, or the Athena Widgets.
+All toolkit-specific code is isolated in
+two files by a toolkit-independent interface, so porting
+to other toolkits should be straightforward.
+Note that the tool does not itself use \s-1PEX\s+1 \(em it only uses toolkit and Xlib
+functions for image display and user interaction.  Thus, it need
+not be run on the server or system under test: it can be run
+any time, on any machine running an \s-1X\s+1 server.
+.LP
+.IX "INSPEXDEST" "" "\s-1INSPEXDEST\s+1"
+.IX "XVIEWHOME" "" "\s-1XVIEWHOME\s+1"
+.IX "XVLIBS" "" "\s-1XVLIBS\s+1"
+The Makefile in \fL\s-1extensions/test/PEX/InsPEX/tools/inspector\s+1\fR will build the 
+Inspector.
+The Makefile requires two environment variables to be set when 
+run.  \s-1INSPEXDEST\s+1 is the name of the directory in which to put test suite output.
+This variable must also be set when running the test suite.
+\s-1XVIEWHOME\s+1 is where the libraries and include files for Xview 
+can be found.
+In addition, there are two macros defined in the Makefile that you may 
+want to set.  \s-1DESTBIN\s+1 is the directory where the objects will be placed.
+The default is set to \fL\s-1$(INSPEXDEST)/bin\s+1\fR.
+If \s-1INSPEXDEST\s+1 is not defined, the objects will be
+placed in \fL\s-1/bin\s+1\fR.  \s-1XVLIBS\s+1 defines the name(s) of the 
+XView library to link with.
+Some versions of Xview split the library into two pieces, requiring 
+{\fL\s-1-lxvin -lxvol\s+1\fR} or {\fL\s-1-lxview -lolgx\s+1\fR} to be specified, 
+instead of the single library \fL\s-1-lxview\s+1\fR.
+.H 2 "Running the Suite"
+.H 3 "Environment Variables" environ_vari
+.LP
+In addition to any other environment variables that may be required to run
+a \s-1PEX\s+1 program, such as \s-1DISPLAY\s+1 and \s-1PEXAPIDIR\s+1, 
+the suite requires the following two variables;  if they are not defined
+the script will complain and abort.
+These, and the other file path variables, should be absolute paths.
+.IP "\s-1INSPEXHOME\s+1" 
+.IX "INSPEXHOME" "" "\s-1INSPEXHOME\s+1" 
+.IX "inspex.sh"
+Path to the Ins\s-1PEX\s+1 test suite's directory, where \fL\s-1inspex.sh\fR\s+1
+and the associated subdirectories are.  In the \s-1PEX-SI\s+1 source tree,
+\s-1INSPEXHOME\s+1 is the directory \fL\s-1extensions/test/InsPEX\s+1\fR.
+.IP "\s-1INSPEXDEST\s+1" 
+.IX "INSPEXDEST" "" "\s-1INSPEXDEST\s+1" 
+Destination directory for test suite output.  Compilations,
+new images, and log files are placed under this directory by
+the test suite.  There should be plenty of available space.
+.LP
+.IX "PATH" "" "\s-1PATH\s+1"
+In addition, the current \s-1PATH\s+1 should include the location of
+the \s-1X\s+1 utility \fL\s-1xdpyinfo\fR\s+1.
+.LP
+The following environment variables are optional:
+.IP "\s-1INSPEXLOG\s+1" 
+.IX "INSPEXLOG" "" "\s-1INSPEXLOG\s+1" 
+The full pathname of log file for the output of \fL\s-1inspex.sh\fR\s+1.
+The default is to assemble a log file name from the month, day, and time,
+taking the form: \fL\s-1$INSPEXDEST/ilogMM.DD.HHMM\s+1\fR,
+(for example, \fL\s-1$INSPEXDEST/ilog02.21.1232\fR\s+1)
+.IP "\s-1INSPEXIMAGEREF\s+1" 
+.IX "INSPEXIMAGEREF" "" "\s-1INSPEXIMAGEREF\s+1" 
+The master reference image directory.  The default
+is \s-1\fL$\s-1INSPEXHOME\s+1/refimages\s+1\fR.
+.IP "\s-1PEXLIBDIR, PEXINCDIR\s+1" 
+.IX "PEXLIBDIR" "" "\s-1PEXLIBDIR\s+1" 
+.IX "PEXINCDIR" "" "\s-1PEXINCDIR\s+1" 
+Directories containing the \s-1PEX\s+1 include and library files.
+These default to \fL\s-1../../lib/PEX\s+1\fR and \fL\s-1../../../X11/phigs\s+1\fR,
+respectively (absolute paths are derived from these relative
+ones by \fL\s-1inspex.sh\fR\s+1).
+Note that the suite expects the \s-1PHIGS\s+1 include files to
+be in a subdirectory of \s-1$PEXINCDIR\s+1 named \fL\s-1phigs\fR\s+1.
+.IP "\s-1XINCDIR, XLIBDIR\s+1"
+.IX "XLIBDIR" "" "\s-1XLIBDIR\s+1" 
+.IX "XINCDIR" "" "\s-1XINCDIR\s+1" 
+Directories containing the \s-1X11\s+1 \fL\s-1include\fR\s+1 directory and
+the library files.  These default to \s-1$PEXLIBDIR\s+1 and \s-1$PEXINCDIR\s+1,
+respectively.  The suite expects to find the \s-1X11\s+1 include files
+in the  directory \fL\s-1$XINCDIR/X11\fR\s+1.
+.IP "\s-1I_CFLAGS, I_LDFLAGS\s+1"
+These variables can be set to any additional required
+compiler flags for the compile and link phases, respectively;
+they will be used in the compilation of the interpreter and C-based tests.
+If there are multiple words in these variables, they should be enclosed
+in both single and double quotes so that the grouping isn't lost
+when these are passed to make.
+(For example, \s-1\fLcsh% setenv I_LDFLAGS "'-Bstatic -f68881'"\s+1\fR.)
+.IP "\s-1SERVER_RESTART_CMD\s+1" 
+.IX "SERVER_RESTART_CMD" "" "\s-1SERVER_RESTART_CMD\s+1" 
+If the server dies during test execution, and this variable is set, 
+the script will attempt to use the command to restart the server 
+before continuing.  The command should exit after starting the server, 
+since the test script does not run it in the background.
+.LP
+The following optional environment variables are used by
+some or all of the test programs:
+.IP "\s-1MAXFAIL\s+1" 
+.IX "MAXFAIL" "" "\s-1MAXFAIL\s+1" 
+The number of failures a test will accept before giving up
+and aborting; the default is 5.
+.IP "\s-1VERBOSITY\s+1" 
+.IX "VERBOSITY" "" "\s-1VERBOSITY\s+1" 
+Can be set to 0, 1, 2, or 3; specifies various levels of tracing and diagnostic output.
+Any level implies the ones below it as well.  Table
+.XR @NumberOf(verbosity_levels)
+shows the various levels.
+.TN "\s-1VERBOSITY\s+1 Levels" verbosity_levels
+.TS
+center box tab(@);
+cfBI cfBIw(4i)
+l l .
+Level@Description
+_
+0 (default)@T{
+Prints failure messages of the form
+\fL\s-1<testname>: failed: <description of failure>\s+1\fR 
+on failure, and prints a \s-1PASSED\s+1 or \s-1FAILED\s+1 message
+on completion, with a one-line description of the test.
+T}
+1@T{
+Some tests will give a more detailed
+or complex description to help identify a failure
+T}
+2@T{
+Enables some higher-level test diagnostics
+T}
+3@T{
+Enables diagnostics in some lower-level test functions
+T}
+.TE
+.IP "\s-1PAUSE\s+1" 
+.IX "PAUSE" "" "\s-1PAUSE\s+1" 
+If this variable is set, some rendering tests will pause after 
+drawing and prompt for a carriage return, giving the user a
+chance to view what is on the screen.
+This variable should \fInot\fR be set when executing the test script itself
+since the prompts will be redirected into the script and will not be seen.
+.IP "\s-1SHOWPIX\s+1" 
+.IX "SHOWPIX" "" "\s-1SHOWPIX\s+1" 
+If set, most graphical tests will show which pixels
+are being sampled by drawing a box around the sampled area.
+Useful for analyzing failures, but may cause subsequent false failures
+by putting incorrect pixel values on the screen.
+.IP "\s-1MACROPATH\s+1"
+Interpreter scripts search this path for macro files.
+The default set by \fL\s-1inspex.sh\fR\s+1
+is \fL\s-1.:$INSPEXHOME/testcases/shared\fR\s+1, causing it to check
+the current directory and then the directory containing
+shared macro files.
+You should not need to set this unless you want to substitute
+different macro definitions, or if you are running
+the \fL\s-1pexint\fR\s+1 interpreter outside of \fL\s-1inspex.sh\fR\s+1,
+in which case you will have to set it to a value such as the one above
+to run any Ins\s-1PEX\s+1 test scripts.
+.IP "\s-1I_CLIENT_SIDE\s+1"
+If set, this variable will direct most tests to
+call \fIpopen_xphigs()\fR with appropriate arguments to specify
+client-side structure storage, rather than calling \fIpopen_phigs()\fR,
+which would give the default behavior, server-side storage.
+.IP "\s-1I_NO_MONITOR\s+1"
+Although single-process execution (without \fL\s-1phigsmon\fR\s+1) is
+not yet implemented, \s-1I_NO_MONITOR\s+1 will cause most
+tests to call \fIpopen_xphigs()\fR with the flags set to
+force this behavior, in a manner similar to \s-1I_CLIENT_SIDE\s+1.
+.H 3 "Command Line Arguments" inspex_args
+.LP
+.IX "inspex.sh"
+The script \fL\s-1inspex.sh\fR\s+1 can take various command line arguments:
+.TN "inspex.sh Command Line Arguments"  inspex_options
+.TS
+center box tab(@);
+cfBI | cfBI
+lfL lw(4.5i) .
+Argument@Description
+_
+\s-1-display\s+1@T{
+Runs the test on the named display's server.
+T}
+@
+\s-1-a <test-area-names>\s+1@T{
+The user may specify one or more specific test areas; 
+all subsequent arguments up to the next option flag or 
+the end of the line are taken to be test areas.
+Without this flag, all test areas will be run.
+T}
+@
+\s-1-t <indiv-tests>\s+1@T{
+Runs the specified tests.  The test file
+names supplied may be in several forms:
+full path names, test file names alone,
+or in the form \fL\s-1areaname/testname\fR\s+1.
+The file name extension (\fL\s-1.c\s+1\fR or \fL\s-1.pi\s+1\fR) is optional.
+The test name alone will generally be
+enough if the tests have not been moved from
+their test area directories.
+This option can be used alone or in combination with
+the \fL\s-1-a\fR\s+1 option above to run both individual
+tests and some entire test areas.
+T}
+@
+\s-1-keep\s+1@T{
+Keep executables for C-based tests after execution,
+rather than removing them.  If executables are
+very large, this option will use a lot of disk
+space, but may be desirable for debugging.
+The executables are left in \s-1\fL$INSPEXDEST/tmp\fR\s+1.
+T}
+@
+\s-1-server_side, -client_side\s+1@T{
+These options will force server-side or
+client-side structure storage, respectively,
+in most tests.  The same result can be obtained by 
+setting or unsetting the environment variable
+\s-1$I_CLIENT_SIDE\s+1 described above, though these 
+switches override the value of that variable.
+T}
+@
+\s-1-clean\s+1@T{
+Before beginning test execution, empty out
+the \fL\s-1bin\fR\s+1, \fL\s-1lib\fR\s+1, and \fL\s-1tmp\fR\s+1 directories under
+\s-1$INSPEXDEST\s+1 in order to get a clean run.
+This option is recommended if testing a new
+version of the \s-1PEX\s+1 library.
+T}
+@
+\s-1-clean_all\s+1@T{
+This does all of the above, plus deletes
+everything under \fL\s-1$INSPEXDEST/include\fR\s+1,
+where \fL\s-1pdt.h\fR\s+1 and \fL\s-1wdt.h\fR\s+1 live.
+This should only be used if the user has not customized these files
+under \s-1$INSPEXDEST\s+1 to suit particular \s-1PHIGS\s+1
+and workstation capabilities.
+(These files are described in the next section.)
+T}
+.TE
+.LP
+The command line options are also documented in a comment 
+at the top of the script; that comment should be considered
+the most up-to-date description.
+.H 3 "Implementation-Dependent Files"
+.LP
+.IX "include files" "pdt.h"
+.IX "include files" "wdt.h"
+Two \fL\s-1include\fR\s+1 files, \fL\s-1pdt.h\fR\s+1 and \fL\s-1wdt.h\fR\s+1, are used to
+specify implementation-dependent information about the expected
+contents of the \s-1PHIGS\s+1 Description Table and the Workstation
+Description Table, respectively.  When the script \fL\s-1inspex.sh\fR\s+1
+is executed, it checks for the existence of these files
+in the directory \fL\s-1$INSPEXDEST/include\fR\s+1; if they do not
+exist, they are copied from \fL\s-1$INSPEXHOME/include\fR\s+1.
+A set of C-based tests includes these files, and tests that
+the inquired values match the expected.
+.LP
+.IX "INSPEXHOME" "" "\s-1INSPEXHOME\s+1"
+.IX "INSPEXDEST" "" "\s-1INSPEXDEST\s+1"
+If the expected default contents of these description tables
+are different than those for \s-1PEX-SI\s+1, the \fL\s-1pdt.h\fR\s+1 and \fL\s-1wdt.h\fR\s+1
+files should be copied from \fL\s-1$INSPEXHOME/include\s+1\fR to
+\s-1\fL$INSPEXDEST/include\s+1\fR, and modified appropriately.
+In this case, however, the user should be careful not to use
+the \fL\s-1-clean_all\fR\s+1 option of \fL\s-1inspex.sh\fR\s+1
+as this option would cause any modifications to the \fL\s-1pdt.h\fR\s+1
+and \fL\s-1wdt.h\fR\s+1 files to be overwritten.
+.H 3 "Runtime Environment"
+.LP
+As mentioned previously, the \s-1X\s+1 utility \fIxdpyinfo\fR must be found in the
+current command search path.
+.LP
+.IX "window manager"
+.IX "olwm"
+The server should not be running a window manager, unless the
+window manager is one that does not wait for the user to position
+new windows (\fIolwm\fR is one such window manager).  Even with such
+a window manager available, one should consider running without
+it as it may influence window placement, which in turn may 
+influence the rendering of primitives.  A window
+manager may be necessary, however, if the \s-1PEX\s+1 library is \s-1ICCCM\s+1
+compliant and depends on the window manager to load its color map.
+.LP
+\s-1PEX-SI\s+1 provides two scripts in the \fL\s-1mit/extensions/test/InsPEX\fR\s+1 directory
+that will help you to set up the runtime environment for Ins\s-1PEX\s+1:  
+.IP \fIstartpex\fR 13
+This script sets the environment variables and executes the command that starts the server.
+The script contains several environment variables that identify the 
+root of the X source tree, the name of the server executable,
+paths of other executables needed when running the server,
+and paths of the font files needed by the server.
+You will need to set the variables in this script to suit your runtime environment
+before running Ins\s-1PEX\s+1.  Default values are provided in the script.
+.IP \fIrun_InsPEX\fR 13
+This script sets the necessary environment variables and calls \fL\s-1inspex.sh\fR\s+1 to
+run the Ins\s-1PEX\s+1 test suite.
+If a \s-1PEX\s+1 server is not already running when this script is executed,
+one will be started.
+A log file is created in the directory specified by the environment variable
+\s-1INSPEXLOG\s+1.
+You will need to set the variables in this script to suit your runtime environment
+before running Ins\s-1PEX\s+1.  Default values are provided in the script.
+.H 3 "Testing From Within the Server"
+.LP
+.IX "inspex.sh"
+The preferred way to run \fL\s-1inspex.sh\fR\s+1 is to execute it from a screen
+or terminal other than the one that the \s-1PEX\s+1 server is running on.
+If the suite is not being run from another screen or terminal
+(that is, if it is being started from a window on the server being tested),
+there is the potential problem of a server crash killing the
+test suite process before the test script has a chance to restart
+the server with \s-1SERVER_RESTART_CMD\s+1.
+.IX "SERVER_RESTART_CMD" "" "\s-1SERVER_RESTART_CMD\s+1"
+.LP
+To solve this problem, we have supplied a utility
+called \fL\s-1newpgrp\fR\s+1 (for \s-1NEW\s+1 Process GRouP),
+which will execute a command in a process that is disassociated
+from the current process group.  \fL\s-1newgrp\fR\s+1 takes a
+command name and a list of arguments on the command line to be
+executed in the new process, for example:
+.IP
+\fL\s-1host% \f(LBnewpgrp inspex.sh -a archive strcon\fR\s+1
+.LP
+This utility is a short C program residing
+in \fL\s-1.../test/InsPEX\s+1\fR.  \fL\s-1newgrp\fR\s+1 can be
+compiled with the following command:
+.IP
+\s-1\fLhost% \f(LBcc newpgrp.c -o $\s-1INSPEXDEST\s+1/newpgrp\fR\s+1
+.KS
+.H 2 "Analyzing the Results"
+.H 3 "Format of Log Messages"
+.LP
+.IX "INSPEXDEST" "" "s-1INSPEXDEST\s+1"
+.IX "log messages"
+The test script \fL\s-1inspex.sh\fR\s+1 places the output in a 
+file called \fL\s-1ilogMM.DD.HHMM\fR\s+1, (for example, \fL\s-1ilog02.21.1232\fR\s+1), 
+in the \s-1$INSPEXDEST\s+1 directory.
+The script records information such as the date, machine name,
+and value of the \s-1DISPLAY\s+1 variable.  If any \fL\s-1make\fR\s+1 operation
+fails, the output of the \fL\s-1make\fR\s+1 is recorded in the log file.
+Then the output of each test is logged.
+.KE
+.LP
+After completion, every test outputs a message containing the test
+name, \s-1PASSED\s+1 or \s-1FAILED\s+1, and a brief description of what is tested.
+If a failure is detected, a message of the form:
+.IP
+\s-1\fL<testname>: failed: <description of what happened>\fR\s+1
+.LP
+.IX "MAXFAIL" "" "\s-1MAXFAIL\s+1"
+is printed.  The test will continue on if possible, until the number of
+failures reaches $\s-1MAXFAIL\s+1.  If a test cannot be compiled, 
+causes a core dump before completion, or crashes the server, this
+is detected by \fL\s-1inspex.sh\fR\s+1 and is also logged (\fL\s-1inspex.sh\fR\s+1 uses the
+X utility \fIxdpyinfo\fR to verify the health of the server).
+.LP
+If a test prints a message containing the word \s-1ERROR\s+1, this means that
+something unanticipated has happened \(em either an error in a system
+or testing function, or a failure in the library under test other
+than what the test is looking for (for example, if a rendering
+test cannot open a workstation).  Such messages should also contain
+some descriptive text describing what happened.  We consider
+a \fIfailure\fR to mean that the test operated properly and found
+something wrong in the library being tested; we consider an
+\fIerror\fR to mean that the test did not work as expected \(em something
+was wrong in the test software, the system in general, or 
+in the library functions that the test assumed would work.
+.H 3 "Image Comparison Failure Messages"
+.IX "images"
+.LP
+If a test uses the image comparison method, and an image does
+not match the local or master reference image, several different
+failure messages can result:
+.IP "\s-1\fL<testname>: failed, pending manual comparison of image \
+<imagename>\fR\s+1"
+This means that the image did not match the reference
+image found; we do not know whether it is correct or not.
+It also does not match any saved image that is marked
+as incorrect.  The comparison tool, \fIinspector\fR, must
+be used to compare the image to the reference.
+.IX "inspector"	
+.IP "\s-1\fL<testname>: failed - image comparison (<imagename> \
+matches known bad image)\fR\s+1" 
+This means that the image did not match
+the reference image, but did match an image in the
+current images directory that has been marked as
+rejected; we know that this image is incorrect and need not
+look at it again.
+.IP "\s-1\fL<testname>: failed - no reference image for <imagename> \
+(saving current image)\fR\s+1" 
+This message should not be seen unless
+the test case is new, or the reference image is
+for some reason not present.  If it is a new test case,
+this saved image should be viewed with the comparison
+tool \(em if it is acceptable, it can be accepted into
+the local reference, and then manually copied into
+the master reference if desired.
+.LP
+The image names mentioned above may not be the same as the test
+file name, since one test file might create several images.
+The image name corresponds to the name of the file the image is 
+stored in.
+.LP
+The images are stored in a binary run-length-encoded
+format developed for Ins\s-1PEX\s+1; pixels are stored along with color
+map information, so that comparison of images can be done by
+comparing the \s-1RGB\s+1 values that were in the color table for each pixel.
+.IX "pexint"
+The format is described in a comment 
+in \fL\s-1$\s-1INSPEXHOME\s+1/tools/pexint/pixutils.c\s+1\fR,
+just before the definition of the function \fIi_save_image()\fR.
+.H 3 "Running Inspector"
+.IX "inspector"
+.IX "INSPEXDEST" "" "\s-1INSPEXDEST\s+1"
+.IX "INSPEXHOME" "" \s-1INSPEXHOME\s+1"
+.IX "INSPEXIMAGEREF" "" "\s-1INSPEXIMAGEREF\s+1"
+.LP
+The \fIinspector\fR comparison tool requires that the 
+environment variables \s-1INSPEXDEST\s+1 and
+either \s-1INSPEXHOME\s+1 or \s-1INSPEXIMAGEREF\s+1 be set (see Section
+.XR @NumberOf(environ_vari)).
+The tool prints a record of its actions on its standard output \(em 
+the user will probably want to redirect this into a log file.
+.LP
+On startup, the tool displays two empty boxes, labelled \fIreference image\fR
+and \fIcurrent image\fR.
+To the right of these boxes is a current file name, a current file status (either
+\s-1REJECTED\s+1 or \s-1UNSEEN\s+1), a menu with a set of buttons, and a scrolling list
+of file names.  The file name list contains the names of the image files
+in \fL\s-1$INSPEXDEST/currimages\fR\s+1; the user may scroll this list and select a
+file name.  The meaning and action of the buttons is as follows:
+.IX "currimages"
+.LP
+.IX "localrefimages"
+.IP \fBAccept\fR 15
+Active only when an image is displayed.
+Marks the image as accepted by moving it into 
+\fL\s-1$INSPEXDEST/localrefimages\s+1\fR, deleting from \fL\s-1currimages\fR\s+1,
+and removing any \s-1REJECTED\s+1 marking from the file.
+The boxes, status line, and file name are cleared (since
+the file is no longer in \fL\s-1currimages\fR\s+1, it is no longer 
+under consideration).
+.IP \fBReject\fR 15
+Active only when an image is displayed.
+Marks the image's file as being incorrect by 
+appending a hyphen (-) to the filename.  The status line becomes
+\fL\s-1REJECTED\s+1\fR.
+.IP "\fBMark Unseen\fR" 15
+Active only when an image is displayed.
+Marks the image's file as unseen by removing
+a hyphen (-) from the file name, if present.  The status line
+becomes \fL\s-1UNSEEN\s+1\fR.
+.IP "\fBShow Diffs\fR" 15
+This button redisplays both images so
+that only those pixels that are different from the
+corresponding pixels in the other are displayed.  The rest
+of the pixels are set to the background color.  This button
+is a toggle; when pressed, the label changes to \fL\s-1Show Normal\s+1\fR.
+Pressing it again reverses the action.
+.IP \fBLoad\fR 15
+.IX "refimages"
+This button loads the image file currently
+selected in the scrolling list.  This image is displayed in the right box.
+If a reference image exists in either
+\fL\s-1$INSPEXDEST/localrefimages\s+1\fR (checked first) or
+\fL\s-1$INSPEXHOME/refimages\s+1\fR, it is displayed in the left box.
+The pathname of the reference file is printed below
+the left box, or \fL\s-1No reference image available\s+1\fR 
+if no reference image is found.  Pressing this button again
+is a good way to force a redraw of the images.
+.IP \fBQuit\fR 15
+Quits the application.		
+.LP
+Below the images is the pathname of the reference image currently being 
+displayed and a line of text describing what the image should look like.
+.IX "Window System Inter-Client Communications" "" "Window System Inter-Client Communications, (\s-1ICCCM\s+1)"
+.IX "ICCCM" "" "\s-1ICCCM\s+1"
+.LP
+The Inspector follows the \s-1X\s+1 Window System Inter-Client Communications
+Convention Manual (\s-1ICCCM\s+1) Version 1.0, Section 6.4 in the way it
+relies on the window manager to install the colour maps for the two
+image subwindows.  The color maps for these windows should be loaded
+by the window manager when the mouse is moved into each subwindow.  If
+the window manager in use is not \s-1ICCCM\s+1-compliant, it may not correctly
+load the color maps, and the images will not be shown in the correct
+colors.  If this is the case, there is a crude workaround: setting the
+environment variable \s-1INS_MULTIWIN\s+1 before starting the tool.  If this
+variable is in the environment, the tool creates the image windows as
+separate \s-1X\s+1 windows (children of the root).  The user may have to
+arrange these windows manually into good positions, but the window
+manager should be able to handle the color maps correctly.  The tool's
+main window will initially appear over the image windows, but loading
+an image will raise the image windows to the top.
+.IX "INS_MULRIQIN" "" "\s-1INS_MULTIWIN\s+1"
+.LP
+Note that it is generally necessary to move the mouse into the image subwindows
+to force the loading of colormaps and see the images in their correct colors.
+.H 2 "Running Tests Outside the Script"
+.LP
+Though the Ins\s-1PEX\s+1 test suite as a whole is meant to be
+run using the script \fL\s-1inspex.sh\fR\s+1, it is sometimes desireable
+to run individual tests from outside the script, especially when trying to
+analyze a failure.
+The environment variables \s-1PAUSE\s+1 and \s-1SHOWPIX\s+1 are also most
+useful when running a test individually, without the overhead of starting
+a test run.  
+.H 3 "Compiling and Running C-Based Tests"
+.LP
+The script \fL\s-1inspex.sh\fR\s+1 runs C-based tests by copying them
+to the directory \fL\s-1$INSPEXDEST/tmp\fR\s+1 and compiling them using
+the \fL\s-1Makefile\fR\s+1 there (the \fL\s-1Makefile\fR\s+1 is copied there
+from \fL\s-1$INSPEXHOME/testcases/shared\fR\s+1 if it does not already exist.)
+The user can compile the C-based tests manually, after examining the
+\fL\s-1Makefile\fR\s+1 and ensuring that all values are set properly there or on
+the \fL\s-1make\fR\s+1 command line.
+.LP
+The C-based tests make use of the library \fL\s-1libinspex.a\fR\s+1, which
+is built in \fL\s-1$INSPEXDEST/lib\fR\s+1.  If this library does not
+already exist, it will be built automatically, provided
+that \fL\s-1$INSPEXHOME\fR\s+1 and the other variables are set properly.
+.H 3 "Running Interpreter Scripts"
+.LP
+Once the interpreter is compiled, either manually or
+by \fL\s-1inspex.sh\fR\s+1, all that is required to run it
+on a test script is to make sure that all the necessary environment
+variables normally set by \fL\s-1inspex.sh\fR\s+1 are set in the current
+environment.  The most important of these, beyond those required
+to run \fL\s-1inspex.sh\fR\s+1 itself, is \fL\s-1MACROPATH\fR\s+1 \(em
+this is a colon-separated list of directories in which the interpreter
+looks for other interpreter files that are read using the \fIsource\fR
+interpreter command.  
+For Ins\s-1PEX\s+1 tests, all macro files are either in the test area
+directory itself, or in \fL\s-1$INSPEXHOME/testcases/shared\fR\s+1, so the
+correct value for this variable is ``\fL\s-1.:$INSPEXHOME/testcases/shared\fR\s+1.''
+.LP
+The script \fL\s-1inspex.sh\fR\s+1 builds the interpreter \fL\s-1pexint\fR\s+1
+in \fL\s-1$INSPEXDEST/bin\fR\s+1.  \fL\s-1pexint\fR\s+1 can be run as a
+command with the test script name as an argument.  The scripts are run most 
+easily by first changing to the test area's directory
+under \fL\s-1$INSPEXHOME/testcases\fR\s+1.  For example:
+.IP
+.nf
+\fL\s-1csh% \f(LBcd $INSPEXHOME/testcases/utils\fR\s+1
+\fL\s-1csh% \f(LBalias pi $INSPEXDEST/bin/pexint\fR\s+1
+\fL\s-1csh% \f(LBpi rotate.pi\fR\s+1
+.fi
+.LP
+The manual page for the interpreter's language, construction,
+and usage is in \fL\s-1tools/newt/newt.man\fR\s+1; it describes the various
+options and capabilities of the interpreter, including tracing,
+source-level debugging, and automatic C translation.  
+The \fL\s-1-t\fR\s+1 tracing option can be useful for tracking
+down where a crash occurs:\ \  it tells the
+interpreter to print out each function call before it is made.
+The manual page also describes the interpreter language,
+and will be useful if you want to modify tests or add your own.
+.H C "Using GPC" gpc
+.IX "benchmarking" "" "" "" PAGE MAJOR
+.IX "Graphics Performance Characterization" "" "Graphics Performance Characterization, (\s-1GPC\s+1)" "" PAGE MAJOR
+.H 2 "Overview"
+.LP
+Graphics Performance Characterization (\s-1GPC\s+1) is a set of programs 
+intended to standardize graphics performance measures by establishing a benchmark
+to be used in comparing the performance of various graphics platforms.
+\s-1GPC\s+1 is an effort that has been underway for more than four years, with several 
+leading industrial sponsors (Sun, \s-1IBM\s+1, \s-1DEC\s+1, \s-1HP\s+1, 
+and others) led by the NCGA (National Computer Graphics Association).
+.LP
+.IX "Picture-Level Benchmark" "" "Picture-Level Benchmark, (\s-1PLB\s+1)"
+The performance characterization is achieved by a set of programs called the 
+\s-1PLB\s+1 (Picture-Level Benchmark) programs.  These programs are designed to
+measure the performance of graphics display on a screen.  SimGraphics of
+Pasadena, California, has been the primary developer of \s-1PLB\s+1 programs.
+The current version is Release 1.1 from SimGraphics and NCGA. 
+.LP
+The SimGraphics \s-1PLB\s+1 programs have been ported to the \s-1PEX-API\s+1,
+and the ported versions are included in the \s-1PEX-SI\s+1 release.
+These programs have been provided as a cooperative effort between \s-1NCGA\s+1
+and the \s-1PEX-SI\s+1 project.  There are use restrictions and warnings
+associated with the use of these programs for other than implementation testing
+purposes.  Basically, the restrictions are twofold:
+.BP
+These sources are \fInot\fR to be used to measure and subsequently
+publish performance statistics in any way that might relate to the
+actual measurement methods being used by the \s-1NCGA\s+1-based \s-1GPC\s+1 group.
+.BP
+These tests and sources are subject to change without ntoice by SimGraphics
+or \s-1NCGA\s+1
+.LP
+For the most up-to-date programs, source, and information about participation
+in the \s-1GPC\s+1 benchmarking efforts, contact \s-1NCGA\s+1 or SimGraphics
+at the following addresses:
+.RS
+.LP
+\fBNational Computer Graphics Association\fR
+.br
+2722 Merrilee Drive
+.br
+Suite 200
+.br
+Fairfax, VA. 22031
+.br
+(703)698-9600
+.LP
+\fBSimGraphics Engineering Corporation\fR
+.br
+1137 Huntington Drive
+.br
+Suite A
+.br
+South Pasadena, CA. 91030
+.br
+(213)255-0900
+.RE
+.bp
+.LP
+The \s-1PLB\s+1 programs consist of three parts:
+.NP
+Benchmark Interface Format (\s-1BIF\s+1)
+.NP
+Benchmark Timing Methodology (\s-1BTM\s+1)
+.NP
+Benchmark Report Format (\s-1BRF\s+1)
+.LP
+The \s-1BIF\s+1 consists of two parts: the \s-1BIF\s+1 Geometry file and 
+the \s-1BIF\s+1 Verb file.  The \s-1BIF\s+1 Geometry file contains structures 
+that define the geometry and attributes of the data to be displayed.
+The \s-1BIF\s+1 Verb file contains the commands that control the \s-1PLB\s+1 program flow.
+.LP
+The \s-1PLB\s+1 programs included with \s-1PEX-SI\s+1 distribution are complete
+with the exception of support for the \s-1NURB\s+1 Curve and Surface
+primitives and the \s-1PIXEL_MAP\s+1 primitive.
+The \s-1BIF\s+1 geometry files provided in this release test the majority
+of the \s-1PHIGS\s+1 primitives and attributes.
+When used, these files generate displays on the screen in a predetermined
+sequence.  The program delivered with \s-1PEX-SI\s+1 is called \fIplbpex\fR.
+.IX "plbpex"
+.H 2 "Running \f(BIplbpex\fR"
+.IX "plbpex"
+.IX "directories" "gpc" "" "\fL\s-1gpc\fR\s+1"
+.IX "directories" "gpc/objects" "" "\fL\s-1gpc/objects\fR\s+1"
+.IX "verb files"
+.LP 
+If the \fIplbpex\fR program has not been built automatically, you can
+create it by typing \fL\s-1make all\fR\s+1 in
+the \fL\s-1mit/demos/gpc\s+1\fR directory. 
+The executable created is named \fL\s-1plbpex\fR\s+1.
+.LP
+To run the \s-1GPC\s+1 program, you must be in the \fL\s-1objects\fR\s+1 subdirectory,
+and you must have write permission in that directory because the program will be 
+creating and writing to an error file.  Type:
+.IP
+\fL\s-1host% \f(LB../plbpex [-display geometry bd bg bw hlhsr buff] filename\s+1\fR
+.LP
+The \fL\s-1filename\fR\s+1 must be one of the \fI.vrb\fR files located in
+the \fL\s-1objects\fR\s+1 directory.  The options are defined as follows:
+.TN "\fIplbpex\fP Options"
+.TS H
+center box tab(@);
+cfBI | cfBI | cfBI
+lfL l l .
+Command Line@Resource@Value
+_
+.TH
+\s-1-display\s+1@.display@T{
+String for X display connection.
+T}
+@
+\s-1-geometry\s+1@.geometry@T{
+Size and position in X notation.  (Width and Height
+will override \s-1WINDOW_SIZE\s+1 in the \s-1CONFIGURATION\s+1.)
+T}
+@
+\s-1-bd\s+1@.borderColr@T{
+Color for the window border in X color notation.
+T}
+@
+\s-1-bg\s+1@.background@T{
+Color for the window background in X color notation.  (Will override
+any \s-1BACKGROUND_COLOR\s+1 or \s-1BACKGROUND_COLOR_INDEX\s+1 in the verb file.)
+T}
+@
+\s-1-bw\s+1@.borderWidth@T{
+Width of the window border in pixels.
+T}
+@
+\s-1-hlhsr\s+1@.hlhsrMode@T{
+One of the following (case is not significant):\ \ 
+\s-1ZBUFF,\s+1
+\s-1PAINTERS,\s+1
+\s-1SCANLINE,\s+1
+\s-1LINE.\s+1
+These modes may not exist on every platform.
+T}
+@
+\s-1-buff\s+1@.bufferMode@T{
+One of the following (case is not significant):\ \ 
+\s-1SINGLE,\s+1
+\s-1DOUBLE.\s+1
+Will not override buffer mode in the \s-1CONFIGURATION\s+1.
+T}
+.TE
+.LP
+\fIplbpex\fR creates its own window and uses the
+same methods as the \s-1API\s+1 for looking for the correct visual.
+It uses the \fI*.geo\fR and \fI*.bif\fR files as it runs.
+.LP
+The following is an example of the contents of the error file
+that \fIplbpex\fR creates:
+.BS
+.LS 1
+PHIGS error 111 in SET HLHSR MODE: Ignoring function, the specified HLHSR mode
+is not available on the specified workstation
+PHIGS error 111 in SET HLHSR MODE: Ignoring function, the specified HLHSR mode
+is not available on the specified workstation
+PHIGS error 111 in SET HLHSR MODE: Ignoring function, the specified HLHSR mode
+is not available on the specified workstation
+PHIGS error 111 in function number 73
+PHIGS error 111 in function number 73
+PHIGS error 111 in function number 73
+PHIGS error 111 in function number 73
+PHIGS error 111 in SET HLHSR MODE: Ignoring function, the specified HLHSR mode
+is not available on the specified workstation
+PHIGS error 111 in SET HLHSR MODE: Ignoring function, the specified HLHSR mode
+is not available on the specified workstation
+PHIGS error -1 in OPEN PHIGS: Ignoring function, cannot open PHIGS, cannot
+create communication channel
+PHIGS error 111 in SET HLHSR MODE: Ignoring function, the specified HLHSR mode
+is not available on the specified workstation
+PHIGS error 111 in SET HLHSR MODE: Ignoring function, the specified HLHSR mode
+is not available on the specified workstation
+PHIGS error 111 in SET HLHSR MODE: Ignoring function, the specified HLHSR mode
+is not available on the specified workstation
+.LE
+.BE
+.LP
+\fIplbpex\fR will exit when it has finished evaluating the specified file.
+Depending on the \fI.vrb\fR file selected, the runtime will vary from a few
+minutes to more than an hour.
+.H C "Using the Clients" clients
+.IX "directories" "clients" "" "\fL\s-1clients\fR\s+1"
+.IX "clients" "source tree"
+.IX "DISPLAY" "" "\s-1DISPLAY\s+1"
+.IX "PEXAPIDIR" "" "\s-1PEXAPIDIR\s+1"
+.LP
+All \s-1PEX\s+1 clients and \s-1X\s+1 clients are run in a similar way.
+The environment variable \s-1DISPLAY\s+1 should be set to the screen or display that
+you wish to use (for example, \fL\s-1unix:0\fR\s+1).
+If you have done a \fL\s-1make install\fR\s+1, these clients can be
+run as described below.
+If you have not done a \fL\s-1make install\fR\s+1, you need to set
+the environment variable \s-1PEXAPIDIR\s+1 to the directory where the
+support files used by the \s-1PEX-API\s+1 are located.
+(See Chapter 
+.XR @NumberOf(graph_lib)
+for a description of these files.)
+.H 2 "Demos"
+.IX "directories" "mit/demos" "" "\fL\s-1mit/demos\fR\s+1"
+.IX "demos"
+.IX "clients" "demos"
+This directory contains simple \s-1PHIGS\s+1 test programs developed by the 
+\s-1PEX-SI\s+1 team, including those presented at the
+5th Annual X Conference, Boston, January 14-19, 1991.
+All of these programs can be used as demos of \s-1PHIGS\s+1 applications.
+.H 3 "Auto Box"
+.IX directories "demos/auto_box" "" "\fL\s-1demos/auto_box\fR\s+1"
+.IX "auto_box"
+.IX "clients" "auto_box" "" "\fIauto_box\fR"
+.LP
+\fIauto_box\fR is a simple program that displays four views of a rotating cube.
+It initially displays the cube with filled polygons, then with hollow polygons, or
+polylines.
+Four views of the cube are presented in four quadrants, each with a different rotation
+applied.  In the first and fourth quadrants the back faces and front faces are
+respectively culled out, demonstrating one of the \s-1PHIGS PLUS\s+1 features.
+\fIauto_box\fR uses only \s-1PHIGS\s+1 indexed colours.
+To run the program move to the directory \fL\s-1mit/demos/auto_box\fR\s+1 
+and type \fL\s-1auto_box\fR\s+1.
+It exits after all views and rotations are completed once.
+.H 3 "Beach Ball"
+.IX "directories" "demos/beach_ball" "" "\fL\s-1demos/beach_ball\fR\s+1"
+.IX "beach_ball"
+.IX "clients" "beach_ball" "" "\fIbeach_ball\fR"
+.LP
+\fIbeach_ball\fR is a simple program that displays a bouncing multicolored
+pseudo-sphere (a beach ball).
+It uses filled polygons for the faces of the beach ball.
+To run the program move to the directory \fL\s-1mit/demos/beach_ball\fR\s+1 
+and type \fL\s-1beach_ball\fR\s+1.
+You must type \fL\s-1Control-C\fR\s+1 to exit this program, as it will run
+in a continuous loop.
+.LP
+On server implementations that have not been optimized, it may be hard
+to visualize the bouncing motion of the ball.
+Because \s-1PEX\s+1 requests may be buffered in queues, there may be a delay
+between typing \fL\s-1Control-C\fR\s+1 and the client exiting.

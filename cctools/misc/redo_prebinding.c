@@ -25,10 +25,11 @@
  * The redo_prebinding(1) program.  This redoes the prebinding of an executable
  * or dynamic library.
  *
- * redo_prebinding [-c|-p|-d] [-i] [-z] [-r rootdir] [-e executable_path]
+ * redo_prebinding [-c|-p|-d] [-i] [-z] [-u] [-r rootdir] [-e executable_path]
  *		   [-seg_addr_table table_file_name]
  *		   [-seg_addr_table_filename pathname ]
- *		   [-o output_file] input_file
+ *		   [-seg1addr address]
+ *		   [-o output_file] [-s] input_file
  *	-c check only and return status
  *	-p check only for prebound files and return status
  *	-d check only for dylibs and return status
@@ -38,9 +39,13 @@
  *	-e replace "@executable_path" in dependent libraries with the next
  *	   argument
  *	-o write the output to the next argument instead of the input_file
+ *	-s write the output to standard output
+ *	-u unprebind, rather than reprebind (-c, -p, -d, -e ignored)
  *	-seg_addr_table the next argument is the file name of the table
  *	-seg_addr_table_filename the next argument is the pathname to use
  *				 instead of the install name
+ * 	-seg1addr the next argument is a hex address at which to place the
+ *		  input_file dylib
  * With no -c, -p or -d it exits 0 if sucessful and 2 means it could not be
  * done for reasons like a dependent library is missing.  An exit of 3 is for
  * the specific case when the dependent libraries are out of date with respect
@@ -61,6 +66,14 @@
  * specified the table entry for the install_name (or -seg_addr_table_filename
  * pathname agrument) of the dynamic library is used for checking and the
  * address to slide the library to.
+ *
+ * The -seg1addr option is followed by a valid hexadecimal address at which to
+ * place the input dynamic library.
+ *
+ * If -u, prebinding-specific information is removed from the binary or reset.
+ * The -c, -p, -d, and -e arguments are ignored (as are -r, -seg_addr_table,
+ * -seg_addr_table_filename, and -seg1addr which are irrelevant to unprebinding).
+ * dylibs are slid to zero.
  */
 #else /* defined(LIBRARY_API) */
 /*
@@ -151,6 +164,9 @@ static unsigned long dylib_vmslide = 0;
 
 /* -debug turn on debugging printf()'s */
 static enum bool debug = FALSE;
+
+/* -u enables the 'unprebind' operation, as opposed to redoing prebinding */
+static enum bool unprebinding = FALSE;
 
 /*
  * If some architecture was processed then the output file needs to be built
@@ -313,6 +329,8 @@ static unsigned long get_dylib_address(
     void);
 
 static void process_arch(void);
+
+static void unprebind_arch(void);
 
 static enum bool load_archs_libraries(void);
 
@@ -510,6 +528,12 @@ static char *contents_pointer_for_vmaddr(
 static void update_symbol_pointers(
     unsigned long vmslide);
 
+static void reset_symbol_pointers(
+unsigned long vmslide);
+
+static enum bool check_pb_la_ptr_reloc_cputype(
+unsigned int reloc_type);
+
 static void update_load_commands(
     unsigned long vmslide);
 
@@ -627,12 +651,12 @@ char *envp[])
     struct arch *archs;
     unsigned long narchs;
     struct stat stat_buf;
-    enum bool verbose, calculate_input_prebind_cksum;
+    enum bool verbose, calculate_input_prebind_cksum, write_to_stdout;
     unsigned short mode;
     uid_t uid;
     gid_t gid;
     struct seg_addr_table *entry;
-    char *install_name;
+    char *install_name, *seg1addr_str, *endp;
 
 
     	input_file = NULL;
@@ -641,18 +665,27 @@ char *envp[])
 	narchs = 0;
 	errors = 0;
 	verbose = FALSE;
+	seg1addr_str = NULL;
+	write_to_stdout = FALSE;
 
 	progname = argv[0];
 
 	for(i = 1; i < argc; i++){
 	    if(argv[i][0] == '-'){
 		if(strcmp(argv[i], "-o") == 0){
+		    if(write_to_stdout)
+			fatal("-o cannot be used with the -s option");
 		    if(i + 1 >= argc)
 			fatal("-o requires an argument");
 		    if(output_file != NULL)
 			fatal("only one -o option allowed");
 		    output_file = argv[i + 1];
 		    i++;
+		}
+		else if(strcmp(argv[i], "-s") == 0){
+		    if(output_file != NULL)
+			fatal("-s cannot be used with the -o option");
+		    write_to_stdout = TRUE;
 		}
 		else if(strcmp(argv[i], "-r") == 0){
 		    if(i + 1 >= argc)
@@ -675,6 +708,9 @@ char *envp[])
 			fatal("-seg_addr_table requires an argument");
 		    if(seg_addr_table_name != NULL)
 			fatal("only one -seg_addr_table option allowed");
+		    if(seg1addr_str != NULL)
+			fatal("-seg_addr_table can't be used with "
+			      "-seg1addr");
 		    seg_addr_table_name = argv[i + 1];
 		    seg_addr_table = parse_seg_addr_table(argv[i+1],
 			argv[i], argv[i+1], &table_size);
@@ -686,7 +722,26 @@ char *envp[])
 		    if(seg_addr_table_filename != NULL)
 			fatal("only one -seg_addr_table_filename option "
 			      "allowed");
+		    if(seg1addr_str != NULL)
+			fatal("-seg_addr_table_filename can't be used with "
+			      "-seg1addr");
 		    seg_addr_table_filename = argv[i + 1];
+		    i++;
+		}
+		else if(strcmp(argv[i], "-seg1addr") == 0){
+		    if(i + 1 >= argc)
+			fatal("-seg1addr requires an argument");
+		    if(seg1addr_str != NULL)
+			fatal("only one -seg1addr option allowed");
+		    if(seg_addr_table_filename != NULL || 
+			seg_addr_table_name != NULL)
+			fatal("-seg1addr can't be used with -seg_addr_table"
+			      " or -seg_addr_table_filename");
+		    seg1addr_str = argv[i + 1];
+		    new_dylib_address = strtoul(argv[i + 1], &endp, 16);
+		    if(*endp != '\0')
+			fatal("address for %s %s not a proper "
+			      "hexadecimal number", argv[i], argv[i + 1]);
 		    i++;
 		}
 		else if(strcmp(argv[i], "-c") == 0){
@@ -709,6 +764,9 @@ char *envp[])
 		}
 		else if(strcmp(argv[i], "-v") == 0){
 		    verbose = TRUE;
+		}
+		else if(strcmp(argv[i], "-u") == 0){
+		    unprebinding = TRUE;
 		}
 		else{
 		    fprintf(stderr, "%s: unknown option: %s\n", progname,
@@ -751,7 +809,7 @@ char *envp[])
 	 * the table for it when the -seg_addr_table option is specified and
 	 * the entry must have a non-zero address.
 	 */
-	if(seg_addr_table != NULL){
+	if(seg_addr_table != NULL && unprebinding == FALSE){
 	    install_name = get_install_name(archs, narchs);
 	    if(install_name != NULL || seg_addr_table_filename != NULL){
 		if(seg_addr_table_filename != NULL)
@@ -825,11 +883,14 @@ char *envp[])
 	    uid = stat_buf.st_uid;
             gid = stat_buf.st_gid;
 
-	    if(output_file != NULL){
+	    if(output_file != NULL || write_to_stdout){
+                if(write_to_stdout)
+                    output_file = NULL;
 		writeout(archs, narchs, output_file, mode, TRUE, FALSE, FALSE,
 			 NULL);
 		if(errors){
-		    unlink(output_file);
+                    if(write_to_stdout == FALSE)
+                        unlink(output_file);
 		    return(2);
 		}
 	    }
@@ -880,7 +941,7 @@ char *envp[])
 		    system_error("can't set owner and group on file: %s",
 			output_file);
 	    }
-	    else{
+	    else if(write_to_stdout == FALSE){
 		if(chmod(input_file, mode) == -1)
 		    system_error("can't set permissions on file: %s",
 			input_file);
@@ -911,10 +972,10 @@ void
 usage(
 void)
 {
-	fprintf(stderr, "Usage: %s [-c|-p|-d] [-i] [-z] [-r rootdir] "
+	fprintf(stderr, "Usage: %s [-c|-p|-d] [-i] [-z] [-u] [-r rootdir] "
 		"[-e executable_path] [-seg_addr_table table_file_name] "
-		"[-seg_addr_table_filename pathname] [-o output_file] "
-		"input_file\n", progname);
+		"[-seg_addr_table_filename pathname] [-seg1addr address]"
+		"[-o output_file] [-s] input_file\n", progname);
 	exit(EXIT_FAILURE);
 }
 
@@ -1063,6 +1124,7 @@ void)
 	errors = 0;
 	check_if_needed = FALSE;
 	redo_prebinding_needed = FALSE;
+	unprebinding = FALSE;
 }
 
 /*
@@ -1553,6 +1615,231 @@ error_return:
 	return(REDO_PREBINDING_FAILURE); /* unsuccessful */
 }
 
+
+/*
+ * unprebind() takes a file_name of a binary and resets or removes prebinding
+ * information from it.  If inbuf is non-NULL, the memory pointed to by inbuf 
+ * is used as the input file contents.  Otherwise, the contents are loaded from
+ * the file at path file_name.  Even if inbuf is non-NULL, a file_name parameter
+ * should be specified for error reporting.  Similarly, if outbuf is non-NULL, 
+ * upon return, outbuf will point to a buffer containing the unprebound binary 
+ * and outlen will point to the length of the output buffer.  This buffer is 
+ * vm_allocate'd and therefore should be vm_deallocate'd when it is no longer
+ * needed.  If outbuf is NULL, and output_file is not NULL the update file is 
+ * written to output_file, if outbuf is NULL and output_file is NULL, it is 
+ * written to file_name.  
+ * If unprebind() is successful it returns REDO_PREBINDING_SUCCESS otherwise it
+ * returns REDO_PREBINDING_FAILURE If the binary is already unprebound (i.e. it
+ * has the MH_PREBINDABLE flag set) then REDO_PREBINDING_NOT_NEEDED is returned.
+ * If the binary is not prebound and not prebindable, 
+ * REDO_PREBINDING_NOT_PREBOUND is returned.  If zero_checksum is non-zero then 
+ * the cksum field the LC_PREBIND_CKSUM load command (if any) is set to zero on
+ * output, otherwise it is left alone.
+ * Unprebinding slides dynamic libraries to address zero, resets prebound 
+ * symbols to address zero and type undefined, resets symbol pointers, removes 
+ * LC_PREBOUND_DYLIB commands, resets library timestamps, resets two-level hints
+ * and updates relocation entries if necessary.  Unprebound binaries have
+ * the MH_PREBINDABLE flag set, but not MH_PREBOUND.  It will also set the the
+ * MH_ALLMODSBOUND flag if all two-level libraries were used and all modules
+ * were found to be bound in the LC_PREBOUND_DYLIB commands.
+ * As unprebinding is intended to produce a canonical Mach-O
+ * binary, bundles and non-prebound executables and dylibs are acceptable
+ * as input.  For these files, the unprebind operation will zero library 
+ * time stamps and version numbers and zero entries in the two-level hints
+ * table.  These files will not gain the MH_PREBINDABLE flag.
+ * All resulting binaries successfully processed by unprebind() will have
+ * the MH_CANONICAL flag.
+ */
+enum redo_prebinding_retval
+unprebind(
+const char *file_name,
+const char *output_file,
+const char *program_name,
+char **error_message,
+int zero_checksum,
+void *inbuf,
+unsigned long inlen,
+void **outbuf,
+unsigned long *outlen)
+{
+    struct arch *archs;
+    unsigned long narchs;
+    struct ofile *ofile;
+    struct stat stat_buf;
+    unsigned short mode;
+    uid_t uid;
+    gid_t gid;
+    enum bool calculate_input_prebind_cksum;
+
+	reset_statics();
+	progname = (char *)program_name;
+	if(error_message != NULL)
+	    *error_message = NULL;
+
+	new_dylib_address = 0;
+	zero_out_prebind_checksum = zero_checksum;
+	arch_cant_be_missing = FALSE;
+	ofile = NULL;
+	archs = NULL;
+	narchs = 0;
+
+	/*
+	 * for unprebind, "only if needed" is implicitly true -
+	 * we return REDO_PREBINDING_NOT_NEEDED if unprebinding
+	 * is not necessary.
+	 */
+	check_if_needed = TRUE; 
+	only_if_needed_retval = REDO_PREBINDING_SUCCESS;
+
+	/*
+	 * Set up to handle recoverable errors.
+	 */
+	if(setjmp(library_env) != 0){
+	    /*
+	     * It takes a longjmp() to get to this point.  So we got an error
+	     * so clean up and return NULL to say we were unsuccessful.
+	     */
+	    goto error_return;
+	}
+
+	/* breakout the file for processing */
+	if(zero_out_prebind_checksum == TRUE)
+	    calculate_input_prebind_cksum = FALSE;
+	else
+	    calculate_input_prebind_cksum = TRUE;
+	if(inbuf != NULL){
+	    /* 
+	     * We will use the inbuf as the input file if it 
+	     * is non-NULL.  However, we need to make sure the 
+	     * file_name is non-NULL.  If it is NULL, we will 
+	     * use a dummy file name.
+	     */
+	    if(file_name == NULL)
+		file_name = "(from unprebind() call)";
+		
+	    ofile = breakout_mem(inbuf, inlen, (char *)file_name, &archs,
+				 &narchs, calculate_input_prebind_cksum);
+	}
+	else
+	    ofile = breakout((char *)file_name, &archs, &narchs,
+			     calculate_input_prebind_cksum);
+	if(errors)
+	    goto error_return;
+
+	/* checkout the file for processing */
+	checkout(archs, narchs);
+	if(errors)
+	    goto error_return;
+
+        unprebinding = TRUE;
+
+	/* process the archs redoing the prebinding */
+	process_archs(archs, narchs, has_resource_fork((char *)file_name));
+	if(errors)
+	    goto error_return;
+
+	if(check_if_needed == TRUE && redo_prebinding_needed == FALSE){
+	    if(only_if_needed_retval == REDO_PREBINDING_SUCCESS)
+		only_if_needed_retval = REDO_PREBINDING_NOT_NEEDED;
+	    goto error_return;
+	}
+
+	/*
+	 * Create an output file if we processed any of the archs.
+	 */
+	if(arch_processed == TRUE){
+	    if(inbuf == NULL){
+		if(stat(file_name, &stat_buf) == -1)
+		    system_error("can't stat input file: %s", file_name);
+		mode = stat_buf.st_mode & 06777;
+		uid = stat_buf.st_uid;
+		gid = stat_buf.st_gid;
+	    }
+	    else{
+		mode = 00777;
+		uid = getuid();
+		gid = getgid();
+	    }
+
+	    if(output_file != NULL){
+	    	if(outbuf != NULL)
+		    writeout_to_mem(archs, narchs, (char *)output_file, outbuf,
+	    			    outlen, TRUE, FALSE, FALSE);
+	    	else
+		    writeout(archs, narchs, (char *)output_file, mode, TRUE, 
+			     FALSE, FALSE, NULL);
+		if(errors){
+		    if(outbuf == NULL)
+			unlink(output_file);
+		    goto error_return;
+		}
+	    }
+	    else{
+		output_file = makestr(file_name, ".redo_prebinding", NULL);
+		if(outbuf != NULL)
+		    writeout_to_mem(archs, narchs, (char *)output_file, outbuf,
+				    outlen, TRUE, FALSE, FALSE);
+		else
+		    writeout(archs, narchs, (char *)output_file, mode, TRUE, 
+			     FALSE, FALSE, NULL);
+		if(errors){
+		    if(outbuf == NULL)
+			unlink(output_file);
+		    goto error_return;
+		}
+		if(outbuf == NULL && rename(output_file, file_name) == 1)
+		system_error("can't move temporary file: %s to input "
+			     "file: %s\n", output_file, file_name);
+		free((char *)output_file);
+		output_file = NULL;
+	    }
+	    /*
+	     * Call chmod(2) to insure set-uid, set-gid and sticky bits get set.
+	     * Then call chown to insure the file has the same owner and group
+	     * as the original file.
+	     */
+	    if(output_file != NULL && outbuf == NULL){
+		if(chmod(output_file, mode) == -1)
+		    system_error("can't set permissions on file: %s",
+				 output_file);
+		if(chown(output_file, uid, gid) == -1)
+		    system_error("can't set owner and group on file: %s",
+				 output_file);
+	    }
+	    else{
+		if(chmod(file_name, mode) == -1)
+		    system_error("can't set permissions on file: %s",
+				 file_name);
+		if(chown(file_name, uid, gid) == -1)
+		    system_error("can't set owner and group on file: %s",
+				 file_name);
+	    }
+	}
+
+	free_archs(archs, narchs);
+	if(ofile != NULL)
+	    ofile_unmap(ofile);
+	cleanup();
+
+	if(only_if_needed_retval != REDO_PREBINDING_SUCCESS)
+	    return(only_if_needed_retval);
+	return(REDO_PREBINDING_SUCCESS); /* successful */
+
+error_return:
+	free_archs(archs, narchs);
+	if(ofile != NULL)
+	    ofile_unmap(ofile);
+	cleanup();
+	if(error_message != NULL && error_message_buffer != NULL)
+	    *error_message = error_message_buffer;
+	else if(error_message_buffer != NULL)
+	    free(error_message_buffer);
+	if(only_if_needed_retval != REDO_PREBINDING_SUCCESS)
+	    return(only_if_needed_retval);
+	return(REDO_PREBINDING_FAILURE); /* unsuccessful */
+}
+
+
 /*
  * The redo_exit() routine sets this value for the library apis.
  */
@@ -1951,7 +2238,7 @@ enum bool has_resource_fork)
 #endif
 		else if(check_only == TRUE ||
 		        ignore_non_prebound == TRUE ||
-		        check_for_non_prebound == TRUE)
+			check_for_non_prebound == TRUE)
 		    continue;
 		else{
 		    fatal_arch(arch, NULL, "file is not a Mach-O file: ");
@@ -1988,8 +2275,13 @@ enum bool has_resource_fork)
 		}
 	    }
 
+	    /*
+	     * For the unprebind operation for bundles we need to process them
+	     * and zero out their dylib timestamps.
+	     */
 	    if(arch->object->mh->filetype != MH_EXECUTE &&
-	       arch->object->mh->filetype != MH_DYLIB){
+	       arch->object->mh->filetype != MH_DYLIB &&
+	       ! (unprebinding && arch->object->mh->filetype == MH_BUNDLE)){
 		if(check_for_dylibs == TRUE){
 		    if(seen_a_dylib == TRUE)
 			exit(2);
@@ -2006,12 +2298,12 @@ enum bool has_resource_fork)
 		}
 #endif
 		else if(check_only == TRUE ||
-		        ignore_non_prebound == TRUE ||
-		        check_for_non_prebound == TRUE)
+			ignore_non_prebound == TRUE ||
+			check_for_non_prebound == TRUE)
 		    continue;
 		else{
 		    fatal_arch(arch, NULL, "file is not a Mach-O "
-			"executable or dynamic shared library file: ");
+				"executable or dynamic shared library file: ");
 		}
 	    }
 	    if(check_for_dylibs == TRUE){
@@ -2027,7 +2319,9 @@ enum bool has_resource_fork)
 		}
 		continue;
 	    }
-	    if((arch->object->mh->flags & MH_PREBOUND) != MH_PREBOUND){
+	    if((unprebinding == FALSE && 
+		(arch->object->mh->flags & MH_PREBOUND) != MH_PREBOUND &&
+	        (arch->object->mh->flags & MH_PREBINDABLE) != MH_PREBINDABLE)){
 		if(check_for_non_prebound == TRUE){
 		    if((arch->object->mh->flags & MH_DYLDLINK) == MH_DYLDLINK)
 			exit(1);
@@ -2049,6 +2343,19 @@ enum bool has_resource_fork)
 		else
 		    fatal_arch(arch, NULL, "file is not prebound: ");
 	    }
+#ifdef LIBRARY_API
+	    else if(unprebinding == TRUE && 
+		    (arch->object->mh->flags & MH_PREBOUND) != MH_PREBOUND &&
+		    (arch->object->mh->flags & MH_DYLDLINK) != MH_DYLDLINK){
+		only_if_needed_retval = REDO_PREBINDING_NOT_PREBOUND;
+		return;
+	    }
+#endif
+	    else if(unprebinding == TRUE &&
+		    (arch->object->mh->flags & MH_PREBOUND) != MH_PREBOUND &&
+		    (arch->object->mh->flags & MH_DYLDLINK) != MH_DYLDLINK){
+		continue;
+	    }
 	    if(check_for_non_prebound == TRUE)
 		continue;
 
@@ -2063,7 +2370,10 @@ enum bool has_resource_fork)
 			   "type/creator: ");
 
 	    /* Now redo the prebinding for this arch[i] */
-	    process_arch();
+            if(unprebinding == TRUE)
+                unprebind_arch();
+            else
+                process_arch();
 #ifdef LIBRARY_API
 	    /*
 	     * for needs_redo_prebinding() we return if this is the
@@ -2274,6 +2584,124 @@ void)
 	 * commands and update the LC_PREBOUND_DYLIB is this is an excutable.
 	 */
 	update_load_commands(dylib_vmslide);
+
+	/*
+	 * If this is arch has MH_PREBINDABLE set, unset it and set MH_PREBOUND
+	 */
+	if((arch->object->mh->flags & MH_PREBINDABLE) == MH_PREBINDABLE){
+	    arch->object->mh->flags &= ~MH_PREBINDABLE;
+	    arch->object->mh->flags |= MH_PREBOUND;
+	}
+
+	/*
+	 * If the arch is swapped swap it back for output.
+	 */
+	if(arch_swapped == TRUE)
+	    swap_arch_for_output();
+}
+
+/*
+ * unprebind_arch() takes one arch which is a prebound executable or dylib (or a
+ * bundle) and removes certain prebinding information, such that two binaries
+ * that are the same except for prebinding information are returned to an
+ * identical form. Unprebound binaries are still usable (and prebindable) but
+ * lack prebinding.   For bundles and non-prebound executables and dylibs, 
+ * the only things that are changed are the zeroing of dylib time stamps and
+ * versions, and the zeroing of the two-level hints - the MH_PREBINDABLE
+ * flag is not added to these files.
+ */
+static
+void
+unprebind_arch(
+void)
+{
+#ifdef LIBRARY_API
+	redo_prebinding_needed = TRUE;
+#endif
+	arch_force_flat_namespace = (arch->object->mh->flags & MH_FORCE_FLAT) ==
+				    MH_FORCE_FLAT;
+
+	/* set up an arch_flag for this arch's object */
+	arch_flag.cputype = arch->object->mh->cputype;
+	arch_flag.cpusubtype = arch->object->mh->cpusubtype;
+	set_arch_flag_name(&arch_flag);
+	arch_name = arch_flag.name;
+
+	if(debug == TRUE)
+	    printf("%s: unprebinding file: %s (for architecture %s)\n",
+		   progname, arch->file_name, arch_name);
+
+	/*
+	 * If this is a dynamic library get the existing address of the library.
+	 * Calculate the value needed to move it to address zero.
+	 */
+	if(arch->object->mh->filetype == MH_DYLIB){
+	    old_dylib_address = get_dylib_address();
+	    new_dylib_address = 0;
+            dylib_vmslide = new_dylib_address - old_dylib_address;
+	}
+	else{
+	    dylib_vmslide = 0;
+	}
+
+	/* load symbolic information for this arch */
+	setup_symbolic_info(TRUE);
+
+	/* 
+	 * update the load commands by clearing timestamps and removing 
+	 * LC_PREBOUND_DYLIB commands 
+	 */
+	update_load_commands(dylib_vmslide);
+	
+	/*
+	 * build the new symbol table for this arch, setting prebound
+	 * symbols to undefined.
+	 */
+	build_new_symbol_table(dylib_vmslide, FALSE);
+	
+	/*
+	 * If this is a bundle or a non-prebound executable or dylib
+	 * then all we need to do is update the load commands and
+	 * zero the hints, so we are done.
+	 */
+	if((arch->object->mh->flags & MH_PREBOUND) != MH_PREBOUND){
+	    arch_processed = TRUE;
+	    if(arch_swapped == TRUE)
+		swap_arch_for_output();
+	    arch->object->mh->flags |= MH_CANONICAL;
+	    return;
+	}
+
+	/*
+	 * setup the base address for the relocation entries.
+	 */
+	setup_r_address_base();
+	
+	/*
+	 * if the dylib_vmslide is nonzero then we need to slide the
+	 * local relocation entries back to zero.
+	 */
+	if(dylib_vmslide != 0)
+	    update_local_relocs(dylib_vmslide);
+
+	/*
+	 * reset the external relocation entries to zero for those 
+	 * symbols that were prebound.
+	 */
+	update_external_relocs(dylib_vmslide);
+	
+	/*
+	 * set symbol pointers back to their original values by sliding,
+	 * zeroing, or setting back to the unprebound values found in 
+	 * their corresponding local relocation entries.
+	 */
+	reset_symbol_pointers(dylib_vmslide);
+	
+	arch_processed = TRUE;
+
+	arch->object->mh->flags &= ~MH_PREBOUND;
+	arch->object->mh->flags |= MH_PREBINDABLE;
+	arch->object->mh->flags |= MH_CANONICAL;
 
 	/*
 	 * If the arch is swapped swap it back for output.
@@ -3791,6 +4219,16 @@ void)
 		    arch_strings + arch_symbols[i].n_un.n_strx,
 		    arch_symbols + i,
 		    ARCH_LIB);
+                /*
+                 * If this binary was unprebound, then we have to reset all
+                 * undefined symbols to type N_PBUD because they were unset
+                 * during the unprebinding process.
+                 */
+                if((arch->object->mh->flags & MH_PREBINDABLE) ==
+		   MH_PREBINDABLE){
+                    arch_symbols[i].n_type &= ~N_TYPE;
+                    arch_symbols[i].n_type |= N_PBUD;
+                }
 	}
 }
 
@@ -4590,20 +5028,32 @@ enum bool missing_arch)
 	    i < arch->object->dyst->iundefsym + arch->object->dyst->nundefsym;
 	    i++){
 
-	    symbol_name = arch_strings + arch_symbols[i].n_un.n_strx;
-	    lookup_symbol(symbol_name,
-			  get_primary_lib(ARCH_LIB, arch_symbols + i),
-			  get_weak(arch_symbols + i),
-			  &symbol, &module_state, &lib, &isub_image, &itoc,
-			  NO_INDR_LOOP);
-	    new_symbols[i].n_value = symbol->n_value;
-
+            if(unprebinding == TRUE){
+                new_symbols[i].n_value = 0;
+                new_symbols[i].n_type &= ~N_TYPE;
+                new_symbols[i].n_type |= N_UNDF;
+            }
+            else{
+                symbol_name = arch_strings + arch_symbols[i].n_un.n_strx;
+                lookup_symbol(symbol_name,
+                            get_primary_lib(ARCH_LIB, arch_symbols + i),
+                            get_weak(arch_symbols + i),
+                            &symbol, &module_state, &lib, &isub_image, &itoc,
+                            NO_INDR_LOOP);
+                new_symbols[i].n_value = symbol->n_value;
+            }
 	    /*
 	     * Also update the hints table.
 	     */
 	    if(arch_hints != NULL){
-		arch_hints[ihint].isub_image = isub_image;
-		arch_hints[ihint].itoc = itoc;
+		if(unprebinding == TRUE){
+		    arch_hints[ihint].isub_image = 0;
+		    arch_hints[ihint].itoc = 0;
+		}
+		else{
+		    arch_hints[ihint].isub_image = isub_image;
+		    arch_hints[ihint].itoc = itoc;
+		}
 		ihint++;
 	    }
 	}
@@ -5346,7 +5796,7 @@ unsigned long vmslide)
 		pair_reloc = arch_locrelocs + i + 1;
 		if((pair_reloc->r_address & R_SCATTERED) != 0){
 		    spair_reloc = (struct scattered_relocation_info *)
-				  pair_reloc;
+				    pair_reloc;
 		    pair_r_type = spair_reloc->r_type;
 		    other_half  = spair_reloc->r_address;
 		}
@@ -5389,7 +5839,7 @@ unsigned long vmslide)
 	    p = contents_pointer_for_vmaddr(r_address +
 				(arch_split_segs == TRUE ?
 				 arch_segs_read_write_addr : arch_seg1addr),
-					    1 << r_length);
+				 1 << r_length);
 	    if(p == NULL){
 		error("mallformed file: %s (for architecture %s) (bad r_address"
 		      " field for local relocation entry %lu)",
@@ -5442,7 +5892,7 @@ unsigned long vmslide)
 		    immediate = ((instruction & 0xffff) << 16) | other_half;
 		    immediate += value;
 		    instruction = (instruction & 0xffff0000) |
-				  ((immediate >> 16) & 0xffff);
+				 ((immediate >> 16) & 0xffff);
 		    set_arch_long(p, instruction);
 		    other_half = immediate & 0xffff;
 		    break;
@@ -5466,7 +5916,7 @@ unsigned long vmslide)
 		    immediate += value;
 		    if((immediate & 0x00008000) != 0)
 			instruction = (instruction & 0xffff0000) |
-				  (((immediate + 0x00008000) >> 16) & 0xffff);
+				      (((immediate + 0x00008000) >> 16) & 0xffff);
 		    else
 			instruction = (instruction & 0xffff0000) |
 				      ((immediate >> 16) & 0xffff);
@@ -5531,7 +5981,7 @@ unsigned long vmslide)
 			    "large to fit)", arch->file_name, arch_name, i);
 		    }
 		    instruction = (instruction & 0xfc000003) |
-		    		  (immediate & 0x03fffffc);
+				  (immediate & 0x03fffffc);
 		    set_arch_long(p, instruction);
 		    break;
 		default:
@@ -5634,14 +6084,26 @@ unsigned long vmslide)
 	     * the arch_symbol.
 	     */
 	    name = arch_strings + arch_symbol->n_un.n_strx;
-	    if((arch_symbol->n_type & N_TYPE) == N_PBUD)
-		lookup_symbol(name,
-			      get_primary_lib(ARCH_LIB, arch_symbol),
-			      get_weak(arch_symbol),
-			      &defined_symbol, &module_state, &lib,
-			      NULL, NULL, NO_INDR_LOOP);
-	    else
+	    if((arch_symbol->n_type & N_TYPE) == N_PBUD){
+                if(unprebinding == TRUE){
+                    /* 
+                     * If we are unprebinding, we need to use the newly zeroed
+                     * symbol table entry, rather than looking up the symbol
+                     */
+                     defined_symbol = arch->object->output_symbols +
+				      arch_extrelocs[i].r_symbolnum;
+                }
+                else{
+                    lookup_symbol(name,
+                                get_primary_lib(ARCH_LIB, arch_symbol),
+                                get_weak(arch_symbol),
+                                &defined_symbol, &module_state, &lib,
+                                NULL, NULL, NO_INDR_LOOP);
+                }
+	    }
+	    else{
 		defined_symbol = arch_symbol;
+	    }
 
 	    p = contents_pointer_for_vmaddr(arch_extrelocs[i].r_address +
 				(arch_split_segs == TRUE ?
@@ -5657,10 +6119,18 @@ unsigned long vmslide)
 	    switch(arch_extrelocs[i].r_length){
 	    case 0: /* byte */
 		value = get_arch_byte(p);
-		value = (value - arch_symbol->n_value) +
-			defined_symbol->n_value + symbol_slide;
-		if(arch_extrelocs[i].r_pcrel)
-		    value -= vmslide;
+		if(unprebinding == TRUE)
+		    value = value - arch_symbol->n_value;
+		else{
+		    if((arch->object->mh->flags & MH_PREBINDABLE) ==
+		       MH_PREBINDABLE)
+			value = value + defined_symbol->n_value + symbol_slide;
+		    else
+			value = (value - arch_symbol->n_value) +
+				defined_symbol->n_value + symbol_slide;
+		    if(arch_extrelocs[i].r_pcrel)
+			value -= vmslide;
+		}
 		if( (value & 0xffffff00) &&
 		   ((value & 0xffffff80) != 0xffffff80)){
 		    error("prebinding can't be redone for: %s (for architecture"
@@ -5673,10 +6143,18 @@ unsigned long vmslide)
 		break;
 	    case 1: /* word (2 byte) */
 		value = get_arch_short(p);
-		value = (value - arch_symbol->n_value) +
-			defined_symbol->n_value + symbol_slide;
-		if(arch_extrelocs[i].r_pcrel)
-		    value -= vmslide;
+		if(unprebinding == TRUE)
+		    value = value - arch_symbol->n_value;
+		else{
+		    if((arch->object->mh->flags & MH_PREBINDABLE) ==
+		       MH_PREBINDABLE)
+			value = value + defined_symbol->n_value + symbol_slide;
+		    else
+			value = (value - arch_symbol->n_value) +
+				defined_symbol->n_value + symbol_slide;
+		    if(arch_extrelocs[i].r_pcrel)
+			value -= vmslide;
+		}
 		if( (value & 0xffff0000) &&
 		   ((value & 0xffff8000) != 0xffff8000)){
 		    error("prebinding can't be redone for: %s (for architecture"
@@ -5689,10 +6167,18 @@ unsigned long vmslide)
 		break;
 	    case 2: /* long (4 byte) */
 		value = get_arch_long(p);
-		value = (value - arch_symbol->n_value) +
-			defined_symbol->n_value + symbol_slide;
-		if(arch_extrelocs[i].r_pcrel)
-		    value -= vmslide;
+		if(unprebinding == TRUE)
+		    value = value - arch_symbol->n_value;
+		else{
+		    if((arch->object->mh->flags & MH_PREBINDABLE) ==
+		       MH_PREBINDABLE)
+			value = value + defined_symbol->n_value + symbol_slide;
+		    else
+			value = (value - arch_symbol->n_value) +
+		    defined_symbol->n_value + symbol_slide;
+		    if(arch_extrelocs[i].r_pcrel)
+			value -= vmslide;
+		}
 		set_arch_long(p, value);
 		break;
 	    default:
@@ -5768,12 +6254,23 @@ unsigned long vmslide)
 	     * the arch_symbol.
 	     */
 	    name = arch_strings + arch_symbol->n_un.n_strx;
-	    if((arch_symbol->n_type & N_TYPE) == N_PBUD)
-		lookup_symbol(name,
-			      get_primary_lib(ARCH_LIB, arch_symbol),
-			      get_weak(arch_symbol),
-			      &defined_symbol, &module_state, &lib,
-			      NULL, NULL, NO_INDR_LOOP);
+	    if((arch_symbol->n_type & N_TYPE) == N_PBUD){
+                if(unprebinding == TRUE){
+                    /* 
+                     * If we are unprebinding, we need to use the newly zeroed
+                     * symbol table entry, rather than looking up the symbol
+                     */
+                     defined_symbol = arch->object->output_symbols +
+				      arch_extrelocs[i].r_symbolnum;
+                }
+                else{
+                    lookup_symbol(name,
+                                get_primary_lib(ARCH_LIB, arch_symbol),
+                                get_weak(arch_symbol),
+                                &defined_symbol, &module_state, &lib,
+                                NULL, NULL, NO_INDR_LOOP);
+                }
+	    }
 	    else
 		defined_symbol = arch_symbol;
 
@@ -5792,10 +6289,19 @@ unsigned long vmslide)
 		switch(arch_extrelocs[i].r_length){
 		case 0: /* byte */
 		    value = get_arch_byte(p);
-		    value = (value - arch_symbol->n_value) +
-			    defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			value -= vmslide;
+		    if(unprebinding == TRUE)
+			value = value - arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    value = value + defined_symbol->n_value +
+				    symbol_slide;
+			else
+			    value = (value - arch_symbol->n_value) +
+				    defined_symbol->n_value + symbol_slide;
+			if(arch_extrelocs[i].r_pcrel)
+			    value -= vmslide;
+		    }
 		    if( (value & 0xffffff00) &&
 		       ((value & 0xffffff80) != 0xffffff80)){
 			error("prebinding can't be redone for: %s (for "
@@ -5808,10 +6314,19 @@ unsigned long vmslide)
 		    break;
 		case 1: /* word (2 byte) */
 		    value = get_arch_short(p);
-		    value = (value - arch_symbol->n_value) +
-			    defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			value -= vmslide;
+		    if(unprebinding == TRUE)
+			value = value - arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    value = value + defined_symbol->n_value +
+				    symbol_slide;
+			else
+			    value = (value - arch_symbol->n_value) +
+				    defined_symbol->n_value + symbol_slide;
+			if(arch_extrelocs[i].r_pcrel)
+			    value -= vmslide;
+		    }
 		    if( (value & 0xffff0000) &&
 		       ((value & 0xffff8000) != 0xffff8000)){
 			error("prebinding can't be redone for: %s (for "
@@ -5824,10 +6339,19 @@ unsigned long vmslide)
 		    break;
 		case 2: /* long (4 byte) */
 		    value = get_arch_long(p);
-		    value = (value - arch_symbol->n_value) +
-			    defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			value -= vmslide;
+		    if(unprebinding == TRUE)
+			value = value - arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    value = value + defined_symbol->n_value +
+				    symbol_slide;
+			else
+			    value = (value - arch_symbol->n_value) +
+				    defined_symbol->n_value + symbol_slide;
+			if(arch_extrelocs[i].r_pcrel)
+			    value -= vmslide;
+		    }
 		    set_arch_long(p, value);
 		    break;
 		default:
@@ -5847,11 +6371,19 @@ unsigned long vmslide)
 		    other_half  = arch_extrelocs[i + 1].r_address;
 		    immediate = sign_ext(other_half, 14) + 
 		               (assemble_21(instruction & 0x1fffff) << 11);
-		    if(arch_extrelocs[i].r_pcrel)
-			immediate -= vmslide;
-		    calc_hppa_HILO(-arch_symbol->n_value +
-				   defined_symbol->n_value + symbol_slide +
-				   immediate, 0, &hi21, &lo14);
+		    if(unprebinding == TRUE)
+			immediate -= arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    immediate += defined_symbol->n_value + symbol_slide;
+			else
+			    immediate += defined_symbol->n_value + symbol_slide
+					 - arch_symbol->n_value;
+			if(arch_extrelocs[i].r_pcrel)
+			    immediate -= vmslide;
+		    }
+		    calc_hppa_HILO(immediate, 0, &hi21, &lo14);
 		    instruction = (instruction & 0xffe00000) |
 				  dis_assemble_21(hi21 >> 11);
 		    arch_extrelocs[i + 1].r_address = lo14 & 0x3fff;
@@ -5860,11 +6392,19 @@ unsigned long vmslide)
 		    other_half  = arch_extrelocs[i + 1].r_address;
 		    immediate = low_sign_ext(instruction & 0x3fff, 14) +
 		    	        (other_half << 11);
-		    if(arch_extrelocs[i].r_pcrel)
-			immediate -= vmslide;
-		    calc_hppa_HILO(-arch_symbol->n_value +
-				   defined_symbol->n_value + symbol_slide +
-				   immediate, 0, &hi21, &lo14);
+		    if(unprebinding == TRUE)
+			immediate -= arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    immediate += defined_symbol->n_value + symbol_slide;
+			else
+			    immediate += defined_symbol->n_value + symbol_slide
+					 - arch_symbol->n_value;
+			if(arch_extrelocs[i].r_pcrel)
+			    immediate -= vmslide;
+		    }
+		    calc_hppa_HILO(immediate, 0, &hi21, &lo14);
 		    lo14 = low_sign_unext(lo14, 14);
 		    instruction = (instruction & 0xffffc000) |
 				  (lo14 & 0x3fff);
@@ -5877,11 +6417,19 @@ unsigned long vmslide)
 				             instruction & 1);
 		    immediate = (sign_ext(immediate, 17) << 2) +
 				(other_half << 11);
-		    if(arch_extrelocs[i].r_pcrel)
-			immediate -= vmslide;
-		    calc_hppa_HILO(-arch_symbol->n_value +
-				   defined_symbol->n_value + symbol_slide +
-				   immediate, 0, &hi21, &lo14);
+		    if(unprebinding == TRUE)
+			immediate -= arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) == 
+			   MH_PREBINDABLE)
+			    immediate += defined_symbol->n_value + symbol_slide;
+			else
+			    immediate += defined_symbol->n_value + symbol_slide
+					 - arch_symbol->n_value;
+			if(arch_extrelocs[i].r_pcrel)
+			    immediate -= vmslide;
+		    }
+		    calc_hppa_HILO(immediate, 0, &hi21, &lo14);
 		    lo14 >>= 2;
 		    dis_assemble_17(lo14, &w1, &w2, &w);
 		    instruction = (instruction & 0xffe0e002) |
@@ -5895,10 +6443,18 @@ unsigned long vmslide)
 		    if((immediate & 0x10000) != 0)
 			immediate |= 0xfffe0000;
 		    immediate <<= 2;
-		    immediate -= arch_symbol->n_value;
-		    immediate += defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			immediate -= vmslide;
+		    if(unprebinding == TRUE)
+			immediate -= arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) == 
+			   MH_PREBINDABLE)
+			    immediate += defined_symbol->n_value + symbol_slide;
+			else
+			    immediate += defined_symbol->n_value + symbol_slide
+					 - arch_symbol->n_value;
+			if(arch_extrelocs[i].r_pcrel)
+			    immediate -= vmslide;
+		    }
 		    if(U_ABS(immediate) > 0x3ffff){
 			error("prebinding can't be redone for: %s (for "
 			    "architecture %s) because of relocation overflow "
@@ -5992,12 +6548,23 @@ unsigned long vmslide)
 	     * the arch_symbol.
 	     */
 	    name = arch_strings + arch_symbol->n_un.n_strx;
-	    if((arch_symbol->n_type & N_TYPE) == N_PBUD)
-		lookup_symbol(name,
-			      get_primary_lib(ARCH_LIB, arch_symbol),
-			      get_weak(arch_symbol),
-			      &defined_symbol, &module_state, &lib,
-			      NULL, NULL, NO_INDR_LOOP);
+	    if((arch_symbol->n_type & N_TYPE) == N_PBUD){
+                if(unprebinding == TRUE){
+                    /* 
+                     * If we are unprebinding, we need to use the newly zeroed
+                     * symbol table entry, rather than looking up the symbol
+                     */
+                     defined_symbol = arch->object->output_symbols +
+				      arch_extrelocs[i].r_symbolnum;
+                }
+                else{
+                    lookup_symbol(name,
+                                get_primary_lib(ARCH_LIB, arch_symbol),
+                                get_weak(arch_symbol),
+                                &defined_symbol, &module_state, &lib,
+                                NULL, NULL, NO_INDR_LOOP);
+                }
+	    }
 	    else
 		defined_symbol = arch_symbol;
 
@@ -6016,10 +6583,19 @@ unsigned long vmslide)
 		switch(arch_extrelocs[i].r_length){
 		case 0: /* byte */
 		    value = get_arch_byte(p);
-		    value = (value - arch_symbol->n_value) +
-			    defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			value -= vmslide;
+		    if(unprebinding == TRUE)
+			value = value - arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    value = value + defined_symbol->n_value +
+				    symbol_slide;
+			else
+			    value = (value - arch_symbol->n_value) +
+				    defined_symbol->n_value + symbol_slide;
+			if(arch_extrelocs[i].r_pcrel)
+			    value -= vmslide;
+		    }
 		    if( (value & 0xffffff00) &&
 		       ((value & 0xffffff80) != 0xffffff80)){
 			error("prebinding can't be redone for: %s (for "
@@ -6032,10 +6608,19 @@ unsigned long vmslide)
 		    break;
 		case 1: /* word (2 byte) */
 		    value = get_arch_short(p);
-		    value = (value - arch_symbol->n_value) +
-			    defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			value -= vmslide;
+		    if(unprebinding == TRUE)
+			value = value - arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    value = value + defined_symbol->n_value +
+				    symbol_slide;
+			else
+			    value = (value - arch_symbol->n_value) +
+				    defined_symbol->n_value + symbol_slide;
+			if(arch_extrelocs[i].r_pcrel)
+			    value -= vmslide;
+		    }
 		    if( (value & 0xffff0000) &&
 		       ((value & 0xffff8000) != 0xffff8000)){
 			error("prebinding can't be redone for: %s (for "
@@ -6048,10 +6633,19 @@ unsigned long vmslide)
 		    break;
 		case 2: /* long (4 byte) */
 		    value = get_arch_long(p);
-		    value = (value - arch_symbol->n_value) +
-			    defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			value -= vmslide;
+		    if(unprebinding == TRUE)
+			value = value - arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    value = value + defined_symbol->n_value +
+				    symbol_slide;
+			else
+			    value = (value - arch_symbol->n_value) +
+				    defined_symbol->n_value + symbol_slide;
+			if(arch_extrelocs[i].r_pcrel)
+			    value -= vmslide;
+		    }
 		    set_arch_long(p, value);
 		    break;
 		default:
@@ -6070,10 +6664,18 @@ unsigned long vmslide)
 		case SPARC_RELOC_HI22:
 		    other_half = (arch_extrelocs[i + 1].r_address) & 0x3ff;
 		    immediate = ((instruction & 0x3fffff) << 10) | other_half;
-		    immediate -= arch_symbol->n_value;
-		    immediate += defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			immediate -= vmslide;
+		    if(unprebinding == TRUE)
+			immediate -= arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    immediate += defined_symbol->n_value + symbol_slide;
+			else
+			    immediate += defined_symbol->n_value + symbol_slide
+					 - arch_symbol->n_value;
+			if(arch_extrelocs[i].r_pcrel)
+				immediate -= vmslide;
+		    }
 		    instruction = (instruction & 0xffc00000) |
 				  ((immediate >> 10) & 0x3fffff);
 		    arch_extrelocs[i + 1].r_address = immediate & 0x3ff;
@@ -6082,10 +6684,18 @@ unsigned long vmslide)
 		    other_half = ((arch_extrelocs[i + 1].r_address) >> 10) &
 				 0x3fffff;
 		    immediate = (instruction & 0x3ff) | (other_half << 10);
-		    immediate -= arch_symbol->n_value;
-		    immediate += defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			immediate -= vmslide;
+		    if(unprebinding == TRUE)
+			immediate -= arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    immediate += defined_symbol->n_value + symbol_slide;
+			else
+			    immediate += defined_symbol->n_value + symbol_slide
+					 - arch_symbol->n_value;
+			if(arch_extrelocs[i].r_pcrel)
+				immediate -= vmslide;
+		    }
 		    instruction = (instruction & 0xfffffc00) |
 				  (immediate & 0x3ff);
 		    arch_extrelocs[i + 1].r_address =
@@ -6097,10 +6707,18 @@ unsigned long vmslide)
 		    if ((immediate & 0x200000) != 0)
 			    immediate |= 0xffc00000;
 		    immediate <<= 2;
-		    immediate -= arch_symbol->n_value;
-		    immediate += defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			immediate -= vmslide;
+		    if(unprebinding == TRUE)
+			immediate -= arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    immediate += defined_symbol->n_value + symbol_slide;
+			else
+			    immediate += defined_symbol->n_value + symbol_slide
+					 - arch_symbol->n_value;
+			if(arch_extrelocs[i].r_pcrel)
+				immediate -= vmslide;
+		    }
 		    if ((immediate & 0xff800000) != 0xff800000 &&
 				    (immediate & 0xff800000) != 0x00) {
 			error("prebinding can't be redone for: %s (for "
@@ -6117,10 +6735,18 @@ unsigned long vmslide)
 		case SPARC_RELOC_WDISP30:
 		    immediate = (instruction & 0x3fffffff);
 		    immediate <<= 2;
-		    immediate -= arch_symbol->n_value;
-		    immediate += defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			immediate -= vmslide;
+		    if(unprebinding == TRUE)
+			immediate -= arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    immediate += defined_symbol->n_value + symbol_slide;
+			else
+			    immediate += defined_symbol->n_value + symbol_slide 
+					 - arch_symbol->n_value;
+			if(arch_extrelocs[i].r_pcrel)
+				immediate -= vmslide;
+		    }
 		    immediate >>= 2;
 		    instruction = (instruction & 0xc0000000) |
 				    (immediate & 0x3fffffff);
@@ -6207,18 +6833,28 @@ unsigned long vmslide)
 	     */
 	    name = arch_strings + arch_symbol->n_un.n_strx;
 	    if((arch_symbol->n_type & N_TYPE) == N_PBUD)
-		lookup_symbol(name,
-			      get_primary_lib(ARCH_LIB, arch_symbol),
-			      get_weak(arch_symbol),
-			      &defined_symbol, &module_state, &lib,
-			      NULL, NULL, NO_INDR_LOOP);
+		if(unprebinding == TRUE){
+		    /* 
+		     * If we are unprebinding, we need to use the newly zeroed
+		     * symbol table entry, rather than looking up the symbol
+		     */
+		     defined_symbol = arch->object->output_symbols + 
+				      arch_extrelocs[i].r_symbolnum;
+		}
+		else{
+		    lookup_symbol(name,
+				get_primary_lib(ARCH_LIB, arch_symbol),
+				get_weak(arch_symbol),
+				&defined_symbol, &module_state, &lib,
+				NULL, NULL, NO_INDR_LOOP);
+		}
 	    else
 		defined_symbol = arch_symbol;
 	
 	    p = contents_pointer_for_vmaddr(arch_extrelocs[i].r_address +
 				(arch_split_segs == TRUE ?
 				 arch_segs_read_write_addr : arch_seg1addr),
-					    1 << arch_extrelocs[i].r_length);
+				 1 << arch_extrelocs[i].r_length);
 	    if(p == NULL){
 		error("mallformed file: %s (for architecture %s) (bad r_address"
 		      " field for external relocation entry %lu)",
@@ -6230,10 +6866,19 @@ unsigned long vmslide)
 		switch(arch_extrelocs[i].r_length){
 		case 0: /* byte */
 		    value = get_arch_byte(p);
-		    value = (value - arch_symbol->n_value) +
-			    defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			value -= vmslide;
+		    if(unprebinding == TRUE)
+			value = value - arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    value = value + defined_symbol->n_value +
+				    symbol_slide;
+			else
+			    value = (value - arch_symbol->n_value) +
+				    defined_symbol->n_value + symbol_slide;
+			if(arch_extrelocs[i].r_pcrel)
+			    value -= vmslide;
+		    }
 		    if( (value & 0xffffff00) &&
 		       ((value & 0xffffff80) != 0xffffff80)){
 			error("prebinding can't be redone for: %s (for "
@@ -6246,10 +6891,19 @@ unsigned long vmslide)
 		    break;
 		case 1: /* word (2 byte) */
 		    value = get_arch_short(p);
-		    value = (value - arch_symbol->n_value) +
-			    defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			value -= vmslide;
+		    if(unprebinding == TRUE)
+			value = value - arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    value = value + defined_symbol->n_value +
+				    symbol_slide;
+			else
+			    value = (value - arch_symbol->n_value) +
+				    defined_symbol->n_value + symbol_slide;
+			if(arch_extrelocs[i].r_pcrel)
+			    value -= vmslide;
+		    }
 		    if( (value & 0xffff0000) &&
 		       ((value & 0xffff8000) != 0xffff8000)){
 			error("prebinding can't be redone for: %s (for "
@@ -6262,10 +6916,19 @@ unsigned long vmslide)
 		    break;
 		case 2: /* long (4 byte) */
 		    value = get_arch_long(p);
-		    value = (value - arch_symbol->n_value) +
-			    defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			value -= vmslide;
+		    if(unprebinding == TRUE)
+			value = value - arch_symbol->n_value;
+		    else{
+			if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			   MH_PREBINDABLE)
+			    value = value + defined_symbol->n_value +
+				    symbol_slide;
+			else
+			    value = (value - arch_symbol->n_value) +
+				   defined_symbol->n_value + symbol_slide;
+			if(arch_extrelocs[i].r_pcrel)
+			    value -= vmslide;
+		    }
 		    set_arch_long(p, value);
 		    break;
 		default:
@@ -6281,136 +6944,197 @@ unsigned long vmslide)
 	    else{
 		instruction = get_arch_long(p);
 		switch(arch_extrelocs[i].r_type){
-		case PPC_RELOC_HI16:
-		    other_half = (arch_extrelocs[i + 1].r_address) & 0xffff;
-		    immediate = ((instruction & 0xffff) << 16) | other_half;
-		    immediate -= arch_symbol->n_value;
-		    immediate += defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			immediate -= vmslide;
-		    instruction = (instruction & 0xffff0000) |
-				  ((immediate >> 16) & 0xffff);
-		    arch_extrelocs[i + 1].r_address = immediate & 0xffff;
-		    break;
-		case PPC_RELOC_LO16:
-		    other_half = (arch_extrelocs[i + 1].r_address) & 0xffff;
-		    immediate = (other_half << 16) | (instruction & 0xffff);
-		    immediate -= arch_symbol->n_value;
-		    immediate += defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			immediate -= vmslide;
-		    instruction = (instruction & 0xffff0000) |
-				  (immediate & 0xffff);
-		    arch_extrelocs[i + 1].r_address =
-				  (immediate >> 16) & 0xffff;
-		    break;
-		case PPC_RELOC_HA16:
-		    other_half = (arch_extrelocs[i + 1].r_address) & 0xffff;
-		    immediate = ((instruction & 0xffff) << 16) | other_half;
-		    immediate -= arch_symbol->n_value;
-		    immediate += defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			immediate -= vmslide;
-		    if((immediate & 0x00008000) != 0)
-			instruction = (instruction & 0xffff0000) |
-				  (((immediate + 0x00008000) >> 16) & 0xffff);
-		    else
+		    case PPC_RELOC_HI16:
+			other_half = (arch_extrelocs[i + 1].r_address) & 0xffff;
+			immediate = ((instruction & 0xffff) << 16) | other_half;
+			if(unprebinding == TRUE)
+			    immediate -= arch_symbol->n_value;
+			else{
+			    if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			       MH_PREBINDABLE)
+				immediate += defined_symbol->n_value + 
+					     symbol_slide;
+			    else
+				immediate += defined_symbol->n_value +
+					     symbol_slide -
+					     arch_symbol->n_value;
+			    if(arch_extrelocs[i].r_pcrel)
+				immediate -= vmslide;
+			}
 			instruction = (instruction & 0xffff0000) |
 				      ((immediate >> 16) & 0xffff);
-		    arch_extrelocs[i + 1].r_address = immediate & 0xffff;
-		    break;
-		case PPC_RELOC_LO14:
-		    other_half = (arch_extrelocs[i + 1].r_address) & 0xffff;
-		    immediate = (other_half << 16) | (instruction & 0xfffc);
-		    immediate -= arch_symbol->n_value;
-		    immediate += defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			immediate -= vmslide;
-		    if((immediate & 0x3) != 0){
-			error("prebinding can't be redone for: %s (for "
-			    "architecture %s) because of relocated value "
-			    "not a multiple of 4 bytes", arch->file_name,
-			    arch_name);
+			arch_extrelocs[i + 1].r_address = immediate & 0xffff;
+			break;
+		    case PPC_RELOC_LO16:
+			other_half = (arch_extrelocs[i + 1].r_address) & 0xffff;
+			immediate = (other_half << 16) | (instruction & 0xffff);
+			if(unprebinding == TRUE)
+			    immediate -= arch_symbol->n_value;
+			else{
+			    if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			       MH_PREBINDABLE)
+				immediate += defined_symbol->n_value +
+					     symbol_slide;
+			    else
+				immediate += defined_symbol->n_value +
+					     symbol_slide -
+					     arch_symbol->n_value;
+			    if(arch_extrelocs[i].r_pcrel)
+				immediate -= vmslide;
+			}
+			instruction = (instruction & 0xffff0000) |
+				      (immediate & 0xffff);
+			arch_extrelocs[i + 1].r_address =
+					  (immediate >> 16) & 0xffff;
+			break;
+		    case PPC_RELOC_HA16:
+			other_half = (arch_extrelocs[i + 1].r_address) & 0xffff;
+			immediate = ((instruction & 0xffff) << 16) | other_half;
+			if(unprebinding == TRUE)
+			    immediate -= arch_symbol->n_value;
+			else{
+			    if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			       MH_PREBINDABLE)
+				immediate += defined_symbol->n_value +
+					     symbol_slide;
+			    else
+				immediate += defined_symbol->n_value +
+					     symbol_slide -
+					     arch_symbol->n_value;
+			    if(arch_extrelocs[i].r_pcrel)
+				immediate -= vmslide;
+			}
+			if((immediate & 0x00008000) != 0)
+			    instruction = (instruction & 0xffff0000) |
+					  (((immediate + 0x00008000) >> 16) &
+					    0xffff);
+			else
+			    instruction = (instruction & 0xffff0000) |
+					  ((immediate >> 16) & 0xffff);
+			arch_extrelocs[i + 1].r_address = immediate & 0xffff;
+			break;
+		    case PPC_RELOC_LO14:
+			other_half = (arch_extrelocs[i + 1].r_address) & 0xffff;
+			immediate = (other_half << 16) | (instruction & 0xfffc);
+			if(unprebinding == TRUE)
+			    immediate -= arch_symbol->n_value;
+			else{
+			    if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			       MH_PREBINDABLE)
+				immediate += defined_symbol->n_value +
+					     symbol_slide;
+			    else
+				immediate += defined_symbol->n_value +
+					     symbol_slide -
+					     arch_symbol->n_value;
+			    if(arch_extrelocs[i].r_pcrel)
+				immediate -= vmslide;
+			}
+			if((immediate & 0x3) != 0){
+			    error("prebinding can't be redone for: %s (for "
+				"architecture %s) because of relocated value "
+				"not a multiple of 4 bytes", arch->file_name,
+				arch_name);
+			    redo_exit(2);
+			}
+			instruction = (instruction & 0xffff0003) |
+				      (immediate & 0xfffc);
+			arch_extrelocs[i + 1].r_address =
+				      (immediate >> 16) & 0xffff;
+			break;
+		    case PPC_RELOC_BR14:
+			br14_disp_sign = (instruction & 0x8000);
+			immediate = instruction & 0xfffc;
+			if((immediate & 0x8000) != 0)
+			    immediate |= 0xffff0000;
+			if(unprebinding == TRUE)
+			    immediate -= arch_symbol->n_value;
+			else{
+			    if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			       MH_PREBINDABLE)
+				immediate += defined_symbol->n_value +
+					     symbol_slide;
+			    else
+				immediate += defined_symbol->n_value +
+					     symbol_slide -
+					     arch_symbol->n_value;
+			    if(arch_extrelocs[i].r_pcrel)
+				immediate -= vmslide;
+			}
+			if((immediate & 0x3) != 0){
+			    error("prebinding can't be redone for: %s (for "
+				"architecture %s) because of relocated value "
+				"not a multiple of 4 bytes", arch->file_name,
+				arch_name);
+			    redo_exit(2);
+			}
+			if((immediate & 0xfffe0000) != 0xfffe0000 &&
+			   (immediate & 0xfffe0000) != 0x00000000){
+			    error("prebinding can't be redone for: %s (for "
+				"architecture %s) because of relocation "
+				"overflow (external relocation for symbol %s "
+				"displacement too large to fit)",
+				arch->file_name, arch_name, name);
+			    redo_exit(2);
+			}
+			instruction = (instruction & 0xffff0003) |
+				      (immediate & 0xfffc);
+			/*
+			 * If this is a branch conditional B-form where
+			 * the branch condition is not branch always and
+			 * the sign of the displacement is different
+			 * after relocation then flip the Y-bit to
+			 * preserve the sense of the branch prediction. 
+			 */
+			if((instruction & 0xfc000000) == 0x40000000 &&
+			  (instruction & 0x03e00000) != 0x02800000 &&
+			   (instruction & 0x00008000) != br14_disp_sign)
+			    instruction ^= (1 << 21);
+			break;
+		    case PPC_RELOC_BR24:
+			immediate = instruction & 0x03fffffc;
+			if((immediate & 0x02000000) != 0)
+			    immediate |= 0xfc000000;
+			if(unprebinding == TRUE)
+			    immediate -= arch_symbol->n_value;
+			else{
+			    if((arch->object->mh->flags & MH_PREBINDABLE) ==
+			       MH_PREBINDABLE)
+				immediate += defined_symbol->n_value +
+					     symbol_slide;
+			    else
+				immediate += defined_symbol->n_value +
+					     symbol_slide -
+					     arch_symbol->n_value;
+			    if(arch_extrelocs[i].r_pcrel)
+				immediate -= vmslide;
+			}
+			if((immediate & 0x3) != 0){
+			    error("prebinding can't be redone for: %s (for "
+				"architecture %s) because of relocated value "
+				"not a multiple of 4 bytes", arch->file_name,
+				arch_name);
+			    redo_exit(2);
+			}
+			if((immediate & 0xfe000000) != 0xfe000000 &&
+			  (immediate & 0xfe000000) != 0x00000000){
+			    error("prebinding can't be redone for: %s (for "
+				"architecture %s) because of relocation "
+				"overflow (external relocation for symbol %s "
+				"displacement too large to fit)",
+				arch->file_name, arch_name, name);
+			    redo_exit(2);
+			}
+			instruction = (instruction & 0xfc000003) |
+				      (immediate & 0x03fffffc);
+			break;
+		    default:
+			error("mallformed file: %s (external relocation entry "
+			      "%lu has unknown r_type) (for architecture %s)",
+			      arch->file_name, i, arch_name);
 			redo_exit(2);
 		    }
-		    instruction = (instruction & 0xffff0003) |
-				  (immediate & 0xfffc);
-		    arch_extrelocs[i + 1].r_address =
-				  (immediate >> 16) & 0xffff;
-		    break;
-		case PPC_RELOC_BR14:
-		    br14_disp_sign = (instruction & 0x8000);
-		    immediate = instruction & 0xfffc;
-		    if((immediate & 0x8000) != 0)
-			immediate |= 0xffff0000;
-		    immediate -= arch_symbol->n_value;
-		    immediate += defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			immediate -= vmslide;
-		    if((immediate & 0x3) != 0){
-			error("prebinding can't be redone for: %s (for "
-			    "architecture %s) because of relocated value "
-			    "not a multiple of 4 bytes", arch->file_name,
-			    arch_name);
-			redo_exit(2);
-		    }
-		    if((immediate & 0xfffe0000) != 0xfffe0000 &&
-		       (immediate & 0xfffe0000) != 0x00000000){
-			error("prebinding can't be redone for: %s (for "
-			    "architecture %s) because of relocation overflow "
-			    "(external relocation for symbol %s displacement "
-			    "too large to fit)", arch->file_name, arch_name,
-			    name);
-			redo_exit(2);
-		    }
-		    instruction = (instruction & 0xffff0003) |
-				  (immediate & 0xfffc);
-		    /*
-		     * If this is a branch conditional B-form where
-		     * the branch condition is not branch always and
-		     * the sign of the displacement is different
-		     * after relocation then flip the Y-bit to
-		     * preserve the sense of the branch prediction. 
-		     */
-		    if((instruction & 0xfc000000) == 0x40000000 &&
-		       (instruction & 0x03e00000) != 0x02800000 &&
-		       (instruction & 0x00008000) != br14_disp_sign)
-			instruction ^= (1 << 21);
-		    break;
-		case PPC_RELOC_BR24:
-		    immediate = instruction & 0x03fffffc;
-		    if((immediate & 0x02000000) != 0)
-			immediate |= 0xfc000000;
-		    immediate -= arch_symbol->n_value;
-		    immediate += defined_symbol->n_value + symbol_slide;
-		    if(arch_extrelocs[i].r_pcrel)
-			immediate -= vmslide;
-		    if((immediate & 0x3) != 0){
-			error("prebinding can't be redone for: %s (for "
-			    "architecture %s) because of relocated value "
-			    "not a multiple of 4 bytes", arch->file_name,
-			    arch_name);
-			redo_exit(2);
-		    }
-		    if((immediate & 0xfe000000) != 0xfe000000 &&
-		       (immediate & 0xfe000000) != 0x00000000){
-			error("prebinding can't be redone for: %s (for "
-			    "architecture %s) because of relocation overflow "
-			    "(external relocation for symbol %s displacement "
-			    "too large to fit)", arch->file_name, arch_name,
-			    name);
-			redo_exit(2);
-		    }
-		    instruction = (instruction & 0xfc000003) |
-		    		  (immediate & 0x03fffffc);
-		    break;
-		default:
-		    error("mallformed file: %s (external relocation entry "
-			  "%lu has unknown r_type) (for architecture %s)",
-			  arch->file_name, i, arch_name);
-		    redo_exit(2);
-		}
-		set_arch_long(p, instruction);
+		    set_arch_long(p, instruction);
 	    }
 	    /*
 	     * If the relocation entry had a pair step over it.
@@ -6548,7 +7272,7 @@ unsigned long vmslide)
 			    arch_symbol = arch_symbols +
 				     arch_indirect_symtab[s->reserved1 + k];
 			    if((arch_symbol->n_type & N_TYPE) != N_PBUD){
-				if(arch_symbol->n_sect != NO_SECT)
+                                if(arch_symbol->n_sect != NO_SECT)
 				    set_arch_long(p, symbol_pointer + vmslide);
 				continue;
 			    }
@@ -6575,6 +7299,183 @@ unsigned long vmslide)
 }
 
 /*
+ * reset_symbol_pointers() sets lazy and non-lazy symbol pointers back to their
+ * original, pre-prebinding values.
+ */
+static
+void
+reset_symbol_pointers(
+unsigned long vmslide)
+{
+    unsigned long i, j, k, m, section_type, symbol_pointer;
+    struct load_command *lc;
+    struct segment_command *sg;
+    struct section *s;
+    struct nlist *arch_symbol;
+    char *p;
+    struct scattered_relocation_info *sreloc;
+
+	/*
+	 * For each symbol pointer section update the symbol pointers by
+	 * setting lazy symbol pointers to their original values, as defined
+	 * in the corresponding local relocation entry. non-lazy symbol pointers
+	 * will be set to zero, except those that are absolute or local
+	 */
+	lc = arch->object->load_commands;
+	for(i = 0; i < arch->object->mh->ncmds; i++){
+	    if(lc->cmd == LC_SEGMENT){
+		sg = (struct segment_command *)lc;
+		s = (struct section *)
+			((char *)sg + sizeof(struct segment_command));
+		for(j = 0 ; j < sg->nsects ; j++){
+		    section_type = s->flags & SECTION_TYPE;
+		    if(section_type == S_NON_LAZY_SYMBOL_POINTERS ||
+		       section_type == S_LAZY_SYMBOL_POINTERS){
+			if(s->reserved1 + s->size / sizeof(unsigned long) >
+			   arch_nindirectsyms){
+			    error("mallformed file: %s (for architecture %s) "
+				  "(indirect symbol table entries for section "
+				  "(%.16s,%.16s) extends past the end of the "
+				  "indirect symbol table)", arch->file_name,
+				  arch_name, s->segname, s->sectname);
+			    redo_exit(2);
+			}
+			for(k = 0; k < s->size / sizeof(unsigned long); k++){
+			    p = contents_pointer_for_vmaddr(
+				s->addr + (k * sizeof(long)), sizeof(long));
+			    if(p == NULL){
+				error("mallformed file: %s (for architecture "
+				    "%s) (bad indirect section (%.16s,%.16s))",
+				    arch->file_name, arch_name, s->segname,
+				    s->sectname);
+				redo_exit(2);
+			    }
+			    symbol_pointer = get_arch_long(p);
+		
+			    /*
+			     * If this indirect symbol table entry is for a
+			     * non-lazy symbol pointer section for a defined
+			     * symbol which is an absolute symbol skip it.
+			     */
+			    if(section_type == S_NON_LAZY_SYMBOL_POINTERS &&
+			       (arch_indirect_symtab[s->reserved1 + k] & 
+				INDIRECT_SYMBOL_ABS) == INDIRECT_SYMBOL_ABS){
+				continue;
+			    }
+			    /*
+			     * If this indirect symbol table entry is for a
+			     * non-lazy symbol pointer section for a defined
+			     * symbol which strip(1) has removed slide it.
+			     */
+			    if(section_type == S_NON_LAZY_SYMBOL_POINTERS &&
+			       (arch_indirect_symtab[s->reserved1 + k] & 
+				INDIRECT_SYMBOL_LOCAL) ==INDIRECT_SYMBOL_LOCAL){
+				set_arch_long(p, symbol_pointer + vmslide);
+				continue;
+			    }
+		
+			    /* check symbol index of indirect symbol table */
+			    if(arch_indirect_symtab[s->reserved1 + k] >
+			       arch_nsyms){
+				error("mallformed file: %s (for architecture "
+				    "%s) (bad indirect symbol table entry %lu)",
+				    arch->file_name, arch_name, i);
+				    redo_exit(2);
+			    }
+			
+			    /*
+			     * If the symbol this indirect symbol table entry is
+			     * refering to is not a prebound undefined symbol
+			     * then if this indirect symbol table entry is for a
+			     * symbol in a section slide it.
+			     */ 
+			    arch_symbol = arch_symbols +
+				     arch_indirect_symtab[s->reserved1 + k];
+			    if((arch_symbol->n_type & N_TYPE) != N_PBUD){
+				if(arch_symbol->n_sect != NO_SECT)
+				    set_arch_long(p, symbol_pointer + vmslide);
+				continue;
+			    }
+		
+			    if(section_type == S_NON_LAZY_SYMBOL_POINTERS){
+				/*
+				 * We reset the symbol pointer to zero
+				 */
+				 set_arch_long(p, 0);
+			    }
+			    else{
+				/*
+				 * This is a lazy symbol pointer and we must 
+				 * find its original value by looking in the 
+				 * r_value field of its corresponding local 
+				 * relocation entry.  We need to look at the
+				 * new relocation entries which have already 
+				 * been slid.
+				 */
+				for(m = 0; m < arch_nlocrel; m++){
+				    if(arch_locrelocs[m].r_address & 
+				       R_SCATTERED){
+					sreloc = (struct
+						scattered_relocation_info *)
+						(arch_locrelocs + m);
+					if(sreloc->r_address + 
+					   (arch_split_segs == TRUE ?
+						arch_segs_read_write_addr : 
+						arch_seg1addr) == 
+					   s->addr + (k * sizeof(long)) && 
+					   check_pb_la_ptr_reloc_cputype(
+						sreloc->r_type)){
+					    set_arch_long(p, sreloc->r_value);
+					    break;
+					}
+				    }
+				}
+				if(m > arch_nlocrel){
+				    error("mallformed file: %s (for " 
+					  "architecture %s) "
+					  "(no local relocation entry for lazy "
+					  "symbol pointer %lu)", 
+				    arch->file_name, arch_name, k);
+				    redo_exit(2);
+				}
+							 
+			    }
+			}
+		    }
+		    s++;
+		}
+	    }
+	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+	}
+}
+
+/*
+ * check_pb_la_ptr_cputype() checks that the reloc_type (from the r_type field
+ * of a scattered_relocation_info struct) is of the corresponding 
+ * xxx_RELOC_PB_LA_PTR type.
+ */
+static
+enum
+bool
+check_pb_la_ptr_reloc_cputype(
+unsigned int reloc_type)
+{
+    switch(arch->object->mh->cputype){
+	case CPU_TYPE_MC680x0:
+	    return (reloc_type == GENERIC_RELOC_PB_LA_PTR);
+	case CPU_TYPE_I386:
+	    return (reloc_type == GENERIC_RELOC_PB_LA_PTR);
+	case CPU_TYPE_HPPA:
+	    return (reloc_type == HPPA_RELOC_PB_LA_PTR);
+	case CPU_TYPE_SPARC:
+	    return (reloc_type == SPARC_RELOC_PB_LA_PTR);
+	case CPU_TYPE_POWERPC:
+	    return (reloc_type == PPC_RELOC_PB_LA_PTR);
+	}
+    return FALSE;
+}
+
+/*
  * update_load_commands() updates the time stamps in the LC_LOAD_DYLIB and
  * LC_LOAD_WEAK_DYLIB commands and updates (and adds) the LC_PREBOUND_DYLIB
  * commands if this is an excutable.  It also updates the addresses in the
@@ -6596,6 +7497,21 @@ unsigned long vmslide)
     enum bool found, prebind_all_twolevel_modules;
 
 	/*
+	 * We need to figure out if this executable was built with the
+	 * -prebind_all_twolevel_modules flag so to preserve this. We assume
+	 * that it is and check all the linked_modules bit vectors in the
+	 * existing LC_PREBOUND_DYLIB in the next loop.  If we find a module
+	 * that is not bound in a two-level namespace image this is set to
+	 * FALSE.  It is also set to FALSE here if the -force_flat_namespace
+	 * was used.  If MH_ALLMODSBOUND is present in the header flags then
+	 * we bypass this process and assume the executable was built with 
+	 * -prebind_all_twolevel_modules.
+	 */
+	prebind_all_twolevel_modules = TRUE;
+	if(arch_force_flat_namespace == TRUE)
+	    prebind_all_twolevel_modules = FALSE;
+
+	/*
 	 * First copy the time stamps for the dependent libraries from the
 	 * library's ID commands to the arch's load_command.  Also size the
 	 * non LC_PREBOUND_DYLIB commands.
@@ -6607,31 +7523,53 @@ unsigned long vmslide)
 	    if(lc1->cmd == LC_LOAD_DYLIB || lc1->cmd == LC_LOAD_WEAK_DYLIB){
 		dl_load = (struct dylib_command *)lc1;
 		dylib_name = (char *)dl_load + dl_load->dylib.name.offset;
-		found = FALSE;
-		for(j = 0; j < nlibs; j++){
-		    if(strcmp(libs[j].dylib_name, dylib_name) == 0){
-			lc2 = libs[j].ofile->load_commands;
-			for(k = 0; k < libs[j].ofile->mh->ncmds; k++){
-			    if(lc2->cmd == LC_ID_DYLIB){
-				dl_id = (struct dylib_command *)lc2;
-				dl_load->dylib.timestamp =
-				    dl_id->dylib.timestamp;
-				found = TRUE;
-				break;
-			    }
-			    lc2 = (struct load_command *)
-				((char *)lc2 + lc2->cmdsize);
-			}
-			break;
-		    }
-		}
-		/*
-		 * A weak library may be missing if so clear it's fields.
-		 */
-		if(found == FALSE){
-		    dl_load->dylib.timestamp = 0;
+                if(unprebinding == TRUE){
+                    dl_load->dylib.timestamp = 0;
+                    /*
+                     * We zero the version info for canonicalization.
+                     */
 		    dl_load->dylib.current_version = 0;
 		    dl_load->dylib.compatibility_version = 0;
+                }
+                else{
+                    found = FALSE;
+                    for(j = 0; j < nlibs; j++){
+                        if(strcmp(libs[j].dylib_name, dylib_name) == 0){
+                            lc2 = libs[j].ofile->load_commands;
+                            for(k = 0; k < libs[j].ofile->mh->ncmds; k++){
+                                if(lc2->cmd == LC_ID_DYLIB){
+                                    dl_id = (struct dylib_command *)lc2;
+                                    dl_load->dylib.timestamp =
+                                        dl_id->dylib.timestamp;
+                                    found = TRUE;
+                                    break;
+                                }
+                                lc2 = (struct load_command *)
+                                    ((char *)lc2 + lc2->cmdsize);
+                            }
+                            break;
+                        }
+                    }
+                    /*
+                    * A weak library may be missing if so clear it's fields.
+                    */
+                    if(found == FALSE){
+                        dl_load->dylib.timestamp = 0;
+                        dl_load->dylib.current_version = 0;
+                        dl_load->dylib.compatibility_version = 0;
+                    }
+                }
+	    }
+	    else if(lc1->cmd == LC_ID_DYLIB){
+	        /*
+		 * If we are unprebinding, we need to set the timestamp to
+		 * zero and make sure it doesn't get re-adjusted when we 
+		 * write out the file.
+		 */
+		if(unprebinding == TRUE){
+		    dl_load = (struct dylib_command *)lc1;
+		    dl_load->dylib.timestamp = 0;
+		    arch->dont_update_LC_ID_DYLIB_timestamp = TRUE;
 		}
 	    }
 	    /*
@@ -6656,6 +7594,23 @@ unsigned long vmslide)
 	    if(lc1->cmd != LC_PREBOUND_DYLIB){
 		ncmds += 1;
 		sizeofcmds += lc1->cmdsize;
+	    }
+	    else{
+		/*
+		 * See if all two-level modules were linked.
+		 */
+		if(prebind_all_twolevel_modules == TRUE){
+		    pbdylib1 = (struct prebound_dylib_command *)lc1;
+		    linked_modules = (char *)pbdylib1 +
+					    pbdylib1->linked_modules.offset;
+		    for(j = 0; j < pbdylib1->nmodules; j++){
+			if(((linked_modules[j/8] >> (j%8)) & 1) == 0){
+			    /* found a module that is not linked */
+			    prebind_all_twolevel_modules = FALSE;
+			    break;
+			}
+		    }
+		}
 	    }
 	    lc1 = (struct load_command *)((char *)lc1 + lc1->cmdsize);
 	}
@@ -6685,165 +7640,176 @@ unsigned long vmslide)
 	if(arch->object->mh->filetype != MH_EXECUTE)
 	    return;
 
-	/*
-	 * We need to figure out if this executable was built with the
-	 * -prebind_all_twolevel_modules flag so to preserve this. We assume
-	 * that it is and check all the linked_modules bit vectors in the
-	 * existing LC_PREBOUND_DYLIB in the next loop.  If we find a module
-	 * that is not bound in a two-level namespace image this is set to
-	 * FALSE.  It is also set to FALSE here if the -force_flat_namespace
-	 * was used.
-	 */
-	prebind_all_twolevel_modules = TRUE;
-	if(arch_force_flat_namespace == TRUE)
-	    prebind_all_twolevel_modules = FALSE;
-
-	/*
-	 * For each library the executable uses determine the size we need for
-	 * the LC_PREBOUND_DYLIB load command for it.  If their is an exising
-	 * LC_PREBOUND_DYLIB command use it if there is enough space in the
-	 * command for the current number of modules.  If not calculate the
-	 * size ld(1) would use for it.
-	 */
-	for(i = 0; i < nlibs; i++){
-	    lc1 = arch->object->load_commands;
-	    for(j = 0; j < arch->object->mh->ncmds; j++){
-		if(lc1->cmd == LC_PREBOUND_DYLIB){
-		    pbdylib1 = (struct prebound_dylib_command *)lc1;
-		    dylib_name = (char *)pbdylib1 + pbdylib1->name.offset;
-		    if(strcmp(libs[i].dylib_name, dylib_name) == 0){
-			libs[i].LC_PREBOUND_DYLIB_found = TRUE;
-			if(libs[i].nmodtab <= pbdylib1->nmodules){
-			    libs[i].LC_PREBOUND_DYLIB_size = pbdylib1->cmdsize;
-			}
-			else{
-			   /*
-			    * Figure out the size left in the command for the
-			    * the linked_modules bit vector.  When this is first
-			    * created by ld(1) extra space is left so this
-			    * this program can grow the vector if the library
-			    * changes.
-			    */
-			   size = pbdylib1->cmdsize -
-				  (sizeof(struct prebound_dylib_command) +
-				   round(strlen(dylib_name) + 1, sizeof(long)));
-			   /*
-			    * Now see if the size left has enought space to fit
-			    * the linked_modules bit vector for the number of
-			    * modules this library currently has.
-			    */
-			   if((libs[i].nmodtab + 7)/8 <= size){
-			        libs[i].LC_PREBOUND_DYLIB_size =
+        if(arch->object->mh->flags & MH_ALLMODSBOUND){
+            if((arch->object->mh->flags & MH_PREBINDABLE) != MH_PREBINDABLE){
+                error("mallformed file: %s (MH_ALLMODSBOUND is set without "
+		      "MH_PREBINDABLE)",
+                    arch->file_name);
+                redo_exit(2);
+            }
+            arch->object->mh->flags &= ~MH_ALLMODSBOUND;
+            prebind_all_twolevel_modules = TRUE;
+        }
+        else{
+            if(arch->object->mh->flags & MH_PREBINDABLE){
+                /*
+                 * This was an unprebound binary that does not have 
+		 * MH_ALLMODSBOUND set so all two level modules must not 
+		 * have been bound.
+                 */
+                 prebind_all_twolevel_modules = FALSE;
+            }
+        }
+        /*
+        * For each library the executable uses determine the size we need for
+        * the LC_PREBOUND_DYLIB load command for it.  If their is an exising
+        * LC_PREBOUND_DYLIB command use it if there is enough space in the
+        * command for the current number of modules.  If not calculate the
+        * size ld(1) would use for it.
+        */
+        if(unprebinding == FALSE){
+            for(i = 0; i < nlibs; i++){
+                lc1 = arch->object->load_commands;
+                for(j = 0; j < arch->object->mh->ncmds; j++){
+                    if(lc1->cmd == LC_PREBOUND_DYLIB){
+                        pbdylib1 = (struct prebound_dylib_command *)lc1;
+                        dylib_name = (char *)pbdylib1 + pbdylib1->name.offset;
+                        if(strcmp(libs[i].dylib_name, dylib_name) == 0){
+                            libs[i].LC_PREBOUND_DYLIB_found = TRUE;
+                            if(libs[i].nmodtab <= pbdylib1->nmodules){
+                                libs[i].LC_PREBOUND_DYLIB_size =
 				    pbdylib1->cmdsize;
-			   }
-			   else{
-				/*
-				 * The existing space in not enough so calculate
-				 * the new size as ld(1) would.  125% of the
-				 * modules with a minimum size of 64 modules.
-				 */
-				nmodules = libs[i].nmodtab +
-                                   (libs[i].nmodtab >> 2);
-				if(nmodules < 64)
-				    nmodules = 64;
-				size = sizeof(struct prebound_dylib_command) +
-				   round(strlen(dylib_name)+1, sizeof(long))+
-				   round(nmodules / 8, sizeof(long));
-				libs[i].LC_PREBOUND_DYLIB_size = size;
-			   }
-			}
-			ncmds += 1;
-			sizeofcmds += libs[i].LC_PREBOUND_DYLIB_size;
-			/*
-			 * See if all two-level modules were linked.
-			 */
-			if(prebind_all_twolevel_modules == TRUE &&
-			   (libs[i].ofile->mh->flags & MH_TWOLEVEL) ==
-			    MH_TWOLEVEL){
-			    linked_modules = (char *)pbdylib1 +
-					     pbdylib1->linked_modules.offset;
-			    for(j = 0; j < pbdylib1->nmodules; j++){
-				if(((linked_modules[j/8] >> (j%8)) & 1) == 0){
-				    /* found a module that is not linked */
-				    prebind_all_twolevel_modules = FALSE;
-				    break;
-				}
-			    }
-			}
-			break;
-		    }
-		}
-		lc1 = (struct load_command *)((char *)lc1 + lc1->cmdsize);
-	    }
-	}
-	/*
-	 * Make a pass through the libraries and pick up any of them that did
-	 * not appear in the load commands and then size their LC_PREBOUND_DYLIB
-	 * command.
-	 */
-	for(i = 0; i < nlibs; i++){
-	    if(libs[i].LC_PREBOUND_DYLIB_found == FALSE){
-		/*
-		 * Calculate the size as ld(1) would.  125% of the
-		 * modules with a minimum size of 64 modules.
-		 */
-		nmodules = libs[i].nmodtab + (libs[i].nmodtab >> 2);
-		if(nmodules < 64)
-		    nmodules = 64;
-		size = sizeof(struct prebound_dylib_command) +
-		   round(strlen(libs[i].dylib_name) + 1, sizeof(long))+
-		   round(nmodules / 8, sizeof(long));
-		libs[i].LC_PREBOUND_DYLIB_size = size;
-		sizeofcmds += libs[i].LC_PREBOUND_DYLIB_size;
-		ncmds++;
-	    }
-	}
-
-	/*
-	 * If the size of the load commands that includes the updated
-	 * LC_PREBOUND_DYLIB commands is larger than the existing load commands
-	 * then see if they can be fitted in before the contents of the first
-	 * section (or segment in the case of a LINKEDIT segment only file).
-	 */
-	if(sizeofcmds > arch->object->mh->sizeofcmds){
-	    low_fileoff = ULONG_MAX;
-	    lc1 = arch->object->load_commands;
-	    for(i = 0; i < arch->object->mh->ncmds; i++){
-		if(lc1->cmd == LC_SEGMENT){
-		    sg = (struct segment_command *)lc1;
-		    s = (struct section *)
-			((char *)sg + sizeof(struct segment_command));
-		    if(sg->nsects != 0){
-			for(j = 0; j < sg->nsects; j++){
-			    if(s->size != 0 &&
-			       (s->flags & S_ZEROFILL) != S_ZEROFILL &&
-			       s->offset < low_fileoff)
-				low_fileoff = s->offset;
-			    s++;
-			}
-		    }
-		    else{
-			if(sg->filesize != 0 && sg->fileoff < low_fileoff)
-			    low_fileoff = sg->fileoff;
-		    }
-		}
-		lc1 = (struct load_command *)((char *)lc1 + lc1->cmdsize);
-	    }
-	    if(sizeofcmds + sizeof(struct mach_header) > low_fileoff){
-		error("prebinding can't be redone for: %s (for architecture"
-		      " %s) because larger updated load commands do not fit "
-		      "(the program must be relinked)", arch->file_name,
-		      arch_name);
+                            }
+                            else{
+                                /*
+                                * Figure out the size left in the command for 
+                                * the linked_modules bit vector.  When this is
+				* first created by ld(1) extra space is left so
+				* this this program can grow the vector if the
+				* library changes.
+                                */
+                                size = pbdylib1->cmdsize -
+                                        (sizeof(struct prebound_dylib_command) +
+                                        round(strlen(dylib_name) + 1,
+					      sizeof(long)));
+                                /*
+                                 * Now see if the size left has enought space to
+				 * fit the linked_modules bit vector for the
+				 * number of modules this library currently has.
+                                */
+                                if((libs[i].nmodtab + 7)/8 <= size){
+                                        libs[i].LC_PREBOUND_DYLIB_size =
+                                            pbdylib1->cmdsize;
+                                }
+                                else{
+                                    /*
+				     * The existing space in not enough so
+				     * calculate the new size as ld(1) would.
+				     * 125% of the modules with a minimum size
+				     * of 64 modules.
+                                     */
+                                    nmodules = libs[i].nmodtab +
+                                    (libs[i].nmodtab >> 2);
+                                    if(nmodules < 64)
+                                        nmodules = 64;
+                                    size = sizeof(struct
+						  prebound_dylib_command) +
+                                     round(strlen(dylib_name)+1, sizeof(long)) +
+                                     round(nmodules / 8, sizeof(long));
+                                    libs[i].LC_PREBOUND_DYLIB_size = size;
+                                }
+                            }
+                            ncmds += 1;
+                            sizeofcmds += libs[i].LC_PREBOUND_DYLIB_size;
+			    break;
+                        }
+                    }
+                    lc1 = (struct load_command *)((char *)lc1 + lc1->cmdsize);
+                }
+            }
+        }
+        /*
+         * If we are unprebinding and all two level modules were bound, then
+         * we need to set MH_ALLMODSBOUND.  We don't want to set this flag
+         * on binaries that don't have LC_PREBOUND_DYLIB commands.
+         */
+         if(unprebinding == TRUE){
+            if(prebind_all_twolevel_modules && 
+               (arch->object->mh->flags & MH_PREBOUND) == MH_PREBOUND)
+                arch->object->mh->flags |= MH_ALLMODSBOUND;
+         }
+         else{
+	    /*
+	     * Make a pass through the libraries and pick up any of them that
+	     * did not appear in the load commands and then size their
+	     * LC_PREBOUND_DYLIB command.
+	     */
+            for(i = 0; i < nlibs; i++){
+                if(libs[i].LC_PREBOUND_DYLIB_found == FALSE){
+                    /*
+                    * Calculate the size as ld(1) would.  125% of the
+                    * modules with a minimum size of 64 modules.
+                    */
+                    nmodules = libs[i].nmodtab + (libs[i].nmodtab >> 2);
+                    if(nmodules < 64)
+                        nmodules = 64;
+                    size = sizeof(struct prebound_dylib_command) +
+                    round(strlen(libs[i].dylib_name) + 1, sizeof(long))+
+                    round(nmodules / 8, sizeof(long));
+                    libs[i].LC_PREBOUND_DYLIB_size = size;
+                    sizeofcmds += libs[i].LC_PREBOUND_DYLIB_size;
+                    ncmds++;
+                }
+            }
+    
+            /*
+	     * If the size of the load commands that includes the updated
+	     * LC_PREBOUND_DYLIB commands is larger than the existing load
+	     * commands then see if they can be fitted in before the contents
+	     * of the first section (or segment in the case of a LINKEDIT
+	     * segment only file).
+	     */
+            if(sizeofcmds > arch->object->mh->sizeofcmds){
+                low_fileoff = ULONG_MAX;
+                lc1 = arch->object->load_commands;
+                for(i = 0; i < arch->object->mh->ncmds; i++){
+                    if(lc1->cmd == LC_SEGMENT){
+                        sg = (struct segment_command *)lc1;
+                        s = (struct section *)
+                            ((char *)sg + sizeof(struct segment_command));
+                        if(sg->nsects != 0){
+                            for(j = 0; j < sg->nsects; j++){
+                                if(s->size != 0 &&
+                                (s->flags & S_ZEROFILL) != S_ZEROFILL &&
+                                s->offset < low_fileoff)
+                                    low_fileoff = s->offset;
+                                s++;
+                            }
+                        }
+                        else{
+                            if(sg->filesize != 0 && sg->fileoff < low_fileoff)
+                                low_fileoff = sg->fileoff;
+                        }
+                    }
+                    lc1 = (struct load_command *)((char *)lc1 + lc1->cmdsize);
+                }
+                if(sizeofcmds + sizeof(struct mach_header) > low_fileoff){
+                    error("prebinding can't be redone for: %s (for architecture"
+                        " %s) because larger updated load commands do not fit "
+                        "(the program must be relinked)", arch->file_name,
+                        arch_name);
 #ifdef LIBRARY_API
-		if(check_if_needed == TRUE){
-		    only_if_needed_retval = REDO_PREBINDING_NEEDS_REBUILDING;
-		    return;
-		}
+                    if(check_if_needed == TRUE){
+                        only_if_needed_retval =
+			    REDO_PREBINDING_NEEDS_REBUILDING;
+                        return;
+                    }
 #endif
-		redo_exit(2);
-	    }
-	}
-
+                    redo_exit(2);
+                }
+            }
+        }
+    
 	/*
 	 * Allocate space for the new load commands as zero it out so any holes
 	 * will be zero bytes.
@@ -6853,43 +7819,46 @@ unsigned long vmslide)
 
 	/*
 	 * Fill in the new load commands by copying in the non-LC_PREBOUND_DYLIB
-	 * commands and updating the LC_PREBOUND_DYLIB commands.
+	 * commands and updating the LC_PREBOUND_DYLIB commands.  If we are
+	 * unprebinding, do not bring the LC_PREBOUND_DYLIB commands with us.
 	 */
 	lc1 = arch->object->load_commands;
 	lc2 = new_load_commands;
 	for(i = 0; i < arch->object->mh->ncmds; i++){
 	    if(lc1->cmd == LC_PREBOUND_DYLIB){
-		pbdylib1 = (struct prebound_dylib_command *)lc1;
-		pbdylib2 = (struct prebound_dylib_command *)lc2;
-		dylib_name = (char *)pbdylib1 + pbdylib1->name.offset;
-		for(j = 0; j < nlibs; j++){
-		    if(strcmp(libs[j].dylib_name, dylib_name) == 0){
-			pbdylib2->cmd = LC_PREBOUND_DYLIB;
-			pbdylib2->cmdsize = libs[j].LC_PREBOUND_DYLIB_size;
-			pbdylib2->name.offset =
-				sizeof(struct prebound_dylib_command);
-			strcpy(((char *)pbdylib2) +
-				sizeof(struct prebound_dylib_command),
-				dylib_name);
-			pbdylib2->nmodules = libs[j].nmodtab;
-			pbdylib2->linked_modules.offset =
-				sizeof(struct prebound_dylib_command) +
-				round(strlen(dylib_name) + 1, sizeof(long));
-			linked_modules = ((char *)pbdylib2) +
-                                sizeof(struct prebound_dylib_command) +
-                                round(strlen(dylib_name) + 1, sizeof(long));
-			for(k = 0; k < libs[j].nmodtab; k++){
-			    if(libs[j].module_states[k] == LINKED ||
-			       (prebind_all_twolevel_modules == TRUE &&
-			        (libs[j].ofile->mh->flags & MH_TWOLEVEL) ==
-				 MH_TWOLEVEL))
-				linked_modules[k / 8] |= 1 << k % 8;
-			}
-			lc2 = (struct load_command *)
-				((char *)lc2 + lc2->cmdsize);
-			break;
-		    }
-		}
+                if(unprebinding == FALSE){
+                    pbdylib1 = (struct prebound_dylib_command *)lc1;
+                    pbdylib2 = (struct prebound_dylib_command *)lc2;
+                    dylib_name = (char *)pbdylib1 + pbdylib1->name.offset;
+                    for(j = 0; j < nlibs; j++){
+                        if(strcmp(libs[j].dylib_name, dylib_name) == 0){
+                            pbdylib2->cmd = LC_PREBOUND_DYLIB;
+                            pbdylib2->cmdsize = libs[j].LC_PREBOUND_DYLIB_size;
+                            pbdylib2->name.offset =
+                                    sizeof(struct prebound_dylib_command);
+                            strcpy(((char *)pbdylib2) +
+                                    sizeof(struct prebound_dylib_command),
+                                    dylib_name);
+                            pbdylib2->nmodules = libs[j].nmodtab;
+                            pbdylib2->linked_modules.offset =
+                                    sizeof(struct prebound_dylib_command) +
+                                    round(strlen(dylib_name) + 1, sizeof(long));
+                            linked_modules = ((char *)pbdylib2) +
+                                    sizeof(struct prebound_dylib_command) +
+                                    round(strlen(dylib_name) + 1, sizeof(long));
+                            for(k = 0; k < libs[j].nmodtab; k++){
+                                if(libs[j].module_states[k] == LINKED ||
+                                (prebind_all_twolevel_modules == TRUE &&
+                                    (libs[j].ofile->mh->flags & MH_TWOLEVEL) ==
+                                    MH_TWOLEVEL))
+                                    linked_modules[k / 8] |= 1 << k % 8;
+                            }
+                            lc2 = (struct load_command *)
+                                    ((char *)lc2 + lc2->cmdsize);
+                            break;
+                        }
+                    }
+                }
 	    }
 	    else{
 		memcpy(lc2, lc1, lc1->cmdsize);
@@ -6898,43 +7867,49 @@ unsigned long vmslide)
 	    lc1 = (struct load_command *)((char *)lc1 + lc1->cmdsize);
 	}
 
-	/*
-	 * Add any new LC_PREBOUND_DYLIB load commands.
-	 */
-	for(i = 0; i < nlibs; i++){
-	    if(libs[i].LC_PREBOUND_DYLIB_found == FALSE){
-		pbdylib2 = (struct prebound_dylib_command *)lc2;
-		pbdylib2->cmd = LC_PREBOUND_DYLIB;
-		pbdylib2->cmdsize = libs[i].LC_PREBOUND_DYLIB_size;
-		pbdylib2->name.offset =
-			sizeof(struct prebound_dylib_command);
-		strcpy(((char *)pbdylib2) +
-			sizeof(struct prebound_dylib_command),
-			libs[i].dylib_name);
-		pbdylib2->nmodules = libs[i].nmodtab;
-		pbdylib2->linked_modules.offset =
-			sizeof(struct prebound_dylib_command) +
-			round(strlen(libs[i].dylib_name) + 1, sizeof(long));
-		linked_modules = ((char *)pbdylib2) +
-			sizeof(struct prebound_dylib_command) +
-			round(strlen(libs[i].dylib_name) + 1, sizeof(long));
-		for(j = 0; j < libs[i].nmodtab; j++){
-		    if(libs[i].module_states[j] == LINKED ||
-		       (prebind_all_twolevel_modules == TRUE &&
-			(libs[i].ofile->mh->flags & MH_TWOLEVEL) ==
-				 MH_TWOLEVEL))
-			linked_modules[j / 8] |= 1 << j % 8;
-		}
-		lc2 = (struct load_command *)
-			((char *)lc2 + lc2->cmdsize);
-	    }
-	}
-
+        if(unprebinding == FALSE){
+            /*
+	     * Add any new LC_PREBOUND_DYLIB load commands.
+	     */
+            for(i = 0; i < nlibs; i++){
+                if(libs[i].LC_PREBOUND_DYLIB_found == FALSE){
+                    pbdylib2 = (struct prebound_dylib_command *)lc2;
+                    pbdylib2->cmd = LC_PREBOUND_DYLIB;
+                    pbdylib2->cmdsize = libs[i].LC_PREBOUND_DYLIB_size;
+                    pbdylib2->name.offset =
+                            sizeof(struct prebound_dylib_command);
+                    strcpy(((char *)pbdylib2) +
+                            sizeof(struct prebound_dylib_command),
+                            libs[i].dylib_name);
+                    pbdylib2->nmodules = libs[i].nmodtab;
+                    pbdylib2->linked_modules.offset =
+                            sizeof(struct prebound_dylib_command) +
+                            round(strlen(libs[i].dylib_name) + 1, sizeof(long));
+                    linked_modules = ((char *)pbdylib2) +
+                            sizeof(struct prebound_dylib_command) +
+                            round(strlen(libs[i].dylib_name) + 1, sizeof(long));
+                    for(j = 0; j < libs[i].nmodtab; j++){
+                        if(libs[i].module_states[j] == LINKED ||
+                        (prebind_all_twolevel_modules == TRUE &&
+                            (libs[i].ofile->mh->flags & MH_TWOLEVEL) ==
+                                    MH_TWOLEVEL))
+                            linked_modules[j / 8] |= 1 << j % 8;
+                    }
+                    lc2 = (struct load_command *)
+                            ((char *)lc2 + lc2->cmdsize);
+                }
+            }
+        }
+    
 	/*
 	 * Finally copy the updated load commands over the existing load
 	 * commands.
 	 */
 	memcpy(arch->object->load_commands, new_load_commands, sizeofcmds);
+	if(arch->object->mh->sizeofcmds > sizeofcmds){
+		memset((char *)arch->object->load_commands + sizeofcmds, '\0', 
+			   (arch->object->mh->sizeofcmds - sizeofcmds));
+	}
 	arch->object->mh->sizeofcmds = sizeofcmds;
 	arch->object->mh->ncmds = ncmds;
 	free(new_load_commands);

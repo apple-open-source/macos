@@ -1,0 +1,50 @@
+
+// based on a keyboard map from an 'xkb/symbols/no' file
+//
+// $XFree86: xc/programs/xkbcomp/symbols/pc/no,v 1.3 2002/12/19 01:07:56 dawes Exp $
+
+partial alphanumeric_keys
+xkb_symbols "basic" {
+
+    // Describes the differences between a very simple en_US
+    // keyboard and a Norwegian keyboard with dead key support
+    // and all of ISO-8859-1 characters available.
+
+    include "pc/latin(type2)"
+
+    name[Group1]="Norwegian";
+
+    key <AE11>	{ [      plus,   question,    plusminus, questiondown ]	};
+    key <AE12>	{ [ backslash, dead_grave,   dead_acute,      notsign ]	};
+
+
+    key <AC10>	{ [    oslash,   Ooblique,   dead_acute, dead_doubleacute ] };
+    key <AC11>	{ [        ae,         AE, dead_circumflex, dead_caron]	};
+    key <TLDE>	{ [       bar,    section,    brokenbar,    paragraph ]	};
+
+    key <BKSL>	{ [apostrophe,   asterisk, dead_doubleacute, multiply ]	};
+
+    key <LSGT>	{ type[Group1] = "FOUR_LEVEL",
+                  [      less,    greater,      onehalf, threequarters]	};
+
+    key <KPDL>  { [ KP_Delete, KP_Separator                           ]	};
+
+    key <RALT>  { type[Group1]="TWO_LEVEL",
+                  [ ISO_Level3_Shift, Multi_key ]   };
+    modifier_map Mod5   { <RALT> };
+};
+
+partial alphanumeric_keys
+xkb_symbols "nodeadkeys" {
+
+    // Modifies the basic Norwegian layout to eliminate dead keys
+
+    include "pc/no(basic)"
+
+    key <AE12>	{ [ backslash,      grave,        acute,       ogonek ]	};
+    key <AD12>	{ [ diaeresis, asciicircum,   asciitilde,      macron ]	};
+    key <AC10>	{ [    oslash,   Ooblique,        acute,  doubleacute ]	};
+    key <AC11>	{ [        ae,         AE,  asciicircum,        caron ]	};
+    key <AB08>	{ [     comma,  semicolon,      cedilla,       ogonek ]	};
+    key <AB09>	{ [    period,      colon, periodcentered,   abovedot ]	};
+};

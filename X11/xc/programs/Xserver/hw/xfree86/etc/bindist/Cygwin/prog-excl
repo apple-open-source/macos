@@ -1,0 +1,5 @@
+lib/Server
+lib/X11
+lib/lib*.a
+lib/modules
+include/X11/bitmaps

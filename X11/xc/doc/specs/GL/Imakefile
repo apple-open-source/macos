@@ -1,0 +1,4 @@
+XCOMM $XFree86: xc/doc/specs/GL/Imakefile,v 1.1 2000/03/02 17:52:57 dawes Exp $
+
+InstallDoc(libGL,libGL.txt)
+

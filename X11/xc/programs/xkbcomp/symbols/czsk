@@ -1,0 +1,741 @@
+// Czech and Slovak keyboard symbols for XKB and PC keyboard
+//
+// (C) 1997,1999 Stanislav Meduna, stano@eunet.sk
+// (C) 2000  Kamil Toman, ktoman@email.cz
+//
+// Permission is granted to anyone to use, distribute and modify
+// this file in any way, provided that the above copyright notice
+// is left intact and the author of the modification summarizes
+// the changes in this header.
+//
+// This file is distributed without any expressed or implied warranty.
+//
+// $XFree86: xc/programs/xkbcomp/symbols/czsk,v 1.9 2003/02/04 02:32:48 dawes Exp $
+
+partial default alphanumeric_keys 
+xkb_symbols "us_sk_qwerty" {
+    Name[Group1] = "US/ASCII";
+    Name[Group2] = "Slovak";
+
+    include "czsk(def_qwerty)"
+    include "czsk(def_us_sk)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "us_sk_qwertz" {
+    Name[Group1] = "US/ASCII";
+    Name[Group2] = "Slovak";
+
+    include "czsk(def_us_qwertz)"
+    include "czsk(def_us_sk)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "sk_us_qwerty" {
+    Name[Group1] = "Slovak";
+    Name[Group2] = "US/ASCII";
+
+    include "czsk(def_qwerty)"
+    include "czsk(def_sk_us)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "sk_us_qwertz" {
+    Name[Group1] = "Slovak";
+    Name[Group2] = "US/ASCII";
+
+    include "czsk(def_qwertz_us)"
+    include "czsk(def_sk_us)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "us_sk_prog" {
+    Name[Group1] = "US/ASCII";
+    Name[Group2] = "Slovak";
+
+    include "czsk(def_basic)"
+    include "czsk(def_qwerty)"
+    include "czsk(def_us_sk_prog)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "sk_us_prog" {
+    Name[Group1] = "Slovak";
+    Name[Group2] = "US/ASCII";
+
+    include "czsk(def_basic)"
+    include "czsk(def_qwerty)"
+    include "czsk(def_sk_us_prog)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "us_cz_qwerty" {
+    Name[Group1] = "US/ASCII";
+    Name[Group2] = "Czech";
+
+    include "czsk(def_qwerty)"
+    include "czsk(def_us_cz)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "us_cz_qwertz" {
+    Name[Group1] = "US/ASCII";
+    Name[Group2] = "Czech";
+
+    include "czsk(def_us_qwertz)"
+    include "czsk(def_us_cz)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "cz_us_qwerty" {
+    Name[Group1] = "Czech";
+    Name[Group2] = "US/ASCII";
+
+    include "czsk(def_qwerty)"
+    include "czsk(def_cz_us)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "cz_us_qwertz" {
+    Name[Group1] = "Czech";
+    Name[Group2] = "US/ASCII";
+
+    include "czsk(def_qwertz_us)"
+    include "czsk(def_cz_us)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "us_cz_prog" {
+    Name[Group1] = "US/ASCII";
+    Name[Group2] = "Czech";
+
+    include "czsk(def_basic)"
+    include "czsk(def_qwerty)"
+    include "czsk(def_us_cz_prog)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "cz_us_prog" {
+    Name[Group1] = "Czech";
+    Name[Group2] = "US/ASCII";
+
+    include "czsk(def_basic)"
+    include "czsk(def_qwerty)"
+    include "czsk(def_cz_us_prog)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_us_sk" {
+    include "czsk(def_basic)"
+    include "czsk(def_us_czsk)"
+    include "czsk(def_us_sk_prog)"
+    include "czsk(def_us_sk_rp)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_sk_us" {
+    include "czsk(def_basic)"
+    include "czsk(def_czsk_us)"
+    include "czsk(def_sk_us_prog)"
+    include "czsk(def_sk_us_rp)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_us_cz" {
+    include "czsk(def_basic)"
+    include "czsk(def_us_czsk)"
+    include "czsk(def_us_cz_prog)"
+    include "czsk(def_us_cz_rp)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_cz_us" {
+    include "czsk(def_basic)"
+    include "czsk(def_czsk_us)"
+    include "czsk(def_cz_us_prog)"
+    include "czsk(def_cz_us_rp)"
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_basic" {
+
+    include "group(shift_toggle)"
+    include "srvr_ctrl(xfree86)"
+
+    // Alphanumeric keys identical to US
+    key <ESC>  {	[ Escape			],
+                        [ Escape			]       };
+
+    key <BKSP> {
+	type="CTRL+ALT",
+	symbols[Group1]= [ BackSpace,	Terminate_Server ]
+    };
+
+    key <TLDE> { [           grave,     asciitilde      ],       
+	         [           grave,     asciitilde	]	};
+
+
+    key  <TAB> {	[ 	Tab,	ISO_Left_Tab	],
+                        [ 	Tab,	ISO_Left_Tab	]       };
+    key <AD01> {	[	  q,	Q 		],
+                        [	  q,	Q 		]       };
+    key <AD02> {	[	  w,	W		],
+                        [	  w,	W		]       };
+    key <AD03> {	[	  e,	E		],
+                        [	  e,	E		]       };
+    key <AD04> {	[	  r,	R		],
+                        [	  r,	R		]       };
+    key <AD05> {	[	  t,	T		],
+                        [	  t,	T		]       };
+    key <AD07> {	[	  u,	U		],
+                        [	  u,	U		]       };
+    key <AD08> {	[	  i,	I		],
+                        [	  i,	I		]       };
+    key <AD09> {	[	  o,	O		],
+    			[	  o,    O		]	};
+    key <AD10> {	[	  p,	P		],
+                        [	  p,	P		]       };
+    key <RTRN> {	[ Return			],
+    			[ Return 			]	};
+
+    key <CAPS> {	[	Caps_Lock		],
+    			[	Caps_Lock		]	};
+    key <AC01> {	[	  a,	A 		],
+                        [	  a,	A 		]       };
+    key <AC02> {	[	  s,	S		],
+                        [	  s,	S		]       };
+    key <AC03> {	[	  d,	D		],
+                        [	  d,	D		]       };
+    key <AC04> {	[	  f,	F		],
+                        [	  f,	F		]       };
+    key <AC05> {	[	  g,	G		],
+                        [	  g,	G		]       };
+    key <AC06> {	[	  h,	H		],
+                        [	  h,	H		]       };
+    key <AC07> {	[	  j,	J		],
+                        [	  j,	J		]       };
+    key <AC08> {	[	  k,	K		],
+                        [	  k,	K		]       };
+    key <AC09> {	[	  l,	L		],
+                        [	  l,	L		]       };
+
+    key <LFSH> {	[ 	 Shift_L		],
+    			[	 Shift_L		]	};
+    key <AB02> {	[	  x,	X		],
+                        [	  x,	X		]       };
+    key <AB03> {	[	  c,	C		],
+                        [	  c,	C		]       };
+    key <AB04> {	[	  v,	V		],
+                        [	  v,	V		]       };
+    key <AB05> {	[	  b,	B		],
+                        [	  b,	B		]       };
+    key <AB06> {	[	  n,	N		],
+                        [	  n,	N		]       };
+    key <AB07> {	[	  m,	M		],
+                        [	  m,	M		]       };
+    key <BKSL> {	[ backslash,	bar		],
+                        [ backslash,	bar		]       };
+
+    key <LCTL> {	[ 	 Control_L		],
+    			[ 	 Control_L		]	};
+    key <SPCE> {	[ 	 space			],
+    			[ 	 space			]	};
+
+    key <LSGT> {	[      less,    greater		],
+                        [      less,    greater		]       };
+
+    key <LALT> {	[ 	Alt_L		],
+    			[ 	Meta_L		]	};
+    key <LWIN> {	[	Meta_L		],
+    			[	Meta_L		]	};
+    key <RWIN> {	[	Meta_R		],
+			[       Meta_R		]	};
+    key <MENU> {	[	Menu		],
+    			[	Menu		]	};
+    // End alphanumeric section
+
+    // begin modifier mappings
+    
+    modifier_map Shift  { Shift_L, Shift_R };
+    modifier_map Lock   { Caps_Lock };
+    modifier_map Control{ Control_L, Control_R };
+    modifier_map Mod3   { Mode_switch };
+
+    // Begin "Function" section
+    key <FK01> {        [        F1             ],
+			[        F1             ]       };
+    key <FK02> {        [        F2             ],
+			[        F2             ]       };
+    key <FK03> {        [        F3             ],
+			[        F3             ]       };
+    key <FK04> {        [        F4             ],
+			[        F4             ]       };
+    key <FK05> {        [        F5             ],
+			[        F5             ]       };
+    key <FK06> {        [        F6             ],
+			[        F6             ]       };
+    key <FK07> {        [        F7             ],
+			[        F7             ]       };
+    key <FK08> {        [        F8             ],
+			[        F8             ]       };
+    key <FK09> {        [        F9             ],
+			[        F9             ]       };
+    key <FK10> {        [        F10            ],
+			[        F10            ]       };
+    key <FK11> {        [        F11            ],
+			[        F11            ]       };
+    key <FK12> {        [        F12            ],
+			[        F12            ]       };
+    // End "Function" section
+
+    // Begin "Editing" section
+    key <PRSC> {
+        type= "PC_SYSRQ",
+        symbols[Group1]= [ Print, Sys_Req ]
+    };
+
+    key <SYRQ> {
+        type= "PC_SYSRQ",
+        symbols[Group1]= [ Print, Sys_Req ]
+    };
+
+    key <BRK> {
+        type= "PC_BREAK",
+        symbols[Group1]= [ Pause, Break ]
+    };
+
+
+    key <PAUS> {	[ Multi_key				]	};
+    key <RALT> {        [ Mode_switch,  Multi_key       	]       };
+    key <SCLK> {	[ ISO_Next_Group, 	ISO_Next_Group	]	};
+
+    // Gray keys
+
+    key  <INS> { 	[  Insert             	],
+			[  Insert             	]       };
+    key <HOME> {        [  Home                 ],
+			[  Home                 ]       };
+    key <PGUP> {        [  Prior                ],
+			[  Prior                ]       };
+    key <DELE> {	[  Delete               ],
+			[  Delete               ]       };
+    key  <END> {        [  End                  ],
+			[  End                  ]       };
+    key <PGDN> {        [  Next                 ],
+			[  Next                 ]       };
+
+    // Cursor keys
+    key   <UP> {        [  Up                   ],
+			[  Up                   ]       };
+    key <LEFT> {        [  Left                 ],
+			[  Left                 ]       };
+    key <DOWN> {        [  Down                 ],
+			[  Down                 ]       };
+    key <RGHT> {        [  Right                ],
+			[  Right                ]       };
+
+
+    // Keypad keys
+    key <NMLK> {        [  Num_Lock, Pointer_EnableKeys         ],
+			[  Num_Lock, Pointer_EnableKeys         ]};
+    key <KPDV> {        [  KP_Divide            ],
+			[  KP_Divide            ]       };
+    key <KPMU> {        [  KP_Multiply          ],
+			[  KP_Multiply          ]       };
+    key <KPSU> {        [  KP_Subtract          ],
+			[  KP_Subtract          ]       };
+
+    key  <KP7> {        [  KP_Home,     KP_7    ],
+			[  KP_Home,     KP_7    ]       };
+    key  <KP8> {        [  KP_Up,       KP_8    ],
+			[  KP_Up,       KP_8    ]       };
+    key  <KP9> {        [  KP_Prior,    KP_9    ],
+			[  KP_Prior,    KP_9    ]       };
+    key <KPAD> {        [       KP_Add          ],
+			[       KP_Add          ]       };
+
+    key  <KP4> {        [  KP_Left,     KP_4    ],
+			[  KP_Left,     KP_4    ]       };
+    key  <KP5> {        [  KP_Begin,    KP_5    ],
+			[  KP_Begin,    KP_5    ]       };
+    key  <KP6> {        [  KP_Right,    KP_6    ],
+			[  KP_Right,    KP_6    ]       };
+
+    key  <KP1> {        [  KP_End,      KP_1    ],
+			[  KP_End,      KP_1    ]       };
+    key  <KP2> {        [  KP_Down,     KP_2    ],
+			[  KP_Down,     KP_2    ]       };
+    key  <KP3> {        [  KP_Next,     KP_3    ],
+			[  KP_Next,     KP_3    ]       };
+    key <KPEN> {        [       KP_Enter        ],
+			[       KP_Enter        ]       };
+
+    key  <KP0> {        [  KP_Insert,   KP_0    ],
+			[  KP_Insert,   KP_0    ]       };
+    key <KPDL> {        [  KP_Delete, KP_Decimal ],
+			[  KP_Delete, KP_Decimal ]      };
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_czsk_us" {
+    key <AE11> {
+	[	    equal,        percent	],
+	[           minus,     underscore	]
+	};
+    key <AD11> {
+	[	   uacute,          slash	],
+	[     bracketleft,      braceleft	]
+	};
+    key <AC11> {
+	[	  section,         exclam	],
+	[      apostrophe,       quotedbl	]
+	};
+    key <AB08> {
+	[	    comma,	 question	],
+	[	    comma,	     less	]
+	};
+    key <AB09> {
+	[	   period,	    colon	],
+	[	   period,	  greater	]
+	};
+    key <AB10> {
+	[	    minus,     underscore	],
+	[	    slash,	 question	]
+	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_us_czsk" {
+    key <AE11> {
+	[           minus,     underscore	],
+	[	    equal,        percent	]
+	};
+    key <AD11> {
+	[     bracketleft,      braceleft	],
+	[	   uacute,          slash	]
+	};
+    key <AC11> {
+	[      apostrophe,       quotedbl	],
+	[	  section,         exclam	]
+	};
+    key <AB08> {
+	[	    comma,	     less	],
+	[	    comma,	 question	]
+	};
+    key <AB09> {
+	[	   period,	  greater	],
+	[	   period,	    colon	]
+	};
+    key <AB10> {
+	[	    slash,	 question	],
+	[	    minus,     underscore	]
+	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_sk_us_rp" {
+    key <AC10> {
+	[     ocircumflex,       quotedbl	],
+	[       semicolon,	    colon	]
+	};
+    key <AD12> {
+	[      adiaeresis,      parenleft	],
+	[    bracketright,     braceright	]
+	};
+    key <BKSL> {
+	[	   ncaron,	parenright	],
+	[	backslash,	      bar	]
+	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_cz_us_rp" {
+    key <AC10> {
+	[           uring,       quotedbl	],
+	[       semicolon,	    colon	]
+	};
+    key <AD12> {
+	[      parenright,      parenleft	],
+	[    bracketright,     braceright	]
+	};
+    key <BKSL> {
+	[	backslash,	      bar	],
+	[	backslash,	      bar	]
+	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_us_sk_rp" {
+    key <AC10> {
+	[       semicolon,	    colon	],
+	[     ocircumflex,       quotedbl	]
+	};
+    key <AD12> {
+	[    bracketright,     braceright	],
+	[      adiaeresis,      parenleft	]
+	};
+    key <BKSL> {
+	[	backslash,	      bar	],
+	[	   ncaron,	parenright	]
+	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_us_cz_rp" {
+    key <AC10> {
+	[       semicolon,	    colon	],
+	[           uring,       quotedbl	]
+	};
+    key <AD12> {
+	[    bracketright,     braceright	],
+	[      parenright,      parenleft	]
+	};
+    key <BKSL> {
+	[	backslash,	      bar	],
+	[	backslash,	      bar	]
+	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_qwertz_us" {
+    key <AD06> {
+	[               z,	        Z	],
+	[               y,              Y	]
+	};
+    key <AB01> {
+	[               y,	        Y	],
+	[               z,              Z	]
+	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_us_qwertz" {
+    key <AD06> {
+	[               y,	        Y	],
+	[               z,              Z	]
+	};
+    key <AB01> {
+	[               z,	        Z	],
+	[               y,              Y	]
+	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_qwerty" {
+    key <AD06> {
+	[               y,	        Y	],
+	[               y,              Y	]
+	};
+    key <AB01> {
+	[               z,	        Z	],
+	[               z,              Z	]
+	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_us_sk_prog" {
+    key <TLDE> {
+	[           grave,     asciitilde	],
+        [  dead_diaeresis,     semicolon        ]        
+	};
+    key <AE01> {
+	[		1,	   exclam	],
+	[	     plus,		1	]
+	};
+    key <AE02> {
+	[		2,	       at	],
+	[	   lcaron,		2	]
+	};
+    key <AE03> {
+	[		3,     numbersign	],
+	[	   scaron,		3	]
+	};
+    key <AE04> {
+	[		4,	   dollar	],
+	[	   ccaron,		4	]
+	};
+    key <AE05> {
+	[		5,        percent	],
+	[	   tcaron,		5	]
+	};
+    key <AE06> {
+	[		6,    asciicircum	],
+	[	   zcaron,		6	]
+	};
+    key <AE07> {
+	[		7,      ampersand	],
+	[	   yacute,		7	]
+	};
+    key <AE08> {
+	[		8,       asterisk	],
+	[	   aacute,		8	]
+	};
+    key <AE09> {
+	[		9,      parenleft	],
+	[	   iacute,		9	]
+	};
+    key <AE10> {
+	[		0,     parenright	],
+	[	   eacute,		0	]
+	};
+    key <AE12> {
+	[           equal,           plus	],
+	[      dead_acute,     dead_caron	]
+	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_us_cz_prog" {
+    key <TLDE> {
+	[           grave,     asciitilde	],
+        [  dead_diaeresis,     semicolon        ]        
+	};
+    key <AE01> {
+	[		1,	   exclam	],
+	[	     plus,		1	]
+	};
+    key <AE02> {
+	[		2,	       at	],
+	[	   ecaron,		2	]
+	};
+    key <AE03> {
+	[		3,     numbersign	],
+	[	   scaron,		3	]
+	};
+    key <AE04> {
+	[		4,	   dollar	],
+	[	   ccaron,		4	]
+	};
+    key <AE05> {
+	[		5,        percent	],
+	[	   rcaron,		5	]
+	};
+    key <AE06> {
+	[		6,    asciicircum	],
+	[	   zcaron,		6	]
+	};
+    key <AE07> {
+	[		7,      ampersand	],
+	[	   yacute,		7	]
+	};
+    key <AE08> {
+	[		8,       asterisk	],
+	[	   aacute,		8	]
+	};
+    key <AE09> {
+	[		9,      parenleft	],
+	[	   iacute,		9	]
+	};
+    key <AE10> {
+	[		0,     parenright	],
+	[	   eacute,		0	]
+	};
+    key <AE12> {
+	[           equal,           plus	],
+	[      dead_acute,     dead_caron	]
+	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_sk_us_prog" {
+    key <TLDE> {
+        [  dead_diaeresis,      semicolon       ],
+	[           grave,     asciitilde	]
+	};
+    key <AE01> {
+	[	     plus,		1	],
+	[		1,	   exclam	]
+	};
+    key <AE02> {
+	[	   lcaron,		2	],
+	[		2,	       at	]
+	};
+    key <AE03> {
+	[	   scaron,		3	],
+	[		3,     numbersign	]
+	};
+    key <AE04> {
+	[	   ccaron,		4	],
+	[		4,	   dollar	]
+	};
+    key <AE05> {
+	[	   tcaron,		5	],
+	[		5,        percent	]
+	};
+    key <AE06> {
+	[	   zcaron,		6	],
+	[		6,    asciicircum	]
+	};
+    key <AE07> {
+	[	   yacute,		7	],
+	[		7,      ampersand	]
+	};
+    key <AE08> {
+	[	   aacute,		8	],
+	[		8,       asterisk	]
+	};
+    key <AE09> {
+	[	   iacute,		9	],
+	[		9,      parenleft	]
+	};
+    key <AE10> {
+	[	   eacute,		0	],
+	[		0,     parenright	]
+	};
+    key <AE12> {
+	[      dead_acute,     dead_caron	],
+	[           equal,           plus	]
+	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "def_cz_us_prog" {
+    key <TLDE> {
+        [  dead_diaeresis,     semicolon        ],       
+	[           grave,     asciitilde	]
+	};
+    key <AE01> {
+	[	     plus,		1	],
+	[		1,	   exclam	]
+	};
+    key <AE02> {
+	[	   ecaron,		2	],
+	[		2,	       at	]
+	};
+    key <AE03> {
+	[	   scaron,		3	],
+	[		3,     numbersign	]
+	};
+    key <AE04> {
+	[	   ccaron,		4	],
+	[		4,	   dollar	]
+	};
+    key <AE05> {
+	[	   rcaron,		5	],
+	[		5,        percent	]
+	};
+    key <AE06> {
+	[	   zcaron,		6	],
+	[		6,    asciicircum	]
+	};
+    key <AE07> {
+	[	   yacute,		7	],
+	[		7,      ampersand	]
+	};
+    key <AE08> {
+	[	   aacute,		8	],
+	[		8,       asterisk	]
+	};
+    key <AE09> {
+	[	   iacute,		9	],
+	[		9,      parenleft	]
+	};
+    key <AE10> {
+	[	   eacute,		0	],
+	[		0,     parenright	]
+	};
+    key <AE12> {
+	[      dead_acute,     dead_caron	],
+	[           equal,           plus	]
+	};
+};

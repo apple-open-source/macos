@@ -938,7 +938,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireFamily version 1.7.2, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOFireWireFamily version 1.8.3, Copyright 2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -950,11 +950,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.2</string>
+	<string>1.8.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.2</string>
+	<string>1.8.3</string>
 	<key>CFPlugInFactories</key>
 	<dict>
 		<key>A1478010-F197-11D4-A28B-000502072F80</key>
@@ -1343,11 +1343,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -1356,8 +1352,13 @@
 			buildRules = (
 			);
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "\U0001-DIOFIREWIREDEBUG=1 -DIOFIREWIREUSERCLIENTDEBUG=1 -DIOFIREWIRELIBDEBUG=1 -DFIRELOG=0 -DFIRELOGCORE=0";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -1366,7 +1367,9 @@
 			buildRules = (
 			);
 			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				OTHER_CFLAGS = "\U0001-DIOFIREWIREDEBUG=0 -DIOFIREWIREUSERCLIENTDEBUG=0 -DIOFIREWIRELIBDEBUG=0 -DFIRELOG=0 -DFIRELOGCORE=0";
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -1375,11 +1378,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -1474,7 +1473,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 1.7.2;
+				MODULE_VERSION = 1.8.3;
 				OTHER_CFLAGS = "-DFIREWIREPRIVATE  -fno-exceptions";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1503,7 +1502,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireFamily version 1.7.2, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOFireWireFamily version 1.8.3, Copyright 2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1515,11 +1514,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.2</string>
+	<string>1.8.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.7.2</string>
+	<string>1.8.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireUserClient</key>

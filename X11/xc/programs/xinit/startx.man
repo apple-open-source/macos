@@ -1,0 +1,189 @@
+.\" $Xorg: startx.man,v 1.4 2001/02/09 02:05:49 xorgcvs Exp $
+.\" Copyright 1993, 1998  The Open Group
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\"
+.\" The above copyright notice and this permission notice shall be included
+.\" in all copies or substantial portions of the Software.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\"
+.\" Except as contained in this notice, the name of The Open Group shall
+.\" not be used in advertising or otherwise to promote the sale, use or
+.\" other dealings in this Software without prior written authorization
+.\" from The Open Group.
+.\"
+.\" $XFree86: xc/programs/xinit/startx.man,v 1.8 2001/12/14 20:01:56 dawes Exp $
+.\"
+.TH STARTX 1 __xorgversion__
+.SH NAME
+startx \- initialize an X session
+.SH SYNOPSIS
+.B startx
+[ [
+.I client
+]
+.I options
+\&\.\|.\|. ] [
+.B \-\^\-
+[
+.I server
+]
+.I options
+\&.\|.\|. ]
+.SH DESCRIPTION
+The \fIstartx\fP script is a front end to \fIxinit\fP that provides a
+somewhat nicer user interface for running a single session of the X
+Window System.  It is often run with no arguments.
+.PP
+Arguments immediately following the
+.I startx
+command are used to start a client in the same manner as
+.IR xinit (1).
+The special argument
+.RB '--'
+marks the end of client arguments and the beginning of server options.
+It may be convenient to specify server options with startx to change on a
+per-session basis the
+default color depth, the server's notion of the number of dots-per-inch the
+display device presents, or take advantage of a different server layout, as
+permitted by the
+.IR XFree86 (1)
+server and specified in the
+.IR XF86Config (__filemansuffix__)
+file.  Some examples of specifying server arguments follow; consult the
+manual page for your X server to determine which arguments are legal.
+.RS
+.PP
+startx -- -depth 16
+.PP
+startx -- -dpi 100
+.PP
+startx -- -layout Multihead
+.RE
+.PP
+To determine the client to run,
+.I startx
+first looks for a file called
+.I .xinitrc
+in the user's home directory.  If that is not found, it uses
+the file
+.I xinitrc
+in the
+.I xinit
+library directory.
+If command line client options are given, they override this
+behavior and revert to the
+.IR xinit (1)
+behavior.
+To determine the server to run,
+.I startx
+first looks for a file called
+.I .xserverrc
+in the user's home directory.  If that is not found, it uses
+the file
+.I xserverrc
+in the
+.I xinit
+library directory.
+If command line server options are given, they override this
+behavior and revert to the
+.IR xinit (1)
+behavior.  Users rarely need to provide a
+.I .xserverrc
+file.
+See the
+.IR xinit (1)
+manual page for more details on the arguments.
+.PP
+The system-wide
+.I xinitrc
+and
+.I xserverrc
+files are found in the
+.I __xinitdir__
+directory.
+.PP
+The
+.I .xinitrc
+is typically a shell script which starts many clients according to the
+user's preference.  When this shell script exits,
+.I startx
+kills the server and performs any other session shutdown needed.
+Most of the clients started by
+.I .xinitrc
+should be run in the background.  The last client should run in the
+foreground; when it exits, the session will exit.  People often choose
+a session manager, window manager, or \fIxterm\fP as the ''magic'' client.
+.SH EXAMPLE
+.PP
+Below is a sample \fI\.xinitrc\fP that starts several applications and
+leaves the window manager running as the ''last'' application.  Assuming that
+the window manager has been configured properly, the user
+then chooses the ''Exit'' menu item to shut down X.
+.sp
+.in +4
+.nf
+xrdb \-load $HOME/.Xresources
+xsetroot \-solid gray &
+xbiff \-geometry \-430+5 &
+oclock \-geometry 75x75\-0\-0 &
+xload \-geometry \-80\-0 &
+xterm \-geometry +0+60 \-ls &
+xterm \-geometry +0\-100 &
+xconsole \-geometry \-0+0 \-fn 5x7 &
+exec twm
+.fi
+.in -4
+.SH "ENVIRONMENT VARIABLES"
+.TP 25
+DISPLAY
+This variable gets set to the name of the display to which clients should
+connect.  Note that this gets
+.IR set ,
+not read.
+.TP 25
+XAUTHORITY
+This variable, if not already defined, gets set to
+.IR $(HOME)/.Xauthority .
+This is to prevent the X server, if not given the
+.I \-auth
+argument, from automatically setting up insecure host-based authentication
+for the local host.  See the
+.IR Xserver (1)
+and
+.IR Xsecurity (__miscmansuffix__)
+manual pages for more information on X client/server authentication.
+.SH FILES
+.TP 25
+.I $(HOME)/.xinitrc
+Client to run.  Typically a shell script which runs many programs in
+the background.
+.TP 25
+.I $(HOME)/.xserverrc
+Server to run.  The default is
+.IR X .
+.TP 25
+.I __xinitdir__/xinitrc
+Client to run if the user has no
+.I .xinitrc
+file.
+.TP 25
+.I __xinitdir__/xserverrc
+Server to run if the user has no
+.I .xserverrc
+file.
+.SH "SEE ALSO"
+.IR xinit (1),
+.IR Xserver (1),
+.IR XFree86 (1)

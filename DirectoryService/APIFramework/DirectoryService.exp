@@ -87,3 +87,4 @@ _dsAllocAttributeValueEntry
 _dsDeallocAttributeValueEntry
 _dsDeallocAttributeEntry
 _dsDeallocRecordEntry
+_dsParseAuthAuthority

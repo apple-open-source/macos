@@ -1,0 +1,80 @@
+XCOMM $XFree86: xc/config/cf/Server.tmpl,v 3.20 2002/11/20 04:32:55 dawes Exp $
+/*
+ * Server imakefile info  - this contains any special redefinitions, etc.
+ * that Imakefiles in the server subtree will need.
+ */
+
+XCOMM $Xorg: Server.tmpl,v 1.3 2000/08/17 19:41:46 cpqbld Exp $
+
+#define PassCDebugFlags CDEBUGFLAGS="$(CDEBUGFLAGS)" LDSTRIPFLAGS="$(LDSTRIPFLAGS)"
+
+#ifndef ServerCcCmd
+#define ServerCcCmd CcCmd
+#endif
+#ifndef ServerCCOptions
+#define ServerCCOptions DefaultCCOptions
+#endif
+#ifndef ServerDefines
+#define ServerDefines StandardDefines
+#endif
+/* Note: Changing ServerCDebugFlags has no effect because CDEBUGFLAGS is over-
+   ridden by PassCDebugFlags in the parent Makefile or toplevel xmakefile. */
+#ifndef ServerCDebugFlags
+#define ServerCDebugFlags DefaultCDebugFlags
+#endif
+#ifndef DoThreadedServer
+#define DoThreadedServer NO
+#endif
+#ifndef InstallServerSetUID
+#define InstallServerSetUID NO
+#endif
+
+#ifdef CrossCompileDir
+# ifndef StripPath
+#  define StripPath(x) `echo x|sed "s%.*/%%"`
+# endif
+# ifndef CrossServerCcCmd
+#  define CrossServerCcCmd Concat3(CrossCompileDir,/,StripPath(ServerCcCmd))
+# endif
+#endif
+
+/*
+ * SetUIDServerTarget - compile, link, and relink a setuid server
+ */
+#ifndef SetUIDServerTarget
+#if InstallServerSetUID
+#define	SetUIDServerTarget(server,subdirs,objects,libs,syslibs)		@@\
+ServerTargetWithFlags(server,subdirs,objects,libs,syslibs,$(INSTUIDFLAGS))
+#else
+#define	SetUIDServerTarget ServerTarget
+#endif
+#endif /* SetUIDServerTarget */
+
+#ifdef CrossCompileDir
+         CC = CrossServerCcCmd
+#else
+         CC = ServerCcCmd
+#endif
+  CCOPTIONS = ServerCCOptions
+#if DoThreadedServer
+SERVER_THREAD_DEFINES = XThreadsDefines ThreadTypeDefines
+#endif
+STD_DEFINES = ServerDefines $(SERVER_THREAD_DEFINES)
+CDEBUGFLAGS = ServerCDebugFlags
+EXT_DEFINES = ExtensionDefines
+OS_DEFINES  = ServerOSDefines
+
+GLX_DEFINES = GlxDefines
+ 
+#ifndef GlxStaticServerLib
+#ifndef GlxStubLib
+#define GlxStubLib    NO
+#endif
+#endif
+#ifndef GlxUseSGISI
+#define GlxUseSGISI   NO
+#endif
+
+#ifdef XFree86Version
+#include <xf86.tmpl>
+#endif

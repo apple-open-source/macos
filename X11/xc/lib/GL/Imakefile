@@ -1,0 +1,119 @@
+XCOMM $XFree86: xc/lib/GL/Imakefile,v 1.41 2002/11/22 22:55:57 tsi Exp $
+
+XCOMM
+XCOMM Imake tokens which are significant to building libGL:
+XCOMM
+XCOMM BuildGLXLibrary - if defined, build libs in xc/lib/GL and xc/lib/GLw
+XCOMM
+XCOMM BuildXF86DRI - if defined, build libGL with DRI capability
+XCOMM
+XCOMM Only zero or one of the following can be defined at once:
+XCOMM GlxBuiltInGamma - if defined, build gamma_dri.so driver into libGL
+XCOMM GlxBuiltInTdfx - if defined, build tdfx_dri.so driver into libGL
+XCOMM GlxBuiltInMga - if defined, build mga_dri.so driver into libGL
+XCOMM GlxBuiltInI810 - if defined, build i810_dri.so driver into libGL
+XCOMM GlxBuiltInR128 - if defined, build r128_dri.so driver into libGL
+XCOMM GlxBuiltInRadeon - if defined, build radeon_dri.so driver into libGL
+XCOMM GlxBuiltInR200 - if defined, build r200_dri.so driver into libGL
+XCOMM GlxBuiltInFfb - if defined, build ffb_dri.so driver into libGL
+XCOMM GlxBuiltInSIS - if defined, build sis_dri.so driver into libGL
+XCOMM
+XCOMM GlxUseBuiltInDRIDriver - automatically defined if any of the
+XCOMM   GlxBuiltIn[Gamma,Tdfx,Mga,I810,R128,Radeon,R200,Ffb,SIS] tokens is
+XCOMM   defined
+XCOMM
+XCOMM GlxBuiltInXMesa - if defined, build XMesa (Xlib Mesa driver) into libGL
+XCOMM   to enable rendering to displays that lack the GLX extension.
+XCOMM
+XCOMM GlxDriverUsesMesa - will be defined if building a DRI driver into
+XCOMM   libGL and it uses Mesa.
+XCOMM
+XCOMM GlxUseSGISI - if defined, use the SGI OpenGL Sample Implementation
+XCOMM   to build the GLX server extension (not fully implemented yet).
+XCOMM
+XCOMM NormalLibGlx - if defined, build static libGL.a library
+XCOMM
+XCOMM SharedLibGlx - if defined, build dynamic libGL.so library
+XCOMM
+XCOMM DebugLibGlx - if defined, build libGL with debug info
+XCOMM
+XCOMM ProfileLibGlx - if defined, build libGL with profiling info
+XCOMM
+XCOMM SharedGlxRev - dynamic library version, currently defined to be "1.2"
+XCOMM
+XCOMM GlxSoProf - if defined, build dynamic libGL for profiling with soprof
+XCOMM
+XCOMM GlxStubLib - purpose???
+XCOMM
+XCOMM
+XCOMM Server-side tokens:
+XCOMM    BuildGlxExt 
+XCOMM    GlxUseSGISI
+
+
+
+#include <Threads.tmpl>
+
+#define IHaveSubdirs
+
+#define PassCDebugFlags
+
+LIBGLBUILDDIR = GL
+      GLXDIRS = glx
+
+/*
+ * Need to build the Mesa + XMesa source in the following cases:
+ *   BuildXF86DRI && defined(DriDrivers)
+ *   GlxDriverUsesMesa
+ *   GlxBuiltInXMesa
+ *   BuildOSMesaLib
+ */
+#if BuildOSMesaLib || \
+    (BuildXF86DRI && \
+     (defined(DriDrivers) || GlxDriverUsesMesa || GlxBuiltInXMesa))
+     MESADIRS = mesa/src
+#endif
+
+/*
+ * Only need the OSmesa code in the following case:
+ *   BuildOSMesaLib
+ */
+#if BuildOSMesaLib
+   OSMESADIRS = mesa/src/OSmesa
+#endif
+
+/*
+ * Need to build the DRI code in the following cases:
+ *   BuildXF86DRI
+ */
+#if BuildXF86DRI
+      DRIDIRS = dri
+#endif
+
+/*
+ * Need to build the DRI drivers in the following cases:
+ *   BuildXF86DRI && defined(DriDrivers)
+ */
+#if BuildXF86DRI && defined(DriDrivers)
+   DRIVERDIRS = mesa/src/drv
+#endif
+
+#if XAppleServer
+      DRIDIRS = apple
+#endif
+
+/*
+ * The build order depends on whether the drivers are loaded into libGL or
+ * built-in to libGL.  In the former case, libGL needs to be built before
+ * the drivers, and in the latter case, it needs to be built after the driver.
+ */
+#if BuildXF86DRI && GlxUseBuiltInDRIDriver
+SUBDIRS = $(MESADIRS) $(DRIDIRS) $(DRIVERDIRS) $(GLXDIRS) $(LIBGLBUILDDIR) $(OSMESADIRS)
+#else
+SUBDIRS = $(MESADIRS) $(GLXDIRS) $(DRIDIRS) $(LIBGLBUILDDIR) $(OSMESADIRS) $(DRIVERDIRS)
+#endif
+
+MakeSubdirs($(SUBDIRS))
+
+DependSubdirs($(SUBDIRS))
+

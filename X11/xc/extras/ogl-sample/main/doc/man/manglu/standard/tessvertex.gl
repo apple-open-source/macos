@@ -1,0 +1,112 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ $Date$ $Revision$
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(TessVertex, specify a vertex on a polygon)
+_names(TessVertex)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies the tessellation object (created with _cmnd(NewTess)).
+_phead(_param2)
+Specifies the location of the vertex.
+_phead(_param3)
+Specifies an opaque pointer passed back to the program with the vertex callback
+(as specified by _cmnd(TessCallback)).
+.SH DESCRIPTION
+_cmnd describes a vertex on a polygon that the program defines. Successive
+_cmnd calls describe a closed contour. For example, 
+to describe a quadrilateral _cmnd should be called four times.
+_cmnd can only be called between _cmnd(TessBeginContour) and 
+_cmnd(TessEndContour).
+.P
+_param3 normally points to a structure containing the vertex
+location, as well as other per-vertex attributes such as color and normal.
+This pointer is passed back to the user through the _gluconst(TESS_VERTEX)
+or _gluconst(TESS_VERTEX_DATA) callback after tessellation 
+(see the _cmnd(TessCallback) reference page).
+.SH EXAMPLE
+A quadrilateral with a triangular hole in it can be described as follows:
+.sp
+.Ex
+gluTessBeginPolygon(tobj, NULL);
+ gluTessBeginContour(tobj);
+   gluTessVertex(tobj, v1, v1);
+   gluTessVertex(tobj, v2, v2);
+   gluTessVertex(tobj, v3, v3);
+   gluTessVertex(tobj, v4, v4);
+ gluTessEndContour(tobj);
+ gluTessBeginContour(tobj);
+   gluTessVertex(tobj, v5, v5);
+   gluTessVertex(tobj, v6, v6);
+   gluTessVertex(tobj, v7, v7);
+ gluTessEndContour(tobj);
+gluTessEndPolygon(tobj);
+.Ee
+.sp
+.SH NOTES
+It is a common error to use a local variable for _param2 or _param3 and store
+values into it as part of a loop.
+For example:
+.Ex
+for (i = 0; i < NVERTICES; ++i) {
+  GLdouble data[3];
+  data[0] = vertex[i][0];
+  data[1] = vertex[i][1];
+  data[2] = vertex[i][2];
+  gluTessVertex(tobj, data, data);
+  }
+.Ee
+.P
+This doesn't work.
+Because the pointers specified by _param2 and _param3 might not be 
+dereferenced until _cmnd(TessEndPolygon) is executed,
+all the vertex coordinates but the very last set could be overwritten
+before tessellation begins.
+.P
+Two common symptoms of this problem are consists of a single point
+(when a local variable is used for _param3) and a
+_gluconst(TESS_NEED_COMBINE_CALLBACK) error (when a local variable is
+used for _param2).
+.SH SEE ALSO
+_cmnd(TessBeginPolygon), _cmnd(NewTess), _cmnd(TessBeginContour), 
+_cmnd(TessCallback), 
+_cmnd(TessProperty), _cmnd(TessNormal),
+_cmnd(TessEndPolygon)
+
+

@@ -1,0 +1,32 @@
+Ajuda per a la llista de correus %(listname)s :
+
+Això és 'email command help' per la versió %(version)s del gestionador de llista "Mailman".
+El següent descriu ordres que pot enviar per rebre'n informació i controlar la seva subscripció
+a les llistes Mailman en aquest lloc. Una ordre pot estar en el títol o en el cos del missatge.
+
+
+
+Fixi's que gran part d'això es pot fer via 'worl wide web' a:
+
+
+    %(listinfo_url)s
+
+En concret, pot usar la web per enviar la seva clau de pas a la seva adreça.
+
+Les ordres específiques de la llista (subscriure's, qui, etc) hauran de ser enviades a
+
+*-adreça de petició per a la llista en particular, per exemple, per a la llista Mailman,
+usi 'mailman-request@...'.
+
+Sobre les descripcions - les paraules escrites entre "<>"s signifiquen ítems SOLICITATS i les 
+paraules escrites entre "[]"s denoten ítems OPCIONALS. No inclogui els signes "<>"s o "[]"s quan usi les ordres.
+
+Les següents ordres són vàlides:
+
+    %(commands)s
+
+Les ordres haurien de ser enviades a %(requestaddr)s
+
+Les Preguntes y preocupacions per l'atenció d'una persona hauran de ser enviades a
+
+    %(adminaddr)s

@@ -77,8 +77,7 @@
 
 #define RFC_2782
 
-#define DNS_BUFFER_SIZE 8192
-#define DNS_BASE_64_BUFFER_SIZE 11432
+#define DNS_DEFAULT_BUFFER_SIZE 8192
 
 #define IP6_DNS_ZONE "ip6.arpa."
 
@@ -413,13 +412,20 @@ precsize_ntoa(u_int8_t prec)
 
 - (LUAgent *)initWithArg:(char *)arg
 {
+	LUDictionary *config;
+
 	[super initWithArg:arg];
+
+	config = [configManager configForAgent:"DNSAgent" fromConfig:[configManager config]];
+	buffersize = [configManager intForKey:"BufferSize" dict:config default:DNS_DEFAULT_BUFFER_SIZE];
 
 	syslock_lock(rpcLock);
 	/* DNS API */
 	__dns_open_notify();
 	dns = dns_open(NULL);
 	syslock_unlock(rpcLock);
+
+	dns_set_buffer_size(dns, buffersize);
 
 	if (dns == NULL)
 	{
@@ -1285,12 +1291,12 @@ precsize_ntoa(u_int8_t prec)
 {
 	LUDictionary *item;
 	char *name, *cclass, *ctype, *proxy;
-	char buf[DNS_BUFFER_SIZE], b64[DNS_BASE_64_BUFFER_SIZE];
+	char *buf, *b64;
 	u_int16_t class, type;
 	int32_t test;
 	struct sockaddr *from;
 	u_int32_t do_search, fromlen, offset;
-	int32_t len;
+	int32_t len, b64len;
 
 	name = [dict valueForKey:"name"];
 	if (name == NULL) return NO;
@@ -1308,27 +1314,33 @@ precsize_ntoa(u_int8_t prec)
 	fromlen = sizeof(struct sockaddr_storage);
 	from = (struct sockaddr *)calloc(1, fromlen);
 
+	buf = calloc(1, buffersize);
+
 	len = -1;
 	if (do_search == 0)
 	{
-		len = dns_query(dns, name, class, type, buf, DNS_BUFFER_SIZE, from, &fromlen);
+		len = dns_query(dns, name, class, type, buf, buffersize, from, &fromlen);
 	}
 	else
 	{
-		len = dns_search(dns, name, class, type, buf, DNS_BUFFER_SIZE, from, &fromlen);
+		len = dns_search(dns, name, class, type, buf, buffersize, from, &fromlen);
 	}
 
 	if (len < 0)
 	{
 		free(from);
+		free(buf);
 		return NO;
 	}
 
 	proxy = [dict valueForKey:"proxy_id"];
 
 	item = [[LUDictionary alloc] initTimeStamped];
-	
-	test = b64_ntop(buf, len, b64, DNS_BASE_64_BUFFER_SIZE);
+
+	b64len = 2 * buffersize;
+	b64 = calloc(1, b64len);
+
+	test = b64_ntop(buf, len, b64, b64len);
 
 	if (proxy != NULL) [item setValue:proxy forKey:"proxy_id"];
 	[item setValue:name forKey:"name"];
@@ -1338,17 +1350,18 @@ precsize_ntoa(u_int8_t prec)
 
 	offset = 4;
 	if (from->sa_family == AF_INET6) offset = 8;
-	inet_ntop(from->sa_family, (char *)(from) + offset, buf, DNS_BUFFER_SIZE);
+	inet_ntop(from->sa_family, (char *)(from) + offset, buf, buffersize);
 	free(from);
 
 	[item setValue:buf forKey:"server"];
 
 #ifdef DEBUG
 	{
-		char d_buf[DNS_BUFFER_SIZE];
+		char *d_buf;
 		dns_reply_t *d_r;
 
-		test = b64_pton(b64, d_buf, DNS_BUFFER_SIZE);
+		d_buf = calloc(1, buffersize);
+		test = b64_pton(b64, d_buf, buffersize);
 		if (test < 0) 
 		{
 			fprintf(stderr, "b64_pton failed!\n");
@@ -1366,9 +1379,13 @@ precsize_ntoa(u_int8_t prec)
 				dns_free_reply(d_r);
 			}
 		}
+
+		free(d_buf);
 	}
 #endif
 
+	free(buf);
+	free(b64);
 	return item;
 }
 

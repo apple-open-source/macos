@@ -1,0 +1,71 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/xaa/Imakefile,v 3.42 2000/09/20 02:05:41 keithp Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#define IHaveSubdirs
+
+EXPSRCS = lsb_first/?*.c msb_first/?*.c lsb_fixed/?*.c msb_fixed/?*.c
+
+EXPOBJS = lsb_first/lsb_first.o msb_first/msb_first.o \
+	lsb_fixed/lsb_fixed.o msb_fixed/msb_fixed.o 
+
+#if BuildRender
+PICTSRCS = xaaPict.c
+PICTOBJS = xaaPict.o
+#endif
+
+GENSRCS = xaaInit.c xaaGC.c xaaInitAccel.c xaaFallback.c xaaBitBlt.c \
+	xaaCpyArea.c xaaGCmisc.c xaaCpyWin.c xaaCpyPlane.c xaaFillRect.c \
+	xaaTEText.c xaaNonTEText.c xaaPCache.c xaaSpans.c xaaROP.c \
+	xaaImage.c xaaPaintWin.c xaaRect.c xaaLineMisc.c xaaBitOrder.c \
+	xaaFillPoly.c xaaWideLine.c xaaTables.c xaaFillArc.c xaaLine.c \
+	xaaSeg.c xaaDashLine.c xaaDashSeg.c xaaOverlay.c xaaOffscreen.c \
+	xaaOverlayDF.c xaaStateChange.c $(PICTSRCS)
+
+GENOBJS = xaaInit.o xaaGC.o xaaInitAccel.o xaaFallback.o xaaBitBlt.o \
+	xaaCpyArea.o xaaGCmisc.o xaaCpyWin.o xaaCpyPlane.o xaaFillRect.o \
+	xaaTEText.o xaaNonTEText.o xaaPCache.o xaaSpans.o xaaROP.o \
+	xaaImage.o xaaPaintWin.o xaaRect.o xaaLineMisc.o xaaBitOrder.o \
+	xaaFillPoly.o xaaWideLine.o xaaTables.o xaaFillArc.o xaaLine.o \
+	xaaSeg.o xaaDashLine.o xaaDashSeg.o xaaOverlay.o xaaOffscreen.o \
+	xaaOverlayDF.o xaaStateChange.o $(PICTOBJS)
+
+SRCS = $(GENSRCS)
+OBJS = $(GENOBJS) 
+
+SUBDIRS = lsb_first msb_first lsb_fixed msb_fixed
+
+DONES = lsb_first/DONE msb_first/DONE lsb_fixed/DONE msb_fixed/DONE
+
+INCLUDES = -I$(XF86COMSRC) -I$(XF86OSSRC) -I$(EXTINCSRC) \
+           -I$(SERVERSRC)/cfb -I$(SERVERSRC)/mfb -I$(SERVERSRC)/mi \
+	   -I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(FONTINCSRC) \
+	   -I$(SERVERSRC)/Xext -I$(SERVERSRC)/render
+
+ModuleObjectRule()
+
+#if HasParallelMake
+MakeMutex($(SUBDIRS) $(EXPOBJS) $(DONES))
+#endif  
+
+ObjectFromSpecialSource(xaaSeg, xaaLine, -DPOLYSEGMENT)
+ObjectFromSpecialSource(xaaDashSeg, xaaDashLine, -DPOLYSEGMENT)
+
+DepLibraryModuleTarget(xaa, $(OBJS) $(SUBDIRS) $(DONES), $(OBJS) $(EXPOBJS))
+
+InstallLibraryModule(xaa,$(MODULEDIR),.)
+
+DependTarget()
+
+
+ForceSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+
+
+InstallDriverSDKLibraryModule(xaa,$(DRIVERSDKMODULEDIR),.)
+
+InstallDriverSDKNonExecFile(xaa.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xaalocal.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xaarop.h,$(DRIVERSDKINCLUDEDIR))
+

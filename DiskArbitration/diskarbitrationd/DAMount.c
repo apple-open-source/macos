@@ -375,7 +375,10 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
                         }
                     }
 
-                    break;
+                    if ( mountpoint )
+                    {
+                        break;
+                    }
                 }
             }
         }

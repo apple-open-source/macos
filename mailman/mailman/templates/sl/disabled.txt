@@ -1,0 +1,23 @@
+Va¹a naroènina na po¹tni seznam %(listname)s je bila onemogoèena
+zaradi %(reason)s. S tega seznama ne boste prejeli veè sporoèil,
+dokler si ponovno ne vkljuèite èlanstva. Preden bo va¹e èlanstvo
+na seznamu izbrisano, boste prejeli ¹e %(noticesleft)s takih opomnikov.
+
+Za ponovni vklop èlanstva odgovorite na to sporoèilo (in pustite
+Zadevo nespremenjeno) ali obi¹èite stran
+
+    %(confirmurl)s
+
+Obi¹èete lahko tudi stran za èlanstva na naslovu
+
+    %(optionsurl)s
+
+Na tej strani lahko spreminjate razne nastavitve prejemanja
+sporoèil, npr. e-po¹tni naslov in prejemanje dnevnega izvleèka.
+Va¹e geslo je
+
+    %(password)s
+
+Za vpra¹anja ali te¾ave se obrnite na skrbnika seznama na naslovu
+
+    %(owneraddr)s

@@ -1,0 +1,55 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/linux/int10/vm86/Imakefile,v 1.1 2002/09/18 08:54:55 eich Exp $
+
+#define IHaveModules
+
+#include <Server.tmpl>
+
+SRCS1 = linux_vm86.c helper_exec.c xf86int10.c 
+OBJS1 = linux_vm86.o helper_exec.o xf86int10.o 
+
+#if  defined(DoLoadableServer) && defined(Int10SubLibs)
+SUBMODSRCS = xf86vm86module.c
+SUBMODOBJS = xf86vm86module.o 
+#endif
+
+OBJS = $(SUBMODOBJS) $(OBJS1)
+SRCS = $(SUBMODSRCS) $(SRCS1)
+
+LinkSourceFile(helper_exec.c,$(XF86SRC)/int10)
+LinkSourceFile(xf86int10.c,$(XF86SRC)/int10)
+LinkFile(xf86vm86module.c,$(XF86SRC)/int10/xf86int10module.c)
+
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86SRC)/int10 \
+           -I$(XF86OSSRC) \
+           -I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(X86EMUINCLUDES)
+
+DEFINES=-DHAVE_SYSV_IPC $(X86EMUDEFINES) $(EXTRADEFINES)
+
+#if defined(i386Architecture) || defined (x86_64Architecture)
+EXTRADEFINES=-D_PC
+#endif
+
+SpecialObjectRule(xf86vm86module.o, xf86vm86module.c, -DMOD_NAME=vm86)
+SpecialObjectRule(helper_exec.o, helper_exec.c, -D_VM86_LINUX)
+SpecialObjectRule(xf86int10.o, xf86int10.c, -D_VM86_LINUX -DSHOW_ALL_DEVICES)
+SpecialObjectRule(linux_vm86.o, linux_vm86.c, -D_VM86_LINUX)
+
+ModuleObjectRule()
+
+#if  defined(DoLoadableServer) && defined(Int10SubLibs)
+LibraryModuleTarget(vm86, $(OBJS))
+InstallLibraryModule(vm86,$(MODULEDIR),linux)
+
+all::
+	(set -x; cd ../..; \
+	RemoveFile(LibraryTargetName(vm86)); \
+	$(LN) linux/int10/vm86/LibraryTargetName(vm86) . )
+
+InstallDriverSDKLibraryModule(vm86,$(DRIVERSDKMODULEDIR),.)
+#else
+SubdirLibraryRule($(OBJS))
+#endif
+
+DependTarget()
+

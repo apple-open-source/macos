@@ -1,0 +1,17 @@
+El seu mail a '%(listname)s' amb el títol
+
+    %(subject)s
+
+
+Està sent retingut fins que el moderador de la llista el pugui revisar per tal d'aprobar-lo.
+
+La raó per la qual està sent retingut:
+
+    %(reason)s
+
+Tant si el missatge és finalment enviat a la llista com si no,  rebrà una 
+notificació de la decisió del moderador. Si vostè volgués cancel.lar
+aquest missatge, si us plau visiti la següent URL:
+
+
+    %(confirmurl)s

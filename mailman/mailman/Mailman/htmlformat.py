@@ -323,7 +323,7 @@ class Document(Container):
             if mm_cfg.WEB_ALINK_COLOR:
                 kws.setdefault('alink', mm_cfg.WEB_ALINK_COLOR)
             if mm_cfg.WEB_LINK_COLOR:
-                kws.setdefault('alink', mm_cfg.WEB_LINK_COLOR)
+                kws.setdefault('link', mm_cfg.WEB_LINK_COLOR)
             for k, v in kws.items():
                 quals.append('%s="%s"' % (k, v))
             output.append('%s<BODY %s>' % (tab, SPACE.join(quals)))

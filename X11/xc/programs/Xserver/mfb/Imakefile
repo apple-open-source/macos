@@ -1,0 +1,172 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:53:32 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/mfb/Imakefile,v 3.17 2002/06/02 01:21:17 dawes Exp $
+
+#if DoLoadableServer
+#if !BuildModuleInSubdir
+#define IHaveModules
+#elif !defined(IHaveModules)
+#define IHaveSubdirs
+SUBDIRS = module
+#endif
+#endif
+
+#include <Server.tmpl>
+
+#if defined(IHaveModules)
+XF86INCL = -I$(XF86COMSRC) -I$(XF86SRC)
+XFMODSRC = mfbmodule.c
+XFMODOBJ = mfbmodule.o
+#endif
+
+#if BuildLowMem
+DEFINES=-ULOWMEMFTPT
+#endif
+
+SRCS1 =	 mfbgc.c mfbwindow.c mfbfont.c \
+	 mfbfillrct.c mfbpntwin.c maskbits.c mfbpixmap.c \
+	 mfbimage.c mfbline.c mfbbres.c mfbhrzvert.c mfbbresd.c \
+	 mfbpushpxl.c mfbzerarc.c mfbfillarc.c \
+         mfbfillsp.c mfbsetsp.c mfbscrinit.c mfbscrclse.c mfbclip.c \
+         mfbbitblt.c mfbgetsp.c mfbpolypnt.c \
+	 mfbbltC.c mfbbltX.c mfbbltCI.c mfbbltO.c mfbbltG.c \
+	 mfbcmap.c mfbtileC.c mfbtileG.c mfbmisc.c mfbbstore.c $(XFMODSRC)
+
+SRCS =	 $(SRCS1) mfbseg.c mfbpgbwht.c mfbpgbblak.c mfbpgbinv.c mfbigbwht.c \
+	 mfbigbblak.c mfbpawhite.c mfbpablack.c mfbpainv.c mfbtewhite.c \
+	 mfbteblack.c mfbbltC.c mfbbltX.c mfbbltCI.c mfbbltO.c mfbbltG.c \
+	 mfbtileC.c mfbtileG.c mfbplywhite.c mfbplyblack.c mfbplyinv.c
+
+OBJS =   mfbgc.o mfbwindow.o mfbfont.o \
+	 mfbfillrct.o mfbpntwin.o maskbits.o mfbpixmap.o \
+	 mfbimage.o mfbline.o mfbbres.o mfbhrzvert.o mfbbresd.o mfbseg.o \
+	 mfbpushpxl.o mfbzerarc.o mfbfillarc.o \
+	 mfbfillsp.o mfbsetsp.o mfbscrinit.o mfbscrclse.o mfbclip.o \
+         mfbbitblt.o mfbgetsp.o mfbpolypnt.o \
+	 mfbbltC.o mfbbltX.o mfbbltCI.o mfbbltO.o mfbbltG.o \
+	 mfbpgbwht.o mfbpgbblak.o mfbpgbinv.o \
+	 mfbigbwht.o mfbigbblak.o mfbcmap.o \
+	 mfbpawhite.o mfbpablack.o mfbpainv.o mfbtileC.o mfbtileG.o \
+         mfbtewhite.o mfbteblack.o mfbmisc.o mfbbstore.o \
+         mfbplywhite.o mfbplyblack.o mfbplyinv.o $(XFMODOBJ)
+
+INCLUDES = -I$(SERVERSRC)/mfb -I$(SERVERSRC)/mi -I$(SERVERSRC)/include \
+	   -I$(XINCLUDESRC) -I$(FONTINCSRC) $(XF86INCL)
+LINTDEFS = -DMFBPOLYGLYPHBLT=mfbPolyGlyphBltWhite \
+	   -DMFBIMAGEGLYPHBLT=mfbImageGlyphBltWhite \
+	   -DEQWHOLEWORD=MFB_EQWHOLEWORD_WHITE -DOPEQ=MFB_OPEQ_WHITE
+
+LINTLIBS = $(SERVERSRC)/dix/llib-ldix.ln $(SERVERSRC)/os/llib-los.ln \
+	   $(SERVERSRC)/mi/llib-lmi.ln
+
+#ifdef IHaveModules
+ModuleObjectRule()
+LibraryModuleTarget(mfb,$(OBJS))
+#else
+NormalLibraryObjectRule()
+NormalLibraryTarget(mfb,$(OBJS))
+#endif
+
+LintLibraryTarget(mfb,$(SRCS1))
+NormalLintTarget($(LINTDEFS) $(SRCS1))
+
+ObjectFromSpecialSource(mfbseg,mfbline,-DPOLYSEGMENT)
+
+ObjectFromSpecialSource(mfbpgbwht,mfbplygblt,-DMFBPOLYGLYPHBLT=mfbPolyGlyphBltWhite -DOPEQ=MFB_OPEQ_WHITE)
+
+ObjectFromSpecialSource(mfbpgbblak,mfbplygblt,-DMFBPOLYGLYPHBLT=mfbPolyGlyphBltBlack -DOPEQ=MFB_OPEQ_BLACK)
+
+ObjectFromSpecialSource(mfbpgbinv,mfbplygblt,-DMFBPOLYGLYPHBLT=mfbPolyGlyphBltInvert -DOPEQ=MFB_OPEQ_INVERT)
+
+ObjectFromSpecialSource(mfbigbwht,mfbimggblt,-DMFBIMAGEGLYPHBLT=mfbImageGlyphBltWhite -DOPEQ=MFB_OPEQ_WHITE)
+
+ObjectFromSpecialSource(mfbigbblak,mfbimggblt,-DMFBIMAGEGLYPHBLT=mfbImageGlyphBltBlack -DOPEQ=MFB_OPEQ_BLACK)
+
+ObjectFromSpecialSource(mfbpawhite,mfbpntarea,-DMFBSOLIDFILLAREA=mfbSolidWhiteArea -DMFBSTIPPLEFILLAREA=mfbStippleWhiteArea -DOPEQ=MFB_OPEQ_WHITE -DEQWHOLEWORD=MFB_EQWHOLEWORD_WHITE)
+
+ObjectFromSpecialSource(mfbpablack,mfbpntarea,-DMFBSOLIDFILLAREA=mfbSolidBlackArea -DMFBSTIPPLEFILLAREA=mfbStippleBlackArea -DOPEQ=MFB_OPEQ_BLACK -DEQWHOLEWORD=MFB_EQWHOLEWORD_BLACK)
+
+ObjectFromSpecialSource(mfbpainv,mfbpntarea,-DMFBSOLIDFILLAREA=mfbSolidInvertArea -DMFBSTIPPLEFILLAREA=mfbStippleInvertArea -DOPEQ=MFB_OPEQ_INVERT -DEQWHOLEWORD=MFB_EQWHOLEWORD_INVERT)
+
+ObjectFromSpecialSource(mfbtewhite,mfbtegblt,-DMFBTEGLYPHBLT=mfbTEGlyphBltWhite -DOP=MFB_OP_WHITE -DCLIPTETEXT=mfbImageGlyphBltWhite)
+
+ObjectFromSpecialSource(mfbteblack,mfbtegblt,-DMFBTEGLYPHBLT=mfbTEGlyphBltBlack -DOP=MFB_OP_BLACK -DCLIPTETEXT=mfbImageGlyphBltBlack)
+
+ObjectFromSpecialSource(mfbplywhite,mfbply1rct,-DMFBFILLPOLY1RECT=mfbFillPolyWhite -DOPEQ=MFB_OPEQ_WHITE -DEQWHOLEWORD=MFB_EQWHOLEWORD_WHITE)
+
+ObjectFromSpecialSource(mfbplyblack,mfbply1rct,-DMFBFILLPOLY1RECT=mfbFillPolyBlack -DOPEQ=MFB_OPEQ_BLACK -DEQWHOLEWORD=MFB_EQWHOLEWORD_BLACK)
+
+ObjectFromSpecialSource(mfbplyinv,mfbply1rct,-DMFBFILLPOLY1RECT=mfbFillPolyInvert -DOPEQ=MFB_OPEQ_INVERT -DEQWHOLEWORD=MFB_EQWHOLEWORD_INVERT)
+
+ObjectFromSpecialSource(mfbbltC,mfbblt,-DMROP=Mcopy)
+
+ObjectFromSpecialSource(mfbbltX,mfbblt,-DMROP=Mxor)
+
+ObjectFromSpecialSource(mfbbltCI,mfbblt,-DMROP=McopyInverted)
+
+ObjectFromSpecialSource(mfbbltO,mfbblt,-DMROP=Mor)
+
+ObjectFromSpecialSource(mfbbltG,mfbblt,-DMROP=0)
+
+ObjectFromSpecialSource(mfbtileC,mfbtile,-DMROP=Mcopy)
+
+ObjectFromSpecialSource(mfbtileG,mfbtile,-DMROP=0)
+
+SpecialCObjectRule(mfbpixmap,$(ICONFIGFILES),$(_NOOP_))
+
+#ifdef IHaveModules
+InstallLibraryModule(mfb,$(MODULEDIR),.)
+#endif
+
+DependTarget()
+
+#ifdef IHaveSubdirs
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif
+
+InstallDriverSDKLibraryModule(mfb,$(DRIVERSDKMODULEDIR),.)
+
+InstallDriverSDKNonExecFile(mfb.h,$(DRIVERSDKINCLUDEDIR))
+
+
+#ifdef LinkDirectory
+LinkSourceFile(maskbits.c,LinkDirectory)
+LinkSourceFile(mfbbitblt.c,LinkDirectory)
+LinkSourceFile(mfbblt.c,LinkDirectory)
+LinkSourceFile(mfbbres.c,LinkDirectory)
+LinkSourceFile(mfbbresd.c,LinkDirectory)
+LinkSourceFile(mfbbstore.c,LinkDirectory)
+LinkSourceFile(mfbclip.c,LinkDirectory)
+LinkSourceFile(mfbcmap.c,LinkDirectory)
+LinkSourceFile(mfbfillarc.c,LinkDirectory)
+LinkSourceFile(mfbfillrct.c,LinkDirectory)
+LinkSourceFile(mfbfillsp.c,LinkDirectory)
+LinkSourceFile(mfbfont.c,LinkDirectory)
+LinkSourceFile(mfbgc.c,LinkDirectory)
+LinkSourceFile(mfbgetsp.c,LinkDirectory)
+LinkSourceFile(mfbhrzvert.c,LinkDirectory)
+LinkSourceFile(mfbimage.c,LinkDirectory)
+LinkSourceFile(mfbimggblt.c,LinkDirectory)
+LinkSourceFile(mfbline.c,LinkDirectory)
+LinkSourceFile(mfbmisc.c,LinkDirectory)
+LinkSourceFile(mfbmodule.c,LinkDirectory)
+LinkSourceFile(mfbpixmap.c,LinkDirectory)
+LinkSourceFile(mfbply1rct.c,LinkDirectory)
+LinkSourceFile(mfbplygblt.c,LinkDirectory)
+LinkSourceFile(mfbpntarea.c,LinkDirectory)
+LinkSourceFile(mfbpntwin.c,LinkDirectory)
+LinkSourceFile(mfbpolypnt.c,LinkDirectory)
+LinkSourceFile(mfbpushpxl.c,LinkDirectory)
+LinkSourceFile(mfbscrclse.c,LinkDirectory)
+LinkSourceFile(mfbscrinit.c,LinkDirectory)
+LinkSourceFile(mfbsetsp.c,LinkDirectory)
+LinkSourceFile(mfbtegblt.c,LinkDirectory)
+LinkSourceFile(mfbtile.c,LinkDirectory)
+LinkSourceFile(mfbwindow.c,LinkDirectory)
+LinkSourceFile(mfbzerarc.c,LinkDirectory)
+#endif
+

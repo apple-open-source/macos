@@ -1,0 +1,129 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/Imakefile,v 1.25 2003/02/17 17:06:42 dawes Exp $
+XCOMM
+XCOMM This is the Imakefile for the i810 driver.  
+XCOMM 
+
+#define IHaveModules
+#include <Server.tmpl>
+
+#ifndef I830Only
+#define I830Only NO
+#endif
+
+#define I830XvSupport YES
+
+#ifndef I830XvSupport
+#define I830XvSupport NO
+#endif
+
+#if BuildXF86DRI
+#if !I830Only
+I810DRISRCS = i810_dri.c i810_hwmc.c
+I810DRIOBJS = i810_dri.o i810_hwmc.o
+#endif
+I830DRISRCS = i830_dri.c
+I830DRIOBJS = i830_dri.o
+DRISRCS = $(I810DRISRCS) $(I830DRISRCS)
+DRIOBJS = $(I810DRIOBJS) $(I830DRIOBJS)
+DRIINCLUDES = -I$(SERVERSRC)/GL/dri -I$(LIBSRC)/GL/dri \
+	-I$(XF86OSSRC)/linux/drm/kernel -I$(TOP)/include
+DRIDEFINES = $(GLX_DEFINES)
+#endif
+
+#if I830XvSupport
+I830SRCS1 = i830_video.c
+I830OBJS1 = i830_video.o
+#endif
+
+#if !I830Only
+I810SRCS = i810_cursor.c i810_accel.c i810_memory.c i810_wmark.c i810_dga.c \
+	   i810_video.c i810_io.c
+I810OBJS = i810_cursor.o i810_accel.o i810_memory.o i810_wmark.o i810_dga.o \
+	   i810_video.o i810_io.o
+#endif
+I830SRCS = i830_driver.c i830_memory.c i830_cursor.c i830_accel.c i830_io.c \
+	   i830_dga.c $(I830SRCS1) $(I830SRCS2)
+I830OBJS = i830_driver.o i830_memory.o i830_cursor.o i830_accel.o i830_io.o \
+	   i830_dga.o $(I830OBJS1) $(I830OBJS2)
+
+SRCS = 	i810_driver.c \
+	$(I810SRCS) $(I830SRCS) $(DRISRCS)
+
+OBJS = 	i810_driver.o \
+	$(I810OBJS) $(I830OBJS) $(DRIOBJS)
+
+#if I830Only
+CHIPDEFINES = -DI830_ONLY
+#endif
+
+#if I830XvSupport
+I830XVDEFINES = -DI830_XV
+#endif
+
+#if defined(XF86DriverSDK)
+INCLUDES = -I. -I../../include
+#else
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC)				\
+           -I$(SERVERSRC)/mfb -I$(SERVERSRC)/mi				\
+	   -I$(XF86SRC)/xaa -I$(XF86SRC)/rac				\
+	   -I$(SERVERSRC)/miext/shadow					\
+           -I$(SERVERSRC)/fb -I$(XF86SRC)/xaa -I$(XF86SRC)/ramdac	\
+	   -I$(XF86SRC)/vgahw -I$(XF86SRC)/ddc -I$(XF86SRC)/i2c		\
+	   -I$(XF86SRC)/vbe -I$(XF86SRC)/int10			\
+	   -I$(SERVERSRC)/Xext 						\
+           -I$(FONTINCSRC) -I$(SERVERSRC)/include -I$(XINCLUDESRC)	\
+	   -I$(EXTINCSRC) -I$(SERVERSRC)/render				\
+	   $(DRIINCLUDES)
+#endif
+DEFINES = $(DRIDEFINES) $(CHIPDEFINES) $(I830XVDEFINES)
+
+#if BuildXF86DRI
+LinkSourceFile(i830_3d_reg.h, $(GLXLIBSRC)/mesa/src/drv/i830)
+#endif
+
+ObjectFromSpecialSource(i830_io, i810_io, -DBUILD_FOR_I830)
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget(i810,$(OBJS))
+
+InstallObjectModule(i810,$(MODULEDIR),drivers)
+
+#if !defined(XF86DriverSDK)
+InstallModuleManPage(i810)
+#endif
+
+DependTarget()
+
+InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(common.h,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i810.h,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i810_accel.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i810_common.h,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i810_cursor.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i810_dga.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i810_dri.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i810_dri.h,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i810_driver.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i810_hwmc.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i810_io.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i810_memory.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i810_reg.h,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i810_video.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i810_wmark.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i830.h,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i830_accel.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i830_common.h,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i830_cursor.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i830_dga.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i830_dri.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i830_dri.h,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i830_driver.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i830_memory.c,$(DRIVERSDKDIR)/drivers/i810)
+InstallDriverSDKNonExecFile(i830_video.c,$(DRIVERSDKDIR)/drivers/i810)
+
+InstallDriverSDKObjectModule(i810,$(DRIVERSDKMODULEDIR),drivers)

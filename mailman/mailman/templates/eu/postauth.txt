@@ -1,0 +1,16 @@
+Kudeatzaile zaren aldetik, zure baimena behar da
+ondorengo posta zerrendara mezu bat bidaltzeko:
+
+    Zerrenda: %(listname)s@%(hostname)s
+    Nork: %(sender)s
+    Gaia: %(subject)s
+    Mezua geldiarazteko arrazoia: %(reason)s
+
+Nahi duzunean sartu helbide honetara:
+
+    %(admindb_url)s
+        
+eskaera onartzeko edo ezezkoa emateko.
+
+
+

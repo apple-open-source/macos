@@ -129,7 +129,7 @@ static void CreateIOHIDevices(
             *pointingNub = 0;
         }
         
-        *keyboardNub = IOHIDKeyboard::Keyboard(elements);
+        *keyboardNub = IOHIDKeyboard::Keyboard(elements, owner);
         if (*keyboardNub &&
             (!(*keyboardNub)->attach(owner) || 
                 !(*keyboardNub)->start(owner))) 

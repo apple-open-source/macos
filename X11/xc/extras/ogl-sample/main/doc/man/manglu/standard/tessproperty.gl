@@ -1,0 +1,112 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ $Date$ $Revision$
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(TessProperty, set a tessellation object property)
+_names(TessProperty)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies the tessellation object (created with _cmnd(NewTess)).
+_phead(_param2)
+Specifies the property to be set. Valid values are
+_gluconst(TESS_WINDING_RULE),
+_gluconst(TESS_BOUNDARY_ONLY), 
+_gluconst(TESS_TOLERANCE).
+_phead(_param3)
+Specifies the value of the indicated property.
+.SH DESCRIPTION
+_cmnd is used to control properties stored in a tessellation object. These
+properties affect the way that the polygons are interpreted and rendered. 
+The legal values for _param2 are as follows:
+.TP 15
+_gluconst(TESS_WINDING_RULE) 
+Determines which parts of the polygon are on the "interior". 
+_param3 may be set to one of _gluconst(TESS_WINDING_ODD),
+_gluconst(TESS_WINDING_NONZERO), _gluconst(TESS_WINDING_POSITIVE), or
+_gluconst(TESS_WINDING_NEGATIVE), or _gluconst(TESS_WINDING_ABS_GEQ_TWO).
+.IP
+To understand how the winding rule works, consider that the input 
+contours partition the plane into regions. The winding rule determines which
+of these regions are inside the polygon.
+.IP
+For a single contour C, the winding number of a point x is simply the signed
+number of revolutions we make around x as we travel once around C
+(where CCW is positive). When there are several contours, the individual
+winding numbers are summed. This procedure associates a signed integer 
+value with each point x in the plane. Note that the winding number is the
+same for all points in a single region.
+.bp
+.IP
+The winding rule classifies a region as "inside" if its winding number 
+belongs to the chosen category (odd, nonzero, positive, negative, or
+absolute value of at least two). The previous GLU tessellator (prior to
+GLU 1.2) used the "odd" rule. The "nonzero" rule is another common way to
+define the interior. The other three rules are useful for polygon CSG
+operations.
+.TP
+_gluconst(TESS_BOUNDARY_ONLY) 
+Is a boolean value ("value" should be set
+to GL_TRUE or GL_FALSE). When set to GL_TRUE, a set of closed contours
+separating the polygon interior and exterior are returned instead of a 
+tessellation. Exterior contours are oriented CCW with respect to the
+normal; interior contours are oriented CW. The _gluconst(TESS_BEGIN)
+and _gluconst(TESS_BEGIN_DATA) callbacks use the type GL_LINE_LOOP for
+each contour.
+.TP
+_gluconst(TESS_TOLERANCE)
+Specifies a tolerance for merging features to reduce the size of the output.
+For example, two vertices that are very close to each other might be
+replaced by a single vertex. The tolerance is multiplied by the largest
+coordinate magnitude of any input vertex; this specifies the maximum
+distance that any feature can move as the result of a single merge
+operation. If a single feature takes part in several merge operations, the
+total distance moved could be larger.
+.IP
+Feature merging is completely optional; the tolerance is only a hint.
+The implementation is free to merge in some cases and not in others, or to
+never merge features at all. The initial tolerance is 0.
+.IP
+The current implementation merges vertices only if they are exactly 
+coincident, regardless of the current tolerance. A vertex is spliced into
+an edge only if the implementation is unable to distinguish which side of
+the edge the vertex lies on. Two edges are merged only when both endpoints
+are identical.
+.SH SEE ALSO
+_cmnd(GetTessProperty),
+_cmnd(NewTess)

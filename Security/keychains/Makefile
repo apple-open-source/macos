@@ -5,7 +5,8 @@ KEYCHAINS_SRC=$(SRCROOT)/keychains
 
 SYSTEM_LIBRARY_DIR=$(DSTROOT)/System/Library
 KEYCHAINS_DIR=$(SYSTEM_LIBRARY_DIR)/Keychains
-X509KEYCHAINS=X509Anchors X509Certificates
+ANCHORS_DIR=$(KEYCHAINS_DIR)/Anchors
+CERTIFICATES_DIR=$(KEYCHAINS_DIR)/Certificates
 
 #
 # world-writable directory we need to create for CRL cache
@@ -38,18 +39,21 @@ clean:
 # Install
 #
 install:
-	if [ ! -d $(KEYCHAINS_DIR) ]; then \
-		mkdir -p $(KEYCHAINS_DIR); \
-		chown root.admin $(KEYCHAINS_DIR); \
-		chmod 755 $(KEYCHAINS_DIR); \
-	fi
-	cd $(KEYCHAINS_SRC); cp $(X509KEYCHAINS) $(KEYCHAINS_DIR)
-	cd $(KEYCHAINS_DIR); \
-	chown root.admin $(X509KEYCHAINS); \
-	chmod 664 $(X509KEYCHAINS); \
-	ls -l $(X509KEYCHAINS)
+	for d in "$(KEYCHAINS_DIR)" "$(ANCHORS_DIR)" "$(CERTIFICATES_DIR)"; do \
+	    if [ ! -d "$${d}" ]; then \
+		    mkdir -p "$${d}"; \
+		    chown root:admin "$${d}"; \
+		    chmod 755 "$${d}"; \
+	    fi; \
+	done; \
+	find "$(KEYCHAINS_SRC)/roots" -maxdepth 1 -a -type f -exec cp {} "$(ANCHORS_DIR)" \; ; \
+	find "$(KEYCHAINS_SRC)/certs" -maxdepth 1 -a -type f -exec cp {} "$(CERTIFICATES_DIR)" \; ; \
+	chown root:admin "$(ANCHORS_DIR)/"*; \
+	chmod 664 "$(ANCHORS_DIR)/"*; \
+	chown root:admin "$(CERTIFICATES_DIR)/"*; \
+	chmod 664 "$(CERTIFICATES_DIR)/"*; \
 	if [ ! -d $(CRL_CACHE_DIR) ]; then \
 		mkdir -p $(CRL_CACHE_DIR); \
-		chown root.wheel $(CRL_CACHE_DIR); \
+		chown root:wheel $(CRL_CACHE_DIR); \
 		chmod 777 $(CRL_CACHE_DIR); \
 	fi

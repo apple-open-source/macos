@@ -1,0 +1,63 @@
+XCOMM $XFree86: xc/programs/Xserver/ilbm/Imakefile,v 3.7 2000/08/24 22:20:18 tsi Exp $
+XCOMM $XConsortium: Imakefile,v 1.38 94/03/11 18:47:47 dpw Exp $
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS1 =	 ilbmgc.c ilbmwindow.c ilbmfont.c ilbmfillrct.c ilbmpntwin.c \
+	 ilbmpixmap.c ilbmimage.c ilbmline.c ilbmbres.c ilbmhrzvert.c \
+	 ilbmbresd.c ilbmpushpxl.c ilbmzerarc.c ilbmfillarc.c ilbmfillsp.c \
+	 ilbmsetsp.c ilbmscrinit.c ilbmclip.c ilbmbitblt.c ilbmgetsp.c \
+	 ilbmpolypnt.c ilbmbltC.c ilbmbltX.c ilbmbltCI.c ilbmbltO.c \
+	 ilbmbltG.c ilbmcmap.c ilbmtileC.c ilbmtileG.c ilbmmisc.c ilbmbstore.c
+
+SRCS =	 $(SRCS1) ilbmseg.c ilbmbltC.c ilbmbltX.c ilbmbltCI.c ilbmbltO.c \
+	 ilbmbltG.c ilbmtileC.c ilbmtileG.c
+
+OBJS =   ilbmgc.o ilbmwindow.o ilbmfont.o ilbmpixmap.o ilbmfillsp.o \
+	 ilbmsetsp.o ilbmscrinit.o ilbmclip.o ilbmbitblt.o ilbmgetsp.o \
+	 ilbmbltC.o ilbmbltX.o ilbmbltCI.o ilbmbltO.o ilbmbltG.o ilbmcmap.o \
+	 ilbmimage.o ilbmzerarc.o ilbmfillarc.o ilbmply1rct.o ilbmtileC.o \
+	 ilbmtileG.o ilbmfillrct.o ilbmpolypnt.o ilbmmisc.o ilbmbstore.o \
+	 ilbmbresd.o ilbmimggblt.o ilbmpushpxl.o ilbmplygblt.o ilbmtegblt.o \
+	 ilbmpntwin.o ilbmpntarea.o ilbmbres.o ilbmhrzvert.o ilbmline.o \
+	 ilbmseg.o
+
+INCLUDES = -I. -I../cfb -I../mfb -I../mi -I../include -I$(XINCLUDESRC) \
+	   -I$(FONTINCSRC) $(EXTRAINCLUDES)
+LINTDEFS = -DMFBPOLYGLYPHBLT=ilbmPolyGlyphBltWhite \
+	   -DMFBIMAGEGLYPHBLT=ilbmImageGlyphBltWhite \
+	   -DEQWHOLEWORD=MFB_EQWHOLEWORD_WHITE -DOPEQ=MFB_OPEQ_WHITE
+
+LINTLIBS = ../dix/llib-ldix.ln ../os/llib-los.ln \
+	   ../mfb/llib-lmfb.ln ../mi/llib-lmi.ln
+
+NormalLibraryObjectRule()
+LibraryModuleTarget(ilbm,$(OBJS))
+LintLibraryTarget(ilbm,$(SRCS1))
+NormalLintTarget($(LINTDEFS) $(SRCS1))
+
+ObjectFromSpecialSource(ilbmseg,ilbmline,-DPOLYSEGMENT)
+
+ObjectFromSpecialSource(ilbmbltC,ilbmblt,-DMROP=Mcopy)
+
+ObjectFromSpecialSource(ilbmbltX,ilbmblt,-DMROP=Mxor)
+
+ObjectFromSpecialSource(ilbmbltCI,ilbmblt,-DMROP=McopyInverted)
+
+ObjectFromSpecialSource(ilbmbltO,ilbmblt,-DMROP=Mor)
+
+ObjectFromSpecialSource(ilbmbltG,ilbmblt,-DMROP=0)
+
+ObjectFromSpecialSource(ilbmtileC,ilbmtile,-DMROP=Mcopy)
+
+ObjectFromSpecialSource(ilbmtileG,ilbmtile,-DMROP=0)
+
+#if DoLoadableServer
+InstallDynamicModule(LibraryTargetName(ilbm),$(MODULEDIR),.)
+#endif
+
+#ifndef OS2Architecture
+DependTarget()
+#endif
+
+InstallDriverSDKDynamicModule(LibraryTargetName(ilbm),$(DRIVERSDKMODULEDIR))

@@ -20,17 +20,16 @@ La page web pour les utilisateurs de votre liste est:
     %(listinfo_url)s 
 
 Vous pouvez même personnaliser ces pages web depuis la page de 
-configuration de la liste.  Il est nécessaire de connaître le HTML 
-pour le faire.
+configuration de la liste (il est nécessaire de connaître le langage HTML)
 
 Il y a également un interface courriel pour les utilisateurs (et
 non les administrateurs) de votre liste; pour savoir comment
-l'utiliser, envoyez un message ne contenant que le mot `help',
-comme objet ou dans le corps du message, à:
+l'utiliser, envoyez un message ne contenant que le mot "help",
+comme objet ou dans le corps du message, à :
 
     %(requestaddr)s 
 
-Pour résilier l'abonnement d'un utilisateur: sur la page 'listinfo' de
+Pour résilier l'abonnement d'un utilisateur : sur la page "listinfo" de
 la liste cliquez sur ou entrez l'adresse courriel de l'utilisateur
 comme si vous étiez lui. Là où il indiquerait normalement son mot de
 passe, entrez votre mot de passe d'administrateur. Vous pouvez aussi

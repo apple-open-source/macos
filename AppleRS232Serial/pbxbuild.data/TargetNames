@@ -1,5 +1,0 @@
-if [ "${Target}" = "AppleRS574Serial" ]; then
-	Targets='AppleRS574Serial'
-else
-	Targets='AppleRS574Serial'
-fi

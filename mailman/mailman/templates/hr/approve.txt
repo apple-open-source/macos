@@ -1,0 +1,15 @@
+Vas zahtjev na %(requestaddr)s:
+
+    %(cmd)s
+
+je prosljeden osobi koja vodi ovu listu.
+
+Uzrok ovome je vjerojatno taj sto se pokusavate pretplatiti na 'zatvorenu'
+listu.
+
+Primit cete e-mail obavijest vlasnika liste o odluci vezano uz svoj 
+pretplatnicki zahtjev.
+
+Sva pitanja vezana uz postavke liste trebaju biti upucena na:
+
+    %(adminaddr)s

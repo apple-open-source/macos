@@ -1,0 +1,24 @@
+// Use keyboard LEDs to show alternative group
+//
+// $XFree86: xc/programs/xkbcomp/compat/leds,v 1.1 2000/08/26 15:11:29 dawes Exp $
+
+partial xkb_compatibility "scroll" {
+   indicator "Scroll Lock" {
+       modifiers= None;
+       groups=All-group1;
+   };
+};
+
+partial xkb_compatibility "num"    {
+   indicator "Num Lock" {
+       modifiers= None;
+       groups=All-group1;
+   };
+};
+
+partial xkb_compatibility "caps"   {
+   indicator "Caps Lock" {
+       modifiers= None;
+       groups=All-group1;
+   };
+};

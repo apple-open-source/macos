@@ -1,0 +1,11 @@
+XCOMM $XFree86: xc/extras/X-TrueType/BIG5HKSCS/Imakefile,v 1.1 2001/03/06 18:54:42 dawes Exp $
+
+/* code converter: BIG5HKSCS */
+
+#define ModuleName BIG5HKSCS
+SRCS = BIG5HKSCStoUCS2.c main.c
+OBJS = BIG5HKSCStoUCS2.o main.o
+
+#include <xttMod.tmpl>
+
+/* end of file */

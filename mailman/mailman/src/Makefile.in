@@ -29,6 +29,7 @@ DESTDIR=
 
 CC=		@CC@
 CHMOD=  	@CHMOD@
+CHOWN=  	/usr/sbin/chown
 INSTALL=	@INSTALL@
 PYTHON=  	@PYTHON@
 
@@ -66,7 +67,7 @@ COMMON_FLAGS=	-DPREFIX="\"$(prefix)\"" \
 DIRMODE=	775
 EXEMODE=	755
 INSTALL_PROGRAM=$(INSTALL) -s -m $(EXEMODE)
-DIRSETGID=	chmod g+s
+DIRSETGID=	$(CHMOD) g+s
 
 # Fixed definitions
 
@@ -122,8 +123,8 @@ finish:
 	-for f in $(SUID_CGI_PROGS); \
 	do \
 	    exe=$(DESTDIR)$(CGIDIR)/$$f$(CGIEXT); \
-	    chown $(MAILMAN_USER) $$exe; \
-	    chmod u+s $$exe; \
+	    $(CHOWN) $(MAILMAN_USER) $$exe; \
+	    $(CHMOD) u+s $$exe; \
 	done
 
 clean:

@@ -40,8 +40,12 @@ void	client_kern_wait(void);
 pid_t	client_request(void);
 extern int nsm_state;
 extern pid_t client_pid;
+extern time_t currsec;
+extern int host_expire;
 
 /* XXX these should be in some system headers */
 typedef u_int32_t rpcvers_t;
 int nfsclnt(int, void *);
 extern int callrpc(const char *, int, int, int, xdrproc_t, void *, xdrproc_t , void *);
+int	expire_lock_hosts(void);
+

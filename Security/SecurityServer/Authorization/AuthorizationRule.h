@@ -74,7 +74,6 @@ private:
 	
 	map<string,string> localizedPrompts() const { return mLocalizedPrompts; }
 	
-    
 // parsed attributes
 private:
 	enum Type

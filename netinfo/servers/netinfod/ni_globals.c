@@ -70,6 +70,8 @@ unsigned master_addr;	/* address of master, if clone server */
 char *master_tag;		/* tag of master, if clone server */
 int cleanupwait;		/* time to wait before cleaning up */
 int debug = 0;
+int standalone = 0;
+
 /* 
  * for clone: have done transfer in last time period
  */

@@ -1,0 +1,74 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:42:30 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/doc/specs/Xext/Imakefile,v 1.5 2001/04/23 15:53:54 dawes Exp $
+
+MakeSimpleDoc(shape,shape.ms)
+
+MakeSimpleDoc(shapelib,shapelib.ms)
+
+MakeSimpleDoc(xtest,xtest.ms)
+
+MakeSimpleDoc(xtestlib,xtestlib.ms)
+
+MakeSimpleDoc(mit-shm,mit-shm.ms)
+
+MakeSimpleDoc(bigreq,bigreq.ms)
+
+MakeSimpleDoc(xc-misc,xc-misc.ms)
+
+MakeSimpleDoc(tog-cup,tog-cup.ms)
+
+MakeSimpleDoc(DPMS,DPMS.ms)
+
+MakeSimpleDoc(DPMSLib,DPMSLib.ms)
+
+MakeTblDoc(record,record.ms)
+
+MakeSimpleDoc(recordlib,recordlib.ms)
+
+MakeTblDoc(buffer,buffer.ms)
+
+MakeLatexDoc(sync,sync.tex)
+
+MakeLatexDoc(synclib,synclib.tex)
+
+MakeLatexDoc(dbe,dbe.tex)
+
+MakeLatexDoc(dbelib,dbelib.tex)
+
+MakeLatexDoc(security,security.tex)
+
+MakeEqnDoc(evi,evi.ms)
+
+#if 0
+TEXTDOCS = DPMS.txt DPMSLib.txt bigreq.txt buffer.txt evi.txt mit-shm.txt \
+	   record.txt recordlib.txt shape.txt shapelib.txt tog-cup.txt \
+	   xc-misc.txt xtest.txt xtestlib.txt
+
+AllTarget($(TEXTDOCS))
+#endif
+
+InstallRoffDoc(DPMS)
+InstallRoffDoc(DPMSLib)
+InstallRoffDoc(bigreq)
+InstallRoffDoc(buffer)
+InstallLatexDoc(dbe)
+InstallLatexDoc(dbelib)
+InstallRoffDoc(evi)
+InstallRoffDoc(mit-shm)
+InstallRoffDoc(record)
+InstallRoffDoc(recordlib)
+InstallLatexDoc(security)
+InstallRoffDoc(shape)
+InstallRoffDoc(shapelib)
+InstallLatexDoc(sync)
+InstallLatexDoc(synclib)
+InstallRoffDoc(tog-cup)
+InstallRoffDoc(xc-misc)
+InstallRoffDoc(xtest)
+InstallRoffDoc(xtestlib)
+
+

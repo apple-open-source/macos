@@ -319,8 +319,10 @@ SecCmsSignerInfoSign(SecCmsSignerInfo *signerinfo, CSSM_DATA *digest, CSSM_DATA 
         privkey = signerinfo->signingKey;
         signerinfo->signingKey = NULL;
         cert = signerinfo->cert;
-	if (SecCertificateGetAlgorithmID(cert,&algID))
+	if (SecCertificateGetAlgorithmID(cert,&algID)) {
+	    PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
 	    goto loser;
+        }
         break;
     case SecCmsSignerIDSubjectKeyID:
         privkey = signerinfo->signingKey;
@@ -333,13 +335,16 @@ SecCmsSignerInfoSign(SecCmsSignerInfo *signerinfo, CSSM_DATA *digest, CSSM_DATA 
         SECKEY_DestroySubjectPublicKeyInfo(spki);
         algID = &freeAlgID;
 #else
-	if (SecKeyGetAlgorithmID(signerinfo->pubKey,&algID))
+	if (SecKeyGetAlgorithmID(signerinfo->pubKey,&algID)) {
+	    PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
 	    goto loser;
+        }
 	CFRelease(signerinfo->pubKey);
         signerinfo->pubKey = NULL;
 #endif
         break;
     default:
+        PORT_SetError(SEC_ERROR_UNSUPPORTED_MESSAGE_TYPE);
         goto loser;
     }
     digestalgtag = SecCmsSignerInfoGetDigestAlgTag(signerinfo);

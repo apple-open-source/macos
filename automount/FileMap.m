@@ -61,12 +61,6 @@
 		return;
 	}
 
-	if ([server isLocalHost])
-	{
-		[serversrc release];
-		serversrc = [String uniqueString:"/"];
-	}
-
 	if (![self acceptOptions:opts])
 	{
 		sys_msg(debug, LOG_DEBUG, "Rejected options for %s on %s (FileMap)",

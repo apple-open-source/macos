@@ -1,0 +1,324 @@
+#!/bin/sh
+#
+# Script to break up rman html output into separate sections in a directory.
+#
+# Author: Robert Moniot <moniot@fordham.edu>
+# Date:   4 Aug 1998
+#
+
+version="rman_html_split V1.0 (c) 1998 Robert K. Moniot"
+
+	    # Usage function prints synopsis and exits
+Usage(){
+  myname=`echo $0 | sed -e 's,.*/,,'`
+cat <<EOF
+
+Usage: $myname [ options ] [ file ]
+
+Breaks up rman HTML output in file (or standard input) into separate
+section files, placing them into a directory.
+
+Options:
+    -d | --html-dir dir   Place output into directory dir (default = html).
+    -m | --merge #        Merge sections 0 thru # (default 1) into one file.
+    -t | --toc-first      Link index.html to table of contents instead
+                          of to sect0.html.
+    -T | --title "title"  Use "title" as title on top of each page
+                          instead of rman's title.  "title" may be empty.
+    -h | --help           Print synopsis and exit.
+    -V | --version        Print version information and exit.
+EOF
+  exit 0
+}
+
+	    # Version function prints version number and exits
+Version(){
+  echo "$version"
+  exit 0
+}
+
+	    # This function puts out header needed by all but 1st page.
+do_header(){
+cat <<EOF
+<HTML>
+<HEAD>
+<TITLE>$*</TITLE>
+</HEAD>
+<BODY>
+EOF
+do_title
+}
+
+	    # This function puts out the title with name of manpage
+do_title(){
+  if [ -n "$title" ]
+  then
+    echo "<H2>$title</H2>"
+  fi
+}
+
+	    # This function puts out ref to table of contents that
+	    # follows header for all but 1st and toc page.
+do_href_toc(){
+cat <<EOF
+<A HREF="toc.html">Table of Contents</A><P>
+EOF
+}
+
+	    # This function puts out ref to previous section
+do_href_prev(){
+  echo "<P>Previous: <A HREF=\"$1.html\">$2</A><HR><P>"
+}
+
+	    # This function puts out footer needed by all but last page.
+do_footer(){
+cat <<EOF
+</BODY></HTML>
+EOF
+}
+
+	    # This function changes the trailing NAME anchor
+	    # of a section into an href to the next section.
+	    # The first edit is for sections.  The second edit
+	    # handles the toc anchor, which has no href and so
+	    # is missed by the first edit.
+do_href_next(){
+ sed -e '$s,^.*<A NAME="\([^"]*\)" HREF=[^>]*>\([^<]*\).*$,<P><HR><P>Next: <A HREF="\1.html">\2</A>,' \
+     -e '$s,<A NAME="\(toc[^"]*\)",Next: <A HREF="\1.html",'
+}
+
+	    # This function adapts internal refs from one-big-file
+	    # form into multi-file format.
+	    # First edit changes "#tocn" into "toc.html#tocn"
+	    # Second edit changes "#sectn" into "sectn.html#sectn"
+	    # Third edit changes "#toc" into "toc.html"
+change_hrefs(){
+    sed -e 's,HREF="#toc\([0-9][0-9]*\)",HREF="toc.html#toc\1",g' \
+	-e 's,HREF="#sect\([0-9][0-9]*\)",HREF="sect\1.html#sect\1",g' \
+        -e 's,HREF="#\(toc\)",HREF="\1.html",g'
+}
+
+
+#  Execution begins here.
+
+				# Process the command-line options.
+htmldir="html"
+mergesect="1"
+
+while [ $# != 0 ]
+do
+  case $1 in
+
+    -d | --html-dir)
+	shift
+	if [ $# != 0 ]
+	then
+	    htmldir="$1"
+	    shift
+	fi
+	;;
+
+    -m | --merge)
+	shift
+	if [ $# != 0 ]
+	then
+	    mergesect="$1"
+	    shift
+	fi
+	case $mergesect in
+	    [0-9])
+		;;
+	    *)
+		echo "ERROR: merge section must be a digit from 0 to 9."
+		Usage
+		;;
+	esac
+	;;
+
+    -t | --toc-first)
+	shift
+	tocfirst="t"
+	;;
+
+    -T | --title)
+	shift
+	if [ $# != 0 ]
+	then
+	    title="$1"
+	    shift
+	fi
+	if [ -z "$title" ]	# If title is the null string, set notitle
+	then
+	    notitle="t"
+	fi
+	;;
+
+    -h | --help)
+	Usage
+	;;
+
+    -V | --version)
+	Version
+	;;
+
+				# Unrecognized flag.
+    -*)
+	echo "Unrecognized option: $1"
+	Usage
+	;;
+
+				# Non-flag: go to process file.
+    *)
+	break
+	;;
+  esac
+done
+
+				# At this point we should have at most one
+				# argument, the file name.  Check it.
+if [ $# -gt 1 ]
+then
+  Usage
+fi
+
+if [ $# = 1 ]
+then
+  if [ ! -r "$1" ]
+  then
+    echo "ERROR: Cannot open file $1."
+    exit 1
+  fi
+fi
+
+		# Filter the input (file arg or stdin) thru a sed script
+		# that fixes cases where an anchor for a section has
+		# had its section title split across two or more lines.
+		# Put the result in a tmp file so it can be re-read.
+
+filename="/tmp/rman_html_split_$$.html"
+trap "rm -f $filename" 0
+sed -e ':top' \
+    -e '/^<H[1-9]><A NAME="sect.*[^>]$/N' \
+    -e '/^<LI><A NAME="toc.*[^>]$/N' \
+    -e 's/\n/ /' \
+    -e 't top' $1 > $filename
+
+		# If user did not supply title, get title for top of
+		# each page from rman-generated <TITLE> line.  If user
+		# gave a blank title then leave it blank.
+if [ -z "$title" -a -z "$notitle" ]
+then
+  title=`sed -e '/^<TITLE>/q'  $filename |
+         sed -n -e 's,^<TITLE>\([^<]*\).*$,\1,p'`
+fi
+
+		# Get a list of all the sections.  Separate it into a
+		# list of merged sections and a list of all other sections.
+		# Merged sects are combined and get special treatment besides.
+allsects=`sed -n 's,^.*<A NAME="\(sect[0-9][0-9]*\)".*$,\1,p' $filename`
+
+mergesects=`echo $allsects | \
+	    awk '{for(i=1; i<=NF && i<'"$mergesect"+2'; i++) print \$i;}'`
+
+sectlist=`echo $allsects |
+	    awk '{for(i='"$mergesect"'+2; i<=NF; i++) print \$i;}'`
+
+
+# This little bit, copied from GNU configure, sets ac_n and ac_c such
+# that echo $ac_n "stuff $ac_c" yields "stuff " w/o following newline.
+if (echo "testing\c"; echo 1,2,3) | grep c >/dev/null; then
+  # Stardent Vistra SVR4 grep lacks -e, says ghazi@caip.rutgers.edu.
+  if (echo -n testing; echo 1,2,3) | sed s/-n/xn/ | grep xn >/dev/null; then
+    ac_n= ac_c='
+' ac_t='	'
+  else
+    ac_n=-n ac_c= ac_t=
+  fi
+else
+  ac_n= ac_c='\c' ac_t=
+fi
+
+		# Create html directory if it does not exist.
+if [ -d $htmldir ]
+then
+  echo "Re-using directory $htmldir."
+else
+  echo "Creating directory $htmldir..."
+  if mkdir $htmldir
+  then
+    true
+  else
+    echo "Failed!"
+    exit 1
+  fi
+fi
+
+echo "Creating section pages..."
+
+		# Produce index page.  It is special, since it combines
+		# merged sections and uses the rman-generated header.
+nextsect=`echo $sectlist | awk '{print $1;}'`
+echo $ac_n $mergesects "$ac_c"
+(do_title ;
+ sed -n -e "1,/^<H[23]><A NAME=\"$nextsect\"/p"  $filename | \
+ do_href_next | \
+ change_hrefs ;
+ do_footer) > $htmldir/sect0.html
+
+		# Produce pages for all other sections except toc.
+prevsect="sect$mergesect"
+prevtext=`sed -n 's,^<H[23]><A NAME="'$prevsect'" HREF="#toc[0-9][0-9]*">\([^<]*\).*$,\1,p' $filename | sed -e 's/ *$//'`
+for sect in $sectlist;
+do
+    echo $ac_n "$sect $ac_c"
+    headtext=`sed -n 's,^<H[23]><A NAME="'$sect'" HREF="#toc[0-9][0-9]*">\([^<]*\).*$,\1,p' $filename | sed -e 's/ *$//'`
+    (do_header $headtext ;
+     do_href_toc ;
+     do_href_prev "$prevsect" "$prevtext" ;
+     sed -n -e '/<A NAME="'$sect'"/,/<A NAME=/p' $filename |
+     do_href_next |
+     change_hrefs ;
+     do_footer) > $htmldir/$sect.html
+     prevsect="$sect"
+     prevtext="$headtext"
+done
+
+
+		# Produce table of contents
+echo "toc"
+(do_header Table of Contents ;
+ sed -n -e '/<A NAME="toc">/,$p' $filename | \
+ change_hrefs ;
+) > $htmldir/toc.html
+
+
+		# Finally, make sure the symlinks index.html and
+		# sect1.html -> sect0.html are in place, and if not,
+		# create them.  If --tocfirst is not specified, then
+		# link index.html to section 0, otherwise link it to
+		# index.html
+
+echo "Doing symlinks..."
+cd $htmldir
+
+rm -f index.html
+if [ -z "$tocfirst" ]
+then
+    echo "Linking index.html -> sect0.html"
+    ln -s sect0.html index.html
+else
+    echo "Linking index.html -> toc.html"
+    ln -s toc.html index.html
+fi
+
+for sect in $mergesects
+do
+  if [ "$sect" != "sect0" ]
+  then
+    echo "Linking $sect.html -> sect0.html"
+    rm -f $sect.html
+    ln -fs sect0.html $sect.html
+  fi
+done
+
+echo "Done."

@@ -1,4 +1,4 @@
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -35,22 +35,26 @@ from Mailman.SafeDict import SafeDict
 from Mailman.Logging.Syslog import syslog
 from Mailman.i18n import _
 
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
+
 
 
 def makelink(old, new):
     try:
         os.symlink(old, new)
-    except os.error, e:
-        code, msg = e
-        if code <> errno.EEXIST:
+    except OSError, e:
+        if e.errno <> errno.EEXIST:
             raise
 
 def breaklink(link):
     try:
         os.unlink(link)
-    except os.error, e:
-        code, msg = e
-        if code <> errno.ENOENT:
+    except OSError, e:
+        if e.errno <> errno.ENOENT:
             raise
 
 
@@ -107,13 +111,16 @@ class Archiver:
                 fp = open(indexfile)
             except IOError, e:
                 if e.errno <> errno.ENOENT: raise
-                else:
+                omask = os.umask(002)
+                try:
                     fp = open(indexfile, 'w')
-                    fp.write(Utils.maketext(
-                        'emptyarchive.html',
-                        {'listname': self.real_name,
-                         'listinfo': self.GetScriptURL('listinfo', absolute=1),
-                         }, mlist=self))
+                finally:
+                    os.umask(omask)
+                fp.write(Utils.maketext(
+                    'emptyarchive.html',
+                    {'listname': self.real_name,
+                     'listinfo': self.GetScriptURL('listinfo', absolute=1),
+                     }, mlist=self))
             if fp:
                 fp.close()
         finally:
@@ -166,7 +173,9 @@ class Archiver:
             raise
 
     def ExternalArchive(self, ar, txt):
-        d = SafeDict({'listname': self.internal_name()})
+        d = SafeDict({'listname': self.internal_name(),
+                      'hostname': self.host_name,
+                      })
         cmd = ar % d
         extarch = os.popen(cmd, 'w')
         extarch.write(txt)
@@ -218,7 +227,7 @@ class Archiver:
         if mm_cfg.ARCHIVE_TO_MBOX == -1:
             # Archiving is completely disabled, don't require the skeleton.
             return
-        pubdir = Site.get_archpath(self.internal_name(), public=1)
+        pubdir = Site.get_archpath(self.internal_name(), public=True)
         privdir = self.archive_dir()
         pubmbox = pubdir + '.mbox'
         privmbox = privdir + '.mbox'
@@ -229,4 +238,6 @@ class Archiver:
             # BAW: privdir or privmbox could be nonexistant.  We'd get an
             # OSError, ENOENT which should be caught and reported properly.
             makelink(privdir, pubdir)
-            makelink(privmbox, pubmbox)
+            # Only make this link if the site has enabled public mbox files
+            if mm_cfg.PUBLIC_MBOX:
+                makelink(privmbox, pubmbox)

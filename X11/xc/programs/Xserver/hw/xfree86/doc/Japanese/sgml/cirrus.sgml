@@ -1,0 +1,1123 @@
+<!doctype linuxdoc system>
+ 
+<article>
+
+<!-- Title information -->
+<!-- ....1.........2.........3.........4.........5.........6...... -->
+<title> Cirrus チップセットユーザのための情報
+<author> Harm Hanemaayer (<it>H.Hanemaayer@inter.nl.net</it>),
+         Randy Hendry (<it>randy@sgi.com</it>),
+	 Corin Anderson (<it>corina@bdc.cirrus.com</it>)
+<date> 1996 年 10 月 9 日
+<trans> 岡本　一幸 Kazuyuki Okamoto &lt;ikko-@pacific.rim.or.jp&gt;
+
+<!-- Table of contents -->
+<toc>
+
+<sect> サポートしているチップセット <p>
+
+Cirrus のチップセット用には、&dquot;cirrus&dquot;と&dquot;cl64xx&dquot;と呼ばれる２つの異な
+る SVGA サーバがあります。
+&dquot;cirrus&dquot; ドライバは 256 色の（アクセラレータ付き）SVGA サーバと
+（アクセラレータ無し）白黒サーバで用いられています。SVGA サーバは
+16, 24 と 32 ピクセル当りビット数 をサポートし、この構成で
+天然色 (truecolor) モードをサポートしています。
+&dquot;cl64xx&dquot; ドライバは 256 色 SVGA, 16 色 と 白黒 サーバで用いられてい
+ます。どちらが安定しているとかはここでは議論しませんが、この文書では 
+&dquot;cirrus&dquot; ドライバについて主に言及します。
+次のCirrus Logic のチップセットをサポートしています。:
+<descrip>
+<tag>CL-GD5420</tag>
+    ISA SVGA チップセット, 1Mバイト; 最大ドットクロックは 45 MHz (256
+    色サーバ)。
+    拡張書き込みモードによるアクセラレータ機能（このサーバではスク
+    ロールとベタ塗りつぶしに用いている）。このチップセットは 256 色の 
+    1024x768 ノンインターレース はサポート<em>しません</em>。
+<tag>CL-GD5422</tag>
+    5420の改良版 (32 ビット内蔵メモリインターフェース)。
+    最大ドットクロックは 80 MHz。
+<tag>CL-GD6205/6215/6225/6235</tag>
+    5420 にほぼ互換性のあるラップトップ用チップセット。ドットクロックは
+    25 MHz のみサポートする（外部ディスプレイはそれ以上可能）。
+    &dquot;<tt>noaccel</tt>&dquot; オプションが必要なので注意の事。
+<tag>CL-GD6420/6440</tag>
+    これらのチップセットは 542x シリーズとは互換性はありませんが、
+    &dquot;cl64xx&dquot; ドライバでサポートします。このチップセットは最近のラップ
+    トップに搭載されており、昔の Cirrus チップセット(5410/AVGA2)と同様
+    に内蔵しています。このドライバは他の 64xx チップセットでも稼働して
+    います。構成上の識別子は &dquot;<tt>cl6420</tt>&dquot; と <tt>&dquot;cl6440&dquot;</tt> で
+    す。このドライバについては <ref id="cl64xx" name="cl64xx ドライバ">
+    の節で詳細に述べます。
+<tag>CL-GD5424</tag>
+    基本的に 5422 の VLB 版ですが、いくつかの点で 5426 に似ています。
+<tag>CL-GD5426</tag>
+    ISA バスと VLB 両方の 2M バイト以上のメモリを搭載したものをサポー
+    トします。よりよいアクセラレータを求めるなら BitBLT エンジンを搭
+    載してください(BitBLTは画像転送とテキスト表示に有効)。ドットクロッ
+    クの上限は 85 MHz。
+<tag>CL-GD5428</tag>
+    5426 の改良版。
+<tag>CL-GD5429</tag>
+    5428 の改良版で、より高い MCLK を公式にサポートし、メモリマップド
+    I/O を搭載しています。
+<tag>CL-GD5430</tag>
+    5429 に似ていますが、基は 543x (32 ビットホストインターフェース)
+    です。64 ビットメモリモードは持っていません。
+<tag>CL-GD5434</tag>
+    64 ビット内蔵メモリインターフェースを持った `Alpine' 
+    の系列のチップです。
+<!--
+	`Alpine' family chip with 64-bit internal memory interface.
+        The chip
+-->
+    このチップは 2M バイトのメモリを搭載したとき 64 ビットモードの
+    みサポートします。1M バイトメモリのみののカードでは厳しい限界
+    があります。110 MHz 以上のドットクロックをサポートします
+  （新しいチップセットは 135 MHz をサポートします）。 
+<tag>CL-GD5436</tag>
+<!--    高度に最適化した5434。基本的に 5434 として扱えますが、テストし
+    てません。-->
+	高度に最適化した 5434.
+<!--
+<tag>CL-GD5440</tag>
+	Similar to the CL-GD5430, and detected as such.
+<tag>CL-GD5446</tag>
+	Another member of the Alpine family of 2D accelerators; similar
+        to the CL-GD5436.
+<tag>CL-GD546X</tag>
+	The Laguna VisualMedia family of 2D  Accelerators.  These chips 
+	use Rambus RDRAM memory.  The '62 is a 64-bit 2D 
+	accelerator, including a BitBlit engine, video windows (not currently
+	used by the server), and 64x64 HW cursor.  Mono modes have not been
+	tested. The CL-GD5464 is the next chip in the Laguna family, and 
+	is supported and has been tested.
+<tag>CL-GD7541/7542/7543/7548</tag>
+	Laptop chipsets more or less compatible with the 5428/3x.
+        When the LCD is on, the maximum dot clock supported is 44 MHz.
+	Support for these chips seems to be broken in this release.
+        Reports are welcomed.
+-->
+<tag>CL-GD5440</tag>
+	CL-GD5430 に似ていますのでそのように探知されます。
+<tag>CL-GD5446</tag>
+	２次元アクセラレータの Alpine 系列の内の一つで、CL-GD5436
+	に似ています。
+<tag>CL-GD546X</tag>
+	２次元アクセラレータの Laguna VisualMedia 系列です。これら
+	３つのチップセットは Rambus RDRAM メモリを使っています。
+	'62 は 64 ビット２次元アクセラレータと BitBlit エンジンと
+	ビデオウィンドウ(現在のサーバでは使用していません) と
+	ハードウェアカーソルを内蔵しています。白黒モードはテストし
+	ていません。CL-GD5464 は Laguna 系列の次世代のチップで、
+	サポートしましたがテストしていません。
+<tag>CL-GD7541/7542/7543/7548</tag>
+	5428/3x と大体互換性のあるラップトップ用のチップセットで
+	す。LCD がオンの時は最大のドットクロックは 44MHz です。
+	この版ではこれらのチップセットはおかしいかもしれません。
+	報告をお待ちしています。
+</descrip>
+
+各々のサポートしている深さ毎に最大のドットクロックを一覧にします。:
+
+<quote><verb>
+                mono     8 bpp (256c) 16 bpp       24 bpp       32 bpp
+CL-GD62x5       45 MHz   45 MHz    
+CL-GD5420       80 MHz   45 MHz (1)
+CL-GD542x/512K  80 MHz   45 MHz    
+CL-GD5422/24    80 MHz   80 MHz       40 MHz       27 MHz
+CL-GD5426/28    85 MHz   85 MHz       45 MHz (2)   28 MHz
+CL-GD5429       85 MHz   85 MHz       50 MHz       28 MHz
+CL-GD5430       85 MHz   85 MHz       45 MHz (2)   28 MHz
+CL-GD5434/1Mb   85 MHz   85 MHz       42 MHz       28 MHz
+CL-GD5434/2Mb   85 MHz   110/135 MHz  85 MHz       28 MHz       45/50 MHz (2)
+CL-GD5436/1Mb	85 MHz	 110 MHz (3)  60 MHz (3)   40 MHz (3)
+CL-GD5436/2Mb	85 MHz	 135 MHz      85 MHz       85 MHz (3)   60 MHz (3)
+CL-GD5446/1Mb	85 MHz	 110 MHz (3)  60 MHz (3)   40 MHz (3)
+CL-GD5446/2Mb	85 MHz	 135 MHz      85 MHz       85 MHz (3)   60 MHz (3)
+CL-GD546X	170 MHz  170 Mhz      170 MHz      170 MHz      170 MHz
+CL-GD754x	80 MHz   80 MHz       40 MHz (4)   (5)
+
+(1) 512K メモリです。
+(2) 高い MCLK を設定すると 50 MHz。
+(3) メモリクロックに依存します。
+(4) 多分、いくつかのチップセットには低すぎるでしょう。
+(5) 多分、有効にしてテストを行えばこの深さは実際に動作するでしょう。
+</verb></quote>
+
+大まかに言って 仮想的/物理的な画面解像度はビデオメモリの量の違いに制約
+されます。
+
+<quote><verb>
+            mono        8 bpp        16 bpp     24 bpp     32 bpp
+256K        800x600     640x400                         
+512K        1152x900    800x600     640x400             
+1024K       1600x1200   1152x900    800x600     680x510
+2048K       2304x1728   1600x1200   1152x900    960x720    800x600
+4096K       2304x1728   2272x1704   1600x1200   1360x1020  1152x900
+</verb>
+</quote>
+<!--
+For 546x chips, the virtual width may be any size.  However, the 
+screen <it>pitch</it> will be rounded up to the nearest value in the table
+below.  Thus, each line on the screen will take more video memory than just
+what is displayed.  To maximize video memory, then, choose the virtual
+desktop width from the table of pixel widths below:
+<quote><verb>
+8bpp:	640, 1024, 1280, 1664, 2048, 2560, 3328, 4096, 5120, 6656
+16bpp:	320,  512,  640,  832, 1024, 1280, 1664, 2048, 2560, 3328
+24bpp:	640, 1024, 1280, 1664, 2048, 2560, 3328, 4096, 5120, 6656
+32bpp:	160,  256,  320,  416,  512,  640,  832, 1024, 1280, 1664
+</verb></quote>
+ 
+For other Cirrus chips, it's advisable to have a virtual width that is a
+multiple of 32 if acceleration is used.
+-->
+546x チップでは仮想画面の幅は任意です。しかし、画面の
+<it>ピッチ(pitch)</it> を次の表の最も近い価に切り上げましょう。
+従って、画面上の各々の線はビデオメモリをどれくらい消費するかよりも単に
+表示したい長さになります。ビデオメモリを目一杯使うには、次の表の
+ピクセル数から仮想デスクトップの幅を選択してください。:
+<quote><verb>
+8bpp:	640, 1024, 1280, 1664, 2048, 2560, 3328, 4096, 5120, 6656
+16bpp:	320,  512,  640,  832, 1024, 1280, 1664, 2048, 2560, 3328
+24bpp:	640, 1024, 1280, 1664, 2048, 2560, 3328, 4096, 5120, 6656
+32bpp:	160,  256,  320,  416,  512,  640,  832, 1024, 1280, 1664
+</verb></quote>
+
+他の Cirrus チップセットでは、アクセラレータ機能を使った場合、
+仮想画面の幅は 32 の倍数になります。
+モニターの水平方向の調整数値は 2048 以下にしなければいけません。
+
+<!--To run <tt>XF86_SVGA</tt> at a higher color depth, pass options to the
+X server as follows:-->
+より高い色の深さで <tt>XF86_SVGA</tt> を動作させるには、次のオプションを
+X サーバに付加して下さい。
+
+<verb>
+startx -- -bpp 16       5-6-5 RGB ('64K color', XGA)
+startx -- -bpp 16 -weight 555	5-5-5 RGB ('Hicolor') (5462 ではなく)
+startx -- -bpp 24		8-8-8 RGB truecolor
+startx -- -bpp 32		8-8-8 XRGB truecolor (543X/46/6X)
+</verb>
+
+
+<sect> 基本構成 <p>
+
+<!--
+It is recommended that you generate an XF86Config file using
+the `<tt>XF86Setup</tt>' or `<tt>xf86config</tt>' program, which should
+produce a working
+-->
+`<tt>XF86Setup</tt>' や`<tt>xf86config</tt>' プログラムを使用して
+XF86Config ファイルを生成
+することをお勧めしていますが、このプログラムは稼働可能な高解像度の
+8bpp の構成を作成します。使用するモニターに、より適応したモード調整
+値を <tt>Monitor</tt> 節に記入したくなるでしょう。ドライバのオプショ
+ンについては次の節で詳細に述べますので、ここでは軽く触れるだけにしま
+す。
+
+全てののチップセット用に <tt>Clockchip &dquot;cirrus&dquot;</tt> 行を
+<tt>Device</tt> 節に書きましょう。こうやっておくとサーバがサポート
+している対策済みのドットクロックの組み合わせの中から適切なドットクロ
+ックを使用可能にします。低解像度のモニター対応で 12.6 MHz のドットク
+ロックを使いたい場合に必要になります。しかし、このオプションを使用す
+ると、変わった現象を引き起こすクロック周波数が不安定になるので、
+絶対に必要な時だけ使用してください。
+<!--
+low-resolution modes. However, when this option used, clock frequencies
+be unstable leading to strange effects, so only use it if absolutely
+required.
+-->
+
+グラフィック画面の再描画がうまく動作しない場合は、チップセットが BitBLT 
+エンジンを持っている場合に先ず<tt>&dquot;no_bitblt&dquot;</tt> オプショ
+ンを試してください。これがうまく動作しないときは
+<tt>&dquot;noaccel&dquot;</tt> オプションを試してみてください。全ての
+アクセラレータ機能を無効にします。<tt>&dquot;no_imageblt&dquot;</tt>
+オプションで充分かもしれません。
+
+16bpp か 32bpp の深さで実行するか、8bpp で性能を向上させるにはリニア
+アドレッシング機能を使えるようにしなければいけません。ローカルバスの 
+543x カードまたは、メモリが 16M バイト以下のシステムでローカルバスの 
+542x カードもしくは ISA の 543x カードを搭載しているときに一般に使用可
+能です。
+<tt>&dquot;linear&dquot;</tt> オプションが必須で、おそらく 
+<tt>Membase</tt>でアドレスを指定する必要があるでしょう。以降の節で詳細
+に説明します。
+
+また、 534x で デバイス節に <tt>&dquot;mmio&dquot;</tt> オプションを書
+いておくと更に良好なアクセラレータになります < このオプションは 5429 で
+も適用可能と思いますが、未だテストしていません >。
+
+<!--
+Finally, if you have 546X chip, it will be on the PCI bus.  As such, there 
+is no problem about memory mapped I/O or linear frame buffer address spaces
+running into system memory.  The PCI spaces are mapped way up near the 4GB
+point.  Because the mmio and linear frame buffer don't conflict at all on 
+the system, the <tt>&dquot;linear&dquot;</tt>, <tt>Membase</tt>, and 
+<tt>&dquot;mmio&dquot;</tt> options are ignored.
+-->
+最後に、546X チップを使っている場合は PCI バス上に搭載されています。この
+ような場合は、メモリマップ I/O や フレームバッファアドレス空間がシステム
+メモリに飛び出していても問題ありません。PCI 空間は 4GB 近くのアドレスを
+割り付けすることができます。したがって mmio とリニアフレームバッファは
+システム上で衝突することは全然ないので<tt>&dquot;linear&dquot;</tt>,
+<tt>Membase</tt>と<tt>&dquot;mmio&dquot;</tt>オプションは無視してくださ
+い。
+
+<sect> XF86Config オプション <p>
+`<tt>Clocks</tt>' コマンドは使わないでください。（つまり、探査しない
+で）クロックを修正した場合、（各々のチップセットのサポートしている最大
+クロック以外の）カード毎の違いは反映できません。
+
+以降のオプションは特に Cirrus ドライバでは重要です。各々のオプションは
+<tt>XF86Config</tt> の `<tt>svga</tt>' ドライバ節に <tt>Screen</tt> 項
+の中に適応する全ての深さを指定する必要があります（Device 節に全ての 
+Screen を指定することが可能です）。
+
+<descrip>
+<tag>&dquot;noaccel&dquot; オプション</tag>
+<!--
+    このオプションはアクセタレータ機能を無効にします。DRAM の速度や高い
+    ドットクロックやアクセラレータ機能の不具合による問題を解決する支援
+    を効率良く（VLB では一段と妥当に）行います。
+	of performance (which will still be reasonable on a local bus).
+<tag>Option &dquot;fast_dram&dquot; &dquot;med_dram&dquot; \
+&dquot;slow_dram&dquot; (5424/6/8/9, 543x, 5446)
+</tag>
+-->
+	このオプションはアクセタレータ機能を無効にします。DRAM の速度や高い
+    ドットクロックやアクセラレータ機能の不具合による問題を解決する支援
+    を効率良く（ローカルバスでは一段と妥当に）行います。
+
+<tag>&dquot;fast_dram&dquot; &dquot;med_dram&dquot; \
+&dquot;slow_dram&dquot; (5424/6/8/9, 543x) オプション
+</tag>
+<!--
+        These options set the internal memory clock (MCLK) register to
+	another value. The default value programmed by the BIOS is
+	usually OK, don't mess with these options unless absolutely
+        required.
+-->
+	これらのオプションは内蔵メモリクロック(MCLK) レジスタに他の数値を
+	変更するものです。標準値は BIOS に組み込まれている場合は大丈夫です
+	が、強く要求されない限りこのオプションで無茶をしないでください。
+
+    <tt>&dquot;fast_dram&dquot;</tt> オプションはビデオボードの内蔵メモリ
+	クロック(MCLK) レジスタにより高い値を設定します
+	(最近のチップは標準で十分より高い価を使っています)。
+
+    通常、このレジスタはいじることはないのですが、標準の CL-GD542x BIOS 
+    の初期化によって高いドットクロックモードでの性能に良くない影響を与
+    えるような（チップセットの仕様に制限された）低い方の値に設定されま
+    す。これは拡張 RAS 調整を使う場合には特に影響を受けます（これはサー
+    バーの探査で指摘されます）。
+
+
+<!--
+    DRAM の実際の速度はこのオプションが適切だろうとなかろうとカード認識
+    において危険な要素にはなりません。80ns の DRAM を搭載しているある
+    カードが拡張 RAS 調整を使って DOS の ドライバユーティリティで
+    MCLK を (0x22) のような値に設定した場合は高い MCLK で安定して動作し
+    ている様に見えるでしょう。
+	whether	this option is appropriate; one CL-GD5426-based card with
+	80ns DRAM using Extended RAS timing, which came with a DOS driver
+	utility to set the MCLK to this value (0x22), seems to run stable
+	at higher MCLK.
+-->
+    DRAM の実際の速度はこのオプションが適切だろうとなかろうとカード認識
+    において危険な要素にはなりません。80ns の DRAM を搭載している
+	CL-GD5426 を基にした
+    カードが拡張 RAS 調整を使って DOS の ドライバユーティリティで
+    MCLK を (0x22) のような値に設定した場合は高い MCLK で安定して動作し
+    ている様に見えるでしょう。
+
+    カスタマイズされた BIOS がより高い標準値以外の値に初期化した（主に
+    有名どころの）カードがあります。<!--この場合は、このオプションを使うと
+    適切ではないかもしれません。-->
+
+    <tt>&dquot;slow_dram&dquot;</tt> オプションは MCLK を標準の
+	CL-GD542x BIOS の
+    値 (0x1c) に設定します。高すぎる MCLK の値は垂直方向の画面のちらつ
+    く帯、テキストに誤った画素、テキストモードの画素の抜けを X の動作後
+    に引き起こします（MCLK の設定が低すぎる場合も同様の現象を起こします
+    ので注意しましょう）。
+    
+    開始時に、ドライバーは MCLK の値を表示するでしょう（先ず、これを確
+    認して下さい）、そしてこの値はモードによって変化します。
+
+    典型的な MCLK の値:
+    <descrip>
+    <tag/0x1c (50 MHz)/
+        これは BIOS の標準値で用いられます。
+        <tt>&dquot;slow_dram&dquot;</tt> オプションで強制指定できます。
+    <tag/0x1f (55 MHz)/
+        <tt>&dquot;med_dram&dquot;</tt> オプションで使用する値です。
+        542x を使っているカードでの最高の値はリニアアドレッシングが有効
+        になっていないと扱えないようです。
+    <tag/0x22 (60 MHz)/
+        殆どの（拡張 RAS） 542x カードでは <tt>&dquot;fast_dram&dquot;</tt> オプ
+        ションを使うと有効になります。
+    </descrip>
+
+    公式な 542x チップの最大周波数は 50 MHz です。
+    5434 の公式仕様はまた 50 MHz (0x1c) で、5429 と 5430 のグラフィック
+    モードでは 60 MHz (0x22) の MCLK をサポートし、ドライバは自動的にこ
+    れを組み込みます。これが問題を引き起こした場合は &dquot;slow_dram&dquot; オプ
+    ションを使用してください。
+
+    ドライバは認識した DRAM 帯域幅のクロックの上限を MCLK に取り込みま
+    す。
+
+    特に（高いドットクロックで性能や安定度の）問題がなかったら、
+    DRAM オプションを使う必要はありません。
+<tag>
+&dquot;no_bitblt&dquot; オプション
+</tag>
+    このオプションを 5426/28/29/3x/46/6x/754x で使用する場合、
+	アクセラレータ機能
+    を保持する間、（5424 では持っていない）BitBLT エンジンを無効にしま
+    す。BitBLT エンジンを使用することに関連して生じる機能上の問題に対し
+    て有効です。性能はかなり著しく落ちます。
+<tag>
+&dquot;no_imageblt&dquot; オプション
+</tag>
+    このオプションを 5426/28/29/3x/46/6x/754x で使用する場合、
+	システムメモリから
+    ビデオメモリに転送する BitBLT 機能を無効にします。
+    特に速い CPU で VLB 5426 と 5434 を使ったいくつかのシステム構成で
+    認められている、画面の左上すみの小さい白い線若くはサーバに戻った
+    後の歪んだ画像の様な画像書き込みの問題に有効です。このオプションを
+    使うと性能が低下しますので注意してください。
+<tag>
+&dquot;clgd54xx&dquot; チップセット
+</tag>
+    搭載されているチップセットを強制探査させます。サポートしているチッ
+    プセットが正確に認識されないとか、サポートしていないチップセットを
+    サポートしているチップセット互換品として認識させたい場合に有効で
+    す。
+<tag>
+videoram 1024 (又は他の値)
+</tag>
+    このオプションはビデオメモリの探査搭載量の強制指定と現行のカードに
+    メモリを追加するふりをする場合に指定します。このオプションは 2M バ
+    イトのメモリ構成時にドライバの要求メモリ量と互換性が保てない場合に
+    １MB 以上を見せたくない、とかメモリの探査がうまく動作しないときに有
+    効です。これは Device 節に必ず指定してください。
+<tag>
+&dquot;fifo_conservative&dquot; オプション (5424/6/8/9/3x/46/6x/754x の場合に指定)
+</tag>
+    このオプションは CRT FIFO の敷居値を高いドットクロックの控え目な値
+     (&gt;= 65 MHz) に 設定するもので、`筋・稲妻'(`streaks')
+    , `ジッタ・不安定'(`jitter') 若くは画面の水平領域の繰り返し表示
+    (特に BitBLT 操作を行ったとき,例えばスクロール)と形容される問題を
+    性能が落としても軽減したい場合に有効です。
+<tag>
+&dquot;fifo_aggressive&dquot; オプション (5424/6/8/9/3x/46/6x/754x の場合に指定)
+</tag>
+    このオプションは CRT FIFO の敷居値を高いドットクロックの積極的な値
+    に設定するもので、低い方のドットクロック用に使用するものと同じで
+    す。このオプションは高いドットクロックでの性能を向上させます。
+<tag>
+&dquot;no_2mb_banksel&dquot;  オプション (542x の場合に指定)
+</tag>
+    このオプションは 2M バイトのメモリを搭載したカードで 1M バイト以上
+    のメモリを有効にする `DRAM bank select' ビットを設定しないもので
+    す。このオプションは 512Kx8 の DRAM 構成で有効で、1M バイト以上を仮
+    想画面に使っている 256Kx4/16 の DRAM 構成の場合は無効です。
+<tag>
+&dquot;probe_clocks&dquot; オプション
+</tag>
+    このオプションはカードのドットクロックを強制探査します。クロックが
+    固定で全ての Cirrus のチップセットで同じなら必要ありません。しかし
+    現状標準の 14.31818 MHz の周波数をバスに供給するマザーボードに依存
+    します。間違って設計された VLB のマザーボードは適正なバス周波数のた
+    めのこの周波数を正しく供給しません（例えば 33 MHz から拡張したも
+    の）。
+    もし間違っていたら、このオプションを付けて`<tt>X -probeonly</tt> を
+    実行してください。
+    クロックが次に示す正しいクロックからとても異なっていた場合、
+     <tt>XF86Config</tt> の <tt>Clocks</tt> 行に 偏っている方のクロック
+     を記入してください。この場合、MCLK も役にたちません。
+
+    正しいクロック:
+<verb>
+    25.2  28.3  41.1  36.1  31.5  40.0  45.1  49.9
+    65.0  72.2  75.0  80.0  85.2
+</verb>
+<tag>
+&dquot;cirrus&dquot; クロックチップ
+</tag>
+    このオプションはプログラマブルクロックを可能にします。Device 節に
+    指定する必要があります。このオプションを付けると、クロックモードが
+    自動で選択されます。Clocks 行は記入しないでください。このオプション
+    は 320x200 のダブルスキャンモードのための 12.5 MHz のクロックを可能
+    にします。いくつかの周波数は不安定になるかもしれない（`波打つ' 画面
+    が出るかもしれません）ので注意してください。試して、テストした周波
+    数（標準値のように）だけが安定なのは保証します。
+<tag>
+&dquot;linear&dquot; オプション  (542x/6/8/9/3x/46/754x の場合に指定)
+</tag>
+    このオプションは SVGA バンク切り替えでは必要のない全フレームバッ
+    ファをシステムメモリの範囲を超えた高位のアドレスまで割り付けるリニ
+    アアドレッシングを有効にします。256 色時の性能が向上し 16bpp と 
+    32bpp では必須になっています。詳細は
+    <ref id="16bpp/32bpp" name="リニアアドレッシング と 16bpp/32bpp 
+    モード">の節を参照してください。
+<tag>
+Membase 0x00e00000 (又は異なるアドレス) (542x/6/8/9/3x/46/754x の場合に指定)
+</tag>
+    このオプションは物理的なリニアフレームバッファのメモリ基底アドレス
+    を設定します。これは Device 節に指定する必要があります。非 PCI のリニ
+    アアドレッシングの構成に必要です。
+<tag>
+&dquot;favour_bitblt&dquot;  オプション (5426 のみ)
+</tag>
+    このオプションは BitBLT エンジン を有効にしてフレームバッファの色数
+    を増やす機能を一般的に速くするのに用います。このオプションは
+    CPU に負荷のかかったシステム（例えば、gcc と他のプログラムが同時に
+    実行している場合など）等、一定の条件で性能の向上をはかります。
+<tag>
+&dquot;mmio&dquot; オプション (5429/3x/46/754x)
+</tag>
+    このオプションは少し速くなるメモリマップド I/O を使う 543x/5429 上
+    の BitBLT エンジンとの接続を有効にします。付随してメモリマップド 
+    I/O を使うアクセラレータ機能も有効になります。この付加機能は BitBLT 
+    エンジンを使わないとき（例えば、&dquot;no_bitblt&dquot; を使った場合）は効果が
+    ありません。
+<tag>
+&dquot;sw_cursor&dquot; オプション (5429/3x/46/754x)
+</tag>
+    このオプションはチップが提供するハードウェアカーソルを無効にしま
+    す。カーソルに問題があるときに試してください。特に、5434/6 で 
+    85 MHz 以上のドットクロックを使うときに有効ですが、これらのチップがそのク
+    ロックでハードウェアカーソルの全ての機能をサポートしていないことに
+    注意してください。
+<tag>
+&dquot;clgd6225_lcd&dquot; オプション
+</tag>
+    いくつかの 62x5 ラップトップ用チップセットで最も白い色を LCD 画面
+    に表示するときの問題に対する対策を提供します。
+</descrip>
+
+
+<sect> モード に関する議論 <p>
+
+<!--
+256 色アクセラレータドライバはビデオメモリ内の 256 バイト、ハードウェア
+カーソルは 1K バイトを作業領域に使います。結果的に 1M バイトのカードで
+は 1024x1024 の仮想解像度は使用出来ません。
+
+特に BitBlt を描画用の DRAM 幅が小さい場合に使用したとき、より高い
+ドットクロック周波数はグラフィック操作の性能に否定的な効果を及ぼします
+（その量は起動時に表示されます）。標準の MCLK の設定 (0x1c) と 32-ビッ
+トメモリインターフェースを使用したとき、65 MHz のドットクロックでの性能
+は 25 MHz のドットクロック時の性能の半分になる場合があります。DRAM 幅が
+少ないとき、とても遅く感じたらドットクロックを最も遅い容認できる値にし
+てみてください。例えば高い再描画速度（ 50MHz のドットクロック）を使って 
+14&dquot; 又は 15&dquot; のモニターに大きな仮想画面で 800x600 の画面を表示するのは
+そんなに悪くありません。
+-memory, and the hardware cursor also uses 1K. Consequently, a 1024x1024
+-virtual resolution should not be used with a 1Mbyte card.
+-
+-The use of a higher dot clock frequencies has a negative effect on
+-the performance of graphics operations, especially BitBlt, when little DRAM
+-bandwidth is left for drawing (the amount is displayed during start-up).
+-With default MCLK setting (0x1c) and a 32-bit memory interface, performance
+-with a 65 MHz dot clock can be half of that with a dot clock of 25 MHz.
+-So if you are short on DRAM bandwidth and experience blitting slowness,
+-try using the lowest dot clock that is acceptable; for example, on a 14" or
+-15" screen 800x600 with high refresh (50 MHz dot clock) is not so bad, with
+-a large virtual screen.
+memory, and the hardware cursor also uses 1K (2K on the '6X). Consequently, 
+a 1024x1024 virtual resolution should not be used with a 1Mbyte card.
+
+
+The use of a higher dot clock frequencies has a negative effect on the
+performance of graphics operations, especially BitBlt, when little
+video memory bandwidth is left for drawing (the amount is displayed
+during start-up for 542x/3x/46 chips).  For the 542x/3x/46 chips, with
+default MCLK setting (0x1c) and a 32-bit memory interface, performance
+with a 65 MHz dot clock can be half of that with a dot clock of 25
+MHz.  So if you are short on memory bandwidth and experience blitting
+slowness, try using the lowest dot clock that is acceptable; for
+example, on a 14" or 15" screen 800x600 with high refresh (50 MHz dot
+clock) is not so bad, with a large virtual screen.
+-->
+256 色アクセラレータドライバはビデオメモリ内の 256 バイト、ハードウェア
+カーソルは 1K バイト ('6X では 2K バイト) を作業領域に使います。
+
+
+特に BitBlt を描画用のビデオメモリ幅が小さい場合に使用したとき、より高い
+ドットクロック周波数はグラフィック操作の性能に否定的な効果を及ぼします
+（542x/3x/46 チップでは周波数は起動時に表示されます）。
+542x/3x/46 チップでは、標準の MCLK の設定 (0x1c) と 32-ビットメモリ
+インターフェースを使用したとき、65 MHz のドットクロックでの性能
+は 25 MHz のドットクロック時の性能の半分になる場合があります。メモリ幅が
+少ないとき、とても遅く感じたらドットクロックを最も遅い容認できる値にし
+てみてください。例えば高い再描画速度（ 50MHz のドットクロック）を使って 
+14" 又は 15" のモニターに大きな仮想画面で 800x600 の画面を表示するのは
+そんなに悪くありません。
+
+1024x768 で 最も高いクロック (85 MHz) を 542x の 76 Hz で使用した場合、
+性能向上指向にはなりません。カードは大抵停止します。75 MHz のドットク
+ロック を 70 Hz で使った場合は満足できるでしょう。85 MHz のドットク
+ロックにおいて 76 Hz で 1024x768 をサポートしているモニターを持っている
+場合は、標準的な 5426/5428 を基にしたカードとは相性が良くないでしょう。
+
+2M のメモリを積んだ 5434 を基にしたカードは高いドットクロックと相性が良
+く、542x シリーズに比べ DRAM 幅は基本的に 2 倍あります。又、543x チップ
+の類は使用可能な DRAM 幅が一段と効果的に確保できます。
+
+<sect> リニアアドレッシング と 16bpp/32bpp モード <label id="16bpp/32bpp"><p>
+
+現在、SVGA サーバが非アクセラレータの 16-ビットと 32-ビットピクセルを
+サポートするにはリニアアドレッシングが必須です。この制約はうまくいけば
+将来的にはずされるでしょう。&dquot;linear&dquot; オプション は深さを指定する screen 
+節で指定することでリニアアドレッシングを有効にし、又 MemBase を (device 
+節で) 設定する必要があるでしょう(けれども 5446, 546x と いくつかの 5436 を基にした
+ビデオカードのような PCI カードでは自動的に選択されます)。
+カードによって異なる構成がいくつもあります。
+
+ISA バス用の 542x/543x と 16M バイトかそれ以上のシステムメモリの場合は
+リニアアドレッシングは不可能です。16bpp は使えません、すいません。14M 
+バイト以下のメモリの場合は `<tt>MemBase 0x00e00000</tt>' を使うことでフ
+レームバッファを 14M バイトに割り付けることが可能です。`e' の後ろにゼロ
+を５つ付けてください。残念ながら多くの ISA カードはリニアアドレッシング
+をサポートしていません。
+
+VESA ローカルバス用の 5424/26/28/29 の場合は、状況はもっと復雑です。
+リニアアドレッシングについて２種類の異なるタイプのカードがあります:
+<itemize>
+<item> ISA バス上のカードのように 16M バイト以下に割り付けるカード。
+  殆どこのようなカードでしょう。同様な制約（例えば 16M バイトより少ない
+  メモリでなければいけない）が適用されます。
+<item> A26 のアドレスラインに接続し 64M バイト + 14M バイトもしくは 64M バイトに常に割り付けるカード。
+  この場合、`<tt>MemBase 0x04e00000</tt>' か又は
+  `<tt>MemBase 0x04000000</tt>' を指定しましょう。A26 を 持っている VLB 
+  マザーボードを仮定しています。またはカードが 0x2000000 に割り付けると
+  か、 5429 のような最近のカードは通常 0x03e00000 (62M バイト) に割り付
+  けています。
+</itemize>
+多分、試行錯誤に頼らないといけないでしょう。16M バイトより少ないメモリならば `誤った' membase を設定するとグラフィック画面は表示できませんが、多分コントロール＋オルタネート＋バックスペースを同時に押すと戻ってこれます。
+
+16M バイト以上のメモリの場合は、最初のタイプのカード（と間抜けな VLB マ
+ザーボードの２番目のタイプも）でハングします（多分ハードリブートが自発
+的に起ります）。
+
+<!-- It may be possible to find out the type by visual inspection. If the card
+has a pin at A26, it is likely to map beyond 64Mb. To do this, take the card
+out. At the VESA local bus pins (this is the smaller strip of connector pins
+at the non-slot side of the card), consider the right side (this is the side
+of the board where all the chips are mounted). There are 45 pins here. They
+are numbered 1 to 45, from the inside (i.e. the one nearest to the card end
+is 45). Counting from the inside, the 17th pin is probably not present, then
+there are pins at 18-20. The 21st is A30, the 22nd is A28 and the 23rd is
+A26. So, if we have no pins at at 21-23, the card doesn't map beyond 64Mb. If
+there's only a gap of two pins at 21 and 22 (or they are both present) and
+there's a pin at 23, the card does probably map beyond 64Mb. If there's a
+little logic near that pin on the card, it's more likely. -->
+カードのタイプは目で確認して分かります。カードに A26 ピンがあれば、64M 
+バイト以上に割り付けるものでしょう。確認を行うには、カードを抜いて下さ
+い。VESA ローカルバスのピン（カードのスロットでない側から見てコネクタピ
+ンの小さい方の細長い小片）で、右側（全てのチップが実装されている面）を
+詳しくみてください。ここに 45 個のピンがあります。内側から 1 から 45 ま
+で番号を振ります（カードの端の方が45 番です）。内側から数えて、17 番目
+のピンが無く、18 番目から 20 番目まではあると思います。21 番目が A30 
+で、22 番目が A28 、23 番目が A26 です。そして、21 番目から 23 番目のピ
+ンが無い場合、カードは 64M バイト以上に割り付けることは出来ません。21 
+番目と 22 番目が空いていて（または両方あり）且つ 23 番目がピンがある場
+合、64M バイト以上に多分割り当てます。カード上のピンのそばに小さな回路
+がある場合、かなり見込みがあると思います。
+
+ローカルバス上の 543x カードはより単純（Cirrus Logic 社の winsows のドライバがこれをつかっています）ですが、問題が無いわけではありません。
+
+PCI バス上のカードでは、PCI カードを探査したときに自動的にドライバが読
+み込むフレームバッファの基底アドレスを格納している PCI 構成レジスタを
+持っています。`scanpci' プログラムは PCI 構成を読み出し基底アドレ
+スを見ます。
+
+VESA ローカルバス上では、殆どの 543x カードは 64M バイトの標準的な割り
+付けアドレスを持っていて、オプションで 2048M バイト と 32M バイトをジャ
+ンパピンで設定します。これはカードに同梱の資料に書かれているか、MS-
+Windows の system.ini ファイルに (linearaddr = &lt;offset in megabytes
+&gt; 等と) 書かれているでしょう。Cirrus Logic が多くの VLB マザーボード
+の実装状況を調査し加えたもので、これらと異なるアドレスピンには実装しな
+いのです。ドライバは MemBase の指定が無い場合は標準の 
+64M バイトを仮定します。MemBase の例を少し示します:
+<tscreen><verb>
+    MemBase 0x02000000  32Mb
+    MemBase 0x04000000  64Mb
+    MemBase 0x80000000  2048Mb
+</verb></tscreen>
+<!--
++
++Finally, for 546X cards, you are in luck:  there are no "issues" to worry
++about.  The '6X will always use linear addressing and memory-mapped I/O,
++and will use the memory addresses up near 4GB.  Yay for PCI!
++
++The 16bpp and 32bpp modes have limited acceleration (scroll, text, fill)
+ The 16bpp and 32bpp modes have limited acceleration (scroll, text)
+which means they can be slow, although a good local bus host
+interface (like the 543x has) helps a lot. Note that the standard cfb
+framebuffer code can be very slow for monochrome stipples and bitmaps.
+32bpp mode is only supported on a 5434 with 2Mb or more of memory.
+-->
+
+最後に、546X ビデオカードの場合はラッキーかも。心配するような "困難" は
+ないでしょう。'6X は常にリニアアドレッシングとメモリマップド I/O と 4GB
+近いメモリアドレスを使用出来ます。PCI をどうぞ！
+
+16bpp と 32bpp モードは（スクロール、テキスト、塗りつぶし）に限定した
+アクセラレータ機能がありますがそれでも遅いと感じるでしょう。でも、
+（543x が持っているような）優秀なローカルバスインターフェースが十分助け
+になるでしょう。標準の fbc フレームバッファプログラムは白黒の点描と
+ビットマップではとても遅いでしょう。
+32bpp モードは最低 2M バイトのメモリを搭載した一部のビデオカードでのみ
+サポートしています。
+
+<tt>XF86Config</tt> の <tt>&dquot;Screen&dquot;</tt> 節のなかの、
+<tt>&dquot;Display&dquot;</tt>
+項(subsection) に Modes と 仮想画面の大きさを分けて動かしたい深さ毎に
+定義しなければいけません。例（2M バイトのビデオメモリの場合）は:
+<tscreen><verb>
+Section "screen"
+    SubSection "Display"
+    Depth 8
+    Virtual 1280 1024
+    ViewPort 0 0
+    Modes "640x480" "800x600" "1024x768"
+    Option "linear"
+    EndSubSection
+    SubSection "Display"
+    Depth 16
+    Virtual 1024 992
+    ViewPort 0 0
+    Modes "640x480" "800x600" "1024x768"
+    Option "linear"
+    EndSubSection
+    SubSection "Display"
+    Depth 32
+    Virtual 832 600
+    ViewPort 0 0
+    Modes "640x480" "800x600"
+    Option "linear"
+    EndSubSection
+EndSection
+</verb></tscreen>
+
+<sect> &dquot;cl64xx&dquot; ドライバ<label id="cl64xx"><p>
+cl64xx ドライバは多くのラップトップ用の cl-gd6440 をサポートします。例
+えば、Sager, ProStar 等 と Texas Instruments TI4000 シリーズに OEM 提供
+されている Nan Tan コンピュータの NP9200,NP3600 等をサポートしていま
+す。
+
+ドライバは LCD 専用モード、 CRT 専用モードと LCD と外部 CRT ディスプレ
+イを同時に使えるようにするチップの持つ SimulScan モードで動作します。
+LCD と SimulScan モードの解像度は 640x480 が、CRT 専用モードでは 
+640x480, 600x800 と 1024x768 の 標準 VESA モードがテスト済みです。
+1024x768 インタレースモードはデバッグしてませんし、テスト用機でも動作し
+てません。
+
+資料になっている駆動電圧に依存するドットクロックの最大稼働上限がありま
+す。特に 5.0V での最大ドットクロックは 65MHz で 3.3V での最大ドットク
+ロックは 40MHz です。ドライバは駆動電圧を確認して適正な値に最大ドットク
+ロックを制限します。これが 60Hz の再描画速度時の約 1024x768 の最大解像
+度に変換されます。内蔵発振器(frequency generator) はこれらの上限より高
+い値にプログラムされていて、サーバの起動時に瞬間的にチップの稼働上限
+を超えるようなクロックを探査させます。一旦有効なクロックの組み合わせが
+得られたら、<tt>XF86Config</tt> の Clocks 行に書いておくことをお勧めし
+ます。これを行うと起動にかかる時間が著しく減少します。クロックは X サー
+バーに -probeonly を付けて実行する事によって得られます（-probeonly につ
+いて情報をもっと知りたい場合は XFree86 のオンラインマニュアルを参照のこ
+と）。
+
+データブックにはチップがサポートしている 1 メガバイトのビデオメモリの構
+成だけが示されています。この大きさはドライバで直接設定しています。必要
+に応じて、初期値のメモリサイズを <tt>XF86Config</tt> に書いておくことも
+出来ます。また、1M バイトのビデオメモリで例えば 1024x1024 のような大き
+さの仮想画面を持つことができ、これは CRT 専用の画面モードで使用可能で
+す。しかし、LCD (LCD と SimulScan) を使うときはいつでもチップはビデオメ
+モリの上位の一部をそれ自身の内部の加速処理のために使用します。従って、
+LCD モードで仮想画面を使用するときの最大のビデオメモリは約 0.75M バイト
+なので例えば 1024x768 のような解像度になるのです。上記のような仮想解像
+度を設定した場合に小さく切り取られた画面に加速化された領域が表示されま
+す。
+
+現在、LCD, CRT と SimulScan の各画面モード間の切り替えをサポートしてい
+ませんが、少なくとも NP9200 では OS のブート時（例えば Linux の LILO
+で）BIOS が未だ始動する前にモードの選択が出来るようになってます。<tt>
+XF86Config</tt> にModeLine オプションを追加すれば画面モードの選択が X 
+サーバの内部から動的に可能になります。最後に、ドライバは現状でチップ
+の低消費電力機能とスクリーンセーバーによって画面が消えているときの LCD 
+のバックライトの消灯をサポートしていません。将来のバージョンでこれら全
+ての機能が実現することを期待しています。
+
+CL-GD6420 に関する注意事項:
+
+ビデオメモリの量が時々正しく探査できない場合があります。２つの解決方法
+がドライバのソースコードにあり、１つは定義してしまうことです。もっと良
+い方法は Device 節の VideoRam 行にビデオメモリの量を指定することです。 
+CRT 又は SIMulscan モードでは標準的な 640x480 60Mhz で 25.175 MHz の
+ドットクロックでの標準モード調整を行って下さい。LCD 専用のモードでは同
+様のモード調整を行えますが、16.257 MHz のドットクロックを用いてくださ
+い。標準の 56 Hz 800x600 も CRT でサポートしています。
+
+&dquot;cl64xx&dquot; ドライバでの cl6440 に関する問題はRandy Hendry 
+<em>&lt;randy@sgi.com&gt;</em> 氏まで先ず最初に連絡してください。
+
+<sect> &dquot;cirrus&dquot; ドライバでの障害対策のまとめ<p>
+先ず最初に、<tt>XF86Config</tt> で選択したモードをモニターがサポートし
+ていること、つまり水平同期の上限が正しいことを確認してください。25.175 
+MHz のクロックで標準的な 640x480x256 （単一の水平同期を 31.5 に指定した
+場合）が構成上ドライバが動作することの確認からはじめるのがお勧めです。
+timing 節にこの解像度用の最高のドットクロックを置いて、mode 行の最初に
+書いたモードが常に初期値のモードとして用いられます。
+
+いくつかの VESA 標準モードの調整がいくつかのモニターで問題を起こします
+ので注意してください（水平同期信号を増やしてみましょう、つまり真ん中の
+２つの数値の差を広げる、若くは全ての水平同期の調整数値を 16 又は 32 の
+倍数になるように増やす）。
+<descrip>
+<tag>ビデオ信号が届いているが、画面が同期出来ない場合。</tag>
+    モニターが扱えないモードを使っているのです。標準でないモードを使っ
+    ている場合、少し数値を直す必要があるかもしれません。モニターが取り
+    扱える標準モードと標準周波数の場合、似たようなモードと周波数で異な
+    る数値の組み合わせを見つけてください。
+<tag>高いドットクロックでの 水平ジッタ（不安定感）</tag>
+    特に上にスクロールするような描画操作を行う時にこの問題が見られま
+    す。542x/3x/46/6x を使う場合は 
+	<tt>&dquot;fifo_conservative&dquot;</tt> オプションを試してくださ
+	い。これが失敗したときは、<tt>&dquot;fast_dram&dquot;</tt> オプ
+	ションを試すか、より低いドットクロックを使ってみてください。
+	これでも満足いかない場合は、<tt>&dquot;noaccel&dquot;</tt> オプ
+	ションか、<tt>&dquot;no_bitblt&dquot;</tt> オプションが
+    多分助けになるでしょう。
+<tag>`波打つ'(`Wavy') 画面。</tag>
+    画面の水平揺れ又は全体のジッタが（描画操作に依存しないで）間断な続
+    く現象です。多分、高すぎるドットクロックを使っているせいで、近い周
+    波数の MCLK と干渉が起きている可能性があります。もっと低いドットク
+    ロックを試して下さい。また、モードの数値調整を行って、２番目の水平
+    方向の数字をいくらか増やしてみてください。次は 65MHz のドットクロッ
+    クで 1024x768 （約 60 Hz）のモードが助けになるはずです。:
+<verb>
+ "1024x768"     65      1024 1116 1228 1328     768  783  789  818
+</verb>
+    Clockchip <tt>&dquot;cirrus&dquot;</tt> を用いてプログラマブルクロックを使用し
+    ている場合は、これを無効にして標準値のクロックの組み合わせを使って
+    ください。
+<tag>起動した後で画面が崩れる、止まる（画面が真っ暗になるかも）。</tag>
+<!--    Try the <tt>&dquot;noaccel&dquot;</tt> option. If that works,
+    try Option <tt>&dquot;no_bitblt&dquot;</tt> for
+    somewhat better performance. Check that the BIOS settings are OK;
+    in particular, disable caching of 0xa0000-0xaffff. Disabling hidden
+    DRAM refresh may also help. -->
+    <tt>&dquot;noaccel&dquot;</tt> オプションを試してみましょう。もし動かなかった場
+    合、いくらか性能向上の為に <tt>&dquot;no_bitblt&dquot;</tt> を試してみてくださ
+    い。 BIOS の設定が大丈夫かどうか確認して、特に 0xa0000-0xaffff を
+    キャッシングしないようにしてください。裏 DRAM の更新(hidden DRAM 
+    refresh) を無効にしても良いでしょう。
+<tag>
+グラフィック操作の後の画面が崩れる、止まる又はごみが残る。
+</tag>
+    アクセラレータ機能の一つ、又は BitBLT 機能を使ったときのプログラム
+    のバグに関連しているかもしれません。<tt>&dquot;noaccel&dquot;</tt> オプション又
+    は <tt>&dquot;no_bitblt&dquot;</tt> オプションを試してみてください。また、BIOS 
+    の設定を確認してください。
+<tag>
+サーバが `Blitter timeout' というメッセージを出力する。
+</tag>
+    同じ設定がダブっています。
+<tag>
+画面が垂直方向に周り込んで (`wrapped') いる。 (542x/3x/46 の場合)
+</tag>
+    DRAM 構成に問題があることを示しています。カードに２メガバイトのメモ
+    リを搭載している場合は、<tt>&dquot;no_2mb_banksel&dquot;</tt> オプションか、１
+    メガバイトのメモリだけを仮想画面に使う場合、
+    <tt>videoram &dquot;1024&dquot;</tt> を試してください。
+<tag>
+端末ウィンドウの文字がにじむ。
+</tag>
+
+    標準でないビデオの実装にて報告されています。
+    <tt>&dquot;no_bitblt&dquot;</tt> オプションを使って下さい。
+<tag>
+ラップトップ用チップセットで稲妻が走る又は止まる
+</tag>
+    ドットクロックが高すぎるため、描画用の帯域幅がとても少なくなって
+    （例えば、512K バイトのカードで 40MHz を使う場合）いるか、（ 5422
+     のような）アクセラレータ機能を使っている場合に起こります。
+<tag>
+時々文字のドットが抜ける、窓枠を動かすとドットのごみが出る。
+</tag>  
+    多分、高すぎる MCLK の設定が関係しています（バンクモードが大丈夫で
+    もリニアアドレッシングが引き起こすでしょう）。
+<tag>
+チップセットが認識できない。
+</tag>
+    使おうとしているチップセットに似たものを強制指定することを試しま
+    しょう。
+<tag>
+時々、間違った小さい線分（殆どが白い）が現われる
+</tag>
+    システムからビデオメモリへの BitBLT 操作に関する問題に関係していま
+    す。いらいらする場合は <tt>&dquot;no_imageblt&dquot;</tt> オプションを試してみ
+    ましょう。
+<tag>
+テキストモードが適切に回復しない
+</tag>
+    いくつかの構成で報告されています。XFree86 3.1 の SVGA サーバの探
+    査が、Chipset 行で要求した 543x のレジスタの内容を壊したかもしれま
+    せん。普通はユーティリティ ( Linux の <tt>setfont</tt>,
+    <tt>runx</tt>, <tt>restorefont</tt>) でテキストモードは回復可能で
+    しょう。
+<tag>
+非常に高いドットクロックで散漫なシステム挙動を起す
+</tag>
+    カード且つ／又はマザーボードの設計に不良のある場合、ビデオカード上
+    の高いドットクロックとシステム内の他の部分（例えば ディスク I/O）と
+    のインターフェースがうまくいかない時に発生する可能性があります。
+    （ごくまれに、 5428 チップが PCI をサポートしない時に）いくつかの 
+    PCIの 5428 を基にしたカードで観測されます。
+</descrip>
+その他の画面描画に関する問題が生じた場合は、 ( <tt>&dquot;no_bitblt&dquot;</tt> が
+助けにならない場合に) <tt>&dquot;noaccel&dquot;</tt> オプションを試してみましょう。
+
+この文書に記述の無いドライバに関する問題、又はアクセラレータ機能につい
+てバグを発見した場合は XFree86 チーム（現在、ドライバの保守は 
+<it>H.Hanemaayer@inter.nl.net</it> で行っています）に連絡を下さるか、
+&dquot;<it>comp.windows.x.i386unix</it>&dquot; というニュースグループに投稿して下さ
+い。
+
+<!--
+In fact, reports (success or failure) are very welcome, especially
+on configurations that have not been tested. You can do this
+via the BetaReport form (mail to report@XFree86.org). You may want to
+keep an eye on forthcoming beta releases at <it>www.xfree86.org</it>.
+-->
+実際、特にテストしていない構成での (成功や失敗の) 報告を歓迎していま
+す。ベータレポート (BetaReport) 用紙を使って (report@XFree86.org に
+メールで) 報告してください。<it>www.xfree86.org</it> からの新刊予定の
+ベータ版にご期待ください。
+
+<!--
+<sect> Tested Configurations <p>
+
+This is a list of configurations that has received testing with one or
+more of the changes introduced in the current version XFree86 3.2. The
+amount of testing is very small for some of the configurations, and the
+summaries may be incomplete. If you can contribute, please do so. For
+the latest information check the latest version of this document on
+<it>www.xfree86.org</it>.
+-->
+<sect> テストした機器構成 <p>
+
+現行の XFree86 3.2 で紹介したひとつ又はそれ以上の変更のテスト結果を受け
+取った機器構成の一覧を示します。いくつかの機器構成でのテスト結果の量は
+とても少なく、まとめは不完全です。貢献出来る時は、お願いします。
+最新情報は <it>www.xfree86.org</it> にあるこの文書の最新版を調べて
+ください。
+
+<descrip>
+<!--
+<tag>CL-GD5426 on VL-bus</tag>
+
+<tag>CL-GD5429 on VL-bus</tag>
+	BitBLT operation should be fixed. MMIO does not work.
+
+<tag>CL-GD5434 with 2MB memory on VL-bus</tag>
+	MMIO operation is supported.
+
+<tag>CL-GD5434 with 1MB memory on PCI bus</tag>
+	8bpp, 16pp and 24bpp work OK. 16bpp no longer has "static"
+	problems. MMIO operation is supported.
+
+<tag>CL-GD5446 with 2MB memory on PCI bus</tag>
+	32bpp probably doesn't work. 8bpp and 16bpp should work without
+	any FIFO-related problems, and without requiring "fifo_conservative".
+
+<tag>CL-GD5462 with 2MB memory on PCI bus</tag>
+
+<tag>CL-GD5462 with 4MB memory on PCI bus</tag>
+
+<tag>CL-GD5464 with 4MB memory on PCI bus</tag>
+	Works OK at 8bpp, 16bpp, 24bpp and 32bpp.
+
+<tag>CL-GD6440 on ISA bus</tag>
+
+<tag>CL-GD7543 on PCI bus</tag>
+        Apparently broken in this release. On 800x600 displays, the
+        recommended dot clock is 40 MHz for TFT and 33.7 MHz for a DSTN
+	panel, with corresponding horizontal syncs of 33.7 kHz for TFT and
+	38.6 kHz for DSTN.
+-->
+<tag>VL バス上の CL-GD5426</tag>
+
+<tag>VL バス上の CL-GD5429</tag>
+	BitBLT 操作を修正しました。 MMIO については作業してません。
+
+<tag>VL バス上の 2M バイトのメモリを搭載した CL-GD5434</tag>
+	MMIO operation is supported.
+
+<tag>PCI バス上の 1M バイトのメモリを搭載した CL-GD5434</tag>
+	8bpp, 16pp と 24bpp は動作します。 16bpp は最早 "静的な"
+	問題はありません。 MMIO 操作はサポートしていません。
+
+<tag>PCI バス上の 2M バイトのメモリを搭載した CL-GD5446</tag>
+	32bpp は多分動作しません。 8bpp と 16bpp は FIFO に関連した
+	問題と "fifo_conservative" が必要なことを除いて動作します。
+
+<tag>PCI バス上の 2M バイトのメモリを搭載した CL-GD5462</tag>
+
+<tag>PCI バス上の 4M バイトのメモリを搭載した CL-GD5462</tag>
+
+<tag>PCI バス上の 4M バイトのメモリを搭載した CL-GD5464</tag>
+	8bpp, 16bpp, 24bpp と 32bppで動作します。
+
+<tag>ISA バス上の CL-GD6440</tag>
+
+<tag>PCI バス上の CL-GD7543</tag>
+	この版では見たところ動作しません。800x600 表示で、推奨
+	ドットクロックは TFT では 40 MHz、DSTN では 33.7 MHz で
+	適合する水平同期周波数は TFT では 33.7 khz で DSTN では
+	38.6 khz です。
+	
+</descrip>
+
+<!--
+Some configurations for which no up-to-date testing data is available:
+
+<descrip>
+<tag>CL-GD5430, and CL-GD5436 and CL-GD5446 with 1MB memory</tag>
+	It would be nice to know whether these chips needs the same
+	treatment at 16bpp as the CL-GD5434 with 1MB memory does.
+	This also applies to the CL-GD754x series.
+
+<tag>CL-GD5436 and CL-GD5446 with 1MB memory</tag>
+	In particular the FIFO settings for this configuration are uncertain.
+
+<tag>CL-GD754x</tag>
+	Support for these chips was reported broken in 3.1.2G, although the
+        7548 was reported to work in some cases.
+-->
+最新ではないテストしたいくつかの機器構成があります:
+<descrip>
+<tag>1M バイトのメモリを搭載した CL-GD5430, CL-GD5436 と CL-GD5446</tag>
+	これらのチップを 1M バイトのメモリがある CL-GD5434 として 16bpp で
+	どう取り扱うかどうかを知るのに素晴しいです。
+	CL-GD754x 系列にも適応出来ます。
+
+<tag>1M バイトのメモリを搭載した CL-GD5436 と CL-GD5446</tag>
+	特にこの構成での FIFO の設定は不安定です。
+
+<tag>CL-GD754x</tag>
+	3.1.2G ではこれらのチップでは動作しませんが、いくつかの場合で 7548
+	は動作したと報告がありました。
+</descrip>
+
+<!--
+<sect> ドライバの変更点 <p>
+
+XFree86 3.1 から次のバグを修正しました:
+<itemize>
+<item>    アクセラレータ機能の 14 ピクセルの幅のフォントの表示のバグ
+<item>    8bpp でリニアアドレッシング機能を使ったときに他の VC から
+          切り替えたときサーバが壊れる。
+<item>    542x 上で 16bpp の時 VC 切り替えを行ったとき DAC プログラムが
+          固まってしまう。
+<item>    ドライバがサーバの探査した情報を元に戻して 543x のレジスタ
+          の内容を破壊する。
+<item>    543x で 8bpp の時のリニアアドレッシング（16/32bpp を構成しよ
+          うとすると失敗する）
+<item>    16/32bpp でのハードウェアカーソルの色付け
+
+<sect> Driver Changes <p>
+
+Changes since XFree86 3.1.2:
+<itemize>
+<item>	Display-refresh problems for CL-GD5434 with 1MB memory at 16bpp
+	are fixed.
+<item>	Some problems with Memory-Mapped I/O operation have been fixed.
+<item>  A problem with unaligned bitmaps has been fixed.
+<item>  The CRT FIFO setting for the 5436/46 has been fixed.
+<item>  Opaque window moves are now accelerated at 16/24/32bpp.
+-->
+<sect> ドライバの変更点 <p>
+
+XFree86 3.1.2 から次のバグを修正しました:
+<itemize>
+<item>	16bpp で 1M バイトを搭載した CL-GD5434 で起こる再表示の問題を
+		修正しました。
+<item>	メモリマップド I/O 操作で起こる問題を修正しました。
+<item>	ビットマップが整列できない問題を修正しました。
+<item>	5436/46 での CRT FIFO の設定を修正しました。
+<item>	16/24/32bpp での不透明なウィンドウの移動を高速化しました。
+</itemize>
+
+<!--
+XFree 3.1.1 での新機能:
+<itemize>
+<item>    いくらかの表示速度の性能向上。
+<item>    16/32bpp でのスクロール／テキスト／塗りつぶしの加速化。
+<item>    プログラマブルクロックのサポート。
+<item>    543x でのメモリマップド I/O のサポート。
+<item>    5434 での 110 MHz へのドットクロック向上のサポート。
+<item>    &dquot;cl64xx&dquot; ドライバで CL6440 のサポート。
+</itemize>
+
+XFree86 3.1.1 からの変更点:
+<itemize>
+<item>   文字表示機能でのメモリ破壊の修正。
+<item>   CL-GD5434 レビジョン E 以降でのドットクロックを 135 MHz に向
+         上。
+<item>   高ドットクロックでの画面再表示エラー（ジッタ）を解決するための
+         よりバランスのとれた FIFO の設定。
+<item>   メモリマップド I/O (&dquot;mmio&dquot; オプション) の操作性向上 (5429 対応
+         の副作用の排除)。
+<item>   負の大きさの矩型塗りつぶしを行ったときの潜在的なサーバ破壊を
+         回避する正当性チェックを追加。
+<item>   BitBLT エンジンを使わないでスクロールをした時発生する表示エ
+         ラーを修正。
+<item>   543x PCI の基底アドレスの認識。
+<item>   CL-GD5436 の限定サポート。
+<item>   5429 対応の VLB の初期値の基底アドレスを 0x03e00000 とした。
+</itemize>
+
+New features in XFree86 3.2:
+<itemize>
+<item>   Largely untested accelerated support for the CL-GD754x series of
+	 laptop chips.
+<item>   Support for 5446 chip.
+<item>   Support and accelerated features for 546x chips.
+<item>	 Support for packed 24bpp mode on most chips (including devices
+	 with 1MB memory).
+</itemize>
+-->
+XFree86 3.2 での新機能:
+<itemize>
+<item>	主なものはラップトップ用チップの CL-GD754x 系列対応の未テストの
+		アクセラレータのサポート
+<item>	5446 チップのサポート
+<item>	546x チップのアクセラレータのサポート
+<item>	1M バイトのメモリを搭載した殆どのチップでパックト 24 bpp の
+		サポート
+</itemize>
+
+<verb>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/Japanese/sgml/cirrus.sgml,v 3.2 1997/01/26 04:34:29 dawes Exp $
+</verb>
+<hrule>
+このファイルは xc/programs/Xserver/hw/xfree86/doc/sgml/cirrus.sgml,v 3.17 1996/10/26 09:38:57   を、岡本  一幸 
+( Kazuyuki Okamoto <url url="mailto:ikko-@pacific.rim.or.jp"
+name="&lt;ikko-@pacific.rim.or.jp&gt;"> ) が XFree86 3.2 を
+日本でインストールする人向けに和訳したものです。ここがおかしいとか、
+ここはこうしたほうがいいといったご意見がありましたら、電子メールで
+お知らせ下さい。
+原文の著作権は XFree86 プロジェクト社にあります。この和訳の著作権は 
+XFree86 プロジェクト社と岡本　一幸にありますが、この和訳の不具合は私
+に、電子メールで送って下さい。
+<hrule>
+&lsqb;EOF&rsqb;
+
+</article>
+

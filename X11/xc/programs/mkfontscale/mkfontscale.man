@@ -1,0 +1,67 @@
+.\" $XFree86: xc/programs/mkfontscale/mkfontscale.man,v 1.2 2002/09/27 01:55:07 dawes Exp $
+.\"
+.TH MKFONTSCALE 1 __vendorversion__
+.SH NAME
+mkfontscale \- create an index of scalable font files for X
+
+.SH SYNOPSIS
+.B mkfontscale
+[
+.B \-e
+.I encoding
+] \|.\|.\|. [
+.B \-f
+.I fuzz
+] [
+.B \-\-
+] [
+.I directory
+] \|.\|.\|.
+
+.SH DESCRIPTION
+For each directory argument,
+.I mkfontscale
+reads all of the scalable font files in the directory.  For every font
+file found, an X11 font name (XLFD) is generated, and is written
+together with the file name to a file
+.B fonts.scale
+in the directory.
+
+The resulting
+.B fonts.scale
+file should be checked and possibly manually edited before being used
+as input for the
+.BR mkfontdir (1)
+program.
+
+.SH OPTIONS
+
+.TP
+.BI \-e " encoding"
+add
+.I encoding
+to the list of encodings searched for.
+.TP
+.BI \-f " fuzz"
+set the fraction of characters that may be missing in large encodings to
+.I fuzz
+percent.  Defaults to 2%.
+.TP
+.B \-\- 
+end of options.
+
+.SH SEE ALSO
+X(__miscmansuffix__), Xserver(1), mkfontdir(1), ttmkfdir(1), xfs(1), xset(1)
+
+.SH NOTES
+.B Mkfontscale
+will overwrite any
+.B fonts.scale
+file even if it has been hand-edited.
+
+.SH AUTHOR
+.B Mkfontscale
+was written by Juliusz Chroboczek <jch@xfree86.org> for the XFree86
+project.  The functionality of this program was inspired by the
+.B ttmkfdir
+utility by Joerg Pommnitz.

@@ -1,0 +1,3 @@
+#!/bin/sh
+# $Xorg: Xsetup_0,v 1.3 2000/08/17 19:54:17 cpqbld Exp $
+xconsole -geometry 480x130-0-0 -daemon -notify -verbose -fn fixed -exitOnFail

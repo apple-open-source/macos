@@ -1,0 +1,601 @@
+#!/bin/sh
+# $XFree86: xc/programs/Xserver/hw/xfree86/etc/dmmap.shar,v 3.2 1996/12/23 06:47:08 dawes Exp $
+# This is a shell archive (produced by shar 3.49)
+# To extract the files from this archive, save it to a file, remove
+# everything above the "!/bin/sh" line above, and type "sh file_name".
+#
+# made 10/02/1993 09:11 UTC by root@gamma
+# Source directory /home1/tmp/x11r5
+#
+# $XConsortium: dmmap.shar /main/4 1996/02/21 17:47:27 kaleb $
+#
+# existing files will NOT be overwritten unless -c is specified
+#
+# This shar contains:
+# length  mode       name
+# ------ ---------- ------------------------------------------
+#    822 -r--r----- dmmap-1.0/Makefile
+#   2560 -r--r----- dmmap-1.0/README
+#   1139 -r--r----- dmmap-1.0/COPYING
+#    273 -r--r----- dmmap-1.0/version.h
+#   2413 -r--r----- dmmap-1.0/dmmap.c
+#     24 -r--r----- dmmap-1.0/conf/System
+#     29 -r--r----- dmmap-1.0/conf/Master
+#     16 -r--r----- dmmap-1.0/conf/Node
+#    631 -r-xr-xr-x dmmap-1.0/conf/install
+#     85 -r--r----- dmmap-1.0/test/Makefile
+#   2384 -r--r----- dmmap-1.0/test/tst_dmmap.c
+#
+# ============= dmmap-1.0/Makefile ==============
+if test ! -d 'dmmap-1.0'; then
+    echo 'x - creating directory dmmap-1.0'
+    mkdir 'dmmap-1.0'
+fi
+if test -f 'dmmap-1.0/Makefile' -a X"$1" != X"-c"; then
+	echo 'x - skipping dmmap-1.0/Makefile (File already exists)'
+else
+echo 'x - extracting dmmap-1.0/Makefile (Text)'
+sed 's/^X//' << 'SHAR_EOF' > 'dmmap-1.0/Makefile' &&
+X
+DISTDIR = dmmap-1.0
+BINDIST = $(DISTDIR).btz
+SRCDIST = $(DISTDIR).stz
+DRIVER  = dmmap.o
+TEST    = test/tst_dmmap
+DISTFIL = README COPYING conf/install conf/System conf/Master conf/Node $(TEST)
+DISTSRC = Makefile README COPYING version.h dmmap.c conf \
+X			test/Makefile test/tst_dmmap.c
+X
+CFLAGS = -D_INKERNEL=1 -D_COMPAT322=1
+X
+all: $(DRIVER) $(TEST)
+X
+install: $(DISTDIR)
+X	cd $(DISTDIR); ./install
+X
+dist: bin-dist src-dist
+X
+bin-dist: $(DISTDIR)
+X	tar cvf - $(DISTDIR) | gzip -9 > $(BINDIST)
+X
+src-dist:
+X	tar cvf - $(DISTSRC) | gzip -9 > $(SRCDIST)
+X
+clean:
+X	rm -f *.o
+X	rm -f $(BINDIST)
+X	rm -f $(SRCDIST)
+X	rm -rf $(DISTDIR)
+X	cd test; make clean
+X
+$(TEST): $(TEST).c
+X	cd test; $(MAKE) $(MAKEARGS)
+X
+$(DISTDIR): $(DRIVER) $(DISTFIL)
+X	rm -rf $(DISTDIR)
+X	mkdir $(DISTDIR)
+X	cp $(DISTFIL) $(DISTDIR)
+X	cp $(DRIVER) $(DISTDIR)/Driver.o
+X
+SHAR_EOF
+chmod 0440 dmmap-1.0/Makefile ||
+echo 'restore of dmmap-1.0/Makefile failed'
+Wc_c="`wc -c < 'dmmap-1.0/Makefile'`"
+test 822 -eq "$Wc_c" ||
+	echo 'dmmap-1.0/Makefile: original size 822, current size' "$Wc_c"
+fi
+# ============= dmmap-1.0/README ==============
+if test -f 'dmmap-1.0/README' -a X"$1" != X"-c"; then
+	echo 'x - skipping dmmap-1.0/README (File already exists)'
+else
+echo 'x - extracting dmmap-1.0/README (Text)'
+sed 's/^X//' << 'SHAR_EOF' > 'dmmap-1.0/README' &&
+X                 The DMMAP Driver
+X
+Contents:
+1. General.
+2. Installation.
+3. Removal.
+4. Testing.
+5. Using the driver.
+6. Limitations.
+X
+X
+1. General
+X
+The "dmmap" driver is a generic video mapping driver for SCO unix.  It differs
+from the standard SCO video mapping in that it allows you to map memory above
+1Mb and memory not usually associated with the current video card.  This
+allows the user to map linear frame buffers into user space.  It can only
+be accessed by root to limit security problems.
+X
+The distribution comes in two files,
+X
+X	dmmap-XX.btz, the binary files required to install and test dmmap
+X	dmmap-XX.stz, the source for dmmap and test program(s)
+X
+To extract one of these files use the following command,
+X
+X	gunzip < dmmap-XX.?tz | tar xvf -
+X
+For information on copyright and copying see the file COPYING that appears in
+this package.
+X
+2. Installation
+X
+To install the dmmap driver, extract the dmmap.tar file somewhere
+convenient, then run "install" as root.  The "install" script will take it
+from there.  If building from source, type 'make install' as root.
+X
+3. Removal
+X
+To remove the dmmap driver follow these steps:
+X
+X	login as root
+X	cd /etc/conf/bin
+X	./idinstall -d dmmap
+X	./idbuild
+X
+4. Testing
+X
+A simple test program, "tst_dmmap" is provided with the driver.  After the
+kernel is built and you have rebooted confirm the installation of the
+driver by running "tst_dmmap".  It will do a simple test by mapping in the
+bios rom and checksumming it.  If you have a bios at address 0xf0000 it
+will display the first 20 characters from the bios.
+X
+5. Using the driver
+X
+dmmap accepts two ioctls, KDMAPDISP and KDUNMAPDISP, both of which require
+as an argument a pointer to a completed "kd_memloc" stucture.  A special
+ioctl of '-1' will return the version number of scmap you are running.
+A sample of code to map and unmap some memory follows below.  For more
+detail see "test/tst_dmmap.c".
+X
+X	.
+X	.
+X	.
+X
+X	struct kd_memloc memloc;
+X
+X	if ((fd = open("/dev/dmmap", O_RDWR)) < 0)
+X		exit(0);
+X
+X	memloc.vaddr    = NULL;
+X	memloc.physaddr = 0xf0000;
+X	memloc.length   = 0x10000
+X
+X	if (ioctl(fd, KDMAPDISP, &memloc) < 0) {
+X		perror("KDMAPDISP");
+X		exit(1);
+X	}
+X
+X	printf("The first byte of 0x%x is 0x%02x\n", memloc.vaddr, *memloc.vaddr);
+X
+X	if (ioctl(fd, KDUNMAPDISP, &memloc) < 0) {
+X		perror("KDMAPDISP");
+X		exit(1);
+X	}
+X
+X	.
+X	.
+X	.
+X
+6. Limitations
+X
+Currently this driver can only map in at most 4Mb of memory.  This is not
+about to change as vasmalloc can only handle that much.  It may be possible
+to rewrite vasmalloc but thats not going to happen any time soon.
+X
+SHAR_EOF
+chmod 0440 dmmap-1.0/README ||
+echo 'restore of dmmap-1.0/README failed'
+Wc_c="`wc -c < 'dmmap-1.0/README'`"
+test 2560 -eq "$Wc_c" ||
+	echo 'dmmap-1.0/README: original size 2560, current size' "$Wc_c"
+fi
+# ============= dmmap-1.0/COPYING ==============
+if test -f 'dmmap-1.0/COPYING' -a X"$1" != X"-c"; then
+	echo 'x - skipping dmmap-1.0/COPYING (File already exists)'
+else
+echo 'x - extracting dmmap-1.0/COPYING (Text)'
+sed 's/^X//' << 'SHAR_EOF' > 'dmmap-1.0/COPYING' &&
+X
+Copyright 1993 by David McCullough <davidm@stallion.oz.au>
+X
+Permission to use, copy, modify, distribute, and sell this software and its
+documentation for any purpose is hereby granted without fee, provided that
+the above copyright notice appear in all copies and that both that
+copyright notice and this permission notice appear in supporting
+documentation, and that the name of David McCullough not be used in
+advertising or publicity pertaining to distribution of the software without
+specific, written prior permission.  David McCullough makes no representations
+about the suitability of this software for any purpose.  It is provided "as is"
+without express or implied warranty.
+X
+DAVID MCCULLOUGH DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT
+SHALL DAVID MCCULLOUGH BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL
+DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+X
+SHAR_EOF
+chmod 0440 dmmap-1.0/COPYING ||
+echo 'restore of dmmap-1.0/COPYING failed'
+Wc_c="`wc -c < 'dmmap-1.0/COPYING'`"
+test 1139 -eq "$Wc_c" ||
+	echo 'dmmap-1.0/COPYING: original size 1139, current size' "$Wc_c"
+fi
+# ============= dmmap-1.0/version.h ==============
+if test -f 'dmmap-1.0/version.h' -a X"$1" != X"-c"; then
+	echo 'x - skipping dmmap-1.0/version.h (File already exists)'
+else
+echo 'x - extracting dmmap-1.0/version.h (Text)'
+sed 's/^X//' << 'SHAR_EOF' > 'dmmap-1.0/version.h' &&
+#ifndef DMMAP_VERSION_H
+#define DMMAP_VERSION_H 1
+/******************************************************************************/
+X
+#define DMMAP_VERSION		0x0100
+X
+/******************************************************************************/
+#endif /* DMMAP_VERSION_H */
+SHAR_EOF
+chmod 0440 dmmap-1.0/version.h ||
+echo 'restore of dmmap-1.0/version.h failed'
+Wc_c="`wc -c < 'dmmap-1.0/version.h'`"
+test 273 -eq "$Wc_c" ||
+	echo 'dmmap-1.0/version.h: original size 273, current size' "$Wc_c"
+fi
+# ============= dmmap-1.0/dmmap.c ==============
+if test -f 'dmmap-1.0/dmmap.c' -a X"$1" != X"-c"; then
+	echo 'x - skipping dmmap-1.0/dmmap.c (File already exists)'
+else
+echo 'x - extracting dmmap-1.0/dmmap.c (Text)'
+sed 's/^X//' << 'SHAR_EOF' > 'dmmap-1.0/dmmap.c' &&
+/******************************************************************************/
+/*
+X *	Copyright 1993 by David McCullough <davidm@stallion.oz.au>
+X *	    see file COPYING for more details.
+X */
+/******************************************************************************/
+X
+#include	<sys/types.h>
+#include	<sys/errno.h>
+#include	<sys/param.h>
+#include	<sys/dir.h>
+#include	<sys/user.h>
+#include	<sys/vtkd.h>
+#include	<sys/immu.h>
+X
+#include	"version.h"
+X
+/******************************************************************************/
+X
+extern int		vasbind(paddr_t, caddr_t, unsigned int);
+extern caddr_t	vasmalloc(paddr_t, unsigned int);
+extern caddr_t	vasmapped(paddr_t, unsigned int);
+extern int		vasunbind(caddr_t, unsigned int);
+X
+/******************************************************************************/
+X
+int dmapioctl(dev, cmd, arg)
+X    int dev;
+X    int cmd;
+X    int arg;
+{
+X	struct kd_memloc	memloc;
+X
+X	if (!suser()) {
+X		u.u_error = EPERM;
+X		return(0);
+X	}
+X	
+X	switch (cmd) {
+X	default:
+X		u.u_error = EINVAL;
+X		break;
+X
+X	case -1: /* saves anyone using header files that aren't part of the OS */
+X		u.u_rval1 = DMMAP_VERSION;
+X		break;
+X
+X	case KDMAPDISP:
+X		if (copyin((caddr_t) arg, &memloc, sizeof(memloc)) == -1) {
+X			u.u_error = EFAULT;
+X			break;
+X		}
+/*
+X *		arg checking.
+X *		mapping to a provided memory addr not supported yet 8)
+X *		when it is, vaddr must be below KVBASE, and we don't do the
+X *		vasmalloc or the vasmapped checks quite the same way.
+X */
+X		if (memloc.vaddr || memloc.length <= 0 || !memloc.physaddr) {
+X			u.u_error = EINVAL;
+X			break;
+X		}
+X
+X		if (memloc.vaddr = vasmapped((paddr_t) memloc.physaddr, memloc.length))
+X			break;
+X
+X		if (!(memloc.vaddr = vasmalloc((paddr_t)memloc.physaddr,memloc.length)))
+X			break;
+X
+X		if (vasbind((paddr_t) memloc.physaddr,memloc.vaddr,memloc.length) == -1)
+X			break;
+X
+X		if (copyout(&memloc, arg, sizeof(memloc)) == -1) {
+X			u.u_error = EFAULT;
+X			break;
+X		}
+X		break;
+X
+X	case KDUNMAPDISP:
+X		if (copyin((caddr_t) arg, &memloc, sizeof(memloc)) == -1) {
+X			u.u_error = EFAULT;
+X			break;
+X		}
+X
+X		if (!memloc.vaddr || memloc.length <= 0 || !memloc.physaddr) {
+X			u.u_error = EINVAL;
+X			break;
+X		}
+X
+X		if (memloc.vaddr != vasmapped((paddr_t)memloc.physaddr,memloc.length)) {
+X			u.u_error = ENXIO;
+X			break;
+X		}
+X
+X		if (vasunbind(memloc.vaddr, memloc.length) == -1)
+X			break;
+X		break;
+X	}
+}
+X
+/******************************************************************************/
+SHAR_EOF
+chmod 0440 dmmap-1.0/dmmap.c ||
+echo 'restore of dmmap-1.0/dmmap.c failed'
+Wc_c="`wc -c < 'dmmap-1.0/dmmap.c'`"
+test 2413 -eq "$Wc_c" ||
+	echo 'dmmap-1.0/dmmap.c: original size 2413, current size' "$Wc_c"
+fi
+# ============= dmmap-1.0/conf/System ==============
+if test ! -d 'dmmap-1.0/conf'; then
+    echo 'x - creating directory dmmap-1.0/conf'
+    mkdir 'dmmap-1.0/conf'
+fi
+if test -f 'dmmap-1.0/conf/System' -a X"$1" != X"-c"; then
+	echo 'x - skipping dmmap-1.0/conf/System (File already exists)'
+else
+echo 'x - extracting dmmap-1.0/conf/System (Text)'
+sed 's/^X//' << 'SHAR_EOF' > 'dmmap-1.0/conf/System' &&
+dmmap	Y	0	0	0	0	0	0	0	0
+SHAR_EOF
+chmod 0440 dmmap-1.0/conf/System ||
+echo 'restore of dmmap-1.0/conf/System failed'
+Wc_c="`wc -c < 'dmmap-1.0/conf/System'`"
+test 24 -eq "$Wc_c" ||
+	echo 'dmmap-1.0/conf/System: original size 24, current size' "$Wc_c"
+fi
+# ============= dmmap-1.0/conf/Master ==============
+if test -f 'dmmap-1.0/conf/Master' -a X"$1" != X"-c"; then
+	echo 'x - skipping dmmap-1.0/conf/Master (File already exists)'
+else
+echo 'x - extracting dmmap-1.0/conf/Master (Text)'
+sed 's/^X//' << 'SHAR_EOF' > 'dmmap-1.0/conf/Master' &&
+dmmap	i	ico		dmap	0	0	0	1	-1
+SHAR_EOF
+chmod 0440 dmmap-1.0/conf/Master ||
+echo 'restore of dmmap-1.0/conf/Master failed'
+Wc_c="`wc -c < 'dmmap-1.0/conf/Master'`"
+test 29 -eq "$Wc_c" ||
+	echo 'dmmap-1.0/conf/Master: original size 29, current size' "$Wc_c"
+fi
+# ============= dmmap-1.0/conf/Node ==============
+if test -f 'dmmap-1.0/conf/Node' -a X"$1" != X"-c"; then
+	echo 'x - skipping dmmap-1.0/conf/Node (File already exists)'
+else
+echo 'x - extracting dmmap-1.0/conf/Node (Text)'
+sed 's/^X//' << 'SHAR_EOF' > 'dmmap-1.0/conf/Node' &&
+dmmap	dmmap	c	0
+SHAR_EOF
+chmod 0440 dmmap-1.0/conf/Node ||
+echo 'restore of dmmap-1.0/conf/Node failed'
+Wc_c="`wc -c < 'dmmap-1.0/conf/Node'`"
+test 16 -eq "$Wc_c" ||
+	echo 'dmmap-1.0/conf/Node: original size 16, current size' "$Wc_c"
+fi
+# ============= dmmap-1.0/conf/install ==============
+if test -f 'dmmap-1.0/conf/install' -a X"$1" != X"-c"; then
+	echo 'x - skipping dmmap-1.0/conf/install (File already exists)'
+else
+echo 'x - extracting dmmap-1.0/conf/install (Text)'
+sed 's/^X//' << 'SHAR_EOF' > 'dmmap-1.0/conf/install' &&
+: !/bin/sh
+#
+# installation script for dmmap driver
+#
+X
+if id | grep root > /dev/null 2>&1
+then
+X	:
+else
+X	echo "Please run this script as root" >&2
+X	exit 1
+fi
+X
+if /etc/conf/bin/idinstall -s -g dmmap > /dev/null 2>&1
+then
+X	echo "Updating existing dmmap driver ..."
+X	/etc/conf/bin/idinstall -k -u dmmap
+else
+X	echo "Installing dmmap driver ..."
+X	/etc/conf/bin/idinstall -k -a dmmap
+fi
+X
+echo "Do you wish to re-link the kernel now (y/n)[y]: \c"
+read t
+case ${t:-y} in
+[yY]|[yY][eE][sS])
+X	cd /etc/conf/bin;
+X	./idbuild
+X	;;
+*)
+X	echo "\n\nWarning!"
+X	echo "\nYou must re-link the the kernel in order to use the dmmap driver"
+X	;;
+esac
+X
+Xexit 0
+SHAR_EOF
+chmod 0555 dmmap-1.0/conf/install ||
+echo 'restore of dmmap-1.0/conf/install failed'
+Wc_c="`wc -c < 'dmmap-1.0/conf/install'`"
+test 631 -eq "$Wc_c" ||
+	echo 'dmmap-1.0/conf/install: original size 631, current size' "$Wc_c"
+fi
+# ============= dmmap-1.0/test/Makefile ==============
+if test ! -d 'dmmap-1.0/test'; then
+    echo 'x - creating directory dmmap-1.0/test'
+    mkdir 'dmmap-1.0/test'
+fi
+if test -f 'dmmap-1.0/test/Makefile' -a X"$1" != X"-c"; then
+	echo 'x - skipping dmmap-1.0/test/Makefile (File already exists)'
+else
+echo 'x - extracting dmmap-1.0/test/Makefile (Text)'
+sed 's/^X//' << 'SHAR_EOF' > 'dmmap-1.0/test/Makefile' &&
+X
+CFLAGS = -D_INKERNEL=1 -D_COMPAT322=1
+X
+all: tst_dmmap
+X
+clean:
+X	rm -f *.o tst_dmmap
+X
+SHAR_EOF
+chmod 0440 dmmap-1.0/test/Makefile ||
+echo 'restore of dmmap-1.0/test/Makefile failed'
+Wc_c="`wc -c < 'dmmap-1.0/test/Makefile'`"
+test 85 -eq "$Wc_c" ||
+	echo 'dmmap-1.0/test/Makefile: original size 85, current size' "$Wc_c"
+fi
+# ============= dmmap-1.0/test/tst_dmmap.c ==============
+if test -f 'dmmap-1.0/test/tst_dmmap.c' -a X"$1" != X"-c"; then
+	echo 'x - skipping dmmap-1.0/test/tst_dmmap.c (File already exists)'
+else
+echo 'x - extracting dmmap-1.0/test/tst_dmmap.c (Text)'
+sed 's/^X//' << 'SHAR_EOF' > 'dmmap-1.0/test/tst_dmmap.c' &&
+/******************************************************************************/
+/*
+X *	Copyright 1993 by David McCullough <davidm@stallion.oz.au>
+X *	    see file COPYING for more details.
+X */
+/******************************************************************************/
+X
+#include	<stdio.h>
+#include	<fcntl.h>
+#include	<errno.h>
+#include	<ctype.h>
+#include	<sys/types.h>
+#include	<sys/vtkd.h>
+X
+/******************************************************************************/
+X
+hex_dump(s, n)
+X	unsigned char	*s;
+X	unsigned int	 n;
+{
+X	int				 i, j;
+X
+X	for (i = 0; i < n; i += 16) {
+X		printf("%08x: ", s + i);
+X		for (j = 0; j < 8; j++)
+X			if (i + j < n)
+X				printf("%02x ", s[i + j]);
+X			else
+X				printf("   ");
+X		printf("  ");
+X		for (; j < 16; j++)
+X			if (i + j < n)
+X				printf("%02x ", s[i + j]);
+X			else
+X				printf("   ");
+X		printf("  ");
+X		for (j = 0; j < 16; j++)
+X			printf("%c", (i+j < n && isprint(s[i + j])) ? s[i+j] : '.');
+X		printf("\n");
+X	}
+}
+X
+/******************************************************************************/
+X
+main(argc, argv)
+X	int					 argc;
+X	char				*argv[];
+{
+X	int					 fd, ver;
+X	struct kd_memloc	 memloc;
+X
+X	if (argc != 1 && argc != 3) {
+X		fprintf(stderr, "usage: %s [physaddr length]\n", argv[0]);
+X		exit(1);
+X	}
+X
+X	if ((fd = open("/dev/dmmap", O_RDWR)) < 0) {
+X		fprintf(stderr, "Cannot open /dev/dmmap : %s\n", sys_errlist[errno]);
+X		exit(1);
+X	}
+X
+X	if ((ver = ioctl(fd, -1)) < 0) {
+X		perror("Failed to get version");
+X		exit(1);
+X	}
+X
+X	printf("dmmap version 0x%04x\n", ver);
+X
+X	memloc.vaddr    = NULL;				/* this must be NULL for now */
+X	if (argc == 1) {
+X		memloc.physaddr = (char *) 0xf0000;	/* common bios location */
+X		memloc.length   = 32;				/* map only 32 bytes by default */
+X	} else {
+X		if (sscanf(argv[1], "%i", &memloc.physaddr) != 1) {
+X			fprintf(stderr, "physaddr is not a valid number!\n");
+X			exit(1);
+X		}
+X		if (sscanf(argv[2], "%i", &memloc.length) != 1) {
+X			fprintf(stderr, "length is not a valid number!\n");
+X			exit(1);
+X		}
+X	}
+X
+X	printf("mapping %d bytes at physical address 0x%x\n", memloc.length,
+X			memloc.physaddr);
+X
+X	if (ioctl(fd, KDMAPDISP, &memloc) < 0) {
+X		perror("KDMAPDISP failed");
+X		exit(1);
+X	}
+X
+X	hex_dump(memloc.vaddr, memloc.length);
+X
+X	if (ioctl(fd, KDUNMAPDISP, &memloc) < 0) {
+X		perror("KDUNMAPDISP failed");
+X		exit(1);
+X	}
+X
+X	close(fd);
+X	exit(0);
+}
+X
+/******************************************************************************/
+SHAR_EOF
+chmod 0440 dmmap-1.0/test/tst_dmmap.c ||
+echo 'restore of dmmap-1.0/test/tst_dmmap.c failed'
+Wc_c="`wc -c < 'dmmap-1.0/test/tst_dmmap.c'`"
+test 2384 -eq "$Wc_c" ||
+	echo 'dmmap-1.0/test/tst_dmmap.c: original size 2384, current size' "$Wc_c"
+fi
+exit 0

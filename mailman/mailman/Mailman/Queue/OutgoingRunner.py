@@ -29,11 +29,12 @@ from Mailman import Message
 from Mailman import Errors
 from Mailman import LockFile
 from Mailman.Queue.Runner import Runner
+from Mailman.Queue.Switchboard import Switchboard
 from Mailman.Logging.Syslog import syslog
 
 # This controls how often _doperiodic() will try to deal with deferred
 # permanent failures.  It is a count of calls to _doperiodic()
-DEAL_WITH_PERMFAILURES_EVERY = 1
+DEAL_WITH_PERMFAILURES_EVERY = 10
 
 try:
     True, False
@@ -59,6 +60,7 @@ class OutgoingRunner(Runner):
         # error log.  It gets reset if the message was successfully sent, and
         # set if there was a socket.error.
         self.__logged = False
+        self.__retryq = Switchboard(mm_cfg.RETRYQUEUE_DIR)
 
     def _dispose(self, mlist, msg, msgdata):
         # See if we should retry delivery of this message again.
@@ -98,33 +100,30 @@ class OutgoingRunner(Runner):
             # For permanent failures, make a copy of the message for bounce
             # handling.  I'm not sure this is necessary, or the right thing to
             # do.
-            pcnt = len(e.permfailures)
-            msgcopy = copy.deepcopy(msg)
-            self._permfailures.setdefault(mlist, []).extend(
-                zip(e.permfailures, [msgcopy] * pcnt))
-            # Temporary failures
-            if not e.tempfailures:
-                # Don't need to keep the message queued if there were only
-                # permanent failures.
-                return False
-            now = time.time()
-            recips = e.tempfailures
-            last_recip_count = msgdata.get('last_recip_count', 0)
-            deliver_until = msgdata.get('deliver_until', now)
-            if len(recips) == last_recip_count:
-                # We didn't make any progress, so don't attempt delivery any
-                # longer.  BAW: is this the best disposition?
-                if now > deliver_until:
-                    return False
-            else:
-                # Keep trying to delivery this message for a while
-                deliver_until = now + mm_cfg.DELIVERY_RETRY_PERIOD
-            msgdata['last_recip_count'] = len(recips)
-            msgdata['deliver_until'] = deliver_until
-            msgdata['deliver_after'] = now + mm_cfg.DELIVERY_RETRY_WAIT
-            msgdata['recips'] = recips
-            # Requeue
-            return True
+            if e.permfailures:
+                pcnt = len(e.permfailures)
+                msgcopy = copy.deepcopy(msg)
+                self._permfailures.setdefault(mlist, []).extend(
+                    zip(e.permfailures, [msgcopy] * pcnt))
+            # Move temporary failures to the qfiles/retry queue which will
+            # occasionally move them back here for another shot at delivery.
+            if e.tempfailures:
+                now = time.time()
+                recips = e.tempfailures
+                last_recip_count = msgdata.get('last_recip_count', 0)
+                deliver_until = msgdata.get('deliver_until', now)
+                if len(recips) == last_recip_count:
+                    # We didn't make any progress, so don't attempt delivery
+                    # any longer.  BAW: is this the best disposition?
+                    if now > deliver_until:
+                        return False
+                else:
+                    # Keep trying to delivery this message for a while
+                    deliver_until = now + mm_cfg.DELIVERY_RETRY_PERIOD
+                msgdata['last_recip_count'] = len(recips)
+                msgdata['deliver_until'] = deliver_until
+                msgdata['recips'] = recips
+                self.__retryq.enqueue(msg, msgdata)
         # We've successfully completed handling of this message
         return False
 
@@ -134,6 +133,9 @@ class OutgoingRunner(Runner):
         self._permfail_counter += 1
         if self._permfail_counter < DEAL_WITH_PERMFAILURES_EVERY:
             return
+        self._handle_permfailures()
+
+    def _handle_permfailures(self):
         # Reset the counter
         self._permfail_counter = 0
         # And deal with the deferred permanent failures.
@@ -149,3 +151,7 @@ class OutgoingRunner(Runner):
                 mlist.Save()
             finally:
                 mlist.Unlock()
+
+    def _cleanup(self):
+        self._handle_permfailures()
+        Runner._cleanup(self)

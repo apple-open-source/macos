@@ -52,7 +52,7 @@ SecCFObject::required(CFTypeRef cfTypeRef, OSStatus error)
 void *
 SecCFObject::allocate(size_t size, CFTypeID typeID) throw(std::bad_alloc)
 {
-	void *p = const_cast<void *>(_CFRuntimeCreateInstance(NULL, typeID,
+	void *p = const_cast<void *>(_CFRuntimeCreateInstance(gTypes().allocator, typeID,
 		size + kAlignedRuntimeSize - sizeof(CFRuntimeBase), NULL));
 	if (p == NULL)
 		throw std::bad_alloc();

@@ -1,0 +1,51 @@
+
+//  based on
+//  Georgian keyboard map, in the so called "latin" layout.
+//  1999, Pablo Saratxaga <srtxg@chanae.alphanet.ch>
+//
+// $XFree86: xc/programs/xkbcomp/symbols/pc/ge_la,v 1.2 2002/11/22 04:03:28 dawes Exp $
+
+partial default alphanumeric_keys 
+xkb_symbols "basic" {
+
+    name[Group1]= "Georgian";
+
+    key <AD01> { [ 0x010010e5,	q		]	};
+    key <AD02> { [ 0x010010ec,	0x010010ed	]	};
+    key <AD03> { [ 0x010010d4,	e		]       };
+    key <AD04> { [ 0x010010e0,	r		]	};
+    key <AD05> { [ 0x010010e2,	0x010010e6	]       };
+    key <AD06> { [ 0x010010e7,	0x010010d7	]       };
+    key <AD07> { [ 0x010010e3,	u		]       };
+    key <AD08> { [ 0x010010d8,	i		]       };
+    key <AD09> { [ 0x010010dd,	o		]       };
+    key <AD10> { [ 0x010010de,	p		]	};
+    key <AD11> { [ bracketleft,	braceleft	]	};
+    key <AD12> { [ bracketright,braceright	]	};
+
+    key <AC01> { [ 0x010010d0,	a		]	};
+    key <AC02> { [ 0x010010e1,	0x010010e8	]       };
+    key <AC03> { [ 0x010010d3,	d		]       };
+    key <AC04> { [ 0x010010e4,	f		]	};
+    key <AC05> { [ 0x010010d2,	g		]       };
+    key <AC06> { [ 0x010010f0,	h		]       };
+    key <AC07> { [ 0x010010ef,	0x010010df	]	};
+    key <AC08> { [ 0x010010d9,	k		]	};
+    key <AC09> { [ 0x010010da,	l		]       };
+    key <AC10> { [ semicolon, colon		]       };
+    key <AC11> { [ apostrophe, quotedbl		]	};
+    key <BKSL> { [ backslash,    bar     	]	};
+
+    key <LSGT> { [ guillemotleft,guillemotright	]       };
+    key <AB01> { [ 0x010010d6,	0x010010eb	]       };
+    key <AB02> { [ 0x010010ee,	x		]       };
+    key <AB03> { [ 0x010010ea,	0x010010d9	]       };
+    key <AB04> { [ 0x010010d5,	v		]       };
+    key <AB05> { [ 0x010010d1,	b		]       };
+    key <AB06> { [ 0x010010dc,	n		]	};
+    key <AB07> { [ 0x010010db,	m		]	};
+    key <AB08> { [ comma,	less		]	};
+    key <AB09> { [ period,	greater		]	};
+    key <AB10> { [ slash,	question	]	};
+
+};

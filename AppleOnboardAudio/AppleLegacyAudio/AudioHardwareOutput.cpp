@@ -121,11 +121,13 @@ void AudioHardwareOutput::deviceIntService( UInt32 currentDevices ) {
 				if (NULL != pluginRef->outputSelector) {
 					activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeHeadphones, 32);
 					pluginRef->outputSelector->hardwareValueChanged (activeOutput);
+					activeOutput->release ();
 				}
 			} else {
 				if (NULL != pluginRef->outputSelector) {
 					activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeInternalSpeaker, 32);
 					pluginRef->outputSelector->hardwareValueChanged (activeOutput);
+					activeOutput->release ();
 				}
 			}
             break;
@@ -147,6 +149,7 @@ void AudioHardwareOutput::deviceIntService( UInt32 currentDevices ) {
 					if (NULL != pluginRef->outputSelector) {
 						activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeHeadphones, 32);
 						pluginRef->outputSelector->hardwareValueChanged (activeOutput);
+						activeOutput->release ();
 					}
 				} else {
 					progOutputBits = pluginRef->sndHWGetProgOutput ();
@@ -161,6 +164,7 @@ void AudioHardwareOutput::deviceIntService( UInt32 currentDevices ) {
 					if (NULL != pluginRef->outputSelector) {
 						activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeInternalSpeaker, 32);
 						pluginRef->outputSelector->hardwareValueChanged (activeOutput);
+						activeOutput->release ();
 					}
 				}
             } else { // Must be External.
@@ -168,6 +172,7 @@ void AudioHardwareOutput::deviceIntService( UInt32 currentDevices ) {
 				if (NULL != pluginRef->outputSelector) {
 					activeOutput = OSNumber::withNumber (kIOAudioOutputPortSubTypeExternalSpeaker, 32);
 					pluginRef->outputSelector->hardwareValueChanged (activeOutput);
+					activeOutput->release ();
 				}
             }
             break;
@@ -180,6 +185,7 @@ void AudioHardwareOutput::deviceIntService( UInt32 currentDevices ) {
 		OSNumber *			headphoneState;
 		headphoneState = OSNumber::withNumber ((long long unsigned int)active, 32);
 		(void)pluginRef->headphoneConnection->hardwareValueChanged (headphoneState);
+		headphoneState->release ();
 	}
 	// end [2926907]
 
@@ -209,7 +215,7 @@ void AudioHardwareOutput::ioLog(){
     }
 }
 
-void AudioHardwareOutput::setMute(bool muteState ){
+void AudioHardwareOutput::setMute (bool muteState){
     UInt32 progOutbits;
     
 //    if(muteState != mute){

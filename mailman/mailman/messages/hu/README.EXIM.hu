@@ -104,10 +104,6 @@ következõket:
     user = MAILMAN_USER
     group = MAILMAN_GROUP
 
-(Exim 3 alatt nem lett tesztelve ez az továbbító beállítás. Ezért a 
-dokumentáció készítõje szívesen várja azok jelentkezését, észrevételét akik
-3-as verziójú Eximmel használja ezt a beállítást.)
-
 
 Átirányító rész Exim 3-hoz
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -282,8 +278,6 @@ végrehajtani, akkor a "DATA" ACL-t a következõképpen kell megadni:
   deny   !condition = $header_X-WhitelistedRCPT-nohdrfromcallback:
 	 !verify = header_sender/callout=90s
 
-[Fontos, hogy a leírtakat nem tesztelték még teljesen a dokumentáció
-készítõi!]
 
 VERP használata Eximmel és Mailmannel
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

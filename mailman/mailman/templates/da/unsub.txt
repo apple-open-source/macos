@@ -1,0 +1,24 @@
+Bekræftelse på framelding fra listen %(listname)s
+
+Vi har modtaget en forespørsel%(remote)s om at fjerne din e-mailadresse
+"%(email)s" fra listen %(listaddr)s. Hvis det er rigtigt at du ønsker
+at blive fjernet fra listen, skal du svare med en mail, der indeholder
+samme tekst i Subjectfeltet som denne mail.
+
+Alternativt kan du besøge denne web-side:
+
+    %(confirmurl)s
+
+Du kan også sende en e-mail til %(requestaddr)s, med følgende (og KUN
+følgende) indhold:
+
+    confirm %(cookie)s
+
+Bemærk: for kun at svare på denne mail, er det ok at klikke
+på 'Reply' eller 'Svar'. Derved beholdes den oprindelige tekst i
+Subjectfeltet (med automatisk tilføjelse af 'Re:' eller 'Sv').
+
+Hvis du ikke ønsker at framelde dig fra denne liste, så skal du blot
+slette denne mail.
+Hvis du mener at andre har forsøgt at framelde dig fra listen, eller
+du har andre spørgsmål, så kan du sende en mail til %(listadmin)s.

@@ -1,0 +1,107 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:46:05 cpqbld Exp $
+/******************************************************************************
+ ******************************************************************************
+ **
+ ** Description: Imakefile for the DtPrint extension library.
+ **
+ ** (c) Copyright 1996 Hewlett-Packard Company
+ ** (c) Copyright 1996 International Business Machines Corp.
+ ** (c) Copyright 1996 Sun Microsystems, Inc.
+ ** (c) Copyright 1996 Novell, Inc.
+ ** (c) Copyright 1996 Digital Equipment Corp.
+ ** (c) Copyright 1996 Fujitsu Limited
+ ** (c) Copyright 1996 Hitachi, Ltd.
+ ** 
+ ** Permission is hereby granted, free of charge, to any person obtaining a copy
+ ** of this software and associated documentation files (the "Software"), to deal
+ ** in the Software without restriction, including without limitation the rights
+ ** to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ ** copies of the Software, and to permit persons to whom the Software is
+ ** furnished to do so, subject to the following conditions:
+ **
+ ** The above copyright notice and this permission notice shall be included in
+ ** all copies or substantial portions of the Software.
+ **
+ ** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ ** IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ ** FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+ ** COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ ** IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ ** CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ **
+ ** Except as contained in this notice, the names of the copyright holders shall
+ ** not be used in advertising or otherwise to promote the sale, use or other
+ ** dealings in this Software without prior written authorization from said
+ ** copyright holders.
+ **
+ ******************************************************************************
+ *****************************************************************************/
+XCOMM $XFree86: xc/lib/Xp/Imakefile,v 1.4 2002/10/16 00:37:31 dawes Exp $
+
+
+#define DoNormalLib	NormalLibXp
+#define DoSharedLib	SharedLibXp
+#define DoExtraLib	SharedLibXp
+#define DoDebugLib	DebugLibXp
+#define DoProfileLib	ProfileLibXp
+#define LibName		Xp
+#define SoRev		SOXPREV
+#define LibHeaders	NO
+
+#include <Threads.tmpl>
+
+#ifdef SharedXpReqs
+REQUIREDLIBS = SharedXpReqs
+#endif
+
+#if Malloc0ReturnsNull
+ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
+#endif
+
+DEFINES = $(ALLOC_DEFINES)
+
+/*
+ * NOTE: libDtPrint.a has a dependency on extutil.o found in
+ * libXext.a
+ */
+SRCS = \
+	XpAttr.c \
+	XpContext.c \
+	XpDoc.c \
+	XpExtUtil.c \
+	XpExtVer.c \
+	XpGetData.c \
+	XpInput.c \
+	XpJob.c \
+	XpLocale.c \
+	XpPage.c \
+	XpNotifyPdm.c \
+	XpPrinter.c \
+	XpPutData.c \
+	XpScreens.c \
+	XpPageDim.c \
+	XpImageRes.c
+
+OBJS = \
+	XpAttr.o \
+	XpContext.o \
+	XpDoc.o \
+	XpExtUtil.o \
+	XpExtVer.o \
+	XpGetData.o \
+	XpInput.o \
+	XpJob.o \
+	XpLocale.o \
+	XpPage.o \
+	XpNotifyPdm.o \
+	XpPrinter.o \
+	XpPutData.o \
+	XpScreens.o \
+	XpPageDim.o \
+	XpImageRes.o
+
+LINTLIBS = $(LINTXLIB) $(LINTXEXT)
+
+#include <Library.tmpl>
+
+DependTarget()

@@ -39,6 +39,12 @@ SETLANGUAGE = -1
 _ = i18n._
 i18n.set_language(mm_cfg.DEFAULT_SERVER_LANGUAGE)
 
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
+
 
 
 def main():
@@ -157,8 +163,22 @@ def main():
         # Because they can't supply a password for unsubscribing, we'll need
         # to do the confirmation dance.
         if mlist.isMember(user):
-            mlist.ConfirmUnsubscription(user, userlang)
-            doc.addError(_('The confirmation email has been sent.'), tag='')
+            # If unsubs require admin approval, then this request has to be
+            # held.  Otherwise, send a confirmation.
+            if mlist.unsubscribe_policy:
+                try:
+                    mlist.Lock()
+                    mlist.HoldUnsubscription(user)
+                    doc.addError(_("""Your unsubscription request has been
+                    forwarded to the list administrator for approval."""),
+                                 tag='')
+                    mlist.Save()
+                finally:
+                    mlist.Unlock()
+            else:
+                mlist.ConfirmUnsubscription(user, userlang)
+                doc.addError(_('The confirmation email has been sent.'),
+                             tag='')
         else:
             # Not a member
             if mlist.private_roster == 0:
@@ -416,13 +436,13 @@ address.  Upon confirmation, any other mailing list containing the address
         # list admin?) is informed of the removal.
         signal.signal(signal.SIGTERM, sigterm_handler)
         mlist.Lock()
-        needapproval = 0
+        needapproval = False
         try:
             try:
                 mlist.DeleteMember(
                     user, 'via the member options page', userack=1)
             except Errors.MMNeedApproval:
-                needapproval = 1
+                needapproval = True
             mlist.Save()
         finally:
             mlist.Unlock()

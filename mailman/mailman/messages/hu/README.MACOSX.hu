@@ -5,10 +5,6 @@ Copyright (C) 2002 by the Free Software Foundation, Inc.
 
 MacOSX TUDNIVALÓK
 
-    Mailman should run on MacOSX, although I have not personally had
-    time to try it yet.  Here are some pointers we've collected on
-    getting Mailman to run on MacOSX.
-
     A Mailman MacOSX rendszeren is fut, habár a fejlesztõk személyesen
     nem próbálták ezt. A következõkben pár hasznos információt lehet
     olvasni a Mailman futtatásáról MacOSX-en.

@@ -98,25 +98,207 @@ enum bool commons_in_toc,
 enum bool library_warnings,
 unsigned long *throttle)
 {
-    unsigned long i, j, k, l, file_size, offset, pad, size, fsync;
-    enum byte_sex target_byte_sex, host_byte_sex;
-    char *file, *p;
-    kern_return_t r;
-    struct fat_header *fat_header;
-    struct fat_arch *fat_arch;
+    unsigned long fsync;
     int fd;
 #ifndef __OPENSTEP__
     struct utimbuf timep;
 #else
     time_t timep[2];
 #endif
+    mach_port_t my_mach_host_self;
+    char *file, *p;
+    unsigned long file_size;
+    long toc_time;
+    enum bool seen_archive;
+    kern_return_t r;
+   
+	seen_archive = FALSE;
+	toc_time = time(0);
+
+	writeout_to_mem(archs, narchs, output, (void **)&file, &file_size, 
+                        sort_toc, commons_in_toc, library_warnings);
+
+	/*
+	 * Create the output file.  The unlink() is done to handle the problem
+	 * when the outputfile is not writable but the directory allows the
+	 * file to be removed (since the file may not be there the return code
+	 * of the unlink() is ignored).
+	 */
+	(void)unlink(output);
+	if(throttle != NULL)
+	    fsync = O_FSYNC;
+	else
+	    fsync = 0;
+        if(output != NULL){
+            if((fd = open(output, O_WRONLY|O_CREAT|O_TRUNC|fsync, mode)) == -1){
+                system_error("can't create output file: %s", output);
+                goto cleanup;
+            }
+#ifdef F_NOCACHE
+            /* tell filesystem to NOT cache the file when reading or writing */
+            (void)fcntl(fd, F_NOCACHE, 1);
+#endif
+        }
+        else{
+            throttle = NULL;
+            fd = fileno(stdout);
+        }
+        if(throttle != NULL){
+#define WRITE_SIZE (32 * 1024)
+            struct timeval start, end;
+            struct timezone tz;
+            unsigned long bytes_written, bytes_per_second, write_size;
+            double time_used, time_should_have_took, usecs_to_kill;
+            static struct host_sched_info info = { 0 };
+            unsigned int count;
+            kern_return_t r;
+
+            p = file;
+            bytes_written = 0;
+            bytes_per_second = 0;
+            count = HOST_SCHED_INFO_COUNT;
+            my_mach_host_self = mach_host_self();
+            if((r = host_info(my_mach_host_self, HOST_SCHED_INFO, (host_info_t)
+                            (&info), &count)) != KERN_SUCCESS){
+                mach_port_deallocate(mach_task_self(), my_mach_host_self);
+                my_mach_error(r, "can't get host sched info");
+            }
+            mach_port_deallocate(mach_task_self(), my_mach_host_self);
+            if(gettimeofday(&start, &tz) == -1)
+                goto no_throttle;
+#undef THROTTLE_DEBUG
+            do {
+                if((file + file_size) - p < WRITE_SIZE)
+                    write_size = (file + file_size) - p;
+                else
+                    write_size = WRITE_SIZE;
+                if(write(fd, p, write_size) != (int)write_size){
+                    system_error("can't write output file: %s", output);
+                    goto cleanup;
+                }
+                p += write_size;
+                if(p < file + file_size || *throttle == ULONG_MAX){
+                    bytes_written += write_size;
+                    (void)gettimeofday(&end, &tz);
+#ifdef THROTTLE_DEBUG
+                    printf("start sec = %u usec = %u\n", start.tv_sec,
+                        start.tv_usec);
+                    printf("end sec = %u usec = %u\n", end.tv_sec,
+                        end.tv_usec);
+#endif
+                    time_used = end.tv_sec - start.tv_sec;
+                    if(end.tv_usec >= start.tv_usec)
+                        time_used +=
+                            ((double)(end.tv_usec - start.tv_usec)) / 1000000.0;
+                    else
+                        time_used += -1.0 +
+                            ((double)(1000000 + end.tv_usec - start.tv_usec) /
+                            1000000.0);
+                    bytes_per_second = ((double)bytes_written / time_used);
+#ifdef THROTTLE_DEBUG
+                    printf("time_used = %f bytes_written = %lu bytes_per_second"
+                            " = %lu throttle = %lu\n", time_used, bytes_written,
+                            bytes_per_second, *throttle);
+#endif
+                    if(bytes_per_second > *throttle){
+                        time_should_have_took =
+                            (double)bytes_written * (1.0/(double)(*throttle));
+                        usecs_to_kill =
+                            (time_should_have_took - time_used) * 1000000.0;
+#ifdef THROTTLE_DEBUG
+                        printf("time should have taken = %f usecs to kill %f\n",
+                            time_should_have_took, usecs_to_kill);
+#endif
+                        usleep((u_int)usecs_to_kill);
+                        bytes_written = 0;
+                        bytes_per_second = 0;
+                        (void)gettimeofday(&start, &tz);
+                    }
+                }
+            } while(p < file + file_size);
+            if(*throttle == ULONG_MAX)
+                *throttle = bytes_per_second;
+        }
+        else{
+no_throttle:
+	    if(write(fd, file, file_size) != (int)file_size){
+		system_error("can't write output file: %s", output);
+		goto cleanup;
+	    }
+	}
+	if(output != NULL && close(fd) == -1){
+	    system_fatal("can't close output file: %s", output);
+	    goto cleanup;
+	}
+	if(seen_archive == TRUE){
+#ifndef __OPENSTEP__
+	    timep.actime = toc_time - 5;
+	    timep.modtime = toc_time - 5;
+	    if(utime(output, &timep) == -1)
+#else
+	    timep[0] = toc_time - 5;
+	    timep[1] = toc_time - 5;
+	    if(utime(output, timep) == -1)
+#endif
+	    {
+		system_fatal("can't set the modifiy times in output file: %s",
+			     output);
+		goto cleanup;
+	    }
+	}
+cleanup:
+	if((r = vm_deallocate(mach_task_self(), (vm_address_t)file,
+			      file_size)) != KERN_SUCCESS){
+	    my_mach_error(r, "can't vm_deallocate() buffer for output file");
+	    return;
+	}
+}
+
+
+/*
+ * writeout_to_mem() creates an ofile in memory from the data structure pointed 
+ * to by archs (of narchs size).  Upon successful return, *outputbuf will point
+ * to a vm_allocate'd buffer representing the ofile which should be 
+ * vm_deallocated when it is no longer needed.  length will point to the length
+ * of the outputbuf buffer.  The filename parameter is used for error reporting
+ * - if filename is NULL, a dummy file name is used.  If there are libraries in
+ * the data structures a new table of contents is created and is sorted if 
+ * sort_toc is TRUE and commons symbols are included in the table of contents 
+ * if commons_in_toc is TRUE.  The normal use will have sort_toc == TRUE and 
+ * commons_in_toc == FALSE.  If warnings about unusual libraries are printed if 
+ * library_warnings == TRUE.
+ */
+__private_extern__
+void
+writeout_to_mem(
+struct arch *archs,
+unsigned long narchs,
+char *filename,
+void **outputbuf,
+unsigned long *length,
+enum bool sort_toc,
+enum bool commons_in_toc,
+enum bool library_warnings)
+{
+    unsigned long i, j, k, l, file_size, offset, pad, size;
+    enum byte_sex target_byte_sex, host_byte_sex;
+    char *file, *p;
+    kern_return_t r;
+    struct fat_header *fat_header;
+    struct fat_arch *fat_arch;
     struct dysymtab_command dyst;
     struct twolevel_hints_command hints_cmd;
     unsigned long mh_flags;
     struct load_command *lc;
     struct dylib_command *dl;
-    mach_port_t my_mach_host_self;
 
+
+    /* 
+     * If filename is NULL, we use a dummy file name.
+     */
+    if(filename == NULL)
+        filename = "(file written out to memory)";
+        
     /*
      * The time the table of contents' are set to and the time to base the
      * modification time of the output file to be set to.
@@ -131,7 +313,7 @@ unsigned long *throttle)
 	fat_header = NULL;
 
 	if(narchs == 0){
-	    error("no contents for file: %s (not created)", output);
+	    error("no contents for file: %s (not created)", filename);
 	    return;
 	}
 
@@ -152,7 +334,7 @@ unsigned long *throttle)
 	     */
 	    if(archs[i].type == OFILE_ARCHIVE){
 		seen_archive = TRUE;
-		make_table_of_contents(archs + i, output, toc_time, sort_toc,
+		make_table_of_contents(archs + i, filename, toc_time, sort_toc,
 				       commons_in_toc, library_warnings);
 		archs[i].library_size += SARMAG + archs[i].toc_size;
 		if(archs[i].fat_arch != NULL)
@@ -187,7 +369,7 @@ unsigned long *throttle)
 	if((r = vm_allocate(mach_task_self(), (vm_address_t *)&file,
 			    file_size, TRUE)) != KERN_SUCCESS)
 	    mach_fatal(r, "can't vm_allocate() buffer for output file: %s of "
-		       "size %lu", output, file_size);
+		       "size %lu", filename, file_size);
 
 	/*
 	 * If there is more than one architecture then fill in the fat file
@@ -244,12 +426,12 @@ unsigned long *throttle)
 		    if(narchs > 1 || archs[i].fat_arch != NULL)
 			warning("warning library: %s for architecture: %s the "
 			        "table of contents is empty (no object file "
-			        "members in the library)", output,
+			        "members in the library)", filename,
 			         archs[i].fat_arch_name);
 		    else
 			warning("warning for library: %s the table of contents "
 				"is empty (no object file members in the "
-				"library)", output);
+				"library)", filename);
 		}
 
 		/*
@@ -461,135 +643,8 @@ unsigned long *throttle)
 	    swap_fat_arch(fat_arch, narchs, BIG_ENDIAN_BYTE_SEX);
 	}
 #endif /* __LITTLE_ENDIAN__ */
-
-	/*
-	 * Create the output file.  The unlink() is done to handle the problem
-	 * when the outputfile is not writable but the directory allows the
-	 * file to be removed (since the file may not be there the return code
-	 * of the unlink() is ignored).
-	 */
-	(void)unlink(output);
-	if(throttle != NULL)
-	    fsync = O_FSYNC;
-	else
-	    fsync = 0;
-	if((fd = open(output, O_WRONLY|O_CREAT|O_TRUNC|fsync, mode)) == -1){
-	    system_error("can't create output file: %s", output);
-	    goto cleanup;
-	}
-#ifdef F_NOCACHE
-        /* tell filesystem to NOT cache the file when reading or writing */
-	(void)fcntl(fd, F_NOCACHE, 1);
-#endif
-	if(throttle != NULL){
-#define WRITE_SIZE (32 * 1024)
-	    struct timeval start, end;
-	    struct timezone tz;
-	    unsigned long bytes_written, bytes_per_second, write_size;
-	    double time_used, time_should_have_took, usecs_to_kill;
-	    static struct host_sched_info info = { 0 };
-	    unsigned int count;
-	    kern_return_t r;
-  
-	    p = file;
-	    bytes_written = 0;
-	    bytes_per_second = 0;
-	    count = HOST_SCHED_INFO_COUNT;
-	    my_mach_host_self = mach_host_self();
-	    if((r = host_info(my_mach_host_self, HOST_SCHED_INFO, (host_info_t)
-			      (&info), &count)) != KERN_SUCCESS){
-		mach_port_deallocate(mach_task_self(), my_mach_host_self);
-		my_mach_error(r, "can't get host sched info");
-	    }
-	    mach_port_deallocate(mach_task_self(), my_mach_host_self);
-	    if(gettimeofday(&start, &tz) == -1)
-		goto no_throttle;
-#undef THROTTLE_DEBUG
-	    do {
-		if((file + file_size) - p < WRITE_SIZE)
-		    write_size = (file + file_size) - p;
-		else
-		    write_size = WRITE_SIZE;
-		if(write(fd, p, write_size) != (int)write_size){
-		    system_error("can't write output file: %s", output);
-		    goto cleanup;
-		}
-		p += write_size;
-		if(p < file + file_size || *throttle == ULONG_MAX){
-		    bytes_written += write_size;
-		    (void)gettimeofday(&end, &tz);
-#ifdef THROTTLE_DEBUG
-		    printf("start sec = %u usec = %u\n", start.tv_sec,
-			   start.tv_usec);
-		    printf("end sec = %u usec = %u\n", end.tv_sec,
-			   end.tv_usec);
-#endif
-		    time_used = end.tv_sec - start.tv_sec;
-		    if(end.tv_usec >= start.tv_usec)
-			time_used +=
-			    ((double)(end.tv_usec - start.tv_usec)) / 1000000.0;
-		    else
-			time_used += -1.0 +
-			    ((double)(1000000 + end.tv_usec - start.tv_usec) /
-			     1000000.0);
-		    bytes_per_second = ((double)bytes_written / time_used);
-#ifdef THROTTLE_DEBUG
-		    printf("time_used = %f bytes_written = %lu bytes_per_second"
-			   " = %lu throttle = %lu\n", time_used, bytes_written,
-			   bytes_per_second, *throttle);
-#endif
-		    if(bytes_per_second > *throttle){
-			time_should_have_took =
-			    (double)bytes_written * (1.0/(double)(*throttle));
-			usecs_to_kill =
-			     (time_should_have_took - time_used) * 1000000.0;
-#ifdef THROTTLE_DEBUG
-			printf("time should have taken = %f usecs to kill %f\n",
-			       time_should_have_took, usecs_to_kill);
-#endif
-			usleep((u_int)usecs_to_kill);
-			bytes_written = 0;
-			bytes_per_second = 0;
-			(void)gettimeofday(&start, &tz);
-		    }
-		}
-	    } while(p < file + file_size);
-	    if(*throttle == ULONG_MAX)
-		*throttle = bytes_per_second;
-	}
-	else{
-no_throttle:
-	    if(write(fd, file, file_size) != (int)file_size){
-		system_error("can't write output file: %s", output);
-		goto cleanup;
-	    }
-	}
-	if(close(fd) == -1){
-	    system_fatal("can't close output file: %s", output);
-	    goto cleanup;
-	}
-	if(seen_archive == TRUE){
-#ifndef __OPENSTEP__
-	    timep.actime = toc_time - 5;
-	    timep.modtime = toc_time - 5;
-	    if(utime(output, &timep) == -1)
-#else
-	    timep[0] = toc_time - 5;
-	    timep[1] = toc_time - 5;
-	    if(utime(output, timep) == -1)
-#endif
-	    {
-		system_fatal("can't set the modifiy times in output file: %s",
-			     output);
-		goto cleanup;
-	    }
-	}
-cleanup:
-	if((r = vm_deallocate(mach_task_self(), (vm_address_t)file,
-			      file_size)) != KERN_SUCCESS){
-	    my_mach_error(r, "can't vm_deallocate() buffer for output file");
-	    return;
-	}
+        *outputbuf = file;
+        *length = file_size;
 }
 
 /*

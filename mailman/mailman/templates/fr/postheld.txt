@@ -5,12 +5,12 @@ Votre courrier à '%(listname)s' dont l'objet est
 est en attente jusqu'à ce que le modérateur de la liste puisse
 le consulter pour approbation.
 
-La raison de cette mise en attente:
+La raison de cette mise en attente :
 
     %(reason)s
 
 Le message sera soit envoyé à la liste, soit vous recevrez une
 indication de la décision du modérateur. Si vous souhaitez annuler le
-message, veuillez visiter l'URL suivante:
+message, veuillez consulter l'URL suivante:
 
 	 %(confirmurl)s

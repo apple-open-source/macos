@@ -1,0 +1,7 @@
+XCOMM $XFree86: xc/doc/specs/PM/Imakefile,v 1.1 2000/12/14 17:41:04 dawes Exp $
+
+all::
+
+InstallDoc(PM_spec,PM_spec.txt)
+
+LinkFile(PM_spec.txt,PM_spec)

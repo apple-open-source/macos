@@ -111,9 +111,10 @@ OSArray *Apple02Audio::getDetectArray(){
 #pragma mark +PORT HANDLER FUNCTIONS
 
 IOReturn Apple02Audio::configureAudioOutputs(IOService *provider) {
-    IOReturn result = kIOReturnSuccess;   
-    AudioHardwareOutput *theOutput;
-    UInt16 idx;
+    IOReturn				result = kIOReturnSuccess;   
+    AudioHardwareOutput *	theOutput;
+	UInt32					numOutputs;
+    UInt16					idx;
 
     debugIOLog (3, "+ Apple02Audio::configureAudioOutputs");
     if(!theAudioDeviceTreeParser) 
@@ -123,7 +124,8 @@ IOReturn Apple02Audio::configureAudioOutputs(IOService *provider) {
     if(!AudioOutputs)
         goto BAIL;
     
-    for(idx = 0; idx < AudioOutputs->getCount(); idx++) {
+	numOutputs = AudioOutputs->getCount();
+    for(idx = 0; idx < numOutputs; idx++) {
         theOutput = OSDynamicCast(AudioHardwareOutput, AudioOutputs->getObject(idx));
         if( theOutput) theOutput->attachAudioPluginRef((Apple02Audio *) this);       
     }
@@ -155,18 +157,21 @@ BAIL:
 }
 
 IOReturn Apple02Audio::configureAudioInputs(IOService *provider) {
-    IOReturn result = kIOReturnSuccess; 
-    UInt16 idx;  
-    AudioHardwareInput *theInput;
-    AudioHardwareMux *theMux;
+    IOReturn				result = kIOReturnSuccess; 
+    UInt16					idx;
+    AudioHardwareInput *	theInput;
+    AudioHardwareMux *		theMux;
+	UInt32					numInputs;
+
     debugIOLog (3, "+ Apple02Audio::configureAudioDetects");
 
     FailIf (NULL == theAudioDeviceTreeParser, BAIL);
 
     AudioInputs = theAudioDeviceTreeParser->createInputsArrayWithMuxes();
 
-	if (AudioInputs) {
-		for(idx = 0; idx < AudioInputs->getCount(); idx++) {
+	if (NULL != AudioInputs) {
+		numInputs = AudioInputs->getCount();
+		for(idx = 0; idx < numInputs; idx++) {
 			theInput = OSDynamicCast(AudioHardwareInput, AudioInputs->getObject(idx));
 			if (NULL != theInput) {
 				theInput->attachAudioPluginRef((Apple02Audio *) this);       
@@ -249,30 +254,24 @@ void Apple02Audio::setCurrentDevices(UInt32 devices){
 			active = devices & kSndHWInputDevices ? 1 : 0;		// If something is plugged in, that's good enough for now.
 			inputState = OSNumber::withNumber ((long long unsigned int)active, 32);
 			(void)inputConnection->hardwareValueChanged (inputState);
+			inputState->release ();
 		}
 	}
 	// end [2829546]
 }
 
 void Apple02Audio::changedDeviceHandler(UInt32 olddevices){
-    UInt16 i;
-    AudioHardwareOutput *theOutput;
-//	AudioHardwareInput  *theInput;
-    
+    UInt16					i;
+    AudioHardwareOutput *	theOutput;
+	UInt32					numOutputs;
+
     if(AudioOutputs) {
-        for(i = 0; i< AudioOutputs->getCount(); i++) {
+		numOutputs = AudioOutputs->getCount();
+        for(i = 0; i < numOutputs; i++) {
             theOutput = OSDynamicCast(AudioHardwareOutput, AudioOutputs->getObject(i));
             if( theOutput) theOutput->deviceIntService(currentDevices);
         }
-    } 
-       
-	// Now that we have an input selector, it works through it
-    /*if(AudioInputs) {
-        for(i = 0; i< AudioInputs->getCount(); i++) {
-            theInput = OSDynamicCast(AudioHardwareInput, AudioInputs->getObject(i));
-            if( theInput) theInput->deviceSetActive(currentDevices);
-        }
-    }*/
+    }
 }
 
 #pragma mark +IOAUDIO INIT
@@ -488,6 +487,7 @@ IOReturn Apple02Audio::createDefaultsPorts () {
     OSNumber *					theNumber;
     OSData *					theData;
 	AudioHardwareInput *		theInput;
+	UInt32						numInputs;
 	UInt32						inputType;
     SInt32						OutminLin;
 	SInt32						OutmaxLin;
@@ -498,10 +498,10 @@ IOReturn Apple02Audio::createDefaultsPorts () {
 	IOFixed						InminDB;
 	IOFixed						InmaxDB;
     UInt32						idx;
-//	UInt32						pramVolValue;
+	UInt32						pramVolValue;
     IOReturn					result;
 	Boolean						done;
-	Boolean					hasPlaythrough;
+	Boolean						hasPlaythrough;
 
     debugIOLog (3, "+ Apple02Audio::createDefaultsPorts");
 
@@ -543,8 +543,8 @@ IOReturn Apple02Audio::createDefaultsPorts () {
 			// Master control will be created when it's needed, which isn't normally the case, so don't make one now
 			outVolMaster = NULL;
 
-//			pramVolValue = PRAMToVolumeValue ();
-#if 0
+			pramVolValue = PRAMToVolumeValue ();
+#if 1
 			pramVol = IOAudioLevelControl::create(pramVolValue, 0, 7, OutminDB, OutmaxDB,
 												kIOAudioControlChannelIDAll,
 												"BootBeepVolume",
@@ -554,8 +554,7 @@ IOReturn Apple02Audio::createDefaultsPorts () {
 			if (NULL != pramVol) {
 				driverDMAEngine->addDefaultAudioControl(pramVol);
 				pramVol->setValueChangeHandler((IOAudioControl::IntValueChangeHandler)outputControlChangeHandler, this);
-				pramVol->release ();
-				pramVol = NULL;
+				// Don't release it because we might reference it later
 			}
 #endif
 			outVolLeft = IOAudioLevelControl::createVolumeControl((OutmaxLin - OutminLin + 1) * 75 / 100, OutminLin, OutmaxLin, OutminDB, OutmaxDB,
@@ -662,7 +661,8 @@ IOReturn Apple02Audio::createDefaultsPorts () {
 		// create the input selectors
 		if(AudioInputs) {
 			inputSelector = NULL;
-			for (idx = 0; idx < AudioInputs->getCount(); idx++) {
+			numInputs = AudioInputs->getCount();
+			for (idx = 0; idx < numInputs; idx++) {
 				theInput = OSDynamicCast(AudioHardwareInput, AudioInputs->getObject(idx));
 				if (theInput) {
 					inputType = theInput->getInputPortType();
@@ -703,36 +703,36 @@ IOReturn Apple02Audio::createDefaultsPorts () {
 					}
 				}
 			}
-		}
 
-		done = FALSE;
-		for (idx = 0; idx < AudioInputs->getCount () && !done; idx++) {
-			theInput = OSDynamicCast (AudioHardwareInput, AudioInputs->getObject(idx));
-			if (theInput) {
-				inputType = theInput->getInputPortType ();
+			done = FALSE;
+			for (idx = 0; idx < numInputs && !done; idx++) {
+				theInput = OSDynamicCast (AudioHardwareInput, AudioInputs->getObject(idx));
+				if (theInput) {
+					inputType = theInput->getInputPortType ();
 
-				switch (inputType) {
-					case 'emic':
-					case 'sinj':
-					case 'line':
-						// Create a jack control to let the HAL/Sound Manager know that some input source is plugged in
-						inputConnection = IOAudioToggleControl::create (FALSE,
-															kIOAudioControlChannelIDAll,
-															kIOAudioControlChannelNameAll,
-															kInputInsert,
-															kIOAudioControlTypeJack,
-															kIOAudioControlUsageInput);
-
-						if (NULL != inputConnection) {
-							driverDMAEngine->addDefaultAudioControl (inputConnection);
-							inputConnection->setReadOnlyFlag ();		// 3292105
-							// no value change handler because this isn't a settable control
-							// Don't release it because we might reference it later
-						}
-						done = TRUE;
-						break;
-					default:
-						break;
+					switch (inputType) {
+						case 'emic':
+						case 'sinj':
+						case 'line':
+							// Create a jack control to let the HAL/Sound Manager know that some input source is plugged in
+							inputConnection = IOAudioToggleControl::create (FALSE,
+																kIOAudioControlChannelIDAll,
+																kIOAudioControlChannelNameAll,
+																kInputInsert,
+																kIOAudioControlTypeJack,
+																kIOAudioControlUsageInput);
+	
+							if (NULL != inputConnection) {
+								driverDMAEngine->addDefaultAudioControl (inputConnection);
+								inputConnection->setReadOnlyFlag ();		// 3292105
+								// no value change handler because this isn't a settable control
+								// Don't release it because we might reference it later
+							}
+							done = TRUE;
+							break;
+						default:
+							break;
+					}
 				}
 			}
 		}
@@ -800,7 +800,7 @@ IOReturn Apple02Audio::outputControlChangeHandler (IOService *target, IOAudioCon
 	IOReturn						result = kIOReturnError;
 	Apple02Audio *					audioDevice;
 	IOAudioLevelControl *			levelControl;
-//	IODTPlatformExpert * 			platform;
+	IODTPlatformExpert * 			platform;
 	UInt32							leftVol;
 	UInt32							rightVol;
 	Boolean							wasPoweredDown;
@@ -836,12 +836,14 @@ IOReturn Apple02Audio::outputControlChangeHandler (IOService *target, IOAudioCon
 						if (NULL != audioDevice->outMute) {
 							audioDevice->outMute->hardwareValueChanged (muteState);
 						}
+						muteState->release ();
 					} else if (oldValue == levelControl->getMinValue () && FALSE == audioDevice->gIsMute) {
 						OSNumber *			muteState;
 						muteState = OSNumber::withNumber ((long long unsigned int)0, 32);
 						if (NULL != audioDevice->outMute) {
 							audioDevice->outMute->hardwareValueChanged (muteState);
 						}
+						muteState->release ();
 					}
 					break;
 				case kIOAudioControlChannelIDDefaultLeft:
@@ -853,16 +855,18 @@ IOReturn Apple02Audio::outputControlChangeHandler (IOService *target, IOAudioCon
 			}
 			break;
 		case kIOAudioToggleControlSubTypeMute:
-			result = audioDevice->outputMuteChange (newValue);
-			if (kIOReturnSuccess == result) {
-				// Have to set this here, because we'll call outputMuteChange just to avoid pops, and we don't want gIsMute set in that case.
-				audioDevice->gIsMute = newValue;
+			if (audioDevice->gVolLeft != 0 && audioDevice->gVolRight != 0) {
+				result = audioDevice->outputMuteChange (newValue);
+				if (kIOReturnSuccess == result) {
+					// Have to set this here, because we'll call outputMuteChange just to avoid pops, and we don't want gIsMute set in that case.
+					audioDevice->gIsMute = newValue;
+				}
 			}
 			break;
 		case kIOAudioSelectorControlSubTypeOutput:
 			result = kIOReturnUnsupported;
 			break;
-#if 0
+#if 1
 		case kIOAudioLevelControlSubTypePRAMVolume:
 			platform = OSDynamicCast (IODTPlatformExpert, getPlatform());
 			if (platform) {
@@ -888,6 +892,7 @@ IOReturn Apple02Audio::outputControlChangeHandler (IOService *target, IOAudioCon
 				if (NULL != audioDevice->outMute) {
 					audioDevice->outMute->hardwareValueChanged (muteState);
 				}
+				muteState->release ();
 //				debugIOLog (3, "turning on hardware mute flag");
 			} else if (newValue != levelControl->getMinValue () && oldValue == levelControl->getMinValue () && FALSE == audioDevice->gIsMute) {
 				OSNumber *			muteState;
@@ -895,6 +900,7 @@ IOReturn Apple02Audio::outputControlChangeHandler (IOService *target, IOAudioCon
 				if (NULL != audioDevice->outMute) {
 					audioDevice->outMute->hardwareValueChanged (muteState);
 				}
+				muteState->release ();
 //				debugIOLog (3, "turning off hardware mute flag");
 			}
 		}
@@ -909,8 +915,14 @@ IOReturn Apple02Audio::outputControlChangeHandler (IOService *target, IOAudioCon
 	}
 
 	if (FALSE == audioDevice->gExpertMode) {				// We do that only if we are on a OS 9 like UI guideline
+		OSNumber *			newVolume;
 //		debugIOLog (3, "updated volume, setting PRAM");
 		audioDevice->WritePRAMVol (leftVol, rightVol);
+		newVolume = OSNumber::withNumber ((long long unsigned int)audioDevice->ReadPRAMVol (), 32);
+		if (NULL != audioDevice->pramVol) {
+			audioDevice->pramVol->hardwareValueChanged (newVolume);
+		}
+		newVolume->release ();
 	}
 
 Exit:
@@ -949,6 +961,7 @@ IOReturn Apple02Audio::volumeLeftChange(SInt32 newValue){
 	IOReturn						result;
     AudioHardwareOutput *			theOutput;
 	UInt32							idx;
+	UInt32							numOutputs;
 
 	debugIOLog (3, "+ Apple02Audio::volumeLeftChange (%ld)", newValue);
 
@@ -957,7 +970,8 @@ IOReturn Apple02Audio::volumeLeftChange(SInt32 newValue){
     
 	debugIOLog (3, "... gIsMute %d, AudioOutputs->getCount() = %d", gIsMute, AudioOutputs->getCount());
 	if (!gIsMute) {
-		for (idx = 0; idx < AudioOutputs->getCount(); idx++) {
+		numOutputs = AudioOutputs->getCount();
+		for (idx = 0; idx < numOutputs; idx++) {
 			theOutput = OSDynamicCast (AudioHardwareOutput, AudioOutputs->getObject (idx));
 			if (theOutput) {
 				debugIOLog (3,  "... %X theOutput->setVolume ( %X, %X )", (unsigned int)theOutput, (unsigned int)newValue, (unsigned int)gVolRight );
@@ -979,6 +993,7 @@ IOReturn Apple02Audio::volumeRightChange(SInt32 newValue){
 	IOReturn						result;
     AudioHardwareOutput *			theOutput;
 	UInt32							idx;
+	UInt32							numOutputs;
 
 	debugIOLog (3, "+ Apple02Audio::volumeRightChange (%ld)", newValue);
 
@@ -987,7 +1002,8 @@ IOReturn Apple02Audio::volumeRightChange(SInt32 newValue){
 
 	debugIOLog (3, "... gIsMute %d, AudioOutputs->getCount() = %d", gIsMute, AudioOutputs->getCount());
 	if (!gIsMute) {
-		for (idx = 0; idx < AudioOutputs->getCount(); idx++) {
+		numOutputs = AudioOutputs->getCount();
+		for (idx = 0; idx < numOutputs; idx++) {
 			theOutput = OSDynamicCast (AudioHardwareOutput, AudioOutputs->getObject (idx));
 			if (theOutput) {
 				debugIOLog (3,  "... %X theOutput->setVolume ( %X, %X )", (unsigned int)theOutput, (unsigned int)newValue, (unsigned int)gVolRight );
@@ -1008,6 +1024,7 @@ Exit:
 IOReturn Apple02Audio::outputMuteChange(SInt32 newValue){
     IOReturn						result;
 	UInt32							idx;
+	UInt32							numOutputs;
 	AudioHardwareOutput *			theOutput;
 
     debugIOLog (3, "+ Apple02Audio::outputMuteChange (%ld)", newValue);
@@ -1016,8 +1033,9 @@ IOReturn Apple02Audio::outputMuteChange(SInt32 newValue){
 
 	// pass it to the AudioHardwareOutputObjects
 	FailIf (NULL == AudioOutputs, Exit);
-        
-    for (idx = 0; idx < AudioOutputs->getCount(); idx++) {
+
+	numOutputs = AudioOutputs->getCount();
+    for (idx = 0; idx < numOutputs; idx++) {
         theOutput = OSDynamicCast (AudioHardwareOutput, AudioOutputs->getObject (idx));
         if (theOutput) {
 			theOutput->setMute (newValue);
@@ -1092,9 +1110,11 @@ Exit:
 }
 
 IOReturn Apple02Audio::gainLeftChanged(SInt32 newValue){
-	IOReturn result = kIOReturnSuccess;
-    UInt32 idx;
-    AudioHardwareInput *theInput;
+	IOReturn				result = kIOReturnSuccess;
+    UInt32					idx;
+	UInt32					numInputs;
+    AudioHardwareInput *	theInput;
+
     debugIOLog (3, "+ Apple02Audio::gainLeftChanged");    
     
     if(!AudioInputs)
@@ -1107,7 +1127,8 @@ IOReturn Apple02Audio::gainLeftChanged(SInt32 newValue){
 #endif
 		driverDMAEngine->setInputGainL(gGainLeft);
 	} else {
-		for(idx = 0; idx< AudioInputs->getCount(); idx++) {
+		numInputs = AudioInputs->getCount();
+		for(idx = 0; idx < numInputs; idx++) {
 			theInput = OSDynamicCast(AudioHardwareInput, AudioInputs->getObject(idx));
 			if(theInput) 
 				theInput->setInputGain(newValue, gGainRight);
@@ -1123,9 +1144,11 @@ BAIL:
 }
 
 IOReturn Apple02Audio::gainRightChanged(SInt32 newValue){
-     IOReturn result = kIOReturnSuccess;
-    UInt32 idx;
-    AudioHardwareInput *theInput;
+	IOReturn				result = kIOReturnSuccess;
+    UInt32					idx;
+	UInt32					numInputs;
+    AudioHardwareInput *	theInput;
+
     debugIOLog (3, "+ Apple02Audio::gainRightChanged");    
     
     if(!AudioInputs)
@@ -1138,7 +1161,8 @@ IOReturn Apple02Audio::gainRightChanged(SInt32 newValue){
 #endif
 		driverDMAEngine->setInputGainR(gGainRight);
 	} else {
-		for(idx = 0; idx< AudioInputs->getCount(); idx++) {
+		numInputs = AudioInputs->getCount();
+		for(idx = 0; idx< numInputs; idx++) {
 			theInput = OSDynamicCast(AudioHardwareInput, AudioInputs->getObject(idx));
 			if( theInput) theInput->setInputGain(gGainLeft, newValue);
 		}
@@ -1163,16 +1187,18 @@ IOReturn Apple02Audio::passThruChanged(SInt32 newValue){
 
 IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
     AudioHardwareInput *theInput;
-    UInt32 idx;
+    UInt32				idx;
+	UInt32				numInputs;
 	IOAudioEngine*		audioEngine;
 	IOFixed				mindBVol;
 	IOFixed				maxdBVol;
 	IOFixed				dBOffset;
-    IOReturn result = kIOReturnSuccess;
+    IOReturn			result = kIOReturnSuccess;
     
     debugIOLog (3, "+ Apple02Audio::inputSelectorChanged");
     if(AudioInputs) {
-        for(idx = 0; idx< AudioInputs->getCount(); idx++) {
+		numInputs = AudioInputs->getCount();
+        for(idx = 0; idx < numInputs; idx++) {
             theInput = OSDynamicCast(AudioHardwareInput, AudioInputs->getObject(idx));
             if( theInput) theInput->forceActivation(newValue);
         }
@@ -1191,8 +1217,8 @@ IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
 	
 				audioEngine = OSDynamicCast (IOAudioEngine, audioEngines->getObject(0));
 			
-				audioEngine->pauseAudioEngine ();
-				audioEngine->beginConfigurationChange ();
+//				audioEngine->pauseAudioEngine ();	// Turn these off to fix 3267775
+//				audioEngine->beginConfigurationChange ();
 				if (NULL != inGainLeft) {
 					inGainLeft->setMinDB (mindBVol);
 					inGainLeft->setMaxDB (maxdBVol);
@@ -1204,8 +1230,8 @@ IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
 					inGainRight->setMaxDB (maxdBVol);
 					mRangeInChanged = true;
 				}				
-				audioEngine->completeConfigurationChange ();
-				audioEngine->resumeAudioEngine ();
+//				audioEngine->completeConfigurationChange ();
+//				audioEngine->resumeAudioEngine ();
 			}
 	
 			// aml 6.17.02
@@ -1222,8 +1248,8 @@ IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
 				mRangeInChanged = false;
 				audioEngine = OSDynamicCast (IOAudioEngine, audioEngines->getObject(0));
 			
-				audioEngine->pauseAudioEngine ();
-				audioEngine->beginConfigurationChange ();
+//				audioEngine->pauseAudioEngine ();	// Turn these off to fix 3267775
+//				audioEngine->beginConfigurationChange ();
 				if (NULL != inGainLeft) {
 					inGainLeft->setMinDB (mDefaultInMinDB);
 					inGainLeft->setMaxDB (mDefaultInMaxDB);
@@ -1233,8 +1259,8 @@ IOReturn Apple02Audio::inputSelectorChanged(SInt32 newValue){
 					inGainRight->setMinDB (mDefaultInMinDB);
 					inGainRight->setMaxDB (mDefaultInMaxDB);
 				}
-				audioEngine->completeConfigurationChange ();
-				audioEngine->resumeAudioEngine ();
+//				audioEngine->completeConfigurationChange ();
+//				audioEngine->resumeAudioEngine ();
 			}
 				
 			// aml 6.17.02
@@ -1529,6 +1555,7 @@ Exit:
 IOReturn Apple02Audio::setModemSound (bool state){
     AudioHardwareInput *			theInput;
     UInt32							idx;
+	UInt32							numInputs;
 	Boolean							wasPoweredDown;
 
     debugIOLog (3, "+ Apple02Audio::setModemSound");
@@ -1552,7 +1579,8 @@ IOReturn Apple02Audio::setModemSound (bool state){
     if (FALSE != state) {		// do the compare this way since they may pass anything non-0 to mean TRUE, but 0 is always FALSE
         // we turn the modem on: find the active source, switch to modem, and turn playthrough on
         if (NULL != AudioInputs) {
-            for (idx = 0; idx < AudioInputs->getCount (); idx++) {
+			numInputs = AudioInputs->getCount ();
+            for (idx = 0; idx < numInputs; idx++) {
                 theInput = OSDynamicCast (AudioHardwareInput, AudioInputs->getObject (idx));
                 if (NULL != theInput) {
                     theInput->forceActivation ('modm');
@@ -1563,18 +1591,19 @@ IOReturn Apple02Audio::setModemSound (bool state){
 
         sndHWSetPlayThrough (true);
     } else {
-        // we turn the modem off: turn playthrough off, switch to saved source;
-        sndHWSetPlayThrough (!gIsPlayThroughActive);
-        if (NULL != AudioInputs) {
-            for (idx = 0; idx < AudioInputs->getCount (); idx++) {
-                theInput = OSDynamicCast (AudioHardwareInput, AudioInputs->getObject (idx));
-                if (NULL != theInput){
-                    theInput->forceActivation (inputSelector->getIntValue ());
-                    theInput->setInputGain (gGainLeft, gGainRight);
-                }
-            }
-        }
-    }
+		// we turn the modem off: turn playthrough off, switch to saved source;
+		sndHWSetPlayThrough (!gIsPlayThroughActive);
+		if (NULL != AudioInputs) {
+			numInputs = AudioInputs->getCount ();
+			for (idx = 0; idx < numInputs; idx++) {
+				theInput = OSDynamicCast (AudioHardwareInput, AudioInputs->getObject (idx));
+				if (NULL != theInput && inputSelector) {
+					theInput->forceActivation (inputSelector->getIntValue ());
+					theInput->setInputGain (gGainLeft, gGainRight);
+				}
+			}
+		}
+	}
 
     gIsModemSoundActive = state;
 EXIT:

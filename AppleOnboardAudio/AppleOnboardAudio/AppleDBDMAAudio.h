@@ -11,6 +11,8 @@
 #include "PlatformInterface.h"
 #include "AppleDBDMAFloatLib.h"
 
+#include "DSP_Manager.h"
+
 //#define _TIME_CLIP_ROUTINE
 
 // aml 2.28.02 adding header to get constants
@@ -98,7 +100,6 @@ typedef struct UCIODBDMAChannelCommands UCIODBDMAChannelCommands;
 typedef UCIODBDMAChannelCommands * UCIODBDMAChannelCommandsPtr;
 
 class AppleiSubEngine;
-class AudioHardwareObjectInterface;
 
 class AppleDBDMAAudio : public IOAudioEngine
 {
@@ -148,8 +149,9 @@ public:
     void		 		setInputGainR(UInt32 inGainR); 
     void		 		setRightChanDelayInput(bool inUseSoftwareInputGain);// [3173869]
 
-    void	 			setLeftSoftVolume(float* inVolume); 
-    void	 			setRightSoftVolume(float* inVolume); 
+    void		 		setUseSoftwareOutputVolume(bool inUseSoftwareOutputVolume, UInt32 inMinLinear = 0, UInt32 inMaxLinear = 0, SInt32 inMindB = 0, SInt32 inMaxdB = 0);
+    void	 			setOutputVolumeLeft(UInt32 inVolume); 
+    void	 			setOutputVolumeRight(UInt32 inVolume); 
 
 	void				enableOutputProcessing ();
 	void				disableOutputProcessing ();
@@ -204,6 +206,7 @@ protected:
 	IOAudioStream *					mInputStream;
 	OSArray *						deviceFormats;
 	void *							mOutputSampleBuffer;
+	void *							mIntermediateSampleBuffer;
 	void *							mInputSampleBuffer;
     UInt32							commandBufferSize;
 	IOFilterInterruptEventSource *	interruptEventSource;
@@ -249,6 +252,16 @@ protected:
 	
 	DualMonoModeType				mInputDualMonoMode;
 
+	bool							mUseSoftwareOutputVolume;
+	float							mLeftVolume[1];
+	float							mRightVolume[1];
+	float							mPreviousLeftVolume[1];
+	float							mPreviousRightVolume[1];
+	UInt32							mMinVolumeLinear;
+	UInt32							mMaxVolumeLinear;
+	SInt32							mMinVolumedB;
+	SInt32							mMaxVolumedB;
+
     bool 							mUseSoftwareInputGain;
     float *							mInputGainLPtr;				
     float *							mInputGainRPtr;				
@@ -291,6 +304,9 @@ protected:
 
 	inline	void					startTiming();
 	inline 	void					endTiming();
+	
+	float*							mMixBufferPtr;
+	
 #ifdef _TIME_CLIP_ROUTINE
 	UInt32 							mCallCount;	
 	AbsoluteTime					mPreviousUptime;
@@ -302,23 +318,24 @@ protected:
 #pragma mark еее Output Conversion Routines
 #pragma mark ---------------------------------------- 
 	inline void outputProcessing (float* inFloatBufferPtr, UInt32 inNumSamples);
+	inline void setupOutputBuffer (const void *mixBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
 
-	IOReturn clipMemCopyToOutputStream (const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
-	IOReturn clipAppleDBDMAToOutputStream16(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
-	IOReturn clipAppleDBDMAToOutputStream16MixRightChannel(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
+	IOReturn clipMemCopyToOutputStream (const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
+	IOReturn clipAppleDBDMAToOutputStream16(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
+	IOReturn clipAppleDBDMAToOutputStream16MixRightChannel(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
 	
-	IOReturn clipAppleDBDMAToOutputStream32(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
-	IOReturn clipAppleDBDMAToOutputStream32MixRightChannel(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
+	IOReturn clipAppleDBDMAToOutputStream32(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
+	IOReturn clipAppleDBDMAToOutputStream32MixRightChannel(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
 
 #pragma mark ---------------------------------------- 
 #pragma mark еее Output Conversion Routines with iSub
 #pragma mark ---------------------------------------- 
 	
-	IOReturn clipAppleDBDMAToOutputStream16iSub(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
-	IOReturn clipAppleDBDMAToOutputStream16iSubMixRightChannel(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
+	IOReturn clipAppleDBDMAToOutputStream16iSub(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
+	IOReturn clipAppleDBDMAToOutputStream16iSubMixRightChannel(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
 	
-	IOReturn clipAppleDBDMAToOutputStream32iSub(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
-	IOReturn clipAppleDBDMAToOutputStream32iSubMixRightChannel(const void *mixBuf, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
+	IOReturn clipAppleDBDMAToOutputStream32iSub(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
+	IOReturn clipAppleDBDMAToOutputStream32iSubMixRightChannel(const void *inFloatBufferPtr, void *sampleBuf, UInt32 firstSampleFrame, UInt32 numSampleFrames, const IOAudioStreamFormat *streamFormat);
 
 #pragma mark ---------------------------------------- 
 #pragma mark еее Input Conversion Routines

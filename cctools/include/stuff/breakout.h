@@ -165,6 +165,14 @@ __private_extern__ struct ofile * breakout(
     unsigned long *narchs,
     enum bool calculate_input_prebind_cksum);
 
+__private_extern__ struct ofile * breakout_mem(
+    void *membuf,
+    unsigned long length,
+    char *filename,
+    struct arch **archs,
+    unsigned long *narchs,
+    enum bool calculate_input_prebind_cksum);
+
 __private_extern__ void free_archs(
     struct arch *archs,
     unsigned long narchs);
@@ -178,6 +186,16 @@ __private_extern__ void writeout(
     enum bool commons_in_toc,
     enum bool library_warnings,
     unsigned long *throttle);
+
+__private_extern__ void writeout_to_mem(
+    struct arch *archs,
+    unsigned long narchs,
+    char *filename,
+    void **outputbuf,
+    unsigned long *length,
+    enum bool sort_toc,
+    enum bool commons_in_toc,
+    enum bool library_warnings);
 
 __private_extern__ void checkout(
     struct arch *archs,

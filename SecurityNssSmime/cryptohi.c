@@ -35,6 +35,7 @@
 
 #include "cryptohi.h"
 
+#include "secerr.h"
 #include "secoid.h"
 #include "cmspriv.h"
 #include <Security/cssmapi.h>
@@ -113,27 +114,48 @@ SEC_SignData(SECItem *result, unsigned char *buf, int len,
     algorithm = SECOID_FindyCssmAlgorithmByTag(SecCmsUtilMakeSignatureAlgorithm(digAlgTag, sigAlgTag));
     if (!algorithm)
     {
+        PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
 	rv = SECFailure;
 	goto loser;
     }
 
     rv = SecKeyGetCSPHandle(pk, &csp);
-    if (rv)
+    if (rv) {
+        PORT_SetError(SEC_ERROR_BAD_KEY);
 	goto loser;
+    }
     rv = SecKeyGetCSSMKey(pk, &key);
-    if (rv)
+    if (rv) {
+        PORT_SetError(SEC_ERROR_BAD_KEY);
 	goto loser;
+    }
     rv = SecKeyGetCredentials(pk, CSSM_ACL_AUTHORIZATION_SIGN, kSecCredentialTypeDefault, &accessCred);
-    if (rv)
+    if (rv) {
+        PORT_SetError(SEC_ERROR_BAD_KEY);
 	goto loser;
+    }
 
     rv = CSSM_CSP_CreateSignatureContext(csp, algorithm, accessCred, key, &cc);
-    if (rv)
-	goto loser;
+    if (rv) {
+        PORT_SetError(SEC_ERROR_NO_MEMORY);
+    	goto loser;
+    }
 
     rv = CSSM_SignData(cc, &dataBuf, 1, CSSM_ALGID_NONE, &sig);
-    if (rv)
+    if (rv) {
+        SECErrorCodes code;
+        if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_USER_CANCELED
+            || CSSM_ERRCODE(rv) == CSSM_ERRCODE_OPERATION_AUTH_DENIED)
+            code = SEC_ERROR_USER_CANCELLED;
+        else if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_NO_USER_INTERACTION
+                 || rv == CSSMERR_CSP_KEY_USAGE_INCORRECT)
+            code = SEC_ERROR_INADEQUATE_KEY_USAGE;
+        else
+            code = SEC_ERROR_LIBRARY_FAILURE;
+
+        PORT_SetError(code);
 	goto loser;
+    }
 
     result->Length = sig.Length;
     result->Data = sig.Data;
@@ -160,27 +182,48 @@ SGN_Digest(SecPrivateKeyRef pk, SECOidTag digAlgTag, SECOidTag sigAlgTag, SECIte
     sigalg = SECOID_FindyCssmAlgorithmByTag(sigAlgTag);
     if (!digalg || !sigalg)
     {
+        PORT_SetError(SEC_ERROR_INVALID_ALGORITHM);
 	rv = SECFailure;
 	goto loser;
     }
 
     rv = SecKeyGetCSPHandle(pk, &csp);
-    if (rv)
+    if (rv) {
+        PORT_SetError(SEC_ERROR_BAD_KEY);
 	goto loser;
+    }
     rv = SecKeyGetCSSMKey(pk, &key);
-    if (rv)
+    if (rv) {
+        PORT_SetError(SEC_ERROR_BAD_KEY);
 	goto loser;
+    }
     rv = SecKeyGetCredentials(pk, CSSM_ACL_AUTHORIZATION_SIGN, kSecCredentialTypeDefault, &accessCred);
-    if (rv)
+    if (rv) {
+        PORT_SetError(SEC_ERROR_BAD_KEY);
 	goto loser;
+    }
 
     rv = CSSM_CSP_CreateSignatureContext(csp, sigalg, accessCred, key, &cc);
-    if (rv)
+    if (rv) {
+        PORT_SetError(SEC_ERROR_NO_MEMORY);
 	goto loser;
+    }
 
     rv = CSSM_SignData(cc, digest, 1, digalg, &sig);
-    if (rv)
+    if (rv) {
+        SECErrorCodes code;
+        if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_USER_CANCELED
+            || CSSM_ERRCODE(rv) == CSSM_ERRCODE_OPERATION_AUTH_DENIED)
+            code = SEC_ERROR_USER_CANCELLED;
+        else if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_NO_USER_INTERACTION
+                 || rv == CSSMERR_CSP_KEY_USAGE_INCORRECT)
+            code = SEC_ERROR_INADEQUATE_KEY_USAGE;
+        else
+            code = SEC_ERROR_LIBRARY_FAILURE;
+
+        PORT_SetError(code);
 	goto loser;
+    }
 
     result->Length = sig.Length;
     result->Data = sig.Data;
@@ -470,8 +513,20 @@ WRAP_PubUnwrapSymKey(SecPrivateKeyRef privkey, CSSM_DATA *encKey, SECOidTag bulk
 	    NULL, /* rcc */
 	    &unwrappedKey,
 	    &descriptiveData);
-    if (rv)
+    if (rv) {
+        SECErrorCodes code;
+        if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_USER_CANCELED
+            || CSSM_ERRCODE(rv) == CSSM_ERRCODE_OPERATION_AUTH_DENIED)
+            code = SEC_ERROR_USER_CANCELLED;
+        else if (CSSM_ERRCODE(rv) == CSSM_ERRCODE_NO_USER_INTERACTION
+                 || rv == CSSMERR_CSP_KEY_USAGE_INCORRECT)
+            code = SEC_ERROR_INADEQUATE_KEY_USAGE;
+        else
+            code = SEC_ERROR_LIBRARY_FAILURE;
+
+        PORT_SetError(code);
 	goto loser;
+    }
 
     // @@@ Export this key from the csp/dl and import it to the standard csp
     if (SecKeyCreate(&unwrappedKey, &bulkkey))

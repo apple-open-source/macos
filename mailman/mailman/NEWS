@@ -4,6 +4,164 @@ Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
 
 Here is a history of user visible changes to Mailman.
 
+2.1.4 (31-Dec-2003)
+
+    - Close some cross-site scripting vulnerabilities in the admin pages
+      (CAN-2003-0965).
+
+    - New languages: Catalan, Croatian, Romanian, Slovenian.
+
+    - New mm_cfg.py/Defaults.py variable PUBLIC_MBOX which allows the site
+      administrator to disable public access to all the raw list mbox files
+      (this is not a per-list configuration).
+
+    - Expanded header filter rules under Privacy -> Spam Filters.  Now you can
+      specify regular expression matches against any header, with specific
+      actions tied to those matches.
+
+    - Rework the SMTP error handling in SMTPDirect.py to avoid scoring bounces
+      for all recipients when a permanent error code is returned by the mail
+      server (e.g. because of content restrictions).
+
+    - Promoted SYNC_AFTER_WRITE to a Default.py/mm_cfg.py variable and
+      make it control syncing on the config.pck file.  Also, we always flush
+      and sync message files.
+
+    - Reduce archive bloat by not storing the HTML body of Article objects in
+      the Pipermail database.  A new script bin/rb-archfix was added to clean
+      up older archives.
+
+    - Proper RFC quoting for List-ID descriptions.
+
+    - PKGDIR can be passed to the make command in order to specify a different
+      directory to unpack the distutils packages in misc.  (SF bug 784700).
+
+    - Improved logging of the origin of subscription requests.
+
+    - Bugs and patches: 832748 (unsubscribe_policy ignored for unsub button on
+      member login page), 846681 (bounce disabled cookie was always out of
+      date), 835870 (check VIRTUAL_HOST_OVERVIEW on through the web list
+      creation), 835036 (global address change when the new address is already
+      a member of one of the lists), 833384 (incorrect admin password on a
+      hold message confirmation attachment would discard the message), 835012
+      (fix permission on empty archive index), 816410 (confirmation page
+      consistency), 834486 (catch empty charsets in the scrubber), 777444 (set
+      the process's supplemental groups if possible), 860135 (ignore
+      DiscardMessage exceptions during digest scrubbing), 828811 (reduce
+      process size for list and admin overviews), 864674/864676 (problems
+      accessing private archives and rosters with admin password), 865661
+      (Tokio Kikuchi's i18n patches), 862906 (unicode prefix leak in admindb),
+      841445 (setting new_member_options via config_list), n/a (fixed email
+      command 'set delivery')
+
+2.1.3 (28-Sep-2003)
+
+    Performance, Reliability, Security
+
+        - Closed a cross-site scripting exploit in the create cgi script.
+
+        - Improvements in the performance of the bounce processor.
+          Now, instead of processing each bounce immediately (which
+          can cause severe lock contention), bounce events are queued.
+          Every 15 minutes by default, the queued bounce events are
+          processed en masse, on a list-per-list basis, so that each
+          list only needs to be locked once.
+
+        - When some or all of a message's recipients have temporary
+          delivery failures, the message is moved to a "retry" queue.
+          This queue wakes up occasionally and moves the file back to
+          the outgoing queue for attempted redelivery.  This should
+          fix most observed OutgoingRunner 100% cpu consumption,
+          especially for bounces to local recipients when using the
+          Postfix MTA.
+
+        - Optional support for fsync()'ing qfile data after writing.
+          Under some catastrophic system failures (e.g. power lose),
+          it would be possible to lose messages because the data
+          wasn't sync'd to disk.  By setting SYNC_AFTER_WRITE to True
+          in Mailman/Queue/Switchboard.py, you can force Mailman to
+          fsync() queue files after flushing them.  The benefits are
+          debatable for most operating environments, and you must
+          ensure that your Python has the os.fsync() function defined
+          before enabling this feature (it isn't, even on all
+          Unix-like operating systems).
+
+    Internationalization
+
+        - New languages Ukrainian, Serbian, Danish, Euskara/Basque.
+
+        - Fixes to template lookup.  Lists with local overriding
+          templates would find the wrong template.
+
+        - .mo files (for internationalization) are now generated at
+          build time instead of coming as part of the source
+          distribution.
+
+    Documentation
+
+        - A first draft of member documentation by Terri Oda.  There
+          is also a Japanese translation of this manual by Ikeda Soji.
+
+    Archiver / Pipermail
+
+        - In the configuration variables PUBLIC_EXTERNAL_ARCHIVER, and
+          PRIVATE_EXTERNAL_ARCHIVER, %(hostname)s has been added to
+          the list of allowable substitution variables.
+
+        - The timezone is now taken into account when figuring the
+          posting date for an article.
+
+    Scripts / Cron
+
+        - Fixes to cron/disabled for NotAMemberError crashes.
+
+        - New script bin/show_qfiles which prints the contents of .pck
+          message files.  New script bin/discard which can be used to
+          mass discard held messages.
+
+        - Fixes to cron/mailpasswds to account for old password-less
+          subscriptions.
+
+        - bin/list_members has grown two new options: --invalid/-i
+          prints only the addresses in the member database that are
+          invalid (which could have snuck in via old releases);
+          --unicode/-u prints addresses which are stored as Unicode
+          objects instead of as normal strings.
+
+    Miscellaneous
+
+        - Fixes to problems in some configurations where Python wouldn't
+          be able to find its standard library.
+
+        - Fixes to the digest which could cause MIME-losing missing
+          newlines when parts are scrubbed via the content filters.
+
+        - In the News/Mail gateway admin page, the configuration variable
+          nntp_host can now be a name:port pair.
+
+        - When messages are pulled from NNTP, the member moderation checks
+          are short-circuited.
+
+        - email 2.5.4 is included.  This fixes an RFC 2231 bug, among
+          possibly others.
+
+        - Fixed some extra spaces that could appear in the List-ID header.
+
+        - Fixes to ensure that invalid email addresses can't be invited.
+
+        - WEB_LINK_COLOR in Defaults.py/mm_cfg.py should now work.
+
+        - Fixes so that shunted message file names actually match
+          those logged in log/errors.
+
+        - An improved pending action cookie generation algorithm has
+          been added.
+
+        - Fixes to the DSN bounce detector.
+
+        - The usual additional u/i, internationalization, unicode, and
+          other miscellaneous fixes.
+
 2.1.2 (22-Apr-2003)
 
     - New languages Portuguese (Portugal) and Polish.

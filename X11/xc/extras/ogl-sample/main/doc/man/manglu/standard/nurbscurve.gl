@@ -1,0 +1,104 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ $Date$ $Revision$
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(NurbsCurve, define the shape of a NURBS curve)
+_names(NurbsCurve)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies the NURBS object (created with _cmnd(NewNurbsRenderer)).
+_phead(_param2)
+Specifies the number of knots in _param3.
+_param2 equals the number of control points plus the order.
+_phead(_param3)
+Specifies an array of _param2 nondecreasing knot values.
+_phead(_param4)
+Specifies the offset (as a number of single-precision floating-point values)
+between successive curve control points.
+_phead(_param5)
+Specifies a pointer to an array of control points. The coordinates must
+agree with _param7, specified below.
+_phead(_param6)
+Specifies the order of the NURBS curve. _param6 equals degree + 1, hence
+a cubic curve has an order of 4.
+_phead(_param7)
+Specifies the type of the curve. If this curve is defined within a 
+_cmnd(BeginCurve)/_cmnd(EndCurve) pair, then 
+the type can be any of the valid
+one-dimensional evaluator types (such as _const(MAP1_VERTEX_3) or 
+_const(MAP1_COLOR_4)). Between a _cmnd(BeginTrim)/_cmnd(EndTrim) pair,
+the only valid types are _gluconst(MAP1_TRIM_2) and _gluconst(MAP1_TRIM_3).
+.SH DESCRIPTION
+Use _cmnd to describe a NURBS curve.
+.P
+When _cmnd appears between a _cmnd(BeginCurve)/_cmnd(EndCurve) pair, it is 
+used to describe a curve to be rendered.
+Positional, texture, and color coordinates are associated
+by presenting each as a separate _cmnd between a 
+_cmnd(BeginCurve)/_cmnd(EndCurve) pair. No more than
+one call to _cmnd for each of color, position, and texture
+data can be made within a single _cmnd(BeginCurve)/_cmnd(EndCurve)
+pair. Exactly one call must be made to describe the position of the 
+curve (a _param7 of _const(MAP1_VERTEX_3) or _const(MAP1_VERTEX_4)).
+.P
+When _cmnd appears between a _cmnd(BeginTrim)/_cmnd(EndTrim) pair, it is 
+used to describe a trimming curve on a NURBS surface. If _param7 is
+_gluconst(MAP1_TRIM_2), then it describes a curve in two-dimensional (\f2u\fP 
+and \f2v\fP)
+parameter space. If it is _gluconst(MAP1_TRIM_3), then it describes a 
+curve in two-dimensional homogeneous (\f2u\fP, \f2v\fP, and \f2w\fP) 
+parameter space.
+See the _cmnd(BeginTrim) reference page for more discussion about trimming
+curves.
+.SH EXAMPLE
+The following commands render a textured NURBS curve with normals:
+.sp
+.Ex
+gluBeginCurve(nobj);
+   gluNurbsCurve(nobj, ..., GL_MAP1_TEXTURE_COORD_2);
+   gluNurbsCurve(nobj, ..., GL_MAP1_NORMAL);
+   gluNurbsCurve(nobj, ..., GL_MAP1_VERTEX_4);
+gluEndCurve(nobj);
+.Ee
+.sp
+.SH NOTES
+To define trim curves which stitch well, use _cmnd(PwlCurve).
+.SH SEE ALSO
+_cmnd(BeginCurve), _cmnd(BeginTrim), _cmnd(NewNurbsRenderer), _cmnd(PwlCurve)
+

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		0119F4B100753D057F000001 = {
 			children = (
@@ -22,12 +22,15 @@
 			name = SCSITaskLib;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0119F4B200753D057F000001 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SCSITaskLib.h;
 			path = UserClientLib/SCSITaskLib.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0119F4B900753D057F000001 = {
 			children = (
@@ -40,35 +43,47 @@
 			name = SCSITaskUserClient;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0119F4BA00753D057F000001 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SCSITaskUserClient.h;
 			path = UserClient/SCSITaskUserClient.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0119F4BB00753D057F000001 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SCSITaskUserClient.cpp;
 			path = UserClient/SCSITaskUserClient.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0119F4BC00753D057F000001 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SCSITaskUserClientIniter.h;
 			path = UserClient/SCSITaskUserClientIniter.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0119F4BD00753D057F000001 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SCSITaskUserClientIniter.cpp;
 			path = UserClient/SCSITaskUserClientIniter.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0119F4C200753D057F000001 = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = SCSITaskUserClient.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		0119F4C300753D057F000001 = {
 			buildPhases = (
@@ -87,7 +102,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.SCSITaskUserClient;
-				MODULE_VERSION = 1.3.3;
+				MODULE_VERSION = 1.3.5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -113,7 +128,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SCSITaskUserClient</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.3, Copyright Apple Computer, Inc. 1999-2004</string>
+	<string>1.3.5, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -125,11 +140,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.3</string>
+	<string>1.3.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.3</string>
+	<string>1.3.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>CDIniter</key>
@@ -219,11 +234,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -268,19 +279,18 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		0119F4CA00753D9B7F000001 = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = SCSITaskLib.plugin;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		0119F4CC00753D9B7F000001 = {
 			fileRef = 0119F4BC00753D057F000001;
@@ -329,7 +339,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SCSITaskLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.3, Copyright Apple Computer, Inc. 1999-2004</string>
+	<string>1.3.5, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -341,11 +351,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.3</string>
+	<string>1.3.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.3</string>
+	<string>1.3.5</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -453,12 +463,16 @@
 		013C26450079390611CE15C0 = {
 			isa = PBXTargetDependency;
 			target = 0119F4C300753D057F000001;
+			targetProxy = B61AAF2006278DE200D35735;
 		};
 		013C26460079390611CE15C0 = {
 			isa = PBXTargetDependency;
 			target = 0119F4D300753D9B7F000001;
+			targetProxy = B61AAF1E06278DE200D35735;
 		};
 		0143F20AFFE0C65311CE15BF = {
+			buildSettings = {
+			};
 			buildStyles = (
 				018D4AB400CF0B6C11CE15BF,
 				018D4AB300CF09CF11CE15BF,
@@ -499,6 +513,7 @@
 			isa = PBXGroup;
 			name = IOSCSIArchitectureModelFamily;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F212FFE0C65311CE15BF = {
 			children = (
@@ -527,6 +542,7 @@
 			isa = PBXGroup;
 			path = IOSCSIArchitectureModel;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0143F230FFE0C65311CE15BF = {
 			children = (
@@ -546,56 +562,77 @@
 			isa = PBXGroup;
 			path = IOSCSIBlockCommands;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0143F232FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOBlockStorageServices.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F233FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOSCSIBlockCommandsDevice.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F234FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOSCSIPeripheralDeviceType00.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F235FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = SCSIBlockCommands.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F236FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOSCSIPeripheralDeviceType07.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F238FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOBlockStorageServices.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F239FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOSCSIBlockCommandsDevice.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F23AFFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOSCSIPeripheralDeviceType00.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F23BFFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = SCSIBlockCommands.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F23CFFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOSCSIPeripheralDeviceType07.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F251FFE0C65311CE15BF = {
 			children = (
@@ -615,54 +652,71 @@
 			isa = PBXGroup;
 			path = IOSCSIMultimediaCommands;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0143F253FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SCSIMultimediaCommands.cpp;
 			path = IOSCSIMultimediaCommands/SCSIMultimediaCommands.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0143F254FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOSCSIMultimediaCommandsDevice.cpp;
 			path = IOSCSIMultimediaCommands/IOSCSIMultimediaCommandsDevice.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0143F255FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOSCSIPeripheralDeviceType05.cpp;
 			path = IOSCSIMultimediaCommands/IOSCSIPeripheralDeviceType05.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0143F256FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOCompactDiscServices.cpp;
 			path = IOSCSIMultimediaCommands/IOCompactDiscServices.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0143F258FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SCSIMultimediaCommands.h;
 			path = IOSCSIMultimediaCommands/SCSIMultimediaCommands.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0143F259FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOSCSIMultimediaCommandsDevice.h;
 			path = IOSCSIMultimediaCommands/IOSCSIMultimediaCommandsDevice.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0143F25AFFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOSCSIPeripheralDeviceType05.h;
 			path = IOSCSIMultimediaCommands/IOSCSIPeripheralDeviceType05.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0143F25BFFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOCompactDiscServices.h;
 			path = IOSCSIMultimediaCommands/IOCompactDiscServices.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0143F261FFE0C65311CE15BF = {
 			children = (
@@ -680,46 +734,63 @@
 			isa = PBXGroup;
 			path = IOSCSIReducedBlockCommands;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0143F263FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOReducedBlockServices.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F264FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOSCSIPeripheralDeviceType0E.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F265FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOSCSIReducedBlockCommandsDevice.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F266FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = SCSIReducedBlockCommands.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F268FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOReducedBlockServices.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F269FFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOSCSIPeripheralDeviceType0E.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F26AFFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOSCSIReducedBlockCommandsDevice.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F26BFFE0C65311CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = SCSIReducedBlockCommands.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F272FFE0C65311CE15BF = {
 			children = (
@@ -735,26 +806,39 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0143F273FFE0C65311CE15BF = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = IOSCSIArchitectureModelFamily.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		0143F277FFE0C65311CE15BF = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = IOSCSIBlockCommandsDevice.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		0143F279FFE0C65311CE15BF = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = IOSCSIMultimediaCommandsDevice.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		0143F27AFFE0C65311CE15BF = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = IOSCSIReducedBlockCommandsDevice.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		0143F27BFFE0C65311CE15BF = {
 			buildPhases = (
@@ -773,7 +857,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIArchitectureModelFamily;
-				MODULE_VERSION = 1.3.3;
+				MODULE_VERSION = 1.3.5;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -804,7 +888,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIArchitectureModelFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.3, Copyright Apple Computer, Inc. 1999-2004</string>
+	<string>1.3.5, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -816,11 +900,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.3</string>
+	<string>1.3.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.3</string>
+	<string>1.3.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceNub</key>
@@ -853,6 +937,7 @@
 		0143F29DFFE0C65311CE15BF = {
 			isa = PBXTargetDependency;
 			target = 0143F29EFFE0C65311CE15BF;
+			targetProxy = B61AAF1C06278DE200D35735;
 		};
 		0143F29EFFE0C65311CE15BF = {
 			buildPhases = (
@@ -871,7 +956,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIBlockCommandsDevice;
-				MODULE_VERSION = 1.3.3;
+				MODULE_VERSION = 1.3.5;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -896,7 +981,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIBlockCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.3, Copyright Apple Computer, Inc. 1999-2004</string>
+	<string>1.3.5, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -908,11 +993,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.3</string>
+	<string>1.3.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.3</string>
+	<string>1.3.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType00</key>
@@ -957,11 +1042,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -1100,11 +1181,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -1112,6 +1189,7 @@
 		0143F2C0FFE0C65311CE15BF = {
 			isa = PBXTargetDependency;
 			target = 0143F2C1FFE0C65311CE15BF;
+			targetProxy = B61AAF2206278DE200D35735;
 		};
 		0143F2C1FFE0C65311CE15BF = {
 			buildPhases = (
@@ -1130,7 +1208,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIMultimediaCommandsDevice;
-				MODULE_VERSION = 1.3.3;
+				MODULE_VERSION = 1.3.5;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1155,7 +1233,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIMultimediaCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.3, Copyright Apple Computer, Inc. 1999-2004</string>
+	<string>1.3.5, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1167,11 +1245,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.3</string>
+	<string>1.3.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.3</string>
+	<string>1.3.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType05</key>
@@ -1211,11 +1289,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -1342,11 +1416,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -1354,6 +1424,7 @@
 		0143F2D1FFE0C65311CE15BF = {
 			isa = PBXTargetDependency;
 			target = 0143F2D2FFE0C65311CE15BF;
+			targetProxy = B61AAF2306278DE200D35735;
 		};
 		0143F2D2FFE0C65311CE15BF = {
 			buildPhases = (
@@ -1372,7 +1443,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIReducedBlockCommandsDevice;
-				MODULE_VERSION = 1.3.3;
+				MODULE_VERSION = 1.3.5;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1397,7 +1468,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIReducedBlockCommandsDevice</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.3, Copyright Apple Computer, Inc. 1999-2004</string>
+	<string>1.3.5, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1409,11 +1480,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.3</string>
+	<string>1.3.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.3</string>
+	<string>1.3.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSCSIPeripheralDeviceType0E</key>
@@ -1447,11 +1518,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -1574,11 +1641,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -1685,16 +1748,21 @@
 			};
 		};
 		0145D07900ACACD511CE15BF = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = Kernel.framework;
 			path = /System/Library/Frameworks/Kernel.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		01473FDE00CE990F11CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SCSITaskLibPriv.h;
 			path = UserClientLib/SCSITaskLibPriv.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		01473FDF00CE990F11CE15BF = {
 			fileRef = 01473FDE00CE990F11CE15BF;
@@ -1704,15 +1772,19 @@
 		};
 		01481DF000AB6A1111CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SCSITaskDeviceClass.h;
 			path = UserClientLib/SCSITaskDeviceClass.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01481DF100AB6A1111CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SCSITaskDeviceClass.cpp;
 			path = UserClientLib/SCSITaskDeviceClass.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01481DF300AB6A1111CE15BF = {
 			fileRef = 01481DF100AB6A1111CE15BF;
@@ -1820,11 +1892,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -1833,26 +1901,26 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		017A6212FFE0DF3E11CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IODVDServices.h;
 			path = IOSCSIMultimediaCommands/IODVDServices.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		017A6213FFE0DF3E11CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IODVDServices.cpp;
 			path = IOSCSIMultimediaCommands/IODVDServices.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		017A6217FFE0DFEE11CE15BF = {
 			fileRef = 017A6212FFE0DF3E11CE15BF;
@@ -1903,6 +1971,7 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				SCSI_BLOCK_SERVICES_DEBUGGING_LEVEL = 0;
 				SCSI_COMPACT_DISC_SERVICES_DEBUGGING_LEVEL = 0;
 				SCSI_DVD_SERVICES_DEBUGGING_LEVEL = 0;
@@ -1922,6 +1991,7 @@
 				SCSI_SBC_DEVICE_DEBUGGING_LEVEL = 0;
 				SCSI_SPC_COMMANDS_DEBUGGING_LEVEL = 0;
 				SCSI_SPC_DEVICE_DEBUGGING_LEVEL = 0;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -1981,15 +2051,19 @@
 		};
 		019DFCD000A8A23B11CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SCSITaskClass.h;
 			path = UserClientLib/SCSITaskClass.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		019DFCD100A8A23B11CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SCSITaskClass.cpp;
 			path = UserClientLib/SCSITaskClass.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		019DFCD200A8A23B11CE15BF = {
 			fileRef = 019DFCD000A8A23B11CE15BF;
@@ -2015,15 +2089,19 @@
 //034
 		0376270B002A4E2911CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOSCSIProtocolInterface.cpp;
 			path = IOSCSIArchitectureModel/IOSCSIProtocolInterface.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0376270C002A4E2911CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOSCSIProtocolInterface.h;
 			path = IOSCSIArchitectureModel/IOSCSIProtocolInterface.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0376270F002A4E2911CE15B4 = {
 			fileRef = 0376270C002A4E2911CE15B4;
@@ -2158,19 +2236,25 @@
 //074
 		070FC9DF002AABCE11CE15C0 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOSCSIBlockCommandsDevicePM.cpp;
 			path = IOSCSIBlockCommands/IOSCSIBlockCommandsDevicePM.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		070FC9E0002AABCE11CE15C0 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOSCSIReducedBlockCommandsDevicePM.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		070FC9E1002AABCE11CE15C0 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOSCSIMultimediaCommandsDevicePM.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		070FC9E2002AABCE11CE15C0 = {
 			fileRef = 070FC9DF002AABCE11CE15C0;
@@ -2191,9 +2275,12 @@
 			};
 		};
 		071C63C4FFF0984511CE15B4 = {
+			explicitFileType = "compiled.mach-o.executable";
+			fallbackIsa = PBXFileReference;
 			isa = PBXExecutableFileReference;
 			path = InstallHeaders;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		071C63C5FFF0984511CE15B4 = {
 			buildPhases = (
@@ -2349,87 +2436,115 @@
 //084
 		084398BD002809C411CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOSCSIPeripheralDeviceNub.cpp;
 			path = IOSCSIArchitectureModel/IOSCSIPeripheralDeviceNub.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		084398BE002809C411CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOSCSIPeripheralDeviceNub.h;
 			path = IOSCSIArchitectureModel/IOSCSIPeripheralDeviceNub.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		084398BF002809C411CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOSCSIPrimaryCommandsDevice.cpp;
 			path = IOSCSIArchitectureModel/IOSCSIPrimaryCommandsDevice.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		084398C0002809C411CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOSCSIPrimaryCommandsDevice.h;
 			path = IOSCSIArchitectureModel/IOSCSIPrimaryCommandsDevice.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		084398C1002809C411CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = IOSCSIProtocolServices.cpp;
 			path = IOSCSIArchitectureModel/IOSCSIProtocolServices.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		084398C2002809C411CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = IOSCSIProtocolServices.h;
 			path = IOSCSIArchitectureModel/IOSCSIProtocolServices.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		084398C3002809C411CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SCSICmds_INQUIRY_Definitions.h;
 			path = IOSCSIArchitectureModel/SCSICmds_INQUIRY_Definitions.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		084398C4002809C411CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SCSICmds_REQUEST_SENSE_Defs.h;
 			path = IOSCSIArchitectureModel/SCSICmds_REQUEST_SENSE_Defs.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		084398C5002809C411CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SCSICommandDefinitions.h;
 			path = IOSCSIArchitectureModel/SCSICommandDefinitions.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		084398C6002809C411CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SCSICommandOperationCodes.h;
 			path = IOSCSIArchitectureModel/SCSICommandOperationCodes.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		084398C7002809C411CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SCSIPrimaryCommands.cpp;
 			path = IOSCSIArchitectureModel/SCSIPrimaryCommands.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		084398C8002809C411CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SCSIPrimaryCommands.h;
 			path = IOSCSIArchitectureModel/SCSIPrimaryCommands.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		084398C9002809C411CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SCSITask.cpp;
 			path = IOSCSIArchitectureModel/SCSITask.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		084398CA002809C411CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SCSITask.h;
 			path = IOSCSIArchitectureModel/SCSITask.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		084398D900280A1011CE15B4 = {
 			fileRef = 084398BE002809C411CE15B4;
@@ -2486,24 +2601,32 @@
 		0E10CC0AFFF0A0B611CE15B4 = {
 			isa = PBXTargetDependency;
 			target = 071C63C5FFF0984511CE15B4;
+			targetProxy = B61AAF2406278DE200D35735;
 		};
 		0EC44BFC00A727E411CE15BF = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		0EC44BFD00A73A5A11CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = MMCDeviceUserClientClass.h;
 			path = UserClientLib/MMCDeviceUserClientClass.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0EC44BFE00A73A5A11CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = MMCDeviceUserClientClass.cpp;
 			path = UserClientLib/MMCDeviceUserClientClass.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0EC44BFF00A73A5A11CE15BF = {
 			fileRef = 0EC44BFD00A73A5A11CE15BF;
@@ -2518,10 +2641,13 @@
 			};
 		};
 		0EC44C0100A7508211CE15BF = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 //0E0
 //0E1
@@ -2546,6 +2672,7 @@
 			isa = PBXGroup;
 			name = Kernel;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		11CABE35007A981F11CE15C0 = {
 			children = (
@@ -2555,6 +2682,7 @@
 			name = User;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //110
 //111
@@ -2584,9 +2712,11 @@
 //5C4
 		5C013459035E095405CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = FibreChannelHD.icns;
 			path = Icons/FibreChannelHD.icns;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5C01345A035E095405CE15BF = {
 			fileRef = 5C013459035E095405CE15BF;
@@ -2614,12 +2744,15 @@
 			isa = PBXGroup;
 			name = Icons;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5C30252102AE8A3E05CE68BB = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = FireWireHD.icns;
 			path = Icons/FireWireHD.icns;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5C30252302AE8A3E05CE68BB = {
 			fileRef = 5C30252102AE8A3E05CE68BB;
@@ -2629,8 +2762,10 @@
 		};
 		5C405449011E259A05CE1791 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOStorageDeviceCharacteristics.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		5C40544A011E259A05CE1791 = {
 			fileRef = 5C405449011E259A05CE1791;
@@ -2694,15 +2829,22 @@
 			buildRules = (
 			);
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		5C9C0FA7026F72FF05CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOSCSIArchitectureModelFamilyDebugging.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5C9C0FA9026F72FF05CE15BF = {
 			fileRef = 5C9C0FA7026F72FF05CE15BF;
@@ -2712,8 +2854,10 @@
 		};
 		5C9C0FAA026F731605CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOSCSIPrimaryCommandsBuilder.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5C9C0FAB026F731605CE15BF = {
 			fileRef = 5C9C0FAA026F731605CE15BF;
@@ -2723,8 +2867,10 @@
 		};
 		5C9C0FAC026F732805CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOSCSIBlockCommandsBuilder.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5C9C0FAD026F732805CE15BF = {
 			fileRef = 5C9C0FAC026F732805CE15BF;
@@ -2734,8 +2880,10 @@
 		};
 		5C9C0FAE026F734005CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOSCSIReducedBlockCommandsBuilder.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5C9C0FAF026F734005CE15BF = {
 			fileRef = 5C9C0FAE026F734005CE15BF;
@@ -2745,8 +2893,10 @@
 		};
 		5C9C0FB0026F734F05CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOSCSIMultimediaCommandsBuilder.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5C9C0FB1026F734F05CE15BF = {
 			fileRef = 5C9C0FB0026F734F05CE15BF;
@@ -2762,21 +2912,27 @@
 		};
 		5CB3784602DF9E2405CE68BB = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = MagnetoOptical.icns;
 			path = Icons/MagnetoOptical.icns;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5CB3784702DF9E2405CE68BB = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = SmartMedia.icns;
 			path = Icons/SmartMedia.icns;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5CB3784802DF9E2405CE68BB = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = SuperDisk.icns;
 			path = Icons/SuperDisk.icns;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5CB3784902DF9E2405CE68BB = {
 			fileRef = 5CB3784602DF9E2405CE68BB;
@@ -2798,15 +2954,19 @@
 		};
 		5CC2E11601F793AD05CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = SCSITaskIUnknown.h;
 			path = UserClientLib/SCSITaskIUnknown.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5CC2E11701F793AD05CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = SCSITaskIUnknown.cpp;
 			path = UserClientLib/SCSITaskIUnknown.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5CC2E11801F793AD05CE15BF = {
 			fileRef = 5CC2E11601F793AD05CE15BF;
@@ -2828,9 +2988,11 @@
 		};
 		5CE8CCEF02B6A26C05CE68BB = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = USBHD.icns;
 			path = Icons/USBHD.icns;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5CE8CCF002B6A26C05CE68BB = {
 			fileRef = 5CE8CCEF02B6A26C05CE68BB;
@@ -2840,9 +3002,11 @@
 		};
 		5CF1981A02BFE3FC05CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = Floppy.icns;
 			path = Icons/Floppy.icns;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5CF1981B02BFE3FC05CE15BF = {
 			fileRef = 5CF1981A02BFE3FC05CE15BF;
@@ -2896,22 +3060,27 @@
 		AC2FA7D3058A905B00FE89A5 = {
 			isa = PBXTargetDependency;
 			target = 071C63C5FFF0984511CE15B4;
+			targetProxy = B61AAF1B06278DE200D35735;
 		};
 		AC2FA7D4058A905C00FE89A5 = {
 			isa = PBXTargetDependency;
 			target = 071C63C5FFF0984511CE15B4;
+			targetProxy = B61AAF2506278DE200D35735;
 		};
 		AC2FA7D5058A905D00FE89A5 = {
 			isa = PBXTargetDependency;
 			target = 071C63C5FFF0984511CE15B4;
+			targetProxy = B61AAF2606278DE200D35735;
 		};
 		AC2FA7D6058A905F00FE89A5 = {
 			isa = PBXTargetDependency;
 			target = 071C63C5FFF0984511CE15B4;
+			targetProxy = B61AAF1F06278DE200D35735;
 		};
 		AC2FA7D7058A906100FE89A5 = {
 			isa = PBXTargetDependency;
 			target = 071C63C5FFF0984511CE15B4;
+			targetProxy = B61AAF1D06278DE200D35735;
 		};
 		AC2FA7D8058A90AC00FE89A5 = {
 			buildActionMask = 2147483647;
@@ -3129,10 +3298,13 @@
 			};
 		};
 		AC4DE03604C77F9B00E2D0C4 = {
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
+			lastKnownFileType = wrapper.framework;
 			name = Security.framework;
 			path = /System/Library/Frameworks/Security.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		AC4DE03704C77F9B00E2D0C4 = {
 			fileRef = AC4DE03604C77F9B00E2D0C4;
@@ -3195,19 +3367,18 @@
 			productReference = AC89A14C04E9D2B90023BB27;
 		};
 		AC89A14C04E9D2B90023BB27 = {
+			explicitFileType = "compiled.mach-o.executable";
+			fallbackIsa = PBXFileReference;
 			isa = PBXExecutableFileReference;
 			path = InstallSDK;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		AC89AE6404E9D75A0023BB27 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# Copy all the SDK items to /Developer/Examples/IOKit/scsi/SCSITaskLib\nmkdir -p ${DSTROOT}/${SYSTEM_DEVELOPER_DIR}/Examples/IOKit/scsi/SCSITaskLib\ncd ${SRCROOT}/TestTools/STUC/UnitTests/\npax -ruw -s '/.*CVS.*//' Authoring/Cocoa ${DSTROOT}/${SYSTEM_DEVELOPER_DIR}/Examples/IOKit/scsi/SCSITaskLib\npax -ruw -s '/.*CVS.*//' Authoring/UnixTool ${DSTROOT}/${SYSTEM_DEVELOPER_DIR}/Examples/IOKit/scsi/SCSITaskLib\npax -ruw -s '/.*CVS.*//' Other/UnixTool ${DSTROOT}/${SYSTEM_DEVELOPER_DIR}/Examples/IOKit/scsi/SCSITaskLib";
@@ -3215,8 +3386,10 @@
 		ACBC64B60591602D009A73E0 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = SCSICmds_MODE_Definitions.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		ACBC64B70591602D009A73E0 = {
 			fileRef = ACBC64B60591602D009A73E0;
@@ -3263,10 +3436,12 @@
 		ACCEA99A04EAB6870040AECF = {
 			isa = PBXTargetDependency;
 			target = AC89A14B04E9D2B90023BB27;
+			targetProxy = B61AAF2106278DE200D35735;
 		};
 		ACCEA99B04EAB6A00040AECF = {
 			isa = PBXTargetDependency;
 			target = 071C63C5FFF0984511CE15B4;
+			targetProxy = B61AAF1906278DE200D35735;
 		};
 //AC0
 //AC1
@@ -3278,11 +3453,104 @@
 //B62
 //B63
 //B64
+		B61AAF1906278DE200D35735 = {
+			containerPortal = 0143F20AFFE0C65311CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 071C63C5FFF0984511CE15B4;
+			remoteInfo = InstallHeaders;
+		};
+		B61AAF1B06278DE200D35735 = {
+			containerPortal = 0143F20AFFE0C65311CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 071C63C5FFF0984511CE15B4;
+			remoteInfo = InstallHeaders;
+		};
+		B61AAF1C06278DE200D35735 = {
+			containerPortal = 0143F20AFFE0C65311CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0143F29EFFE0C65311CE15BF;
+			remoteInfo = IOSCSIBlockCommandsDevice;
+		};
+		B61AAF1D06278DE200D35735 = {
+			containerPortal = 0143F20AFFE0C65311CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 071C63C5FFF0984511CE15B4;
+			remoteInfo = InstallHeaders;
+		};
+		B61AAF1E06278DE200D35735 = {
+			containerPortal = 0143F20AFFE0C65311CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0119F4D300753D9B7F000001;
+			remoteInfo = SCSITaskLib;
+		};
+		B61AAF1F06278DE200D35735 = {
+			containerPortal = 0143F20AFFE0C65311CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 071C63C5FFF0984511CE15B4;
+			remoteInfo = InstallHeaders;
+		};
+		B61AAF2006278DE200D35735 = {
+			containerPortal = 0143F20AFFE0C65311CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0119F4C300753D057F000001;
+			remoteInfo = SCSITaskUserClient;
+		};
+		B61AAF2106278DE200D35735 = {
+			containerPortal = 0143F20AFFE0C65311CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = AC89A14B04E9D2B90023BB27;
+			remoteInfo = InstallSDK;
+		};
+		B61AAF2206278DE200D35735 = {
+			containerPortal = 0143F20AFFE0C65311CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0143F2C1FFE0C65311CE15BF;
+			remoteInfo = IOSCSIMultimediaCommandsDevice;
+		};
+		B61AAF2306278DE200D35735 = {
+			containerPortal = 0143F20AFFE0C65311CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0143F2D2FFE0C65311CE15BF;
+			remoteInfo = IOSCSIReducedBlockCommandsDevice;
+		};
+		B61AAF2406278DE200D35735 = {
+			containerPortal = 0143F20AFFE0C65311CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 071C63C5FFF0984511CE15B4;
+			remoteInfo = InstallHeaders;
+		};
+		B61AAF2506278DE200D35735 = {
+			containerPortal = 0143F20AFFE0C65311CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 071C63C5FFF0984511CE15B4;
+			remoteInfo = InstallHeaders;
+		};
+		B61AAF2606278DE200D35735 = {
+			containerPortal = 0143F20AFFE0C65311CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 071C63C5FFF0984511CE15B4;
+			remoteInfo = InstallHeaders;
+		};
 		B6CB75A704E32803008272F3 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOStorageProtocolCharacteristics.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		B6CB75A804E32803008272F3 = {
 			fileRef = B6CB75A704E32803008272F3;
@@ -3320,9 +3588,11 @@
 		};
 		F550F7E802DBD9B401CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = image.icns;
 			name = MemoryStick.icns;
 			path = Icons/MemoryStick.icns;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F550F7E902DBD9B401CE15B4 = {
 			fileRef = F550F7E802DBD9B401CE15B4;
@@ -3338,8 +3608,10 @@
 		};
 		F5D31BB7032D52C301CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = SCSITaskDefinition.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5D31BB8032D52C301CE15B4 = {
 			fileRef = F5D31BB7032D52C301CE15B4;
@@ -3349,13 +3621,17 @@
 		};
 		F5F7E61102FB10BD01CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOSCSITargetDevice.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5F7E61202FB10BD01CE15B4 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOSCSITargetDevice.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5F7E61302FB10BD01CE15B4 = {
 			fileRef = F5F7E61102FB10BD01CE15B4;

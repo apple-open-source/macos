@@ -124,7 +124,7 @@ void DumpBuf(char* buf, uInt32 len)
 #endif
 
 
-DSTCPEndian::DSTCPEndian(sComData* fMessage, int direction) : fMessage(fMessage)
+DSTCPEndian::DSTCPEndian(sComProxyData* fMessage, int direction) : fMessage(fMessage)
 {
     toBig = (direction == kSwapToBig);
 }
@@ -164,7 +164,7 @@ void DSTCPEndian::SwapMessage()
         }
         if (length > 0)
         {
-            uInt32 size = offset + length - sizeof(sComData) + 4;
+            uInt32 size = offset + length - sizeof(sComProxyData) + 4;
             if (size > bufSize) bufSize = size;
         }
     }

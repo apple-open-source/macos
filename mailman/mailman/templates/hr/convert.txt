@@ -1,0 +1,32 @@
+%(listname)s mailing lista je upravo dozivjela velike promjene. Ona 
+se "vrti" na novom mailing list paketu zvanom "Mailman". Ovo ce vjerojatno 
+rijesiti mnoge probleme vezano uz adminstraciju liste.
+
+Kako sve to utjece na Vas?
+
+1) Mail namijenjen cijeloj listi trebao bi biti poslan na: %(listaddr)s.
+
+2) Kreirana vam je proizvoljna lozinka da bi sprijecila druge da vas 
+odjave s liste bez vaseg znanja. Poslana vam je u drugom mailu, 
+koji ste mozda vec primili. Ne brinite se ako zaboravite ovu lozinku; 
+podsjetnik lozinke bit ce vam poslan mailom svaki mjesec.
+
+3) Ako imate pristup Webu, mozete ga koristiti u bilo koje vrijeme 
+da biste se odjavili s ove liste, ukljucili ili iskljucili digest mod, 
+provjerili protekle poruke s liste (koje ce biti prisutne nakon sto 
+na listu stignu u toku jednog ili vise dana), itd. Web adresa za navedeno 
+je:
+
+    %(listinfo_url)s
+
+4) Ako nemate pristup Webu, sve ovo mozete napraviti i preko e-maila. 
+Posaljite mail na %(requestaddr)s s naslovom ili tijelom poruke koji 
+sadrzava rijec "help" (bez navodnika). Automatski cete primiti odgovor 
+koji ce Vam dati daljnje upute.
+
+Molim, posaljite sva pitanja ili probleme s novim postavkama na:
+%(adminaddr)s.
+
+Ovu poruku automatski generira Mailman %(version)s.
+Za vise informacija o Mailmanu, posjetite Mailmanov homepage na 
+http://www.list.org/

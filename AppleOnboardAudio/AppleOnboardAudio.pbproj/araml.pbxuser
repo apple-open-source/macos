@@ -1,0 +1,661 @@
+// !$*UTF8*$!
+{
+	017D8EFD0032206011CE16D4 = {
+		activeExec = 0;
+	};
+	017EA98300C2DA887F000001 = {
+		activeExec = 0;
+	};
+	018F9560FFDDC63011CA29EB = {
+		activeExec = 0;
+	};
+	0325496CFFDDCAD711CA29EB = {
+		activeExec = 0;
+	};
+	03254978FFDDCCFB11CA29EB = {
+		activeExec = 0;
+	};
+	03254995FFDDD25B11CA29EB = {
+		activeExec = 0;
+	};
+	089C1669FE841209C02AAC07 = {
+		activeBuildStyle = 06AA1265FFB2107B11CA28AA;
+		activeTarget = 4D81053D03F4396500CD2599;
+		perUserDictionary = {
+			PBXPerProjectTemplateStateSaveDate = 107885546;
+			PBXWorkspaceContents = (
+				{
+					LeftSlideOut = {
+						Split0 = {
+							Split0 = {
+								NavContent0 = {
+									bookmark = 944B3E35066E354E00945FE9;
+									history = (
+										9496CB2306678C1D00C00464,
+										944B3E17066E354E00945FE9,
+										944B3E18066E354E00945FE9,
+										944B3E19066E354E00945FE9,
+										944B3E1A066E354E00945FE9,
+										944B3E1B066E354E00945FE9,
+										944B3E1C066E354E00945FE9,
+										944B3E1D066E354E00945FE9,
+										944B3E1E066E354E00945FE9,
+										944B3E1F066E354E00945FE9,
+										944B3E20066E354E00945FE9,
+										944B3E21066E354E00945FE9,
+										944B3E22066E354E00945FE9,
+										944B3E23066E354E00945FE9,
+										944B3E24066E354E00945FE9,
+									);
+									prevStack = (
+										9496CB2506678C1D00C00464,
+										944B3E25066E354E00945FE9,
+										944B3E26066E354E00945FE9,
+										944B3E27066E354E00945FE9,
+										944B3E28066E354E00945FE9,
+										944B3E29066E354E00945FE9,
+										944B3E2A066E354E00945FE9,
+										944B3E2B066E354E00945FE9,
+										944B3E2C066E354E00945FE9,
+										944B3E2D066E354E00945FE9,
+										944B3E2E066E354E00945FE9,
+										944B3E2F066E354E00945FE9,
+										944B3E30066E354E00945FE9,
+										944B3E31066E354E00945FE9,
+										944B3E32066E354E00945FE9,
+										944B3E33066E354E00945FE9,
+										944B3E34066E354E00945FE9,
+									);
+								};
+								NavCount = 1;
+								NavGeometry0 = {
+									Frame = "{{0, 0}, {1310, 632}}";
+									NavBarVisible = YES;
+								};
+								NavSplitVertical = NO;
+							};
+							SplitCount = 1;
+							Tab1 = {
+								Debugger = {
+									Split0 = {
+										SplitCount = 2;
+									};
+									SplitCount = 1;
+									TabCount = 2;
+								};
+								LauncherConfigVersion = 7;
+							};
+							Tab2 = {
+								LauncherConfigVersion = 3;
+								Runner = {
+								};
+							};
+							TabCount = 5;
+						};
+						SplitCount = 1;
+						Tab1 = {
+							OptionsSetName = "Hierarchy, all classes";
+						};
+						TabCount = 5;
+					};
+				},
+			);
+			PBXWorkspaceGeometries = (
+				{
+					ContentSize = "{1594, 974}";
+					LeftSlideOut = {
+						ActiveTab = 0;
+						ActiveTabName = PBXGroupTreeModule;
+						Collapsed = NO;
+						Frame = "{{0, 23}, {1594, 951}}";
+						Split0 = {
+							ActiveTab = 3;
+							ActiveTabName = PBXProjectFindModule;
+							Collapsed = NO;
+							Frame = "{{284, 0}, {1310, 951}}";
+							Split0 = {
+								Frame = "{{0, 319}, {1310, 632}}";
+							};
+							SplitCount = 1;
+							Tab0 = {
+								Frame = "{{0, 0}, {572, 214}}";
+							};
+							Tab1 = {
+								Debugger = {
+									Collapsed = NO;
+									Frame = "{{0, 0}, {572, 150}}";
+									Split0 = {
+										Frame = "{{0, 24}, {572, 126}}";
+										Split0 = {
+											Frame = "{{0, 0}, {279, 126}}";
+										};
+										Split1 = {
+											DebugVariablesTableConfiguration = (
+												Name,
+												123,
+												Value,
+												85,
+												Summary,
+												62.123,
+											);
+											Frame = "{{288, 0}, {284, 126}}";
+										};
+										SplitCount = 2;
+									};
+									SplitCount = 1;
+									Tab0 = {
+										Frame = "{{0, 0}, {100, 50}}";
+									};
+									Tab1 = {
+										Frame = "{{0, 0}, {100, 50}}";
+									};
+									TabCount = 2;
+									TabsVisible = YES;
+								};
+								Frame = "{{0, 0}, {572, 125}}";
+								LauncherConfigVersion = 7;
+							};
+							Tab2 = {
+								Frame = "{{0, 0}, {572, 126}}";
+								LauncherConfigVersion = 3;
+								Runner = {
+									Frame = "{{0, 0}, {572, 126}}";
+								};
+							};
+							Tab3 = {
+								BuildMessageFrame = "{{0, 0}, {574, 182}}";
+								BuildTranscriptFrame = "{{0, 191}, {574, 76}}";
+								BuildTranscriptFrameExpanded = YES;
+								Frame = "{{0, 0}, {572, 265}}";
+							};
+							Tab4 = {
+								Frame = "{{0, 0}, {1310, 295}}";
+							};
+							TabCount = 5;
+							TabsVisible = YES;
+						};
+						SplitCount = 1;
+						Tab0 = {
+							Frame = "{{0, 0}, {260, 951}}";
+							GroupTreeTableConfiguration = (
+								SCMStatusColumn,
+								22,
+								TargetStatusColumn,
+								18,
+								MainColumn,
+								205,
+							);
+						};
+						Tab1 = {
+							ClassesFrame = "{{0, 0}, {247, 330}}";
+							ClassesTreeTableConfiguration = (
+								PBXBookColumnIdentifier,
+								20,
+								PBXClassColumnIdentifier,
+								204,
+							);
+							Frame = "{{0, 0}, {245, 549}}";
+							MembersFrame = "{{0, 339}, {247, 210}}";
+							MembersTreeTableConfiguration = (
+								PBXBookColumnIdentifier,
+								20,
+								PBXMethodColumnIdentifier,
+								203,
+							);
+						};
+						Tab2 = {
+							Frame = "{{0, 0}, {226, 549}}";
+						};
+						Tab3 = {
+							Frame = "{{0, 0}, {191, 549}}";
+							TargetTableConfiguration = (
+								ActiveObject,
+								16,
+								ObjectNames,
+								202.296,
+							);
+						};
+						Tab4 = {
+							BreakpointsTreeTableConfiguration = (
+								breakpointColumn,
+								138,
+								enabledColumn,
+								31,
+							);
+							Frame = "{{0, 0}, {191, 549}}";
+						};
+						TabCount = 5;
+						TabsVisible = YES;
+					};
+					NavBarShownByDefault = YES;
+					StatusViewVisible = YES;
+					Template = F5F68CF101725D4C0D7A8F4C;
+					ToolbarVisible = YES;
+					WindowLocation = "{0, 0}";
+				},
+			);
+			PBXWorkspaceStateSaveDate = 107885546;
+		};
+		perUserProjectItems = {
+			944B3E17066E354E00945FE9 = 944B3E17066E354E00945FE9;
+			944B3E18066E354E00945FE9 = 944B3E18066E354E00945FE9;
+			944B3E19066E354E00945FE9 = 944B3E19066E354E00945FE9;
+			944B3E1A066E354E00945FE9 = 944B3E1A066E354E00945FE9;
+			944B3E1B066E354E00945FE9 = 944B3E1B066E354E00945FE9;
+			944B3E1C066E354E00945FE9 = 944B3E1C066E354E00945FE9;
+			944B3E1D066E354E00945FE9 = 944B3E1D066E354E00945FE9;
+			944B3E1E066E354E00945FE9 = 944B3E1E066E354E00945FE9;
+			944B3E1F066E354E00945FE9 = 944B3E1F066E354E00945FE9;
+			944B3E20066E354E00945FE9 = 944B3E20066E354E00945FE9;
+			944B3E21066E354E00945FE9 = 944B3E21066E354E00945FE9;
+			944B3E22066E354E00945FE9 = 944B3E22066E354E00945FE9;
+			944B3E23066E354E00945FE9 = 944B3E23066E354E00945FE9;
+			944B3E24066E354E00945FE9 = 944B3E24066E354E00945FE9;
+			944B3E25066E354E00945FE9 = 944B3E25066E354E00945FE9;
+			944B3E26066E354E00945FE9 = 944B3E26066E354E00945FE9;
+			944B3E27066E354E00945FE9 = 944B3E27066E354E00945FE9;
+			944B3E28066E354E00945FE9 = 944B3E28066E354E00945FE9;
+			944B3E29066E354E00945FE9 = 944B3E29066E354E00945FE9;
+			944B3E2A066E354E00945FE9 = 944B3E2A066E354E00945FE9;
+			944B3E2B066E354E00945FE9 = 944B3E2B066E354E00945FE9;
+			944B3E2C066E354E00945FE9 = 944B3E2C066E354E00945FE9;
+			944B3E2D066E354E00945FE9 = 944B3E2D066E354E00945FE9;
+			944B3E2E066E354E00945FE9 = 944B3E2E066E354E00945FE9;
+			944B3E2F066E354E00945FE9 = 944B3E2F066E354E00945FE9;
+			944B3E30066E354E00945FE9 = 944B3E30066E354E00945FE9;
+			944B3E31066E354E00945FE9 = 944B3E31066E354E00945FE9;
+			944B3E32066E354E00945FE9 = 944B3E32066E354E00945FE9;
+			944B3E33066E354E00945FE9 = 944B3E33066E354E00945FE9;
+			944B3E34066E354E00945FE9 = 944B3E34066E354E00945FE9;
+			944B3E35066E354E00945FE9 = 944B3E35066E354E00945FE9;
+			9496CB2306678C1D00C00464 = 9496CB2306678C1D00C00464;
+			9496CB2506678C1D00C00464 = 9496CB2506678C1D00C00464;
+		};
+		projectwideBuildSettings = {
+		};
+		wantsIndex = 1;
+		wantsSCM = -1;
+	};
+	089C1673FE841209C02AAC07 = {
+		activeExec = 0;
+	};
+	4D81053D03F4396500CD2599 = {
+		activeExec = 0;
+	};
+	4DE28EFA04055CA300CD2599 = {
+		activeExec = 0;
+	};
+	4DE28F0204055CAF00CD2599 = {
+		activeExec = 0;
+	};
+	4DE28F1A0405895500CD2599 = {
+		activeExec = 0;
+	};
+	4DE28F2304058A3500CD2599 = {
+		activeExec = 0;
+	};
+	8E7432120537263200A8101D = {
+		activeExec = 0;
+	};
+	944B3E17066E354E00945FE9 = {
+		fRef = 4DE28F2804058BCD00CD2599;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAClip.c: 148";
+		rLen = 0;
+		rLoc = 6564;
+		rType = 0;
+		vrLen = 2478;
+		vrLoc = 5538;
+	};
+	944B3E18066E354E00945FE9 = {
+		fRef = 4DE28F2C04058C3700CD2599;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAFloatLib.h: 83";
+		rLen = 0;
+		rLoc = 4348;
+		rType = 0;
+		vrLen = 3814;
+		vrLoc = 545;
+	};
+	944B3E19066E354E00945FE9 = {
+		fRef = 4DE28F2A04058C1000CD2599;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAClipLib.h: 20";
+		rLen = 0;
+		rLoc = 466;
+		rType = 0;
+		vrLen = 652;
+		vrLoc = 0;
+	};
+	944B3E1A066E354E00945FE9 = {
+		fRef = F5A720F803FD778001CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAAudio.cpp: 1897";
+		rLen = 0;
+		rLoc = 70464;
+		rType = 0;
+		vrLen = 1392;
+		vrLoc = 69544;
+	};
+	944B3E1B066E354E00945FE9 = {
+		fRef = 010D072FFFFA58D511CE168A;
+		isa = PBXTextBookmark;
+		name = "AudioHardwareConstants.h: 201";
+		rLen = 0;
+		rLoc = 6758;
+		rType = 0;
+		vrLen = 940;
+		vrLoc = 6315;
+	};
+	944B3E1C066E354E00945FE9 = {
+		fRef = F5A720F603FD776E01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAAudio.h: 179";
+		rLen = 0;
+		rLoc = 6124;
+		rType = 0;
+		vrLen = 1621;
+		vrLoc = 5199;
+	};
+	944B3E1D066E354E00945FE9 = {
+		fRef = F5A720F303FD71D001CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleTAS3004Audio.h: 175";
+		rLen = 0;
+		rLoc = 6916;
+		rType = 0;
+		vrLen = 1925;
+		vrLoc = 5029;
+	};
+	944B3E1E066E354E00945FE9 = {
+		fRef = F5A720EF03FD718101CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleTAS3004Audio.cpp: 1220";
+		rLen = 0;
+		rLoc = 53487;
+		rType = 0;
+		vrLen = 1464;
+		vrLoc = 52905;
+	};
+	944B3E1F066E354E00945FE9 = {
+		fRef = 94177529062CC3DC00A52754;
+		isa = PBXTextBookmark;
+		name = "Onyx_hw.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 0;
+		vrLoc = 0;
+	};
+	944B3E20066E354E00945FE9 = {
+		fRef = 8E7432070537260700A8101D;
+		isa = PBXTextBookmark;
+		name = "AppleOnyxAudio.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 0;
+		vrLoc = 0;
+	};
+	944B3E21066E354E00945FE9 = {
+		fRef = 8E7432060537260700A8101D;
+		isa = PBXTextBookmark;
+		name = "AppleOnyxAudio.cpp: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 0;
+		vrLoc = 0;
+	};
+	944B3E22066E354E00945FE9 = {
+		fRef = F5888CD0044CA61E01CD2540;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudioUserClient.h: 26";
+		rLen = 0;
+		rLoc = 470;
+		rType = 0;
+		vrLen = 1176;
+		vrLoc = 0;
+	};
+	944B3E23066E354E00945FE9 = {
+		fRef = F5A720ED03FD714C01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudio.cpp: 5233";
+		rLen = 0;
+		rLoc = 215201;
+		rType = 0;
+		vrLen = 1867;
+		vrLoc = 214075;
+	};
+	944B3E24066E354E00945FE9 = {
+		fRef = F55A7127041FCF4D01CD2540;
+		isa = PBXTextBookmark;
+		name = "I2STransportInterface.cpp: 48";
+		rLen = 0;
+		rLoc = 1463;
+		rType = 0;
+		vrLen = 1705;
+		vrLoc = 772;
+	};
+	944B3E25066E354E00945FE9 = {
+		fRef = 4DE28F2804058BCD00CD2599;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAClip.c: 148";
+		rLen = 0;
+		rLoc = 6564;
+		rType = 0;
+		vrLen = 2478;
+		vrLoc = 5538;
+	};
+	944B3E26066E354E00945FE9 = {
+		fRef = 4DE28F2A04058C1000CD2599;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAClipLib.h: 29";
+		rLen = 0;
+		rLoc = 652;
+		rType = 0;
+		vrLen = 652;
+		vrLoc = 0;
+	};
+	944B3E27066E354E00945FE9 = {
+		fRef = 4DE28F2C04058C3700CD2599;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAFloatLib.h: 83";
+		rLen = 0;
+		rLoc = 4348;
+		rType = 0;
+		vrLen = 3814;
+		vrLoc = 545;
+	};
+	944B3E28066E354E00945FE9 = {
+		fRef = 4DE28F2A04058C1000CD2599;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAClipLib.h: 20";
+		rLen = 0;
+		rLoc = 466;
+		rType = 0;
+		vrLen = 652;
+		vrLoc = 0;
+	};
+	944B3E29066E354E00945FE9 = {
+		fRef = F5A720F803FD778001CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAAudio.cpp: 1897";
+		rLen = 0;
+		rLoc = 70464;
+		rType = 0;
+		vrLen = 1392;
+		vrLoc = 69544;
+	};
+	944B3E2A066E354E00945FE9 = {
+		fRef = 010D072FFFFA58D511CE168A;
+		isa = PBXTextBookmark;
+		name = "AudioHardwareConstants.h: 201";
+		rLen = 0;
+		rLoc = 6758;
+		rType = 0;
+		vrLen = 940;
+		vrLoc = 6315;
+	};
+	944B3E2B066E354E00945FE9 = {
+		fRef = F5A720F603FD776E01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleDBDMAAudio.h: 179";
+		rLen = 0;
+		rLoc = 6124;
+		rType = 0;
+		vrLen = 1621;
+		vrLoc = 5199;
+	};
+	944B3E2C066E354E00945FE9 = {
+		fRef = F5A720F303FD71D001CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleTAS3004Audio.h: 175";
+		rLen = 0;
+		rLoc = 6916;
+		rType = 0;
+		vrLen = 1925;
+		vrLoc = 5029;
+	};
+	944B3E2D066E354E00945FE9 = {
+		fRef = F5A720EF03FD718101CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleTAS3004Audio.cpp: 1220";
+		rLen = 0;
+		rLoc = 53487;
+		rType = 0;
+		vrLen = 1464;
+		vrLoc = 52905;
+	};
+	944B3E2E066E354E00945FE9 = {
+		fRef = 94177529062CC3DC00A52754;
+		isa = PBXTextBookmark;
+		name = "Onyx_hw.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 0;
+		vrLoc = 0;
+	};
+	944B3E2F066E354E00945FE9 = {
+		fRef = 8E7432070537260700A8101D;
+		isa = PBXTextBookmark;
+		name = "AppleOnyxAudio.h: 17";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 1285;
+		vrLoc = 0;
+	};
+	944B3E30066E354E00945FE9 = {
+		fRef = 94177529062CC3DC00A52754;
+		isa = PBXTextBookmark;
+		name = "Onyx_hw.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 0;
+		vrLoc = 0;
+	};
+	944B3E31066E354E00945FE9 = {
+		fRef = 8E7432070537260700A8101D;
+		isa = PBXTextBookmark;
+		name = "AppleOnyxAudio.h: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 0;
+		vrLoc = 0;
+	};
+	944B3E32066E354E00945FE9 = {
+		fRef = 8E7432060537260700A8101D;
+		isa = PBXTextBookmark;
+		name = "AppleOnyxAudio.cpp: 1";
+		rLen = 0;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 0;
+		vrLoc = 0;
+	};
+	944B3E33066E354E00945FE9 = {
+		fRef = F5888CD0044CA61E01CD2540;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudioUserClient.h: 26";
+		rLen = 0;
+		rLoc = 470;
+		rType = 0;
+		vrLen = 1176;
+		vrLoc = 0;
+	};
+	944B3E34066E354E00945FE9 = {
+		fRef = F5A720ED03FD714C01CD2541;
+		isa = PBXTextBookmark;
+		name = "AppleOnboardAudio.cpp: 5233";
+		rLen = 0;
+		rLoc = 215201;
+		rType = 0;
+		vrLen = 1867;
+		vrLoc = 214075;
+	};
+	944B3E35066E354E00945FE9 = {
+		fRef = F55A7127041FCF4D01CD2540;
+		isa = PBXTextBookmark;
+		name = "I2STransportInterface.cpp: 48";
+		rLen = 0;
+		rLoc = 1464;
+		rType = 0;
+		vrLen = 1705;
+		vrLoc = 772;
+	};
+	9496CB2306678C1D00C00464 = {
+		fRef = 94C5465A0549915C000EC0BC;
+		isa = PBXTextBookmark;
+		name = "DSP_Common.h: 1";
+		rLen = 24;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 585;
+		vrLoc = 0;
+	};
+	9496CB2506678C1D00C00464 = {
+		fRef = 94C5465A0549915C000EC0BC;
+		isa = PBXTextBookmark;
+		name = "DSP_Common.h: 1";
+		rLen = 24;
+		rLoc = 0;
+		rType = 0;
+		vrLen = 585;
+		vrLoc = 0;
+	};
+	94C5465A0549915C000EC0BC = {
+		fileEncoding = 30;
+		isa = PBXFileReference;
+		name = DSP_Common.h;
+		path = "/Volumes/Files/224-2-2/AppleOnboardAudio/AppleOnboardAudio/DSP/DSP_Common.h";
+		refType = 0;
+	};
+	AD440DB0017FA6A304CE15E3 = {
+		activeExec = 0;
+	};
+	C5A7C7FB0270994A05CD254B = {
+		activeExec = 0;
+	};
+	C5A7C80A027099CE05CD254B = {
+		activeExec = 0;
+	};
+	F5A720E803FD6B9501CD2541 = {
+		activeExec = 0;
+	};
+	F6635A27017C7E0C01CE1665 = {
+		activeExec = 0;
+	};
+	F6635A3C017C901C01CE1665 = {
+		activeExec = 0;
+	};
+	F6AB50530188E72D01CE1665 = {
+		activeExec = 0;
+	};
+	F6D4F701031C193801CD2599 = {
+		activeExec = 0;
+	};
+}

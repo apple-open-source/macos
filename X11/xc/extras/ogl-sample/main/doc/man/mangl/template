@@ -1,0 +1,86 @@
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_C_
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_
+_C_ http://oss.sgi.com/projects/FreeB
+_C_
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_
+_C_ _define(_filters,tbl|eqn)_C_
+_C_	 eqn is automatically replaced with neqn for nroff
+_C_
+_C_ Uncomment the next line if you need a different basename
+_C_ _define(@<_basename>@,specialName)_C_
+_C_
+_C_ Uncomment the next line if you want to change the 'same command' message
+_C_ _define(@<_samething>@,All these commands do the same thing.)_C_
+_C_
+_header(Color,one line description of command)
+_names(color,[0-9]u*[bsifd])
+.SH PARAMETERS
+_phead(_param1)
+Description of first parameter to _cmnd
+_phead(_param2)
+Description of second parameter
+...
+_phead(_paramN)
+Description of last parameter
+_names(color,[0-9]u*[bsifd]v)
+.SH PARAMETERS
+_phead(_param1)
+Description of 1st parameter of the second command form
+_samething
+.SH DESCRIPTION
+This command does something related to the GL.
+Its name is _cmnd.
+_param1 is the 1st argument for the last specified command form.
+So is (in this case) _param1(2).
+_param1(1) is the 1st parameter
+of the first command form of _cmnd.
+.SH EXAMPLES
+.Ex 5
+    _cmnd\&(_param1, _param2, _paramN);  /* Do something */
+.SH NOTES
+Use of the arguments _const(SILLY_VALUE) or _hex(ffe) may cause drowsiness.
+.SH ERRORS
+This command may cause errors.	They cannot be detected.
+.SH ASSOCIATED GETS
+call foo with argument bar
+.br
+call foo2 with argument bar2
+.SH SEE ALSO
+_cmnd(c),
+_cmnd(clear),
+_cmnd(drawbitmap),
+_cmnd(n),
+_cmnd(v)
+.SH BUGS
+_cmnd is not actually implemented.

@@ -1,0 +1,186 @@
+XCOMM
+XCOMM Copyright (C) 1989-95 GROUPE BULL
+XCOMM
+XCOMM Permission is hereby granted, free of charge, to any person obtaining a
+XCOMM copy of this software and associated documentation files
+XCOMM (the "Software"), to deal in the Software without restriction, including
+XCOMM without limitation the rights to use, copy, modify, merge, publish,
+XCOMM distribute, sublicense, and/or sell copies of the Software, and to permit
+XCOMM persons to whom the Software is furnished to do so, subject to the
+XCOMM following conditions:
+XCOMM The above copyright notice and this permission notice shall be included
+XCOMM in all copies or substantial portions of the Software.
+XCOMM
+XCOMM THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+XCOMM OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+XCOMM MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+XCOMM IN NO EVENT SHALL GROUPE BULL BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+XCOMM LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+XCOMM FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+XCOMM DEALINGS IN THE SOFTWARE.
+XCOMM
+XCOMM Except as contained in this notice, the name of GROUPE BULL shall not be
+XCOMM used in advertising or otherwise to promote the sale, use or other
+XCOMM dealings in this Software without prior written authorization from
+XCOMM GROUPE BULL.
+XCOMM
+
+XCOMM
+XCOMM XPM Imakefile - Arnaud LE HORS
+XCOMM
+
+XCOMM default locations
+#ifndef XpmLibDir
+#define XpmLibDir $(USRLIBDIR)
+#endif
+#ifndef XpmIncDir
+#define XpmIncDir $(INCDIR)
+#endif
+
+XCOMM If not already set in top dir,
+XCOMM you can uncomment the following line to avoid building the shared lib
+XCOMM #define SharedLibXpm NO
+XCOMM SGI requires a specification file for shared library that we don't have
+#ifndef SharedLibXpm
+# define SharedLibXpm (HasSharedLibraries && \
+	!(defined(SGIArchitecture) && !SystemV4))
+#endif
+
+#ifndef NormalLibXpm
+#define NormalLibXpm (!SharedLibXpm || ForceNormalLib)
+#endif
+
+#if defined(RsArchitecture) || defined(Win32Architecture)
+REQUIREDLIBS = $(XLIB)
+#endif
+
+XCOMM on Dec Alpha we need to define the following to build the shared library
+#ifdef AlphaArchitecture
+REQUIREDLIBS = $(LDPRELIB) $(XLIB)
+SO_REQLIBS = -lX11 -lc
+#endif
+
+XCOMM If DEFINES has not been defined in top dir, this can be done here.
+XCOMM You may need to modify the following DEFINES variable as follows:
+XCOMM if your system doesn't provide strcasecmp add -DNEED_STRCASECMP
+XCOMM if your system doesn't provide strdup add -DNEED_STRDUP
+XCOMM if your system doesn't provide pipe add -DNO_ZPIPE
+XCOMM if on your system sprintf doesn't return the number of bytes transmitted
+XCOMM add -DVOID_SPRINTF
+
+#if defined(UltrixArchitecture) || \
+    (defined(MipsArchitecture) && !defined(SGIArchitecture))
+STRDUPDEF = -DNEED_STRDUP
+#else
+# if defined(Win32Architecture) || defined(USLArchitecture) || \
+     (defined(HasStrcasecmp) && !HasStrcasecmp)
+STRCASECMPDEF = -DNEED_STRCASECMP
+# else
+#  if defined(SunArchitecture) && !defined(SVR4Architecture)
+SPRINTFDEF = -DVOID_SPRINTF
+#  endif
+# endif
+#endif
+#if defined(Win32Architecture)
+ZPIPEDEF = -DNO_ZPIPE
+#endif
+
+DEFINES = $(STRDUPDEF) $(STRCASECMPDEF) $(SPRINTFDEF) $(ZPIPEDEF)
+
+XCOMM
+XCOMM Normally the following part should not need to be edited
+XCOMM
+
+XPMLIBDIR = XpmLibDir
+XPMINCDIR = XpmIncDir
+
+XCOMM get the version numbers from the xpm include file
+#define XPM_NUMBERS
+#include "xpm.h"
+SOXPMLIBREV = XpmVersion./**/XpmRevision
+
+HEADERS = xpm.h
+  SRCS = data.c create.c misc.c rgb.c scan.c parse.c hashtab.c \
+	 CrBufFrI.c CrDatFrP.c CrPFrBuf.c RdFToI.c WrFFrI.c \
+	 CrBufFrP.c CrIFrBuf.c CrPFrDat.c RdFToP.c WrFFrP.c \
+	 CrDatFrI.c CrIFrDat.c RdFToDat.c WrFFrDat.c \
+	 Attrib.c CrIFrP.c CrPFrI.c Image.c Info.c RdFToBuf.c WrFFrBuf.c
+
+  OBJS = data.o create.o misc.o rgb.o scan.o parse.o hashtab.o \
+	 CrBufFrI.o CrDatFrP.o CrPFrBuf.o RdFToI.o WrFFrI.o \
+	 CrBufFrP.o CrIFrBuf.o CrPFrDat.o RdFToP.o WrFFrP.o \
+	 CrDatFrI.o CrIFrDat.o RdFToDat.o WrFFrDat.o \
+	 Attrib.o CrIFrP.o CrPFrI.o Image.o Info.o RdFToBuf.o WrFFrBuf.o
+
+       INCLUDES = -I.
+       LINTLIBS = $(LINTXTOLL) $(LINTXLIB) 
+
+#ifdef OsNameDefines
+OS_NAME_DEFINES = OsNameDefines
+#endif
+
+#define DoSharedLib SharedLibXpm
+#define DoNormalLib NormalLibXpm
+
+#if (ProjectX < 5)
+    STD_DEFINES = LibraryDefines
+    CDEBUGFLAGS = LibraryCDebugFlags
+#else
+#define LibName Xpm
+#define SoRev SOXPMLIBREV
+#define IncSubdir X11
+/* we have to cheat on Library.tmpl to get what we want... */
+#define INCDIR XPMINCDIR
+#define USRLIBDIR XPMLIBDIR
+#define SHLIBDIR XPMLIBDIR
+#include <Library.tmpl>
+#undef INCDIR
+#undef USRLIBDIR
+#undef SHLIBDIR
+#endif
+
+#if (ProjectX < 6)
+
+   INSTALLFLAGS = $(INSTINCFLAGS)
+
+#if (ProjectX < 5)
+
+#if DoSharedLib
+SharedLibraryObjectRule()
+NormalSharedLibraryTarget(Xpm,$(SOXPMLIBREV),$(OBJS))
+InstallSharedLibrary(Xpm,$(SOXPMLIBREV),$(XPMLIBDIR))
+#else
+NormalLibraryObjectRule()
+#endif
+NormalLibraryTarget(Xpm,$(OBJS))
+InstallLibrary(Xpm,$(XPMLIBDIR))
+
+#else /* (ProjectX < 5) */
+
+LibraryObjectRule()
+
+#if DoSharedLib
+# if DoNormalLib
+SharedLibraryTarget(Xpm,$(SOXPMLIBREV),$(OBJS),shared,..)
+# else
+SharedLibraryTarget(Xpm,$(SOXPMLIBREV),$(OBJS),.,.)
+#endif
+InstallSharedLibrary(Xpm,$(SOXPMLIBREV),$(XPMLIBDIR))
+#endif
+#if DoNormalLib
+NormalLibraryTarget(Xpm,$(OBJS))
+InstallLibrary(Xpm,$(XPMLIBDIR))
+#endif
+
+#endif /* (ProjectX < 5) */
+
+InstallMultiple($(HEADERS),$(XPMINCDIR))
+BuildIncludes($(HEADERS),.,.)
+
+LintLibraryTarget(Xpm,$(SRCS))
+InstallLintLibrary(Xpm,$(LINTLIBDIR))
+NormalLintTarget($(SRCS))
+
+#endif /* (ProjectX < 6) */
+
+DependTarget()

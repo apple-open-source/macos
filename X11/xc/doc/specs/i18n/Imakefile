@@ -1,0 +1,13 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:42:49 cpqbld Exp $
+XCOMM $XFree86: xc/doc/specs/i18n/Imakefile,v 1.2 2001/04/23 15:53:57 dawes Exp $
+
+MakeTblDoc(i18nFramework,Framework.ms)
+
+MakeTblDoc(LocaleDB,LocaleDB.ms)
+
+MakeTblDoc(XIMTransport,Trans.ms)
+
+InstallRoffDoc(i18nFramework)
+InstallRoffDoc(LocaleDB)
+InstallRoffDoc(XIMTransport)
+

@@ -1,0 +1,41 @@
+<html>
+<head>
+    <title>%(realname)s Login til Private Arkiver</title>
+</head>
+<body bgcolor="#ffffff">
+<FORM METHOD=POST ACTION="%(action)s/">
+%(message)s
+  <TABLE WIDTH="100%%" BORDER="0" CELLSPACING="4" CELLPADDING="5">
+    <TR>
+      <TD COLSPAN="2" WIDTH="100%%" BGCOLOR="#99CCFF" ALIGN="CENTER">
+	<B><FONT COLOR="#000000" SIZE="+1">%(realname)s Logi til Private Arkiver</FONT></B>
+      </TD>
+    </TR>
+    <tr>
+        <TD><div ALIGN="Right">e-mail adresse:</div></TD>
+        <TD><INPUT TYPE="text" NAME="username" SIZE="30"></TD>
+    </tr>
+    <tr>
+      <TD><div ALIGN="Right">Password:</div></TD>
+      <TD><INPUT TYPE="password" NAME="password" SIZE="30"></TD>
+    </tr>
+    <tr>
+      <td colspan=2 align="middle"><INPUT type="SUBMIT"
+                                          name="submit"
+					  value="Slipp meg inn...">
+      </td>
+    </tr>
+  </TABLE>
+      <p><strong><em>Viktig:</em></strong> Fra nu af skal du have cookies
+      p&aring;sl&aring;tt i din browsere, ellers vil ingen administrative endringer
+      blive lagret.
+
+      <p><i>Session cookies</i> bruges i Mailmans administrative sider,
+      for at du ikke beh&oslash;ve at indtaste password for hver endring du gj&oslash;r.
+      De vil forsvinde automatisk n&aring;r du lukker din browser, eller du
+      kan fjerne manuelt ved at klikke
+      <em>Logout</em> linken under <em>Other Administrative
+      Activities</em> (som du f&aring;r op etfer at have logget ind).
+</FORM>
+</body>
+</html>

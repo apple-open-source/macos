@@ -238,13 +238,13 @@ OSStatus Session::authCreate(const AuthItemSet &rights,
 	const AuthItemSet &environment,
 	AuthorizationFlags flags,
 	AuthorizationBlob &newHandle,
-	const security_token_t &securityToken)
+	const audit_token_t &auditToken)
 {
 	// invoke the authorization computation engine
 	CredentialSet resultCreds;
 	
 	// this will acquire mLock, so we delay acquiring it
-	auto_ptr<AuthorizationToken> auth(new AuthorizationToken(*this, resultCreds, securityToken));
+	auto_ptr<AuthorizationToken> auth(new AuthorizationToken(*this, resultCreds, auditToken));
 
     // Make a copy of the mSessionCreds
     CredentialSet sessionCreds;

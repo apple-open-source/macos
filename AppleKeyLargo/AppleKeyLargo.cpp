@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -88,6 +85,7 @@ bool AppleKeyLargo::start(IOService *provider)
 	keyLargo_getHostKeyLargo = OSSymbol::withCString("keyLargo_getHostKeyLargo");
 	keyLargo_powerI2S = OSSymbol::withCString("keyLargo_powerI2S");
 	keyLargo_setPowerSupply = OSSymbol::withCString("setPowerSupply");
+	keyLargo_EnableI2SModem = OSSymbol::withCString("EnableI2SModem");
  
 	// Call KeyLargo's start.
 	if (!super::start(provider))
@@ -1229,25 +1227,13 @@ IOReturn AppleKeyLargo::callPlatformFunction(const OSSymbol *functionName,
         return kIOReturnSuccess;
     }
 
-
+    if (functionName == keyLargo_EnableI2SModem)
+    {
+        EnableI2SModem((bool)param1);
+        return kIOReturnSuccess;
+    }
+    
     return super::callPlatformFunction(functionName, waitForFunction, param1, param2, param3, param4);
-}
-
-IOReturn AppleKeyLargo::callPlatformFunction( const char * functionName,
-					  bool waitForFunction,
-					  void *param1, void *param2,
-					  void *param3, void *param4 )
-{
-	IOReturn result = kIOReturnNoMemory;
-	const OSSymbol *functionSymbol = OSSymbol::withCString(functionName);
-  
-	if (functionSymbol != 0) {
-		result = callPlatformFunction(functionSymbol, waitForFunction,
-				  param1, param2, param3, param4);
-		functionSymbol->release();
-	}
-  
-  return result;
 }
 
 /*
@@ -1267,12 +1253,15 @@ void AppleKeyLargo::EnableSCC(bool state, UInt8 device, bool type)
 	if (state) {												// Powering on        
         if(device == 0) {					// SCCA
 			bitsToSet = kKeyLargoFCR0SccCellEnable;				// Enables SCC Cell
-			bitsToSet |= kKeyLargoFCR0SccAEnable;				// Enables SCC Interface A
 
-            if(type) 						// I2S1
+            if(type) { 						// I2S1
                 bitsToClear |= kKeyLargoFCR0ChooseSCCA;			// Enables SCC Interface A to support I2S1
-            else // SCC
+                bitsToClear |= kKeyLargoFCR0SccAEnable;			// Disables SCC Interface A
+            }
+            else {// SCC
                 bitsToSet |= kKeyLargoFCR0ChooseSCCA;			// Enables SCC Interface A to support SCCA
+                bitsToSet |= kKeyLargoFCR0SccAEnable;			// Enables SCC Interface A
+            }
         } else if(device == 1) {					// SCCB
 			if (keyLargoDeviceId == kKeyLargoDeviceId22) {		// irda only on KeyLargo, not Pangea or Intrepid
 				bitsToSet = kKeyLargoFCR0SccCellEnable;				// Enables SCC Cell
@@ -1438,6 +1427,17 @@ void AppleKeyLargo::EnableSCC(bool state, UInt8 device, bool type)
 
 void AppleKeyLargo::PowerModem(bool state)
 {
+    if(fHasSoftModem) {
+        // Turn the I2S1 clock on or off.
+        if(state) {
+            safeWriteRegUInt32 (kKeyLargoFCR1, kKeyLargoFCR1I2S1ClkEnable,
+                                                kKeyLargoFCR1I2S1ClkEnable);
+        }
+        else {
+            safeWriteRegUInt32 (kKeyLargoFCR1, kKeyLargoFCR1I2S1ClkEnable, 0);
+        }
+    }
+
     if (keyLargoDeviceId == kPangeaDeviceId25 || keyLargoDeviceId == kIntrepidDeviceId3e) {	// Pangea or Intrepid
         if (state) {
             writeRegUInt8(kKeyLargoGPIOBase + 0x2, 0x4); // power modem on
@@ -1452,7 +1452,6 @@ void AppleKeyLargo::PowerModem(bool state)
         else
             safeWriteRegUInt32( (unsigned long)kKeyLargoFCR2, (UInt32)kKeyLargoFCR2AltDataOut, (UInt32)kKeyLargoFCR2AltDataOut );
     }
-
     return;
 }
 
@@ -1590,6 +1589,24 @@ void AppleKeyLargo::resetUniNEthernetPhy(void)
 	IOSleep(10);
 	
 	return;
+}
+
+void AppleKeyLargo::EnableI2SModem(bool enable)
+{
+    UInt32 fcr0ToClear = kKeyLargoFCR0ChooseSCCA | kKeyLargoFCR0SccAEnable;
+    UInt32 fcr1ToSet = kKeyLargoFCR1I2S1CellEnable | kKeyLargoFCR1I2S1Enable;
+    UInt32 fcr3ToSet = kKeyLargoFCR3I2S1Clk18Enable;
+    
+    if(enable) {
+        safeWriteRegUInt32 (kKeyLargoFCR0, fcr0ToClear, 0);
+        safeWriteRegUInt32 (kKeyLargoFCR3, fcr3ToSet, fcr3ToSet);
+        safeWriteRegUInt32 (kKeyLargoFCR1, fcr1ToSet, fcr1ToSet);
+    }
+    else {
+        safeWriteRegUInt32 (kKeyLargoFCR0, fcr0ToClear, fcr0ToClear);
+        safeWriteRegUInt32 (kKeyLargoFCR3, fcr3ToSet, 0);
+        safeWriteRegUInt32 (kKeyLargoFCR1, fcr1ToSet, 0);
+    }
 }
 
 void AppleKeyLargo::processNub(IOService * nub)

@@ -1,0 +1,10 @@
+XCOMM $XConsortium: Imakefile,v 1.17 93/08/17 21:20:11 rws Exp $
+
+SYS_LIBRARIES = MathLibrary
+        DEPLIBS = $(DEPXMULIB) $(DEPXTOOLLIB) $(DEPXLIB)
+LOCAL_LIBRARIES = $(XMULIB) $(XTOOLLIB) $(XLIB)
+
+SRCS = xeyes.c Eyes.c transform.c
+OBJS = xeyes.o Eyes.o transform.o
+
+ComplexProgramTarget(xeyes)

@@ -1,13 +1,13 @@
 <HTML>
-<!--This file created 6/27/03 12:52 PM by Claris Home Page version 3.0-->
+<!--This file created 4/16/04 4:13 PM by Claris Home Page version 3.0-->
 <HEAD>
    <TITLE>Mac OS X Compiler Tools Release Notes</TITLE>
    <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
-   <X-CLARIS-WINDOW TOP=57 BOTTOM=859 LEFT=165 RIGHT=849>
+   <X-CLARIS-WINDOW TOP=46 BOTTOM=848 LEFT=123 RIGHT=807>
    <X-CLARIS-TAGVIEW MODE=minimal>
 </HEAD>
 <BODY BGCOLOR="#FFFFFF">
-<H1>Mac OS X 10.3 Release Notes:<BR>
+<H1>Mac OS X 10.3.4 Release Notes:<BR>
 Compiler Tools</H1>
 
 <P><!-- start of path --> <TABLE BORDER=0 CELLSPACING=0 WIDTH=600 valign=left>
@@ -21,7 +21,7 @@ Compiler Tools</H1>
 <BR>
 <!-- end of path --> <A HREF="index.html"><IMG SRC="Images/up.gif" WIDTH=36 HEIGHT=16 BORDER=0 ALIGN=bottom></A></P>
 
-<P>These notes are for the MacOS X 10.3 Release of the compiler
+<P>These notes are for the MacOS X 10.3.4 Release of the compiler
 tools. They contain information about the following topics:</P>
 
 <UL>
@@ -35,11 +35,36 @@ tools. They contain information about the following topics:</P>
    on)</LI>
 </UL>
 
+<H2>Notes Specific to Mac OS X 10.3.4 Release</H2>
+
+<H2>New Features</H2>
+
+<H2>Improved launch times of applications</H2>
+
+<P>The dynamic linker has been changed that improve launch times of
+applications.</P>
+
+<H3><FONT SIZE="+1">The redo_prebinding command supports
+unprebinding</FONT></H3>
+
+<P>The <I>redo_prebinding</I>(1) command has a new option, <B>-u</B>,
+that does a unprebind operation. The unprebind operation produces a
+canonical form of a Mach-O file that can be used for binary diffing
+and patching. Bundles and non-prebound executables and dylibs can
+also be canonicalized with the unprebind operation.</P>
+
+<H2>Notes Specific to Mac OS X December 2003 Release</H2>
+
+<UL>
+   <LI>There are no notes specific to the Mac OS X December 2003
+   release of the compiler tools.</LI>
+</UL>
+
 <H2>Notes Specific to Mac OS X 10.3 Release</H2>
 
 <H2>New Features</H2>
 
-<H3><FONT SIZE="+1">The static linker as option to find
+<H3><FONT SIZE="+1">The static linker has an option to find
 @executable_path dynamic libraries</FONT></H3>
 
 <P>Added the <B>-executable_path </B><I>path_name</I> option to

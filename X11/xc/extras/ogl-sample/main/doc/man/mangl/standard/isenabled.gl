@@ -1,0 +1,177 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,eqn|tbl)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(IsEnabled, test whether a capability is enabled)
+_names(IsEnabled)
+.SH PARAMETERS
+_phead(_param1)
+Specifies a symbolic constant indicating a GL capability.
+.SH DESCRIPTION
+_cmnd returns _const(TRUE) if _param1 is an enabled capability
+and returns _const(FALSE) otherwise.
+Initially all capabilities except _const(DITHER) are disabled;
+_const(DITHER) is initially enabled.
+.P
+The following capabilities are accepted for _param1:
+.P
+
+.TS
+lb lb
+l l.
+_
+Constant	See
+_
+_const(ALPHA_TEST)	_cmnd(AlphaFunc)
+_const(AUTO_NORMAL)	_cmnd(EvalCoord)
+_const(BLEND)	_cmnd(BlendFunc), _cmnd(LogicOp)
+_const(CLIP_PLANE)\f2i\fP	_cmnd(ClipPlane)
+_const(COLOR_ARRAY)	_cmnd(ColorPointer)
+_const(COLOR_LOGIC_OP)	_cmnd(LogicOp)
+_const(COLOR_MATERIAL)	_cmnd(ColorMaterial)
+_const(COLOR_TABLE)	_cmnd(ColorTable)
+_const(CONVOLUTION_1D)	_cmnd(ConvolutionFilter1D)
+_const(CONVOLUTION_2D)	_cmnd(ConvolutionFilter2D)
+_const(CULL_FACE)	_cmnd(CullFace)
+_const(DEPTH_TEST)	_cmnd(DepthFunc), _cmnd(DepthRange)
+_const(DITHER)	_cmnd(Enable)
+_const(EDGE_FLAG_ARRAY)	_cmnd(EdgeFlagPointer)
+_const(FOG)	_cmnd(Fog)
+_const(HISTOGRAM)	_cmnd(Histogram)
+_const(INDEX_ARRAY)	_cmnd(IndexPointer)
+_const(INDEX_LOGIC_OP)	_cmnd(LogicOp)
+_const(LIGHT)\f2i\fP	_cmnd(LightModel), _cmnd(Light)
+_const(LIGHTING)	_cmnd(Material), _cmnd(LightModel), _cmnd(Light)
+_const(LINE_SMOOTH)	_cmnd(LineWidth)
+_const(LINE_STIPPLE)	_cmnd(LineStipple)
+_const(MAP1_COLOR_4)	_cmnd(Map1)
+_const(MAP1_INDEX)	_cmnd(Map1)
+_const(MAP1_NORMAL)	_cmnd(Map1)
+_const(MAP1_TEXTURE_COORD_1)	_cmnd(Map1)
+_const(MAP1_TEXTURE_COORD_2)	_cmnd(Map1)
+_const(MAP1_TEXTURE_COORD_3)	_cmnd(Map1)
+_const(MAP1_TEXTURE_COORD_4)	_cmnd(Map1)
+_const(MAP2_COLOR_4)	_cmnd(Map2)
+_const(MAP2_INDEX)	_cmnd(Map2)
+_const(MAP2_NORMAL)	_cmnd(Map2)
+_const(MAP2_TEXTURE_COORD_1)	_cmnd(Map2)
+_const(MAP2_TEXTURE_COORD_2)	_cmnd(Map2)
+_const(MAP2_TEXTURE_COORD_3)	_cmnd(Map2)
+_const(MAP2_TEXTURE_COORD_4)	_cmnd(Map2)
+_const(MAP2_VERTEX_3)	_cmnd(Map2)
+_const(MAP2_VERTEX_4)	_cmnd(Map2)
+_const(MINMAX)	_cmnd(Minmax)
+_const(NORMAL_ARRAY)	_cmnd(NormalPointer)
+_const(NORMALIZE)	_cmnd(Normal)
+_const(POINT_SMOOTH)	_cmnd(PointSize)
+_const(POLYGON_SMOOTH)	_cmnd(PolygonMode)
+_const(POLYGON_OFFSET_FILL) 	_cmnd(PolygonOffset)
+_const(POLYGON_OFFSET_LINE) 	_cmnd(PolygonOffset)
+_const(POLYGON_OFFSET_POINT) 	_cmnd(PolygonOffset)
+_const(POLYGON_STIPPLE)	_cmnd(PolygonStipple)
+_const(POST_COLOR_MATRIX_COLOR_TABLE)	_cmnd(ColorTable)
+_const(POST_CONVOLUTION_COLOR_TABLE)	_cmnd(ColorTable)
+_const(RESCALE_NORMAL)	_cmnd(Normal)
+_const(SCISSOR_TEST)	_cmnd(Scissor)
+_const(SEPARABLE_2D)	_cmnd(SeparableFilter2D)
+_const(STENCIL_TEST)	_cmnd(StencilFunc), _cmnd(StencilOp)
+_const(TEXTURE_1D)	_cmnd(TexImage1D)
+_const(TEXTURE_2D)	_cmnd(TexImage2D)
+_const(TEXTURE_3D)	_cmnd(TexImage3D)
+_const(TEXTURE_COORD_ARRAY)	_cmnd(TexCoordPointer)
+_const(TEXTURE_GEN_Q)	_cmnd(TexGen)
+_const(TEXTURE_GEN_R)	_cmnd(TexGen)
+_const(TEXTURE_GEN_S)	_cmnd(TexGen)
+_const(TEXTURE_GEN_T)	_cmnd(TexGen)
+_const(VERTEX_ARRAY)	_cmnd(VertexPointer)
+_
+.TE
+
+.SH NOTES
+If an error is generated,
+_cmnd returns 0.
+.P
+_const(COLOR_LOGIC_OP), 
+_const(COLOR_ARRAY),
+_const(EDGE_FLAG_ARRAY),
+_const(INDEX_ARRAY),
+_const(INDEX_LOGIC_OP),
+_const(NORMAL_ARRAY),
+_const(POLYGON_OFFSET_FILL),  
+_const(POLYGON_OFFSET_LINE),
+_const(POLYGON_OFFSET_POINT),
+_const(TEXTURE_COORD_ARRAY), and
+_const(VERTEX_ARRAY)
+are available only
+if the GL version is 1.1 or greater
+.P
+_const(RESCALE_NORMAL), and _const(TEXTURE_3D) are available only if the GL
+version is 1.2 or greater.
+.P
+_const(COLOR_TABLE), _const(CONVOLUTION_1D), _const(CONVOLUTION_2D),
+_const(HISTOGRAM), _const(MINMAX),
+_const(POST_COLOR_MATRIX_COLOR_TABLE),
+_const(POST_CONVOLUTION_COLOR_TABLE), and
+_const(SEPARABLE_2D) are available only if _arbstring(imaging) is
+returned when _cmnd(Get) is called with _const(EXTENSIONS).
+.P
+When the _arbstring(multitexture) extension is supported, the following
+parameters return the associated value for the active texture unit.
+_const(TEXTURE_1D), _const(TEXTURE_BINDING_1D),
+_const(TEXTURE_2D), _const(TEXTURE_BINDING_2D),
+_const(TEXTURE_3D), _const(TEXTURE_BINDING_3D),
+_const(TEXTURE_GEN_S),
+_const(TEXTURE_GEN_T),
+_const(TEXTURE_GEN_R),
+_const(TEXTURE_GEN_Q),
+_const(TEXTURE_MATRIX), and
+_const(TEXTURE_STACK_DEPTH).
+Likewise, the following parameters return the associated value for the
+active client texture unit:
+_const(TEXTURE_COORD_ARRAY),
+_const(TEXTURE_COORD_ARRAY_SIZE),
+_const(TEXTURE_COORD_ARRAY_STRIDE),
+_const(TEXTURE_COORD_ARRAY_TYPE).
+.SH ERRORS
+_const(INVALID_ENUM) is generated if _param1 is not an accepted value.
+.P
+_const(INVALID_OPERATION) is generated if _cmnd
+is executed between the execution of _cmnd(Begin)
+and the corresponding execution of _cmnd(End).
+.SH SEE ALSO
+_cmnd(Enable),
+_cmnd(EnableClientState),
+_cmnd(Get)
+

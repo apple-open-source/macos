@@ -18,15 +18,9 @@ typedef	float	Float32;
 typedef double	Float64;
 
 float gOldSample 									= 0.0f;
-static const float 	kFourDotTwentyScaleFactor	 	= 1048576.0f;
-static const float kMixingToMonoScale 				= 0.5f;
-static const float kOneOver65535 					= 1.0f/65535.0f;
-static const float kOneOver1000000000 				= 1.0f/1000000000.0f;
-
-// -24 dB to +24 dB in 1 dB steps
-static const UInt16 kZeroGaindBConvTableOffset 		= 24;
-static const UInt16 kMaxZeroGain 					= 24;
-static const UInt16 kMinZeroGain 					= 24;
+#ifdef USE_DYNAMIC_DOWNSAMPLING
+UInt32 gDRCDownsampleFactor							= 4;
+#endif
 
 static float zeroGaindBConvTable[] = {
     0.0631f,  0.0708f,  0.0794f,  0.0891f,  0.1000f,  0.1122f,  0.1259f, 
@@ -56,14 +50,420 @@ static float inputGaindBConvTable[] = {
 	3.981072f
 };
 
+static float aoa_log2table[] = {
+	-9.96578428f,	-4.95455703f,	-3.97709960f,	-3.39973025f,
+	-2.98850436f,	-2.66886808f,	-2.40736357f,	-2.18606493f,
+	-1.99424073f,	-1.82495451f,	-1.67346265f,	-1.53637754f,
+	-1.41119543f,	-1.29601340f,	-1.18935125f,	-1.09003493f,
+	-0.99711749f,	-0.90982405f,	-0.82751248f,	-0.74964473f,
+	-0.67576544f,	-0.60548586f,	-0.53847144f,	-0.47443221f,
+	-0.41311519f,	-0.35429834f,	-0.29778575f,	-0.24340365f,
+	-0.19099723f,	-0.14042794f,	-0.09157135f,	-0.04431522f,
+	0.00144197f,	0.04579242f,	0.08882003f,	0.13060145f,
+	0.17120683f,	0.21070056f,	0.24914190f,	0.28658548f,
+	0.32308179f,	0.35867757f,	0.39341620f,	0.42733799f,
+	0.46048047f,	0.49287865f,	0.52456522f,	0.55557078f,
+	0.58592398f,	0.61565170f,	0.64477922f,	0.67333028f,
+	0.70132726f,	0.72879125f,	0.75574218f,	0.78219886f,
+	0.80817908f,	0.83369972f,	0.85877675f,	0.88342532f,
+	0.90765983f,	0.93149396f,	0.95494074f,	0.97801253f,
+	1.00072117f,	1.02307789f,	1.04509344f,	1.06677807f,
+	1.08814160f,	1.10919338f,	1.12994238f,	1.15039720f,
+	1.17056606f,	1.19045683f,	1.21007710f,	1.22943411f,
+	1.24853484f,	1.26738598f,	1.28599397f,	1.30436501f,
+	1.32250506f,	1.34041984f,	1.35811490f,	1.37559554f,
+	1.39286692f,	1.40993397f,	1.42680147f,	1.44347404f,
+	1.45995614f,	1.47625206f,	1.49236596f,	1.50830187f,
+	1.52406368f,	1.53965514f,	1.55507990f,	1.57034149f,
+	1.58544332f,	1.60038870f,	1.61518085f,	1.62982287f,
+	1.64431778f,	1.65866850f,	1.67287788f,	1.68694867f,
+	1.70088356f,	1.71468513f,	1.72835592f,	1.74189838f,
+	1.75531490f,	1.76860781f,	1.78177935f,	1.79483172f,
+	1.80776706f,	1.82058746f,	1.83329492f,	1.84589144f,
+	1.85837893f,	1.87075925f,	1.88303424f,	1.89520566f,
+	1.90727526f,	1.91924473f,	1.93111570f,	1.94288979f,
+	1.95456857f,	1.96615357f,	1.97764628f,	1.98904815f
+};
+
+static float aoa_antilog2table[] = {
+	0.994599423f, 0.912051693f, 0.836355090f, 0.766940999f,
+	0.703287997f, 0.644917937f, 0.591392355f, 0.542309181f,
+	0.497299712f, 0.456025846f, 0.418177545f, 0.383470499f,
+	0.351643998f, 0.322458968f, 0.295696178f, 0.271154591f,
+	0.248649856f, 0.228012923f, 0.209088772f, 0.191735250f,
+	0.175821999f, 0.161229484f, 0.147848089f, 0.135577295f,
+	0.124324928f, 0.114006462f, 0.104544386f, 0.095867625f,
+	0.087911000f, 0.080614742f, 0.073924044f, 0.067788648f,
+	0.062162464f, 0.057003231f, 0.052272193f, 0.047933812f,
+	0.043955500f, 0.040307371f, 0.036962022f, 0.033894324f,
+	0.031081232f, 0.028501615f, 0.026136097f, 0.023966906f,
+	0.021977750f, 0.020153686f, 0.018481011f, 0.016947162f,
+	0.015540616f, 0.014250808f, 0.013068048f, 0.011983453f,
+	0.010988875f, 0.010076843f, 0.009240506f, 0.008473581f,
+	0.007770308f, 0.007125404f, 0.006534024f, 0.005991727f,
+	0.005494437f, 0.005038421f, 0.004620253f, 0.004236790f,
+	0.003885154f, 0.003562702f, 0.003267012f, 0.002995863f,
+	0.002747219f, 0.002519211f, 0.002310126f, 0.002118395f,
+	0.001942577f, 0.001781351f, 0.001633506f, 0.001497932f,
+	0.001373609f, 0.001259605f, 0.001155063f, 0.001059198f,
+	0.000971288f, 0.000890675f, 0.000816753f, 0.000748966f,
+	0.000686805f, 0.000629803f, 0.000577532f, 0.000529599f,
+	0.000485644f, 0.000445338f, 0.000408377f, 0.000374483f,
+	0.000343402f, 0.000314901f, 0.000288766f, 0.000264799f,
+	0.000242822f, 0.000222669f, 0.000204188f, 0.000187241f,
+	0.000171701f, 0.000157451f, 0.000144383f, 0.000132400f,
+	0.000121411f, 0.000111334f, 0.000102094f, 0.000093621f,
+	0.000085851f, 0.000078725f, 0.000072191f, 0.000066200f,
+	0.000060706f, 0.000055667f, 0.000051047f, 0.000046810f,
+	0.000042925f, 0.000039363f, 0.000036096f, 0.000033100f,
+	0.000030353f, 0.000027834f, 0.000025524f, 0.000023405f,
+	0.000021463f, 0.000019681f, 0.000018048f, 0.000016550f
+};
+
+static float aoa_antilog2table_expand[] = {	// handles input signals at threshold and down to -60 below
+	1.000000,	1.055645,	1.114387,	1.176397,
+	1.241858,	1.310961,	1.383910,	1.460918,
+	1.542211,	1.628027,	1.718619,	1.814252,
+	1.915207,	2.021779,	2.134281,	2.253043,
+	2.378414,	2.510762,	2.650473,	2.797959,
+	2.953652,	3.118009,	3.291511,	3.474668,
+	3.668016,	3.872124,	4.087589,	4.315043,
+	4.555155,	4.808627,	5.076204,	5.358670,
+	5.656854,	5.971631,	6.303923,	6.654706,
+	7.025009,	7.415917,	7.828576,	8.264199,
+	8.724062,	9.209514,	9.721979,	10.262960,
+	10.834044,	11.436907,	12.073315,	12.745137,
+	13.454343,	14.203012,	14.993341,	15.827648,
+	16.708381,	17.638121,	18.619598,	19.655689,
+	20.749433,	21.904039,	23.122893,	24.409570,
+	25.767845,	27.201702,	28.715345,	30.313216,
+	32.000000,	33.780646,	35.660376,	37.644704,
+	39.739450,	41.950759,	44.285116,	46.749369,
+	49.350746,	52.096877,	54.995818,	58.056070,
+	61.286610,	64.696914,	68.296986,	72.097384,
+	76.109255,	80.344368,	84.815145,	89.534699,
+	94.516873,	99.776282,	105.328351,	111.189365,
+	117.376518,	123.907955,	130.802835,	138.081382,
+	145.764945,	153.876062,	162.438523,	171.477443,
+	181.019336,	191.092189,	201.725548,	212.950602,
+	224.800277,	237.309328,	250.514448,	264.454369,
+	279.169980,	294.704443,	311.103324,	328.414724,
+	346.689420,	365.981015,	386.346093,	407.844391,
+	430.538965,	454.496382,	479.786914,	506.484743,
+	534.668177,	564.419883,	595.827128,	628.982034,
+	663.981852,	700.929241,	739.932573,	781.106253,
+	824.571050,	870.454453,	918.891046,	970.022903
+};
+const static UInt16 kAOAAntiLog2TableRatioExpand		= 12.800256081f;
+
+
 #pragma mark ------------------------ 
 #pragma mark ••• Processing Routines
 #pragma mark ------------------------ 
 
 // ------------------------------------------------------------------------
+// Delay right or left channel
+// ------------------------------------------------------------------------
+void delayLR(float* inFloatBufferPtr, float* outFloatBufferPtr, UInt32 numSamples, DelayStructPtr inDelay) 
+{
+	register UInt32 i, writeIndex, bufferMaxIndex, delayTimeInt, numFrames;
+    register float* inPtr;
+    register float* outPtr;
+	register float* delayBuffer;
+	register float delayFrac, temp, inL, inR;
+	register SInt32 delayIndexInt;
+	
+	inPtr = inFloatBufferPtr;
+	outPtr = outFloatBufferPtr;
+	
+	delayBuffer = inDelay->buffer;
+	delayTimeInt = inDelay->delayTimeInt;
+	delayFrac = inDelay->delayFrac;
+	writeIndex = inDelay->writeIndex;
+	bufferMaxIndex = kNumDelayBufferSamples - 1;
+	
+	numFrames = numSamples >> 1;
+
+	delayIndexInt = (SInt32)writeIndex - (SInt32)delayTimeInt;			
+	if (delayIndexInt < 0) {
+		delayIndexInt += kNumDelayBufferSamples;
+	}
+
+	if (0 == inDelay->channel) {
+		for (i = 0; i < numFrames; i++ ) {
+			delayBuffer[writeIndex] = *(inPtr++);
+			inR = *(inPtr++);
+
+			inL = delayBuffer[delayIndexInt];
+			if (delayIndexInt == 0) {
+				temp = delayBuffer[bufferMaxIndex];
+			} else {
+				temp = delayBuffer[delayIndexInt - 1];
+			}
+			temp -= inL;
+			temp *= delayFrac;
+			inL += temp;
+
+			*(outPtr++) = inL;
+			*(outPtr++) = inR;		
+
+			writeIndex++;
+			if (writeIndex > bufferMaxIndex) {
+				writeIndex = 0;
+			}
+			delayIndexInt++;
+			if (delayIndexInt > bufferMaxIndex) {
+				delayIndexInt = 0;
+			}
+		}
+	} else if (1 == inDelay->channel) {
+		for (i = 0; i < numFrames; i++ ) {
+			inL = *(inPtr++);
+			delayBuffer[writeIndex] = *(inPtr++);
+
+			inR = delayBuffer[delayIndexInt];
+			if (delayIndexInt == 0) {
+				temp = delayBuffer[bufferMaxIndex];
+			} else {
+				temp = delayBuffer[delayIndexInt - 1];
+			}
+			temp -= inR;
+			temp *= delayFrac;
+			inR += temp;
+
+			*(outPtr++) = inL;
+			*(outPtr++) = inR;		
+
+			writeIndex++;
+			if (writeIndex > bufferMaxIndex) {
+				writeIndex = 0;
+			}
+			delayIndexInt++;
+			if (delayIndexInt > bufferMaxIndex) {
+				delayIndexInt = 0;
+			}
+		}
+	}
+	inDelay->writeIndex = writeIndex;
+	inDelay->delayIndexInt = delayIndexInt;
+}		
+
+void volume (float* inFloatBufferPtr, UInt32 numSamples, float* inLeftVolume, float* inRightVolume, float* inPreviousLeftVolume, float* inPreviousRightVolume)
+{
+	register UInt32 i;
+	register UInt32 numFrames;
+	register UInt32 leftOver;
+    register float* inPtr;
+    register float* outPtr;
+	register float leftGain;
+	register float rightGain;
+	register float inL0;
+	register float inR0;
+	register float inL1;
+	register float inR1;
+	register float inL2;
+	register float inR2;
+	register float inL3;
+	register float inR3;
+	register float timeConstant, oneMinusTimeConstant, oldLeftGain, oldRightGain, leftGain_s, rightGain_s;
+	
+	inPtr = inFloatBufferPtr;
+	outPtr = inFloatBufferPtr;  
+	
+	leftGain = *inLeftVolume;
+	rightGain = *inRightVolume;
+	
+	numFrames = numSamples >> 1;
+	leftOver = numFrames % 4;
+	numSamples = numFrames >> 2;
+
+	timeConstant = 0.000453411f;
+	oneMinusTimeConstant = 1.0f - timeConstant;
+
+	oldLeftGain = *inPreviousLeftVolume;
+	oldRightGain = *inPreviousRightVolume;
+
+    for (i = 0; i < numSamples; i++ ) 
+    {
+		leftGain_s = leftGain*timeConstant;
+		rightGain_s = rightGain*timeConstant;
+
+		leftGain_s += oneMinusTimeConstant*oldLeftGain;
+		rightGain_s += oneMinusTimeConstant*oldRightGain;
+
+		oldLeftGain = leftGain_s;
+		oldRightGain = rightGain_s;
+
+		inL0 = *(inPtr++);					
+
+		inR0 = *(inPtr++);			
+
+		inL1 = *(inPtr++);			
+		inL0 *= leftGain_s;
+
+		inR1 = *(inPtr++);		
+		inR0 *= rightGain_s;
+
+		leftGain_s = leftGain*timeConstant;
+		rightGain_s = rightGain*timeConstant;
+
+		leftGain_s += oneMinusTimeConstant*oldLeftGain;
+		rightGain_s += oneMinusTimeConstant*oldRightGain;
+
+		oldLeftGain = leftGain_s;
+		oldRightGain = rightGain_s;
+
+		inL2 = *(inPtr++);					
+		inL1 *= leftGain_s;
+		*(outPtr++) = inL0;			
+
+		inR2 = *(inPtr++);			
+		inR1 *= rightGain_s;
+		*(outPtr++) = inR0;		
+
+		leftGain_s = leftGain*timeConstant;
+		rightGain_s = rightGain*timeConstant;
+
+		leftGain_s += oneMinusTimeConstant*oldLeftGain;
+		rightGain_s += oneMinusTimeConstant*oldRightGain;
+
+		oldLeftGain = leftGain_s;
+		oldRightGain = rightGain_s;
+
+		inL3 = *(inPtr++);			
+		inL2 *= leftGain_s;
+		*(outPtr++) = inL1;		
+
+		inR3 = *(inPtr++);		
+		inR2 *= rightGain_s;
+		*(outPtr++) = inR1;		
+
+		leftGain_s = leftGain*timeConstant;
+		rightGain_s = rightGain*timeConstant;
+
+		leftGain_s += oneMinusTimeConstant*oldLeftGain;
+		rightGain_s += oneMinusTimeConstant*oldRightGain;
+
+		oldLeftGain = leftGain_s;
+		oldRightGain = rightGain_s;
+
+		inL3 *= leftGain_s;
+		*(outPtr++) = inL2;			
+
+		inR3 *= rightGain_s;
+		*(outPtr++) = inR2;				
+
+		*(outPtr++) = inL3;
+
+		*(outPtr++) = inR3;		
+	}
+
+    for (i = 0; i < leftOver; i ++ ) 
+    {
+		leftGain_s = leftGain*timeConstant;
+		rightGain_s = rightGain*timeConstant;
+		leftGain_s += oneMinusTimeConstant*oldLeftGain;
+		rightGain_s += oneMinusTimeConstant*oldRightGain;
+		inL0 = *(inPtr++);
+		inR0 = *(inPtr++);
+		inL0 *= leftGain_s;
+		inR0 *= rightGain_s;
+		oldLeftGain = leftGain_s;
+		oldRightGain = rightGain_s;
+		*(outPtr++) = inL0;			
+		*(outPtr++) = inR0;		
+	}
+
+	*inPreviousLeftVolume = oldLeftGain;
+	*inPreviousRightVolume = oldRightGain;
+}
+
+// ------------------------------------------------------------------------
+// Apply stereo gain, needed on machines like Q27 to compensate for
+// different speaker output due to enclosure differences.
+// ------------------------------------------------------------------------
+void balanceAdjust(float* inFloatBufferPtr, float* outFloatBufferPtr, UInt32 numSamples, GainStructPtr inGain) 
+{
+	register UInt32 i;
+	register UInt32 numFrames;
+	register UInt32 leftOver;
+    register float* inPtr;
+    register float* outPtr;
+	register float leftGain;
+	register float rightGain;
+	register float inL0;
+	register float inR0;
+	register float inL1;
+	register float inR1;
+	register float inL2;
+	register float inR2;
+	register float inL3;
+	register float inR3;
+	
+	inPtr = inFloatBufferPtr;
+	outPtr = outFloatBufferPtr;  
+	
+	leftGain = inGain->leftSoftVolume;
+	rightGain = inGain->rightSoftVolume;
+	
+	numFrames = numSamples >> 1;
+	leftOver = numFrames % 4;
+	numSamples = numFrames >> 2;
+	
+    for (i = 0; i < numSamples; i++ ) 
+    {
+		inL0 = *(inPtr++);					
+
+		inR0 = *(inPtr++);			
+
+		inL1 = *(inPtr++);			
+		inL0 *= leftGain;
+
+		inR1 = *(inPtr++);		
+		inR0 *= rightGain;
+
+		inL2 = *(inPtr++);					
+		inL1 *= leftGain;
+		*(outPtr++) = inL0;			
+
+		inR2 = *(inPtr++);			
+		inR1 *= rightGain;
+		*(outPtr++) = inR0;		
+
+		inL3 = *(inPtr++);			
+		inL2 *= leftGain;
+		*(outPtr++) = inL1;		
+
+		inR3 = *(inPtr++);		
+		inR2 *= rightGain;
+		*(outPtr++) = inR1;		
+
+		inL3 *= leftGain;
+		*(outPtr++) = inL2;			
+
+		inR3 *= rightGain;
+		*(outPtr++) = inR2;				
+
+		*(outPtr++) = inL3;
+
+		*(outPtr++) = inR3;		
+	}
+
+    for (i = 0; i < leftOver; i ++ ) 
+    {
+		inL0 = *(inPtr++);
+		inR0 = *(inPtr++);
+		inL0 *= leftGain;
+		inR0 *= rightGain;
+		*(outPtr++) = inL0;			
+		*(outPtr++) = inR0;		
+	}
+}
+
+// ------------------------------------------------------------------------
 // Mix left and right channels together, and mute the right channel
 // ------------------------------------------------------------------------
-void mixAndMuteRightChannel(float* inFloatBufferPtr, UInt32 numSamples) 
+void mixAndMuteRightChannel(float* inFloatBufferPtr, float* outFloatBufferPtr, UInt32 numSamples) 
 {
 	UInt32 i, leftOver;
     register float* inPtr;
@@ -78,7 +478,7 @@ void mixAndMuteRightChannel(float* inFloatBufferPtr, UInt32 numSamples)
 	register float inR3;
 	
 	inPtr = inFloatBufferPtr;  
-	outPtr = inFloatBufferPtr;  
+	outPtr = outFloatBufferPtr;  
 	
 	leftOver = numSamples % 8;
 	numSamples = numSamples >> 3;
@@ -3737,30 +4137,4 @@ void convertToFourDotTwenty(FourDotTwenty* ioFourDotTwenty, float* inFloatPtr)
     ioFourDotTwenty->integerAndFraction1 = (UInt8)((result_int & 0x00FF0000) >> 16);
 	
     return;
-}
-
-void dB2linear (float * indB, float * outLinear)
-{
-	*outLinear = pow (10, (*indB) * 0.05f);
-}
-
-void invertFloat (float * inFloat)
-{
-	*inFloat = -1.0f*(*inFloat);
-}
-
-void convertNanosToPercent (UInt64 inNumerator, UInt64 inDenominator, float * percent) {
-	float		num, den;
-	num = (float)inNumerator;
-	den = (float)inDenominator;
-	*percent = 100.0f*(num/den);
-}
-
-void floatAccumulate (float * x, float * acc) {
-	*acc += *x;
-}
-
-void floatAverage (float * x, float * avg) {
-	*avg += *x;
-	*avg *= 0.5f;
 }

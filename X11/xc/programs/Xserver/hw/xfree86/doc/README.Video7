@@ -1,0 +1,102 @@
+                                README.VIDEO7
+
+                                Craig Struble
+
+                                 17 May 1994
+
+1.  The Driver:
+
+The Video7 driver has only been tested on a Headland Technologies HT216-32
+chip, but should work on other Video 7/Headland Technologies chips as well.
+
+Currently this implementation of the video7 driver only supports single bank
+mode, which can cause performance degradation, and makes no attempt to dis-
+tinguish between the different video7 chips.
+
+It also does not probe for memory, so in your XF86Config file, make sure that
+you use the following line:
+
+          Videoram XXX
+
+Where XXX is the amount of RAM in your card. Most of them have at least 512k,
+so this is a good value to start with.
+
+Also, the clock probing function of XFree86 doesn't seem to correctly get the
+clocks. The documentation I used (vgadoc3) suggests using the following val-
+ues for the Clocks line in your XF86Config file:
+
+          Clocks        25.175 28.322 30.000 32.514 34.000 36.000 38.000 40.000
+
+For 800x600 mode, use a dot clock of 38 instead of 36 or 40 as suggested in
+most of the sample XF86Config files and modeDB.txt.  This seems to be what is
+used in the BIOS mode (0x69) which is the 800x600 in 256 colors.
+
+2.  Known bugs and What's been tested:
+
+2.1  Known bugs:
+
+  1.  No video ram probing. Only known way to get this info is through an INT
+      10 call, but you can't do this in a user process.
+
+  2.  Clock probing. I'm not sure the docs in vgadoc3 are correct.
+
+  3.  Random lockups with the SVGA server
+
+2.2  What's been tested:
+
+  1.  An HT216-32 chip.
+
+  2.  800x600 mode and 640x480 mode
+
+  3.  Mode switching and switching to text mode through CTRL-ALT-F1
+
+  4.  Only been tested on Linux.
+
+3.  Who to contact:
+
+Craig Struble (cstruble@acm.vt.edu) Video 7 driver
+
+4.  Acknowledgments
+
+4.1  Thanks to:
+
+   o Cara Cocking for loving me and supporting me. Without her I'd be a bowl
+     of jello.
+
+   o XFree86 team for the great stub code that allowed me to get this going.
+
+   o Finn Thoegersen for compiling vgadoc3. Without this I would not have had
+     a clue.
+
+   o Harm Hanemaayer for the vga.c program in svgalib. Without this I would
+     not have had the breakthroughs I needed to get the thing up and running.
+
+4.2  Other things I've already done:
+
+     For Linux, I have a small patch to get the extended text modes to
+     work on the Video 7 card.
+
+4.3  Things to do:
+
+   o      Try dual banking mode.
+
+   o      Write an svgalib driver.
+
+   o      Go back to graduate school. (I'm a glutton for punishment.)
+
+4.4  Disclaimer:
+
+     CRAIG STRUBLE DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFT-
+     WARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FIT-
+     NESS. IN NO EVENT SHALL CRAIG STRUBLE BE LIABLE FOR ANY SPECIAL,
+     INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULT-
+     ING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CON-
+     TRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+     CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Video7.sgml,v 3.5 1997/01/24 09:32:34 dawes Exp $
+
+     $XConsortium: Video7.sgml /main/3 1996/02/21 17:46:22 kaleb $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.Video7,v 3.19 2000/03/01 01:48:17 dawes Exp $

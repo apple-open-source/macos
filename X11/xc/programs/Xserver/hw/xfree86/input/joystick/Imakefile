@@ -1,0 +1,34 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/input/joystick/Imakefile,v 1.6 2000/11/06 19:24:07 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = xf86Jstk.c
+OBJS = xf86Jstk.o $(ARCH_JSTK)
+
+DRIVER = joystick
+
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86SRC)/loader -I$(XF86OSSRC) \
+			-I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(EXTINCSRC)
+
+#ifdef LinuxArchitecture
+        ARCH_JSTK = ../os-support/linux/lnx_jstk.o
+#endif
+
+#if defined(FreeBSDArchitecture) || defined(NetBSDArchitecture) || defined(OpenBSDArchitecture)
+        ARCH_JSTK = ../os-support/bsd/bsd_jstk.o
+#endif
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget($(DRIVER),$(OBJS))
+
+InstallObjectModule($(DRIVER),$(MODULEDIR),input)
+
+DependTarget()
+
+InstallDriverSDKObjectModule($(DRIVER),$(DRIVERSDKMODULEDIR),input)

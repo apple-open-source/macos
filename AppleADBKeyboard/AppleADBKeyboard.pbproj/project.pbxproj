@@ -101,7 +101,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleADBKeyboard;
-				MODULE_VERSION = 2.3.6d3;
+				MODULE_VERSION = 2.3.7f3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -126,7 +126,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleADBKeyboard</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleADBKeyboard, version 2.3.6d3, Copyright 2001-2003 Apple Computer, Inc.</string>
+	<string>AppleADBKeyboard, version 2.3.7f3, Copyright 2001-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -138,11 +138,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.3.6</string>
+	<string>2.3.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.3.6d3</string>
+	<string>2.3.7f3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleADBKeyboard</key>

@@ -1,0 +1,9 @@
+
+XCOMM $XFree86: xc/programs/xvinfo/Imakefile,v 1.3 2000/12/11 16:40:55 dawes Exp $
+
+        DEPLIBS = $(DEPXVLIB) $(DEPXLIB)
+LOCAL_LIBRARIES = $(XVLIB) $(XLIB)
+           SRCS = xvinfo.c
+           OBJS = xvinfo.o
+
+ComplexProgramTarget(xvinfo)

@@ -39,6 +39,8 @@
 #import <syslog.h>
 #include "Controller.h"
 
+#define NFSSCHEMEPREFIX "nfs:/"
+
 @implementation Vnode
 
 - (Vnode *)init
@@ -1025,11 +1027,15 @@ fsstat_loop:
  * an NFS getattr call.  A simple parse of a URL or options would
  * be appropriate.  Searching the keychain for an entry corresponding
  * to the server would probably be too costly.
+ *
+ * The assumption is that all URLs (source == "*") require authentication
+ * except for NFS URLs (URLs starting with "nfs:/").
  */
 - (BOOL)needsAuthentication
 {
-	/* Assumes normal automount points do not require authentication. */
-	return NO;
+	return (([self source] == nil) ||
+			(strcmp([[self source] value], "*") != 0) ||
+			(strncasecmp([[self urlString] value], NFSSCHEMEPREFIX, sizeof(NFSSCHEMEPREFIX)-1) == 0)) ? NO : YES;
 }
 
 - (BOOL)marked

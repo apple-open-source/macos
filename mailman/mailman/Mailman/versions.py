@@ -1,4 +1,4 @@
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -393,6 +393,7 @@ def NewVars(l):
         encode = 2
     add_only_if_missing('encode_ascii_prefixes', encode)
     add_only_if_missing('news_moderation', 0)
+    add_only_if_missing('header_filter_rules', [])
 
 
 
@@ -487,7 +488,8 @@ def NewRequestsDatabase(l):
             #
             # See the note above; the same holds true.
             for ign, ign, digest, addr, password in v:
-                l.HoldSubscription(addr, password, digest)
+                l.HoldSubscription(addr, '', password, digest,
+                                   mm_cfg.DEFAULT_SERVER_LANGUAGE)
             del r[k]
         else:
             syslog('error', """\

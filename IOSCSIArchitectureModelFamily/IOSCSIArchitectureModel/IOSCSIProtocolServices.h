@@ -151,6 +151,8 @@ protected:
 	
 	UInt32	GetTimeoutDuration ( SCSITaskIdentifier request );
 	
+	UInt64	GetAutosenseRequestedDataTransferCount ( SCSITaskIdentifier	request );
+	
 	// Set the auto sense data that was returned for the SCSI Task.
 	// A return value of true indicates that the data was copied to the member 
 	// sense data structure, false indicates that the data could not be copied.

@@ -342,7 +342,6 @@
 	free(servertag);
 
 	sprintf(str, "%s/agents", sourcePath);
-	sprintf(str, "%s/agents", sourcePath);
 
 	syslock_lock(rpcLock);
 	status = sa_pathsearch(sourceDomain, &dir, str);

@@ -158,8 +158,13 @@ done:
 	xfree(pkblob);
 #ifdef HAVE_CYGWIN
 	if (check_nt_auth(0, authctxt->pw) == 0)
-		return(0);
+		authenticated = 0;
 #endif
+#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
+	if (!authenticated) {
+		PRIVSEP(solaris_audit_bad_pw("public key"));
+	}
+#endif /* BSM */
 	return authenticated;
 }
 

@@ -1,0 +1,21 @@
+Index: configure.js
+===================================================================
+RCS file: /cvs/gnome/gnome-xml/win32/configure.js,v
+retrieving revision 1.24
+diff -c -r1.24 configure.js
+*** configure.js	25 Oct 2003 15:38:34 -0000	1.24
+--- configure.js	3 Nov 2003 16:55:09 -0000
+***************
+*** 561,566 ****
+--- 561,571 ----
+  // Create the config.h.
+  var confighsrc = "..\\include\\win32config.h";
+  var configh = "..\\config.h";
++ var f = fso.FileExists(configh);
++ if (f) {
++ 	var t = fso.GetFile(configh);
++ 	t.Attributes =0;
++ }
+  fso.CopyFile(confighsrc, configh, true);
+  WScript.Echo("Created config.h.");
+  

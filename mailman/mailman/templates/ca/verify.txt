@@ -1,0 +1,23 @@
+Confirmació de subscripció a la llista de correu %(listname)s
+
+Hem rebut una petició de %(remote)s per subscriure la vostra adreça
+de correu electrònic, "%(email)s",a la llista de correu %(listaddr)s.  
+Per tal de confirmar que vol ser afegit a la llista de correu, senzillament
+respongui aquest missatge, mantenint el mateix títol. També pot visitar aquesta
+pàgina web:
+
+    %(confirmurl)s
+
+O enviar un missatge a %(requestaddr)s només amb el següent contingut:
+
+    confirm %(cookie)s
+
+
+El simple fet d'enviar un 'reply' hauria de funcionar amb la majoria 
+de programes de correu, ja que normalment mantenen el títol (afegint-li "Re:", 
+però ja està bé així).
+
+
+Si no vol ser retirat de la llista de correu, senzillament ignori
+aquest missatge. Si creu que està sent retirat de forma incorrecta
+o té qualsevol altra pregunta, envii-la a %(listadmin)s.

@@ -1,0 +1,30 @@
+# makedep
+#
+# This shell script creates a dependency file necessary for older compilers
+# on the Windows 16-bit platform.
+#
+# If you run this script under non-Windows operating systems, expect
+# warnings that `windows.h' can't be found.
+
+echo "\
+# This dependency file to be used with various Windows compilers
+# has been generated automatically with the script \`makedep' on
+# `date +%d-%b-%Y`.
+" > depend.win
+
+(cd ../..
+ gcc -MM -I../lib/arch/win16 -I../lib -I../lib/extend -I. \
+     *.c | \
+   sed -e "s/\.o:/.obj:/" -e "s:/:\\\\:g") >> depend.win
+
+echo "!ifndef __MAKE__" >> depend.win
+
+(cd ../..
+ gcc -MM -I../lib/arch/win16 -I../lib -I../lib/extend -I. \
+     -DhInst -DhPrev arch/win16/*.c | \
+   sed -e "s/^\(.*\)\.o:/arch\\\\win16\\\\\1.obj:/" \
+       -e "s:/:\\\\:g") >> depend.win
+
+echo "!endif" >> depend.win
+
+# eof

@@ -1,0 +1,118 @@
+// $Xorg: se,v 1.3 2000/08/17 19:54:44 cpqbld Exp $
+
+
+
+
+// $XFree86: xc/programs/xkbcomp/symbols/se,v 3.10 2002/12/19 01:07:54 dawes Exp $
+
+partial alphanumeric_keys 
+ xkb_symbols "basic" {
+ 
+     // Describes the differences between a very simple en_US
+    // keyboard and a Swedish keyboard with dead key support
+    // and all of ISO-8859-1 characters available.
+ 
+     name[Group1]= "Swedish";
+ 
+    key <TLDE> {	[         section,         onehalf      ],
+			[       paragraph,   threequarters      ]};
+    key <LSGT> {	[	     less,	   greater	],
+                 	[             bar,       brokenbar      ]};
+    key <SPCE> {	[	    space,	     space	],
+			[	    space,    nobreakspace	]};
+    key <AE01> {	[               1,          exclam  	],
+			[      exclamdown,     onesuperior	]};
+    key <AE02> {	[               2,        quotedbl  	],
+			[	       at,     twosuperior	]};
+    key <AE03> {	[              	3,	numbersign	],
+			[	 sterling,   threesuperior	]};
+    key <AE04> {	[               4,        currency     	],
+			[	   dollar,	onequarter	]};
+    key <AE05> {	[               5,         percent     	],
+			[        EuroSign,	      cent	]};
+    key <AE06> {	[               6,       ampersand     	],
+			[	      yen,	  NoSymbol	]};
+    key <AE07> {	[               7,           slash     	],
+			[       braceleft,        division	]};
+    key <AE08> {	[               8,       parenleft     	],
+			[     bracketleft,   guillemotleft	]};
+    key <AE09> {	[               9,      parenright     	],
+			[    bracketright,  guillemotright	]};
+    key <AE10> {	[               0,           equal     	],
+                        [      braceright,          degree      ]};
+    key <AB08> {	[           comma,       semicolon     	],
+			[    dead_cedilla,     dead_ogonek	]};
+    key <AB09> {	[          period,           colon     	],
+			[  periodcentered,   dead_abovedot	]};
+    key <AB03> {        [               c,               C      ],
+                        [       copyright,        NoSymbol      ]};
+    key <AB10> {	[           minus,      underscore     	],
+			[	   hyphen,          macron	]};
+    key <AC01> {        [               a,               A      ],
+                        [     ordfeminine,       masculine      ]};
+    key <AC03> {        [               d,               D      ],
+                        [             eth,             ETH      ]};
+    key <AD03> {        [               e,               E      ],
+                        [        EuroSign,            cent      ]};
+    key <AD04> {        [               r,               R      ],
+                        [      registered,        NoSymbol      ]};
+    key <AD05> {        [               t,               T      ],
+                        [           thorn,           THORN      ]};
+    key <AD08> {        [               i,               I      ],
+                        [        NoSymbol,        NoSymbol      ]};
+    key <AD09> {        [               o,               O      ],
+                        [              oe,              OE      ]};
+    key <AC10> {	[      odiaeresis,      Odiaeresis	],
+			[	   oslash,        Ooblique 	]};
+    key <AE11> {	[            plus,        question      ],
+			[       backslash,    questiondown	]};
+    key	<AC11> {	[      adiaeresis,      Adiaeresis	],
+			[	       ae,	        AE	]};
+    key <BKSL> {	[      apostrophe,        asterisk	],
+                 	[           acute,        multiply      ]};
+    key <AD11> {	[	    aring,           Aring 	]};
+    key <AE12> {   	[      dead_acute,      dead_grave      ],
+			[	plusminus,         notsign	]};
+    key <AD12> {   	[  dead_diaeresis, dead_circumflex      ],
+                 	[      dead_tilde,      dead_caron      ]};
+
+ 
+    // End alphanumeric section, begin "Keypad"
+    key <KPDL> {	[  KP_Delete,	KP_Separator	]	};
+    // End "Keypad" section
+
+    // begin modifier mappings
+    
+    modifier_map Shift  { Shift_L };
+    modifier_map Lock   { Caps_Lock };
+    modifier_map Control{ Control_L };
+    modifier_map Mod3   { Mode_switch };
+};
+
+partial alphanumeric_keys 
+xkb_symbols "Sundeadkeys" {
+    include "se(basic)" // for consistent naming
+};
+
+partial alphanumeric_keys
+xkb_symbols "fixdollar" {
+//    key <AE04> {	[               4,        currency     	],	
+//			[	   dollar,	    dollar	]	};
+  override key <AE04> {	[		4,	    dollar	],
+			  [	   dollar,	  currency	] 	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "sundeadkeys" {
+    include "se(Sundeadkeys)" // for consistent naming
+};
+
+partial alphanumeric_keys 
+xkb_symbols "nodeadkeys" {
+
+    // Modifies the basic Swedish layout to eliminate all dead keys
+
+    include "se(basic)"
+    key <AE12> {	[           acute,           grave	]	};
+    key <AD12> {	[       diaeresis,     asciicircum     	]	};
+};

@@ -1,0 +1,208 @@
+/* dpsl2ops.psw
+ * (c) Copyright 1991-1994 Adobe Systems Incorporated.
+ * All rights reserved.
+ * 
+ * Permission to use, copy, modify, distribute, and sublicense this software
+ * and its documentation for any purpose and without fee is hereby granted,
+ * provided that the above copyright notices appear in all copies and that
+ * both those copyright notices and this permission notice appear in
+ * supporting documentation and that the name of Adobe Systems Incorporated
+ * not be used in advertising or publicity pertaining to distribution of the
+ * software without specific, written prior permission.  No trademark license
+ * to use the Adobe trademarks is hereby granted.  If the Adobe trademark
+ * "Display PostScript"(tm) is used to describe this software, its
+ * functionality or for any other purpose, such use shall be limited to a
+ * statement that this software works in conjunction with the Display
+ * PostScript system.  Proper trademark attribution to reflect Adobe's
+ * ownership of the trademark shall be given whenever any such reference to
+ * the Display PostScript system is made.
+ * 
+ * ADOBE MAKES NO REPRESENTATIONS ABOUT THE SUITABILITY OF THE SOFTWARE FOR
+ * ANY PURPOSE.  IT IS PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY.
+ * ADOBE DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+ * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NON- INFRINGEMENT OF THIRD PARTY RIGHTS.  IN NO EVENT SHALL ADOBE BE LIABLE
+ * TO YOU OR ANY OTHER PARTY FOR ANY SPECIAL, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE, STRICT LIABILITY OR ANY OTHER ACTION ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.  ADOBE WILL NOT
+ * PROVIDE ANY TRAINING OR OTHER SUPPORT FOR THE SOFTWARE.
+ * 
+ * Adobe, PostScript, and Display PostScript are trademarks of Adobe Systems
+ * Incorporated which may be registered in certain jurisdictions
+ * 
+ * Author:  Adobe Systems Incorporated
+ */
+
+defineps DPSleftbracket(DPSContext ctxt)
+	mark					% [ annoys pswrap
+endps
+
+defineps DPSrightbracket(DPSContext ctxt)
+	counttomark array astore exch pop	% ] annoys pswrap
+endps
+
+defineps DPSleftleft(DPSContext ctxt)
+	<<
+endps
+
+defineps DPSrightright(DPSContext ctxt)
+	>>
+endps
+
+defineps DPScshow(DPSContext ctxt; char *s)
+	(s) cshow
+endps
+
+defineps DPScurrentcolor(DPSContext ctxt)
+	currentcolor    
+endps
+
+defineps DPScurrentcolorrendering(DPSContext ctxt)
+	currentcolorrendering
+endps
+
+defineps DPScurrentcolorspace(DPSContext ctxt)
+	currentcolorspace
+endps
+
+defineps DPScurrentdevparams(DPSContext ctxt; char *dev)
+	(dev) currentdevparams
+endps
+
+defineps DPScurrentglobal(DPSContext ctxt | boolean *b)
+	currentglobal b
+endps
+
+defineps DPScurrentoverprint(DPSContext ctxt | boolean *b)
+	currentoverprint b
+endps
+
+defineps DPScurrentpagedevice(DPSContext ctxt)
+	currentpagedevice
+endps
+
+defineps DPScurrentsystemparams(DPSContext ctxt)
+	currentsystemparams
+endps
+
+defineps DPScurrentuserparams(DPSContext ctxt)
+	currentuserparams
+endps
+
+defineps DPSdefineresource(DPSContext ctxt; char *category)
+	/category defineresource
+endps
+
+defineps DPSexecform(DPSContext ctxt)
+	execform
+endps
+
+defineps DPSfilter(DPSContext ctxt)
+	filter
+endps
+
+defineps DPSfindencoding(DPSContext ctxt; char *key)
+	/key findencoding
+endps
+
+defineps DPSfindresource(DPSContext ctxt; char *key, *category)
+	/key /category findresource
+endps
+
+defineps DPSgcheck(DPSContext ctxt | boolean *b)
+	gcheck b
+endps
+
+defineps DPSglobaldict(DPSContext ctxt)
+	globaldict
+endps
+
+defineps DPSGlobalFontDirectory(DPSContext ctxt)
+	GlobalFontDirectory
+endps
+
+defineps DPSglyphshow(DPSContext ctxt; char *name)
+	/name glyphshow
+endps
+
+defineps DPSlanguagelevel(DPSContext ctxt | int *n)
+	languagelevel n
+endps
+
+defineps DPSmakepattern(DPSContext ctxt)
+	makepattern
+endps
+
+defineps DPSproduct(DPSContext ctxt)
+	product
+endps
+
+defineps DPSresourceforall(DPSContext ctxt; char *category)
+	/category resourceforall
+endps
+
+defineps DPSresourcestatus(DPSContext ctxt; char *key, *category; | boolean *b)
+	/key /category resourcestatus b
+endps
+
+defineps DPSrevision(DPSContext ctxt | int *n)
+	revision n
+endps
+
+defineps DPSrootfont(DPSContext ctxt)
+	rootfont
+endps
+
+defineps DPSserialnumber(DPSContext ctxt | int *n)
+	serialnumber n
+endps
+
+defineps DPSsetcolor(DPSContext ctxt)
+	setcolor
+endps
+
+defineps DPSsetcolorrendering(DPSContext ctxt)
+	setcolorrendering
+endps
+
+defineps DPSsetcolorspace(DPSContext ctxt)
+	setcolorspace
+endps
+
+defineps DPSsetdevparams(DPSContext ctxt)
+	setdevparams
+endps
+
+defineps DPSsetglobal(DPSContext ctxt; boolean b)
+	b setglobal
+endps
+
+defineps DPSsetoverprint(DPSContext ctxt; boolean b)
+	b setoverprint
+endps
+
+defineps DPSsetpagedevice(DPSContext ctxt)
+	setpagedevice
+endps
+
+defineps DPSsetpattern(DPSContext ctxt)
+	setpattern
+endps
+
+defineps DPSsetsystemparams(DPSContext ctxt)
+	setsystemparams
+endps
+
+defineps DPSsetuserparams(DPSContext ctxt)
+	setuserparams
+endps
+
+defineps DPSstartjob(DPSContext ctxt; boolean b; char *password)
+	b password startjob
+endps
+
+defineps DPSundefineresource(DPSContext ctxt; char *key, *category)
+	/key /category undefineresource
+endps
+

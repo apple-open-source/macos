@@ -1,0 +1,1734 @@
+% Complete documentation on the extended LaTeX mark up used for Python
+% documentation is available in ``Documenting Python'', which is part
+% of the standard documentation for Python.  It may be found online
+% at:
+%
+%     http://www.python.org/doc/current/doc/doc.html
+
+\documentclass{howto}
+
+%  This is a template for short or medium-size Python-related documents, 
+% mostly notably the series of HOWTOs, but it can be used for any
+% document you like.   
+
+% The title should be descriptive enough for people to be able to find
+% the relevant document. 
+\title{GNU Mailman - リスト会員向けマニュアル}
+
+% Increment the release number whenever significant changes are made.
+% The author and/or editor can define 'significant' however they like.
+\release{0.03}
+% CHANGELOG
+% 0.03 Proofreading changes 
+% 0.02 Proofreading changes
+%   - proofread by Margaret McCarthy and Jason Walton 
+% 0.01 First draft of document
+%
+% 日本語訳変更履歴
+% 2003-09-16 未訳部分の翻訳。
+% 2003-08-26 下訳。mmjp-users メーリングリストで紹介。
+
+% At minimum, give your name and an email address.  You can include a
+% snail-mail address if you like.
+\author{Terri Oda}
+\authoraddress{terri(at)zone12.com}
+
+\date{\today}        % XXX update before tagging release!
+\release{2.1}        % software release, not documentation
+\setreleaseinfo{}    % empty for final release
+\setshortversion{2.1}      % major.minor only for software
+
+\begin{document}
+\maketitle
+
+% This makes the Abstract go on a separate page in the HTML version;
+% if a copyright notice is used, it should go immediately after this.
+%
+\ifhtml
+\chapter*{前付け\label{front}}
+\fi
+
+% Copyright statement should go here, if needed.
+% ...
+
+% The abstract should be a paragraph or two long, and describe the
+% scope of the document.
+\begin{abstract}
+\noindent
+この文書では、GNU Mailman バージョン 2.1 
+のリスト会員向けインタフェイスについて説明します。
+これには入会、退会、保存書庫の閲覧、会員オプションの変更、
+パスワード通知の入手などの、会員レベルの作業が含まれます。
+また、Mailman のリスト会員が関心を持つようなよくある質問にも答えます。
+\end{abstract}
+
+\tableofcontents
+
+% ===========================================================================
+\section{はじめに}
+
+この文書は、Mailman 2.1 メーリングリストの会員が、
+提供されている機能を利用できるようになるための
+助けになることをめざしています。
+これには入会、退会、保存書庫の閲覧、会員オプションの変更、
+パスワード通知の入手などの、会員レベルの作業が含まれます。
+また、Mailman のリスト会員が関心を持つようなよくある質問にも答えます。
+
+リストやサイト全体の管理についての情報は、他の文書を見てください。
+
+この文書は、順番どおりに読まなくてもかまいません。
+あなたが特定の質問の答えを探しているのなら、
+適当なところまでとばして、
+役に立ちそうな他の節へのリンクをみつけてください。
+
+\note{この文書を書くにあたって、
+筆者はつぎのことを前提にしています。
+まず、読者は電子メールに関する一般的な用語
+(たとえば、サブジェクト (件名) だとか、メッセージの本文だとか)
+や Web に関する用語 (たとえば、テキストボックスだとか、ボタンだとか)
+にはなじみがあって、
+こういった用語が何を指しているのかわかっているものとします。
+また、読者はメールソフトや Web ブラウザを充分うまく使えるようになっていて、
+「このアドレスに電子メールを送る」とか「この Web ページへ行く」とか
+「フォームに記入する」とかいう指示の意味ははっきり理解できるものとします。
+こういった操作になじみがない方は、ほかの参考書などを見て、
+自分のコンピュータではどうすればよいのかを学んでおいてください。} 
+
+% ----------------------------------------------------------------------------
+\subsection{謝辞}
+
+この文書のいくつかの節は、
+Mailman の CVS リポジトリにあった
+Barry A. Warsaw 著『the List Administrator Manual』と、Mailman 2.1 の
+組み込みヘルプメッセージに負っています。
+
+このマニュアルのその他の部分は、Terri Oda が書きました。
+Terri は彼女が Canada で参政権を得た年から
+メーリングリストの面倒を見てきました
+(この 2 つのことは関係ないですが)。
+彼女は現在は、Linuxchix.org や
+それより小規模な若干のサイトのメーリングリストを管理しています。
+Terri のリスト管理以外の仕事としては、人工生命によるスパム検出があり、
+これはテクニカルライタというよりプログラマとしての仕事です。
+
+原文の校閲は、Margaret McCarthy と Jason Walton がやってくれました。
+
+%WRITEME: More here.  Do we need a license statement here?
+
+日本語への翻訳は、池田 荘児 
+\email{nezumi(at)poem.co.jp}
+が行ないました。
+
+% ----------------------------------------------------------------------------
+\subsection{メーリングリストとは}
+
+メーリングリストというのは、かんたんに言うと、
+同じ情報がいちどに送れるようにするためのアドレスのリストです。
+あなたがなにかの会報を発行しているとしたら、
+会報の購読者全員の住所のリストを使うでしょう。
+電子メールのメーリングリストの場合は、
+電子メールアドレスのリストを使います。
+この電子メールアドレスは、ある話題について聞いたり話しあったりしたいと
+思っているひとたちから集めます。
+
+代表的な電子メールのメーリングリストには、2 種類あります。
+お知らせ用リストと話しあい用リストです。
+
+お知らせ用リストは、個人やグループが多くのひとたちにお知らせを送るのに使います。
+ちょうど、会報の発行者が住所のリストをつかって、会報を発送するようなものです。
+たとえば、バンドがメーリングリストをつかって、
+ファンに次のコンサートについて知らせるような場合です。
+
+話しあい用リストは、複数のひとが共通の話題について話しあうのに使います。
+だれでもリストにメールを送ることができ、
+送ったものはみんなに届けられます。
+話しあいを司会つきにして、選ばれた投稿だけが全員に送られるようにしたり、
+ごく少数のひとたちだけが全員に送れるようにしたりもできます。
+たとえば、
+模型飛行機マニアのグループでメーリングリストをつかって、
+模型の組立てかたや飛ばしかたのこつを教えあうような場合です。
+
+一般的な用語:
+\begin{itemize}
+	\item 「投稿」とは、
+        メーリングリストに送られたメッセージのことを指します。
+	(掲示板にメッセージを投稿するようなものです。)
+	\item 電子メールのメーリングリストに入っているひとたちのことは、
+        ふつう「会員」とか「参加者」とか言います。
+	\item 「リスト管理者」というのは、
+        あるひとつのリストの面倒を見るひとたちです。
+        リストには、それぞれ一人かそれ以上の管理者がいます。
+	\item リストには、投稿を読んでそれを参加者みんなに送っていいかどうか
+        決める係のひとたちがいることもあります。
+        こういうひとたちを「司会者」と言います。
+	\item たいてい、
+        同じサーバのソフトウェアで複数のメーリングリストが動いています。
+        リストを動かすソフトウェアの面倒を見ているひとを、
+        「サイト管理者」と言います。
+        サイト管理者も、なにかのリストの管理者であることが多いです。
+\end{itemize}
+% ----------------------------------------------------------------------------
+\subsection{GNU Mailman}
+
+GNU Mailman は、
+電子メールのメーリングリストを扱えるようにするためのソフトウェアです。
+これは、一般的な話しあい用リストやお知らせ専用リストなど、
+さまざまな種類のメーリングリストに対応しています。
+Mailman は、簡単に入会や退会ができたり、
+プライバシーを守るための設定ができたり、
+一時的にリストから投稿を送るのを停められたりと、
+リスト参加者に便利なさまざまな機能を備えています。
+この文書では、リスト会員向けの機能を説明しています。
+
+Mailman は、リスト管理者やサイト管理者にとっても魅力的な
+多くの機能を備えています。こういった機能は、リスト管理者やサイト管理者
+向けのマニュアルで説明しています。
+
+% ============================================================================
+\section{例を実際のリストにあてはめる}
+
+特定のリストのためのアドレスや URL が何になるのかを
+いちいち説明するよりも、単に例を示したほうが分かりやすいことが
+多いものです。
+そういうわけで、この文書ではつぎのような架空のリストの例をよく使います:
+
+\email{LISTNAME@DOMAIN} このリストの案内ページは
+\url{http://WEBSERVER/mailman/listinfo/LISTNAME}
+になります。
+
+どちらも、実在のアドレスや URL ではありませんが、
+典型的なリストのアドレスや URL の形式になっています。
+それぞれのアドレスや URL のうちのリスト固有の部分には大文字を使い、
+この部分はリストごとに変わることが分かるようにしています。
+リストごとの設定が異なっていても、大文字で書いてある
+箇所を実際のリストで使われている名前に置き換えることができるでしょう。
+
+\begin{description}
+	\item [LISTNAME] リストの名前。
+        \item [DOMAIN] このリストを運用しているメールサーバのドメイン名。
+        \item [WEBSERVER] このリストの Web インタフェイスを運用している
+              Web サーバの名前。これは DOMAIN と同じだったり、しばしば
+              同じ計算機を指していたりもしますが、一致しなければならない
+              わけではありません。
+\end{description}
+
+実例として、あなたが mailman-users メーリングリストリストに興味があるなら、
+つぎのような置き換えができます:
+LISTNAME は mailman-users、DOMAIN は python.org、WEBSERVER は mail.python.org。
+ですから、
+\email{mailman-users@python.org} メーリングリストについては、
+リスト案内ページは \url{http://mail.python.org/mailman/listinfo/mailman-users} 
+という URL にあります。
+(このアドレスと URL は、この文書に出てくるたいがいの例とは違い、
+実在のアドレスです。)
+
+たいていのリストでは、上に挙げたような情報はメッセージの \mailheader{List-*} 
+ヘッダに記されます。
+多くのメールソフトでは、初期設定ではこのヘッダは隠されますから、
+こういった情報ヘッダを見たければ、すべてのヘッダを表示しておくように
+しなければならないかもしれません。
+
+% ============================================================================
+\section{Mailman のインタフェイス}
+
+Mailman には、Web インタフェイスと電子メールインタフェイスという、
+2 種類のリスト参加者用インタフェイスがあります。
+話しあい用リストの参加者の多くは、
+しょっちゅう電子メールインタフェイスを使っていることになります。
+そのリストの参加者みんなにメールを送るのに使う電子メールアドレス
+も、これに含まれますから。
+
+オプションを変えるのにどちらのインタフェイスを使うかは、
+多分に好みの問題です。
+Web インタフェイスで変えられるオプションのほとんど
+(すべてではないですが) は、電子メールでも変えられるからです。
+ふつうは、オプションを変えるには Web インタフェイスのほうが簡単です。
+Web インタフェイスでは、操作の際に説明が出ますから。
+ですが、ときには電子メールインタフェイスのほうを使いたがるひともいるので、
+両方のインタフェイスが使えるようになっています。
+
+% ----------------------------------------------------------------------------
+\subsection{Web インタフェイス\label{sec:web}}
+Mailman の Web インタフェイスは、多くの管理者に喜ばれます。
+参加者や管理者がオプションが有効かとか、
+そのオプションでなにかできるのかを確かめるのが、
+とても簡単になりますから。
+
+どのメーリングリストも、
+さまざまな Web ページでアクセスできるようになっています。
+%begin general description
+なお、URL そのものはサイト管理者が設定することができるので、
+以下で説明するものとは異なるかもしれません。
+ここではもっとも一般的な設定について説明しますが、
+詳細はあなたのサイトの管理者やホスティングサービス業者に確認してください。
+%end general description
+
+\begin{description}
+	\item [リスト案内 (listinfo) ページ]
+		\begin{itemize}
+
+			\item ふつうは \url{http://WEBSERVER/mailman/listinfo/LISTNAME} になる
+			 (たとえば、 \url{http://lists.example.com/mailman/listinfo/mylist})
+
+			\item リスト案内ページは、
+                        参加者のインタフェイスの出発点になります。
+			%???
+                        名前が分かれば、
+			その LISTNAME リストの情報も手に入れられます。
+                        %???
+			ふつうは、参加者のためのほかのいろいろなページには
+                        ここからアクセスできるので、
+                        実際にはこの URL ひとつだけを知っていれば十分です。
+
+		\end{itemize}
+
+	\item [会員オプションページ]
+		\begin{itemize}
+
+			\item ふつうは \url{http://WEBSERVER/mailman/options/LISTNAME/EMAIL} になります
+			(たとえば、 \url{http://lists.example.com/mailman/options/mylist/kathy@here.com})
+
+			\item リスト案内ページで「退会やオプションの変更」
+                        と書いてあるボタン (ページの下のほうにあります) 
+                        のそばの
+                        テキストボックスに自分の電子メールアドレスを入力して
+                        も、このページにアクセスできます。
+
+			\item 会員オプションページでは、ログインしたり、
+                        ログアウトしたり、
+                        自分のリスト設定を変えたりできます。また、
+                        リストから退会したり、
+                        自分のパスワードの控えをメールで送ってもらったりもできます。
+
+			\item \textbf{自分の会員オプションページにログインするには}: 
+			まだログインしていなければ、
+                        画面の上のほうに自分のパスワードを
+                        入力するテキストボックスが出ています。
+			(パスワードがわからないときは、
+                        \ref{sec:getpassword}~節 へ行って
+                        パスワードを知らせてもらう方法を調べてください。)
+			自分のパスワードをテキストボックスに入力し、
+                        ボタンを押します。
+
+			\item ログインがうまくいくと、
+                        自分のリスト設定を
+                        どれでも見たり変えたりできるようになります。
+
+		\end{itemize}
+	\item [リストの保存書庫] 
+		\begin{itemize}
+
+			\item ふつうは、リストの保存書庫が公開されているときは
+                        \url{http://WEBSERVER/pipermail/LISTNAME} になります。
+                        またリストの保存書庫の公開が限定されているときは
+			\url{http://WEBSERVER/mailman/private/LISTNAME} 
+			になります。 (たとえば、 
+			\url{http://lists.example.com/pipermail/mylist} や
+			\url{http://lists.example.com/mailman/private/mylist})
+
+			\item リストの保存書庫のページには、
+                        メーリングリストに送られた投稿のコピーがあって、
+                        ふつうは月ごとにまとめてあります。
+                        月ごとのまとまりごとに、
+                        投稿が発信者順、日付順、スレッド順、件名順に並べてあります。
+
+%begin general description
+			\item \note{Pipermail というのは、Mailman に標準で
+                        含まれている保存書庫作成プログラムの名前です。
+                        ほかの保存書庫プログラムもあります。}
+%end general description
+
+			\item 保存書庫の公開が限定されているときは、
+                        自分の登録電子メールアドレスと自分のパスワードを
+                        入れてログインしなければなりません。
+			(パスワードがわからなくなったときは
+                        \ref{sec:getpassword}~節 を見てください。)
+		\end{itemize}
+\end{description}
+
+% ----------------------------------------------------------------------------E
+\subsection{電子メールインタフェイス\label{sec:email}}
+
+どのメーリングリストにも、電子メールアドレスが
+ひとそろいあって、そこへメッセージを送れます。
+メッセージを投稿するためのアドレスがひとつ、
+配送エラーを受けつけるアドレスがひとつ、そして電子メールコマンドを処理する
+アドレスがいくつかあります。ある架空のメーリングリスト
+\email{mylist@example.com} だと、つぎのようなアドレスがあります:
+
+\begin{itemize}
+
+\item \email{mylist@example.com} -- これは、
+リストに新たな投稿をするのに使うアドレスです。
+
+\item \email{mylist-join@example.com} -- このアドレスにメッセージを送ることで、
+      リストに入会の申請ができます。このとき、メッセージの
+      \mailheader{Subject} ヘッダ (件名) も本文も無視され、
+      誰にも読まれません。
+      なお、mylist-subscribe@example.com は
+      この -join アドレスとおなじはたらきをします。
+
+\item \email{mylist-leave@example.com} -- このアドレスにメッセージを送ることで、
+      リストに退会の申請ができます。-join アドレスとおなじく、メッセージの
+      \mailheader{Subject} ヘッダ (件名) も本文も無視され、
+      誰にも読まれません。
+      なお、mylist-unsubscribe@example.com は
+      この -leave アドレスとおなじはたらきをします。
+
+\item \email{mylist-owner@example.com} -- このアドレスに送ったものは、
+      リストの管理者と司会者に直接届きます。
+      このアドレスは、リスト運営に関わる人間 (システムではなく) 
+      に連絡をとりたいときに使います。
+
+\item \email{mylist-request@example.com} -- このアドレスに送ったものは、
+      電子メールコマンドを処理するプログラムに届きます。
+      会員の登録オプションの設定などのコマンドを処理できます。
+      リスト会員用の電子メールコマンドの説明は付録~\ref{a:commands}
+      にあります。
+
+\item \email{mylist-bounces@example.com} -- このアドレス\footnote{[訳注]
+      配送エラーは配送途中のメールサーバから自動的に送られるものなので、
+      -bounces アドレスにわざわざなにか送ったりする必要はありません。
+      また、リストの動いているサーバの設定によっては、
+      -bounces アドレスはここで説明してあるものとは若干異なるアドレスに
+      なっていることもあります。いずれにしても、リスト会員の方は
+      このアドレスのことはとくに覚えていなくてもいいです。}は、
+      一時的あるいは恒久的につかえなくなっているアドレスの
+      会員からの配送エラーを受け取ります。
+      -bounces アドレスの送り先はプログラムで、
+      リストの配送エラー処理設定にしたがって
+      配送エラーを処理し、自動的にその会員への
+      配送を停めたり、登録を解除したりします。
+      メッセージに含まれている配送エラーの内容を検知できなかったり、
+      会員のアドレスが含まれているかどうか判定できなかった場合は、
+      メッセージはリスト管理者に回送されます。
+
+\item \email{mylist-confirm@example.com} -- このアドレスもプログラムに行きます。
+      これは入会や退会の申請に対する確認メッセージを処理します。
+\end{itemize}
+
+ほかに、-admin アドレスもあります。
+このアドレス宛てのものはリスト管理者に届きますが、
+古いバージョンの Mailman との互換性のためにあるだけなので、
+使わないほうがいいでしょう。
+
+オプションを変えるには、\email{LISTNAME-request}
+アドレスを使います (たとえば、 \email{mylist-request@example.com})。
+
+コマンドは、メッセージのサブジェクト (件名) にも、本文にも書けます。
+コマンドごとに改行を入れなければなりません。
+あなたのメールソフトがメッセージの最後に自動的に署名を付けくわえるように
+なっている場合は、
+「\var{end}」(鍵括弧は書かない) を、
+コマンドの最後の行のつぎの行に書くとよいでしょう。
+\var{end} コマンドがあると、Mailman は電子メールのそれよりあとに書いて
+あるものを処理しません。
+
+最重要コマンドはおそらく「\var{help}」コマンドでしょう。
+このコマンドに対して Mailman は、電子メールコマンドについての有用な情報と、
+Web インタフェイスについての説明を送り返すからです。
+
+参加者用コマンドのクイックリファレンスが、
+付録の \ref{a:commands} と \ref{a:options} にあります。
+(これは \var{help} コマンドの出力に若干手を加えたものです。)
+
+% ============================================================================
+\section{人間と話したいんですが...\label{sec:human}}
+
+リストを利用するうえでなにか困ったことがあったら、
+リスト管理者の電子メールアドレスを使って、
+リストのめんどうを見ている人 (たち) に、いつでも連絡することができます。
+リスト管理者は、あなたがどうしたらいいのか教えてくれたり、
+あなたを入会させたり退会させたり、
+あなたがなんらかの理由で自分で設定を変えられないときに変えてくれたりする
+かもしれません。
+ただし、忘れないでいただきたいのですが、多くのリスト管理者が
+ボランティアで、自分の時間を割いてリストの運営をしているのです。
+なかにはとても忙しくて、すぐには返事ができないひともいるかもしれません。
+
+そのリスト管理者の電子メールアドレスですが、
+\email{LISTNAME-owner@DOMAIN} となります。
+ここで LISTNAME はリストの名前 (たとえば mailman-users) で、
+%begin general description
+DOMAIN はサーバのドメイン名 (たとえば python.org) です。 
+%end general description
+この電子メールアドレスは、個々の管理者の電子メールアドレスとともに、
+リスト案内ページの下部に表示されています。
+自分のリストのリスト案内ページを見つけるにはくわしくは \ref{sec:web}~節
+を見てください。
+
+% ============================================================================
+\section{入会と退会}
+リスト参加者は、
+入会 (参加) と退会 (脱退) さえ知っていれば用が足りることも多いです。
+そのため、どちらも自分のパスワードが分からなくてもできるようになっています。
+
+% ----------------------------------------------------------------------------
+\subsection{リストに入るには (入会)\label{sec:subscribe}}
+
+Mailman のメーリングリストに入会するには、おもに 2 つの方法があります。
+
+Web インタフェイスでは:
+\begin{enumerate}
+	\item 入りたいリストのリスト案内ページへ行きます。
+	(これはたぶん
+	\url{http://WEBSERVER/mailman/listinfo/LISTNAME}
+        といった場所でしょう)
+	\item 「LISTNAME の購読」と見出しのあるセクションを探して、
+        テキストボックスに記入します。つぎのような記入欄があります:
+	\begin{itemize}
+		\item あなたの電子メールアドレスを\emph{かならず}入力します。
+		\item あなたの名前を入れることもできます。
+		\item パスワードを決めることができます。
+                 決めなかったときは、Mailman が自動的に決めます。
+
+		\warning{大事なパスワードを使わないようにしてください。
+                ここで入力したパスワードは平文のまま、
+		あなたにメールで送られます。}
+		\item リストが複数の言語に対応しているなら、
+                使う言語を選ぶこともできます。
+		\note{この設定はリストへの投稿には影響しません。
+		あなたの会員オプションページのように、
+                あらかじめ用意してある Mailman の文章が変わるだけです。}
+	\end{itemize}
+	\item [入会を申し込む] ボタンを押します。
+        ページが変わって、申請が送られたという表示になるはずです。
+\end{enumerate}
+
+電子メールインタフェイスでは:
+\begin{enumerate}
+	\item メールソフトを起動して、あなたが登録したいと思うアドレスから
+        メールを送れるようにします。
+	\item リストの入会アドレスにメールを送ります。
+	これは \email{LISTNAME-join@DOMAIN} というアドレスになります。
+	メッセージのサブジェクト (件名) や本文は無視され、だれにも読まれません。
+	ですからなにか書いてあってもかまいませんし、書いてなくてもかまいません。
+\end{enumerate}
+
+上の手順のどちらかひとつ (両方やる必要はありません) をしたあと
+どういうことが起こるかは、それぞれのリストの設定によって違います。
+\begin{itemize}
+	\item あなたがほんとうに入会したいのかどうか、確認を求める
+	電子メールが届くかもしれません。
+	これは、だれかがあなたの許可なくあなたを登録してしまうのを防ぐためです。
+	そのメッセージに書いてある手順にしたがって、あなたに入会の意思がある
+	ことを確認します。
+	\item 限定リストへの入会だった場合、
+	司会者の承認が要ります。
+	\item 司会者の承認を待って、\textit{さらに} 確認メールの
+        手順にしたがって確認しなければならないかもしれません。
+\end{itemize}
+
+このような手順が終ると、さらに、リストへの入会を歓迎するメッセージが届くことが
+あります。このメッセージには、あなたのリスト会員パスワードや、
+あなたの会員オプションを変えるための URL へのリンクなど、
+大事な情報が書いてあるので、
+保存してあとで見られるようにしておくとよいでしょう。
+
+\note{入会はほかのやりかたでもできます。
+電子メールでの高度な入会コマンドについては、付録~\ref{a:commands} 
+を見てください。}
+
+% ----------------------------------------------------------------------------
+\subsection{リストから抜けるには (退会)\label{sec:unsubscribe}}
+
+もうリストに戻ってくることはないのでしょうか。
+休暇に入るとか、忙しくてメールを読む暇がないのでしばらく停めたいだけなら、
+退会しなくても配送だけ停めておくこともできます。つまり、
+あなたのパスワードや設定などはそのまま残しておくことができるので、
+公開限定の保存書庫にアクセスしたりするようなことはできます。
+このようにしたほうがよければ、
+\ref{sec:nomail}~節で、
+一時的にメール配送を停止するための手順を見てください。
+
+ほんとうにリストから抜けたいのなら、
+Mailman のメーリングリストから退会する方法は、おもに 2 つあります。
+
+Web インタフェイスでは:
+\begin{enumerate}
+	\item 抜けたいリストのリスト案内ページへ行きます。
+	(これはたぶん
+	\url{http://WEBSERVER/mailman/listinfo/LISTNAME}
+        といった場所でしょう)
+	\item 「LISTNAME 会員の方へ」と見出しのあるセクションを探します
+        (ふつうはページの下のほうにあります)。
+	\item 「退会またはオプションの変更」と書いてあるボタンがあります。
+	ボタンのそばのテキストボックスにあなたの電子メールアドレスを
+        入力し、ボタンを押します。
+	\item 「退会」ボタンがあるページに変わります。
+	退会するならそのボタンを押して、表示される手順にしたがいます。
+\end{enumerate}
+
+電子メールインタフェイスでは:
+\begin{enumerate}
+	\item メールソフトを起動して、あなたが退会させたいと思うアドレスから
+        メールを送れるようにします。
+	\item リストの退会アドレスにメールを送ります。
+	これは \email{LISTNAME-leave@DOMAIN} というアドレスになります。
+	メッセージのサブジェクト (件名) や本文は無視され、だれにも読まれません。
+	ですからなにか書いてあってもかまいませんし、書いてなくてもかまいません。
+\end{enumerate}
+
+上の手順のどちらかひとつ (両方やる必要はありません) をしたあと、
+あなたには確認メールが届きます。
+このメールに書いてある手順にしたがわなければ、退会が完了しません。
+これは、だれかがあなたの許可なくあなたを退会させてしまうのを防ぐためです。
+この手順に加え、
+司会者があなたの退会を承認しなければいけないときもあります。
+
+手順の書いてある確認メールが届かないようなら、
+あなたの電子メールアドレスを打ち間違えていないか (退会に Web インタフェイスを
+使っている場合)、退会させようとしているアドレスが実際にリストに登録されて
+いるものと同じがどうか、を確かめます。
+安全確保上の理由から、Mailman は、
+入力されたアドレスが登録されているかどうかに関わらず、
+まったく同じ内容の会員オプションページを表示します。ですから、
+Web インタフェイスのこの部分を使ってだれがリストに入会しているかを
+調べることはできませんが、
+アドレスを打ち間違えていても教えてはくれないというわけです。
+
+退会が処理されると、
+さらにリストからの退会を知らせるメッセージが届くこともあります。
+いずれにせよ、このときから、あなたにはメッセージが送られてこなくなります。
+
+確認の処理をとばしたい (たとえば、あなたのアドレスがもう使えなくなったので
+退会させたい、など) ときは、かわりにあなたの会員パスワードを使って、
+オプションページにログインする (\ref{sec:web}~節を見てください) か、
+LISTNAME-request アドレスに電子メールコマンドを送る
+(電子メールでの高度な退会コマンドについては、
+付録~\ref{a:commands} を見てください)
+かすることで、確認を省略できます。
+パスワードが分からなくなったときは、
+\ref{sec:getpassword}~節を見てください。
+
+% ============================================================================
+\section{会員パスワード\label{sec:password}}
+
+あなたの会員パスワードは、入会したときに、あなたが決めたか
+Mailman によって自動的に決められたかのどちらかです。
+パスワードの控えは、リストに参加したときに送られてきた
+歓迎メッセージに書いてあったはずです。
+また、パスワード通知を毎月おくってもらうようにもできます。
+Mailman はこのパスワードを使ってあなたを認証するので、
+会員パスワードの持ち主 (あなたのことです) とリスト管理者以外は、
+あなたの設定を見たり変えたりすることはできません。
+
+\warning{大事なパスワードを Mailman 用に使わないでください。
+ このパスワードは平文のまま、あなたにメールで送られます。}
+
+% ----------------------------------------------------------------------------
+\subsection{自分のパスワードを知りたい\label{sec:getpassword}}
+自分の会員パスワードを忘れてしまい、
+歓迎メッセージやパスワード通知も保存していなかったとしても、
+Web インタフェイスを使って、いつでもパスワード通知を取り寄せることができます:
+
+\begin{enumerate}
+	\item パスワードを知りたいリストのリスト案内ページへ行きます
+	(これはたぶん
+	\url{http://WEBSERVER/mailman/listinfo/LISTNAME}
+        といった場所でしょう)
+	\item 「LISTNAME 会員の方へ」と見出しのあるセクションを探します
+        (ふつうはページの下のほうにあります)。
+	\item 「退会またはオプションの変更」と書いてあるボタンがあります。
+	ボタンのそばのテキストボックスにあなたの電子メールアドレスを
+        入力し、ボタンを押します。
+	\item 「パスワード通知」というセクションのあるページに変わります。
+	「通知」ボタンを押すと、
+	会員パスワードが電子メールであなたに送られます。
+\end{enumerate}
+
+これをしてもパスワード通知の電子メールが送られてこないようなら、
+正しい電子メールアドレスをタイプしたのか、またそのアドレスは
+たしかにそのリストに登録しているものなのかどうか、を確かめてください。
+安全確保上の理由から、Mailman は、
+入力されたアドレスが登録されているかどうかに関わらず、
+まったく同じ内容の会員オプションページを表示します。ですから、
+Web インタフェイスのこの部分を使ってだれがリストに入会しているかを
+調べることはできませんが、
+アドレスを打ち間違えていても教えてはくれないというわけです。
+
+電子メールインタフェイスを使っても、パスワード通知を取り寄せることができます:
+\begin{enumerate}
+	\item \email{LISTNAME-request@DOMAIN} に、\var{password} コマンドを
+	書いた電子メールを送ります。
+
+	コマンドは、メッセージの本文とサブジェクト (件名) のどちらにでも書けます。
+	(メールコマンドの送りかたについてくわしくは、
+	\ref{sec:email}~節を見てください。)
+
+	リストに登録していないアドレスからメールを送るのなら、
+	\nolinebreak{\var{password~address=アドレス}} 
+	というコマンドを書いて、
+	登録アドレスを指定することもできます。
+\end{enumerate}
+
+% ----------------------------------------------------------------------------
+\subsection{自分のパスワードを変えるには}
+		\warning{大事なパスワードを使わないでください。
+		このパスワードは平文のまま、あなたにメールで送られます。}
+
+Web インタフェイスでは:
+\begin{enumerate}
+	\item あなたの会員オプションページにログインします。
+	(どうしたらよいかは \ref{sec:web}~節を見てください。)
+
+	\item ページの右側の、パスワード変更のテキストボックスを探します。
+	そして、それぞれのテキストボックスにあなたの新しいパスワードを
+	入力し、「パスワード変更」というボタンを押します。
+\end{enumerate}
+
+おなじドメインの複数のリストに登録しているのなら、
+いちどにすべてのリストのパスワードを変えることもできます。
+「全部変更」についてくわしくは、\ref{sec:global}~節を見てください。
+
+電子メールインタフェイスでは:
+\begin{enumerate}
+
+	\item \email{LISTNAME-request@DOMAIN} に、
+	\nolinebreak{\var{password~元のパスワード~新しいパスワード}}
+	というコマンドを書いた電子メールを送ります。
+
+	コマンドは、メッセージの本文とサブジェクト (件名) のどちらにでも書けます。
+	(メールコマンドの送りかたについてくわしくは、
+	\ref{sec:email}~節を見てください。)
+	
+	リストに登録していないアドレスからメールを送るのなら、
+	新しいパスワード の後に \var{address=アドレス}
+	を書いて、
+	登録アドレスを指定することもできます。
+
+	たとえば、\email{kathy@here.com} が \var{mylist}
+	メーリングリストでの自分の会員パスワードを
+	\var{zirc} から \var{miko} に変えたいが、メールを職場のアドレス
+	\email{kathy@work.com} から送っているときは、
+	彼女は \email{mylist-request@example.com} に、件名を
+	\nolinebreak{\var{password~zirc~miko~address=kathy@here.com}}
+	としたメッセージを送ればよいわけです。
+\end{enumerate}
+
+% ----------------------------------------------------------------------------
+\subsection{パスワード通知 を 送ってもらう
+ようにしたり、停めたりするには (パスワード通知オプション)}
+パスワード通知の電子メールを毎月送ってほしくないのであれば、
+会員オプションページで停めることができます。
+(パスワードをすぐに知りたければ、いつでもメールで取り寄せることができます。
+手順は \ref{sec:getpassword}~節を見てください。)
+
+Web インタフェイスでは:
+\begin{enumerate}
+	\item あなたの会員オプションページにログインします。
+	(どうしたらよいかは \ref{sec:web}~節を見てください。)
+	\item 「このリストについてパスワード通知を受け取りますか?」
+	というセクションを探し、設定を好きなように変えます。
+\end{enumerate}
+
+おなじドメインの複数のリストに登録しているのなら、
+いちどにすべてのリストの設定を変えることもできます。
+「全部変更」についてくわしくは、\ref{sec:global}~節を見てください。
+
+電子メールインタフェイスでは:
+\begin{enumerate}
+   \item \email{LISTNAME-request@DOMAIN} に、
+   \var{set~reminders~on} あるいは \var{set~reminders~off}
+   というコマンドを書いた電子メールを送ります。
+
+   コマンドは、メッセージの本文とサブジェクト (件名) のどちらにでも書けます。
+   (メールコマンドの送りかたについてくわしくは、
+   \ref{sec:email}~節を見てください。)
+
+	\item 「on」にすると通知が送られるようになります。
+	「off」にすると通知が送られないようになります。
+\end{enumerate}
+
+% ============================================================================
+\section{メールの配送のしかたを変える}
+% ----------------------------------------------------------------------------
+\subsection{メール配送 を 停止したり、再開
+したりするには (メール配送オプション)\label{sec:nomail}}
+
+退会したくはないけれど、
+リストからメッセージを送ってもらうのを
+一時的に停めたいこともあるかもしれません。
+メール配送を停止すれば、メッセージは送られてこなくなりますが、
+参加者のままでいられるので、
+あなたのパスワードなどの設定は残しておけます。
+
+これはいろいろな場合に便利なことがあります。
+たとえば、あなたが休暇に入ったり、
+とても忙しくなって余計なメールを読む暇がなくなったりして、
+しばらくリストを離れなければならないときです。
+またたとえば、
+投稿を参加者からのものに限るようになっているリストは多いですが、
+あなたがおもに複数のアドレスからメールを送っている
+(たとえば自宅のアドレスのほかに旅行中のアドレスもある) のなら、
+複数のアドレスで入会しておいて、
+そのうちのひとつだけでメールを受け取るようにしておきたいでしょう。
+あるいはたとえば、リストの投稿量がたいへん多くて、
+メールで受け取っていたのでは
+あなたのメールボックスがあふれてしまいそうなときに、
+リストから抜けずに公開限定の保存書庫で読む、といったことにも使えます。
+まず入会し、メール配送を停止し、
+自分のパスワードと電子メールアドレスで保存書庫にログインすればいいのです。
+
+Web インタフェイスで配送を停止したり有効にしたりするには:
+\begin{enumerate}
+	\item あなたの会員オプションページにログインします。
+	(どうしたらよいかは \ref{sec:web}~節を見てください。)
+	\item 「メール配送」
+	というセクションを探し、メールを送ってもらうのを停めるときは
+	「停止」、送ってもらうときは「有効」を選びます。
+\end{enumerate}
+
+おなじドメインの複数のリストに登録しているのなら、
+いちどにすべてのリストの設定を変えることもできます。
+「全部変更」についてくわしくは、\ref{sec:global}~節を見てください。
+
+電子メールインタフェイスで配送を停止したり有効にしたりするには:
+\begin{enumerate}
+   \item \email{LISTNAME-request@DOMAIN} に
+   \var{set~delivery~off} または \var{set~delivery~on} 
+   というコマンドを書いたメールを送ります。
+
+   コマンドは、メッセージの本文とサブジェクト (件名) のどちらにでも書けます。
+   (メールコマンドの送りかたについてくわしくは、
+   \ref{sec:email}~節を見てください。)
+	\item 「off」にすると投稿は送られてこなくなります。
+	「on」にすると再開できます。
+\end{enumerate}
+
+% ----------------------------------------------------------------------------
+\subsection{メッセージを 重複して 受け取らない
+ようにするには (重複オプション)\label{sec:nodupes}}
+
+Mailman はメッセージの重複を完全に停められるわけではありませんが、
+この機能はすこしは役に立つでしょう。
+重複して受け取ってしまう主な原因としては、
+送信者が「全員に返信」機能を使って、
+メールをリストと個人の両方に送ってしまう、というものがあります。
+こういったメッセージを受け取りたくない人のために、
+Mailman では、あなたのアドレスが \mailheader{To} ヘッダや 
+\mailheader{CC} ヘッダに入っていないか調べるように設定できます。
+あなたのアドレスがこういったヘッダにあれば、
+Mailman があなたにメッセージの控えを送らないようさせることができます。
+
+これを Web インタフェイスで有効にしたり無効にしたりするには:
+\begin{enumerate}
+	\item あなたの会員オプションページにログインします。
+	(どうしたらよいかは \ref{sec:web}~節を見てください。)
+	\item ページの下のほうの
+	「重複したメールを受け取らないようにしますか?」
+	というセクションで、設定を好きなように変えます。
+\end{enumerate}
+
+おなじドメインの複数のリストに登録しているのなら、
+いちどにすべてのリストの設定を変えることもできます。
+「全部変更」についてくわしくは、\ref{sec:global}~節を見てください。
+
+これを電子メールインタフェイスで有効にしたり無効にしたりするには:
+\begin{enumerate}
+   \item \email{LISTNAME-request@DOMAIN} に
+   \var{set~duplicates~on} または \var{set~duplicates~off}
+   というコマンドを書いたメールを送ります。
+
+   コマンドは、メッセージの本文とサブジェクト (件名) のどちらにでも書けます。
+   (メールコマンドの送りかたについてくわしくは、
+   \ref{sec:email}~節を見てください。)
+	\item 「on」にすると、あなたに送られたものの控えも送られます。
+	「off」にすると重複したものが送られないようになります。
+\end{enumerate}
+
+% ----------------------------------------------------------------------------
+\subsection{登録しているアドレスを変えるには\label{sec:changeaddress}}
+自分の登録アドレスを変えるには、
+\begin{enumerate}
+	\item あなたの会員オプションページにログインします。
+	(どうしたらよいかは \ref{sec:web}~節を見てください。)
+	\item 「あなたの LISTNAME 会員アドレス変更」というセクションで、
+	あなたの新しいアドレスを入力します。
+	\item 元のアドレスで登録しているすべてのリストの登録アドレスを
+	変えたいのなら、「全部変更」チェックボックスを選択します。
+	ほかのアドレスでの登録があったり、ほかのドメインのリストに
+	登録しているアドレスについては、別々に変更しなければなりません。
+	「全部変更」についてくわしくは、\ref{sec:global}~節を見てください。
+\end{enumerate}
+
+電子メールインタフェイスでは同じことをやる方法はありませんが、
+新しいアドレスで入会しておいて元のアドレスを退会すれば、
+おおむね同じ結果になります。
+(入会と退会についてくわしくは
+\ref{sec:subscribe}~節と \ref{sec:unsubscribe}~節を見てください。)
+
+% ----------------------------------------------------------------------------
+\subsection{投稿の控え を 受け取らない
+ようにしたり、
+受け取るようにしたりするには (控えなしオプション)\label{sec:getown}}
+Mailman では、ふつうは自分が投稿したものの控えも送られてきます。
+そうなっていたほうがいいという人もいます。
+投稿が無事に送られたかどうか分かるし、
+自分の意見を議論の一部としていっしょに保存しておけるからだそうです。
+しかし、自分が投稿したものをわざわざまたダウンロードさせられるのを
+嫌がる人もいます。
+
+\note{まとめ読みで受け取っているときは、このオプションは効きません。}
+
+\ref{sec:getack}~節では、
+投稿に対して受領メールを送ってもらう方法を説明しているので、
+そちらも見ておくとよいでしょう。
+
+これを Web インタフェイスで設定するには:
+\begin{enumerate}
+	\item あなたの会員オプションページにログインします。
+	(どうしたらよいかは \ref{sec:web}~節を見てください。)
+	\item 「重複したメールを受け取らないようにしますか?」
+	というセクションを探し、自分の投稿の控えを送ってもらうなら「はい」、
+	送ってもらわないようにするなら「いいえ」に設定します。
+\end{enumerate}
+
+これを電子メールインタフェイスで設定するには:
+\begin{enumerate}
+   \item \email{LISTNAME-request@DOMAIN} に
+   \var{set~myposts~on} または \var{set~myposts~off}.
+   というコマンドを書いたメールを送ります。
+
+   コマンドは、メッセージの本文とサブジェクト (件名) のどちらにでも書けます。
+   (メールコマンドの送りかたについてくわしくは、
+   \ref{sec:email}~節を見てください。)
+	\item 「on」にすると自分の投稿の控えも送られるようになります。
+	「off」にすると控えが送られなくなります。
+\end{enumerate}
+
+% ----------------------------------------------------------------------------
+\subsection{投稿がリストに届いたことを Mailman から知らせて
+もらうようにするには (受領オプション)\label{sec:getack}}
+
+たいていのリストでは、投稿したメールがメーリングリストシステムを通過すると、
+投稿したあなたにも同じものが送られてきます。
+しかし、送られないようにしているとき
+(\ref{sec:getown}~節を見てください)、
+配送を停めているとき
+(Section~\ref{sec:nomail}~節を見てください)、
+その投稿の話題を購読しないようにしているとき 
+(\ref{sec:sometopic}~節を見てください)、
+あるいはその他の理由で投稿が届いたことを特に知りたいときには、
+このオプションが役立つでしょう。
+
+\note{あなたがリストに入会していないのなら、
+このオプションは使えません。
+そういうときは、リストの保存書庫を見て確認する
+(リストの保存書庫が公開されているのなら) か、
+だれかリストの参加者に聞いて確認するか、
+あるいはリストに入会してこのオプションを使えるようにするか、
+のいずれかでしょう。}
+
+これを Web インタフェイスで設定するには:
+\begin{enumerate}
+	\item あなたの会員オプションページにログインします。
+	(どうしたらよいかは \ref{sec:web}~節を見てください。)
+	\item 「あなたがリストに投稿したとき, 受領メールが 必要ですか?」
+	というセクションを探し、
+	自分の投稿が届いたことを知らせてもらうのなら「はい」、
+	知らせてもらわないようにするなら「いいえ」に設定します。
+\end{enumerate}
+
+これを電子メールインタフェイスで設定するには:
+\begin{enumerate}
+   \item \email{LISTNAME-request@DOMAIN} に
+   \var{set~ack~on} または \var{set~ack~off}
+   というコマンドを書いたメールを送ります。
+
+   コマンドは、メッセージの本文とサブジェクト (件名) のどちらにでも書けます。
+   (メールコマンドの送りかたについてくわしくは、
+   \ref{sec:email}~節を見てください。)
+	\item 投稿が届いたことを知らせてもらうのなら「on」、
+	知らせてもらわないのなら「off」にします。
+\end{enumerate}
+
+% ----------------------------------------------------------------------------
+\subsection{リストから メールが 届かないようです。
+どうしたら いいのでしょうか}
+届かない理由としては、おもにつぎのようなことが考えられます:
+\begin{itemize}
+	\item あなたが入っているどのリストにも、
+	ここしばらくだれも投稿していない。
+
+	これを確かめるには、それぞれのリストの保存書庫
+	(保存書庫があるとして) を見てまわるとよいでしょう。
+	リストに保存書庫がないときは、
+	ほかのリスト参加者に聞いてみるとよいかもしれません。
+	(リストの保存書庫の探しかたは
+	\ref{sec:web}~節を見てください。)
+
+	\note{リストに投稿できるかどうか調べるためだけに
+	内容のないメッセージを送ってみるというのは、
+	一般に、無作法な振舞いとされます。
+	リストが稼働しているかどうか調べてみたいが
+	リストに投稿するのにふさわしいものを書けそうにない、
+	というときは、
+	リストの申請アドレス (LISTNAME-request@DOMAIN) に
+	help のメッセージを送って稼働していることを確かめるか、
+	あるいは、リスト管理者 (LISTNAME-owner@DOMAIN) に連絡をとって
+	リストが稼働しているかどうか尋ねるのが、無難なやりかたです。}
+
+	\item あなたからエラーメッセージが返ってくるので、
+	メーリングリストシステムがあなたへの配送を
+	(一時的に) 停止している。
+
+	あなたのメールアドレスを管理している組織が、
+	メッセージをあまりにたびたびエラーにする
+	(Mailman に対してメッセージが送れないと知らせる)
+	と、Mailman はある時点で、あなたにメールを送るのを
+	やめてしまうようになっています。
+	この機能によって Mailman では、なくなってしまったアドレス
+	(たとえば、ある参加者がインターネットサービスプロバイダを替えたが、
+	古いアドレスを退会させるのを忘れた、など) や、
+	一時的に使えなくなっているアドレス (たとえば、
+	ある参加者が自分の電子メールアドレス用のスペースを
+	使い切ってしまったとか、参加者のメールアドレスを管理している組織で
+	トラブルが起こっているとか)
+	を、うまく扱えるようになっています。
+
+	自分の電子メールアドレスを管理している組織で
+	トラブルが起こっているとは思っていなくても、
+	まずそれを確かめてみたほうがいいです。
+	有名な Web メールサービス業者やインターネットサービスでも、
+	思ったより信頼性が低いことがありますし、
+	インターネットというものは全体としてそういうものです。
+	ほかのメールアカウントを持っているのなら、
+	そちらから自分にテストメールを送ってみればよいでしょう。
+	あるいは、知人に頼んで試しにメッセージを送ってもらうのもよいでしょう。
+	とにかくそうやって、自分の登録アドレスがちゃんと使えるかどうか
+	確かめます。
+
+	自分への配送が停止されているせいで
+	送られてこないのかどうかを確かめるには、
+	あなたの会員オプションページにログイン
+	(どうしたらよいかは \ref{sec:web}~節を見てください)
+	して、自分のオプションを見ます。
+	「メール配送」というセクションがありますが、
+	ここが「停止」になっているのなら、「有効」に設定すれば
+	またメールを受け取れるようになります。
+	(メール配送を停止したり有効にしたりする手順についてくわしくは
+	\ref{sec:nomail}~節を見てください。)
+
+	\note{調べたときに「停止」になっていないとしても、
+	あなたのアドレスからはエラーメッセージが送られており、
+	それがまだ配送停止になるほど多くないだけかもしれません。
+	しばらくしてからまた調べたほうがよいでしょう。}
+
+	\item あなたとメーリングリストサーバとの間で通信に遅れが出ているか、
+	通信が不通になっている。
+
+	インターネットは、わたしたちの多くが願っているほど、
+	100\% 信頼できるものでも、
+	いつも高速なものでもありません。
+	ときには、メッセージがあなたに届くのに長い時間がかかることもあります。
+	特に、メーリングリストのサーバが
+	あなたのインターネットサービスプロバイダから遠い
+	(コンピュータネットワークの上でのことで、地理的な意味でではありません。
+	両方の意味を兼ねることもしばしばありますが)
+	ときには、すこし辛抱して待ってみてください。
+
+	これが原因かどうか確かめるには、
+	メーリングリストサーバに ping を送ったり、
+	そのサーバとあなたのコンピュータとの間のルートを
+	トレースしたりしてみることができます。
+	(どうしたらよいかは、使っているシステムによってさまざまですので、
+	検索エンジンなどであなたに合ったやりかたを調べるとよいでしょう。)
+
+	\item そのメーリングリストサーバに入っている Mailman
+	がまったく動作していないか、正しく動作していない。
+
+	これが原因かどうか調べるには、
+	まず、リストの Web ページへ行ってみます。
+	また、\email{LISTNAME-request@DOMAIN} に、\mailheader{Subject}
+	ヘッダ (件名) に「\var{help}」(鍵括弧はつけない) 
+	といった、簡単なコマンドを書いたメッセージを送ってみます。
+	すこし待っても、どちらもなにも起こらないようなら、
+	原因はこれです。
+	リストかサイトの管理者に連絡をとるとよいでしょう。
+\end{itemize}
+
+% ============================================================================
+\section{まとめ読み}
+% ----------------------------------------------------------------------------
+\subsection{リストの投稿 を まとめて
+受け取ったり、一通ずつ受け取ったりするには
+(まとめ読みオプション)\label{sec:digest}}
+
+Mailman では、投稿をまとめたものを「まとめ読み」と言っています。
+メッセージを一通ずつ受け取るのではなく、
+いちどにまとめて受け取ることができます。
+それなりに投稿量の多いリストでは、だいたい一日に 1 度、メールが送られます。
+リストによって、もっと度々だったり、少なかったりします。
+
+\ref{sec:MIME}~節では
+MIME のまとめ読みと平文のまとめ読みについて説明しています。
+そちらも見るとよいでしょう。
+
+Web インタフェイスでまとめ読みモードにしたり、やめたりするには:
+\begin{enumerate}
+	\item あなたの会員オプションページにログインします。
+	(どうしたらよいかは \ref{sec:web}~節を見てください。)
+	\item 「まとめ読みモードに設定」というセクションを探します。
+
+	まとめ読みにまとめて送ってもらうのなら「有効」、
+	一通ずつ送ってもらうのなら「無効」に設定します。
+\end{enumerate}
+
+電子メールインタフェイスでまとめ読みモードにしたり、やめたりするには:
+\begin{enumerate} 
+   \item \email{LISTNAME-request@DOMAIN} に
+   \var{set~digest~plain} または \var{set~digest~mime} 
+   または \var{set~digest~off}
+   というコマンドを書いたメールを送ります。
+   
+   コマンドは、メッセージの本文とサブジェクト (件名) のどちらにでも書けます。
+   (メールコマンドの送りかたについてくわしくは、
+   \ref{sec:email}~節を見てください。)
+   \item 投稿を一通ずつ送ってもらうのなら「off」、
+     ひとつの大きなメールにまとめて送ってもらうのなら
+     「plain」か「mime」にします。
+     平文のまとめ読みと MIME のまとめ読みの違いについては
+     \ref{sec:MIME}~節を見てください。
+\end{enumerate}
+
+% ----------------------------------------------------------------------------
+\subsection{MIME のまとめ読みと 平文のまとめ読み
+とは。まとめ読みの種類を変えるには (まとめ読みオプション)\label{sec:MIME}}
+
+MIME は「多用途インターネットメール機能拡張」
+(Multipurpose Internet Mail Extensions) の略です。
+これは、単純なプレインテキストに限らずさまざまなデータを
+電子メールで送るのに使います。
+(たとえば、飼い犬の写真を友達に送るようなときは、MIME
+を使っています。)
+
+MIME のまとめ読みでは、それぞれのメッセージはメッセージ内の添付となっていて、
+目次がついています。
+
+平文のまとめ読みはより単純なもので、
+メールソフトが MIME に対応していなくても読みやすくなっています。
+メッセージが順番に並んでいるだけの、
+大きなテキストメッセージになっています。
+
+最近は多くのメールソフトが MIME に対応していますから、
+MIME のまとめ読みがうまく読めないときだけ、
+平文のほうにすればいいでしょう。
+
+\note{まとめ読みにまとめて送ってもらっていないときは、
+このオプションは効きません。
+(まとめ読みで送ってもらうにはくわしくは
+\ref{sec:digest}~節を見てください。)}
+
+まとめ読みの種類を Web インタフェイスで設定するには:
+\begin{enumerate}
+   \item あなたの会員オプションページにログインします。
+   (どうしたらよいかは \ref{sec:web}~節を見てください。)
+   \item 「まとめ読みのメールを平文で受けますか？ MIMEの添付で受けますか?」
+   というセクションを探します。
+
+	MIME の形式でまとめ読みを送ってもらうときは「MIME」、
+	平文の形式でまとめ読みを送ってもらうときは「平文」に設定します。
+\end{enumerate}
+
+おなじドメインの複数のリストに登録しているのなら、
+いちどにすべてのリストの設定を変えることもできます。
+「全部変更」についてくわしくは、\ref{sec:global}~節を見てください。
+
+まとめ読みの種類を電子メールインタフェイスで設定するには:
+\begin{enumerate}
+   \item \email{LISTNAME-request@DOMAIN} に
+   \var{set~digest~plain} または \var{set~digest~mime} 
+   というコマンドを書いたメールを送ります。
+
+   コマンドは、メッセージの本文とサブジェクト (件名) のどちらにでも書けます。
+   (メールコマンドの送りかたについてくわしくは、
+   \ref{sec:email}~節を見てください。)
+   \item 投稿を平文のまとめ読みにまとめて送ってもらうのなら「plain」、
+   MIME のまとめ読みにまとめて送ってもらうのなら「mime」にします。
+\end{enumerate}
+
+% ----------------------------------------------------------------------------
+\section{Mailing list topics\label{sec:topics}}
+\footnote{[訳注]
+Mailman 2.1.2 の時点では、topics (話題) の機能は日本語のメッセージに対しては
+うまく働かないことが多いので、混乱を避けるため、この節は訳さないでおきます
+(楽したいからじゃありません -- たぶん)。}
+
+Some lists are set up so that different topics are handled by Mailman.
+For example, the courses list on Linuxchix.org is a discussion list for
+courses being run by linuxchix members, and often there are several courses
+being run at the same time.  
+(eg: Networking for beginners, C programming, \LaTeX ~document mark up.)  
+Each of the courses being run is a separate topic on the list so that people
+can choose only to receive the course they want to take.
+
+These
+topics must be configured by the list administrator, but it is the
+responsibility of each poster to make sure that their post is put with 
+the correct topic.  Usually, this means adding a tag of some type to the 
+subject line (eg: [Networking] What type of cables do I need?) or making
+sure the \mailheader{Keywords} line has the right information.  (By default, 
+you can put a \mailheader{Keywords} section in the beginning of the body
+of your message, but this can be configured by your list administrator.)
+Note that these tags are case-insensitive.
+
+% ----------------------------------------------------------------------------
+\subsection{How do I make sure that my post has the right 
+	topic?\label{sec:posttopic}}
+
+When a list administrator defines a topic, he or she sets three things:
+\begin{itemize}
+	\item a topic name
+	\item a regular expression (regexp)
+	\item a description
+\end{itemize}
+
+You can view this information by logging in to your member options page. 
+ (See Section~\ref{sec:web} for more details on how to do this.) and 
+clicking on the "details" link for any topic that interests you.
+
+To post on a given topic, you need to make sure that the 
+\mailheader{Keywords} or \mailheader{Subject} headers in a message  
+match the \emph{regular expression} for that topic.  
+Regular expressions can actually be fairly complex, so you may want to 
+just ask the list administrator if you don't know how to make
+heads or tails of the expression given.  
+
+Most Mailman topic expressions will be fairly simple regular expressions, so 
+in this document we will simply give you some common examples.  Regular 
+expressions are a bit too complex to teach in a few lines here, so if you
+really want to understand how the regular expressions work, you should
+find a tutorial or reference elsewhere.  (For example, DevShed has a decent
+tutorial at 
+\url{http://www.devshed.com/Server_Side/Administration/RegExp/})  
+
+Here are some examples of possible regular expressions and matching lines:
+
+\begin{tableii}{l|l}{}{Regular expression}{Matching lines}
+	\lineii{zuff}{Keywords: zuff}
+	\lineii{zuff}{Keywords: ZUFF}
+	\lineii{zuff}{Keywords: Zuff}
+	\lineii{zuff}{Keywords: amaryllis, zuff, applesauce}
+	\lineii{zuff}{Subject: [zuff] Do you have the right stuff for zuff?}
+	\lineii{zuff}{Subject: Do you have the right stuff for zuff?}
+	\lineii{zuff}{Subject: What is zuff?}
+\hline
+	\lineii{\textbackslash[zuff\textbackslash]}{Keywords: [zuff]}
+	\lineii{\textbackslash[zuff\textbackslash]}{Subject: [zuff]	Do you have the right stuff?}
+	\lineii{\textbackslash[zuff\textbackslash]}{Subject: Online zuff tutorials (was Re: [zuff] What is zuff?)}
+\end{tableii}
+
+A few notes:
+\begin{itemize}
+	\item The matching is case-insensitive, so if zuff matches, so will ZUFF,
+	 zuFF, and any other variations in capitalization.
+	\item Some characters have special meaning in a regular expression, so
+	to match those characters specifically, they must be "escaped" with a 
+	backslash (\textbackslash).  As you can see in the above example, 
+	[ and ] are such characters.  (Others include ".", "?", and "*").  
+	The backslash is also used for other things (I wasn't kidding about 
+	regular expressions being complex: consult other documentation
+	for details about other uses of the backslash character), but this 
+	is the most likely use in a topic expression.
+\end{itemize}
+
+% ----------------------------------------------------------------------------
+\subsection{How do I subscribe to all or only some topics on a 
+	list?\label{sec:sometopic}}
+
+If topics have been set up by your mailing list administrator, you can 
+choose to subscribe to only part of a list by selecting the topics you
+want to receive.
+
+If you wish to get all messages sent to the list, make sure you 
+are not subscribed to any topics.
+
+\begin{enumerate}
+	\item Log in to your member options page.  (See Section~\ref{sec:web} 
+	for more details on how to do this.)
+	\item Look for the section marked "Which topic categories would you like 
+	to subscribe to?" 
+
+	If any topics are defined, you can select those you wish.  If you do
+	not select any topics of interest, you will receive all posts 
+	sent to the list.
+\end{enumerate}
+
+You probably also want to look at Section~\ref{sec:notopic} which discusses
+changing your settings for messages where no topic is set.
+
+% ----------------------------------------------------------------------------
+\subsection{How do I get or avoid getting messages with no topic set?
+\label{sec:notopic}}
+If you wish to get all messages sent to the list, make sure you are 
+not subscribed to any specific topic.  (See Section~\ref{sec:sometopic}.)  
+
+If you are only subscribed to some topics, you can either choose to either
+receive or not receive messages with no topic set, much the way you can 
+choose to subscribe only to certain topics.
+
+To change this setting,
+\begin{enumerate}
+	\item Log in to your member options page.  (See Section~\ref{sec:web} 
+	for more details on how to do this.)
+	\item Look for the section marked "Do you want to receive message that do 
+	not match any topic filter?"
+
+	If you wish to receive messages with no topic set, select "Yes."  If you
+	do not wish to receive such messages, choose "No."
+\end{enumerate}
+
+This setting has no effect if you are not subscribed to any topics.
+
+% ============================================================================
+\section{そのほかのオプション}
+
+% ----------------------------------------------------------------------------
+\subsection{「全部変更」や「全部設定」の意味
+	\label{sec:global}}
+
+会員オプションページにあるいくつかのオプションには、
+「全部変更」や「全部設定」というチェックボックスがあります。
+これは、オプションを変更したときに、同じドメインのリストで
+同じアドレスで登録しているリストについてもすべて変更する、
+という意味です。
+これは、つぎのようなときに便利です:
+たとえば、パスワードを全部同じにしたいとき。
+またたとえば、休暇に入るのですべてのリストのメール配送を
+停止しておきたいとき。
+
+% ----------------------------------------------------------------------------
+\subsection{Mailman に登録してある名前を変えるには
+	\label{sec:changename}}
+
+登録してある名前を変えるには、
+\begin{enumerate}
+	\item あなたの会員オプションページにログインします。
+	(どうしたらよいかは \ref{sec:web}~節を見てください。)
+	\item 「あなたの LISTNAME 会員アドレス変更」というセクションで、
+	あなたの新しい名前を入力します。
+\end{enumerate}
+
+おなじドメインの複数のリストに登録しているのなら、
+いちどにすべてのリストの設定を変えることもできます。
+「全部変更」についてくわしくは、\ref{sec:global}~節を見てください。
+
+\note{参加者の名前は、かならず設定しなければならないわけではありません。}
+
+% ----------------------------------------------------------------------------
+\subsection{使う言語を変えるには}
+
+Mailman では、多くの異なった言語が使えます。
+(完全な一覧は \url{http://mailman.sourceforge.net/i18n.html}
+を見てください。)  つまり、リストでほかの言語が使えるようになっていれば、
+あなたは Web インタフェイスなどを自分の選んだ言語で使えるのです。
+
+\note{リストへの投稿がぜんぶあなたの選んだ言語になる、
+ということではありません。
+あらかじめ用意してある Mailman の文章が変わるだけです。
+投稿は、それぞれの投稿者が使っている言語のままです。}
+
+使う言語は、あなたが入会 (\ref{sec:subscribe}~節を見てください)
+したときに設定されていますが、リストが複数の言語に対応していれば、
+あとで変えることができます。
+
+Mailman で使う言語を変えるには、
+\begin{enumerate}
+	\item あなたの会員オプションページにログインします。
+	(どうしたらよいかは \ref{sec:web}~節を見てください。)
+	\item 「どの言語を使いますか?」というセクションへ行き、
+	ドロップダウンリストで好きな言語を選択します。
+	言語のドロップダウンリストがないときは、
+	あなたの入っているリストはたったひとつの言語にしか
+	対応していないということです。
+\end{enumerate}
+
+リストがあなたの使いたい言語に対応していないときは、
+リスト管理者 (LISTNAME-owner@DOMAIN) に連絡をとって、
+その言語を追加してもらうよう頼むこともできます。
+ただし、覚えておいていただきたいのですが、これにはすこし
+作業が必要になるので、リスト管理者やサイト管理者のほうで
+作業をできるだけの時間がとれないこともありえます
+\footnote{[訳注] リスト管理者は、その言語で案内ページや
+歓迎メッセージの内容などを用意しなければなりません。
+また、Mailman にその言語のための翻訳データが組み込まれていないときは、
+サイト管理者は Mailman に翻訳データを追加しなければなりません。}。
+
+あなたの言語が Mailman に翻訳がないために使えない、ということがあれば、
+あなたの時間を翻訳のために使うことも考えていただけると、
+ありがたいです。
+詳しい情報は、\url{http://mail.python.org/mailman/listinfo/mailman-i18n}
+の mailman-i18n メーリングリストで得られます。
+(i18n というのは、「国際化」(internationalization) の略号としてよく使われます。
+最初の i と最後の n の間に 18 文字あるので、こう書きます。
+発音もなんとなく「internationalization」に似ていますし。)
+
+% ----------------------------------------------------------------------------
+\subsection{会員名簿 に 名前を出さない
+ようにするには (隠れオプション)\label{sec:nolist}}
+
+なんらかの理由で会員名簿に自分の電子メールアドレスを出したくないのなら、
+隠すこともできます。
+
+おもな理由のひとつに、受信者の承諾を得ずに大量に送られる電子メール (スパム)
+の防止があります。
+初期状態では、会員名簿のアドレスは、スパム送信先アドレス収集ソフトウェア
+から隠すためにぼやかしてあります。
+これでは不十分だと思うのなら、案内ページや電子メールコマンドで
+取得できる会員名簿からアドレスを消してしまうのが簡単です
+\footnote{[訳注] 会員名簿を会員や管理者以外に公開していないメーリングリストで、
+他の会員が十分信用できるのなら、
+スパム防止のために会員名簿からアドレスを消す必要はないです。}。
+(なお、このようにしても、リスト管理者はあなたのアドレスを見ることができます。)
+スパムに対して Mailman ではどんな対策ができるかについてくわしくは、
+\ref{sec:antispam}~節を見るとよいでしょう。
+
+この設定を Web インタフェイスで変えるには:
+\begin{enumerate}
+	\item あなたの会員オプションページにログインします。
+	(どうしたらよいかは \ref{sec:web}~節を見てください。)
+	\item 「会員名簿にあなたを出さないようにしますか?」
+	というセクションへ行きます。
+	名簿に名前を載せないときは「はい」、
+	載せるときは「いいえ」を選びます。
+\end{enumerate}
+
+この設定を電子メールインタフェイスで変えるには:
+\begin{enumerate} 
+   \item \email{LISTNAME-request@DOMAIN} に
+   \var{set~hide~on} または \var{set~hide~off}
+   というコマンドを書いたメールを送ります。
+
+   コマンドは、メッセージの本文とサブジェクト (件名) のどちらにでも書けます。
+   (メールコマンドの送りかたについてくわしくは、
+   \ref{sec:email}~節を見てください。)
+   \item あなたの電子メールアドレスを会員名簿で隠すのなら「on」、
+   隠すのをやめるのなら「off」にします。
+\end{enumerate}
+
+% ============================================================================
+\section{よくある質問}
+
+% ----------------------------------------------------------------------------
+\subsection{リストの保存書庫を見るには}
+リストに保存書庫があるのなら、
+その Web ページへ行けば見ることができます。
+このページはふつうはリスト案内ページからリンクされていますし、
+管理者が無効にしていなければリストのそれぞれのメッセージの
+\mailheader{List-Archive}
+ヘッダに URL が表示されます。
+(多くのメールソフトが
+\mailheader{List-Archive}
+ヘッダを隠すので、
+こういったヘッダを見たければ、すべてのヘッダを表示しておくように
+メールソフトを設定しなければならないかもしれません。)
+
+公開されている保存書庫は、ふつう
+\url{http://WEBSERVER/pipermail/LISTNAME/}
+という形の URL で、
+公開が限定されている保存書庫は、ふつう
+\url{http://WEBSERVER/mailman/private/LISTNAME}
+という形の URL になります。
+
+リストの Web ページの探しかたについてくわしくは、
+\ref{sec:web}~節を見てください。
+
+% ----------------------------------------------------------------------------
+\subsection{受信者の承諾を得ずに 大量に送られる電子メール (スパム) に対して、
+Mailman ではどんな対策ができますか\label{sec:antispam}}
+
+たとえば、技術的な話題のメーリングリストの保存書庫には、
+ある分野のさまざまな質問についての答えが保存してあるでしょう。
+答えを投稿した人たちは、
+答えを探しているひとの助けになるようにと思ってそうしたので、
+自分のアドレスがまったく別の目的に使われることなど望んではいないでしょう。
+みんなが簡単に連絡をとりあえることは素晴らしいことなだけに、
+リストやリストの保存書庫が
+スパム\footnote{[訳注] なにをスパム (SPAM) 
+と呼ぶかは人によって多少違いがあるようですが、
+最大公約数的な定義としては、
+「受信者の承諾を得ずに、
+自動的に大量の宛先に送りつけられる電子メールメッセージ」
+ということになると思います。
+
+なお、本文で説明されている対策のうち、投稿の制限などは、
+スパムでないいろいろな投稿を禁止するのにも使えます。}
+を送る人たちに悪用されないようになっていることを、
+はっきりさせておきたいとおもいます。
+
+リスト管理者の取り得る選択肢として、Mailman では電子メールアドレスを
+保護するためのさまざまな設定ができるようになっています。
+これらの多くの設定はリスト管理者にとって必須のものではありませんが、
+リストごとにさまざまな方法で設定ができます。
+%???
+リスト管理者は、参加者を保護するとともにいろんな人に入手されないように
+するため、最良の設定を見つけるべきです。
+%???
+
+\begin{itemize}
+	\item 会員名簿
+		\begin{itemize}
+			\item リスト管理者は、会員名簿を公開するか、
+			リスト会員だけが見られるようにするか、
+			リスト管理者だけが見ることができるかを選択できます。
+			\item 会員名簿のアドレスはぼやかしてあって、
+			スパム送信先アドレス収集ソフトウェアが
+			アドレスを収集することが難しくなっています。
+			\item あなたは
+			自分のアドレスを会員名簿で隠すことができます。
+			(くわしくは \ref{sec:nolist}~節を見てください。)
+			\item \note{リスト管理者は、
+			いつでも全会員の名簿を見ることができます。}
+		\end{itemize}
+
+	\item リストの保存書庫
+		\begin{itemize}
+			\item リスト管理者は、保存書庫を公開するか、
+			リスト会員だけが見られるようにする (限定) か、
+			まったく作らないかを選択できます。
+			\item Pipermail (Mailman に標準で含まれている
+			保存書庫作成プログラム) 
+			で作成される HTML 保存書庫では、
+			アドレスはぼやかしてあります。
+%begin general description
+			ほかの保存書庫作成プログラムでも、
+			アドレスを読み取りにくくするいろいろなレベルの
+			ぼやかし機能を持っています。
+%end general description
+			\item メールに \mailheader{X-no-archive} 
+			ヘッダをつけて送ると、Mailman はその投稿を
+			保存書庫に入れません。
+			\warning{ほかの会員があなたの投稿を
+			(場合によってはあなたの電子メールアドレスも含めて)
+			引用することを停められるわけではありません。}
+		\end{itemize}
+
+	\item リストへの投稿の制限
+		\begin{itemize}
+			\item リスト管理者は、
+			だれがリストに投稿できるかを決めることができます。
+			たいていのリストは、司会つき
+			(司会者や管理者がいちいち投稿をチェックする)
+			か、会員のみが投稿できるか、
+			だれでも投稿できるか、のいずれかです。
+			\item 会員のみが投稿できるようにすると、
+			Mailman はほぼすべてのスパムと
+			一部のコンピュータウィルスを遮断して、
+			リストを通じて送られないようにします。
+			そういうわけで、
+			この設定はリスト管理者がよく好んで使います。
+		\end{itemize}
+
+	\item 匿名リスト
+		\begin{itemize}
+			\item リストを完全に匿名にすることもできます。
+			つまり、メッセージを送る前に
+			ヘッダにある送信者を特定するような情報をすべて
+			消すようにできます。
+			\item これは本来、スパム防止のための機能ではありません
+			(ほかの用途があります) が、
+			使いたければこのようにも使えます。
+		\end{itemize}
+\end{itemize}
+
+もちろん、以上のような多くのアドレスぼやかし法は、
+気づいた人たちには出し抜かれてしまうので、
+保護が完璧なものとは言えないことは知っておいてください。
+
+% ============================================================================
+\appendix
+% ----------------------------------------------------------------------------
+\section{電子メールコマンド クイックリファレンス\label{a:commands}}
+\begin{list}{}{}
+    \item {confirm $<$確認文字列$>$}
+               \begin{list}{}{}
+	               \item
+        実行を確認します. 確認文字列は必須で, 確認要求のメールに
+	書かれていなければなりません.
+               \end{list}
+
+    \item end
+               \begin{list}{}{}
+	               \item
+        コマンド処理を停止します. メールソフトが自動的に
+        署名を追加するのなら, これを使ってください.
+               \end{list}
+
+    \item help
+		\begin{list}{}{}
+			\item
+        このヘルプメッセージを要求します.
+		\end{list}
+
+    \item info
+		\begin{list}{}{}
+			\item
+        このメーリングリストについての案内を取り出します.
+		\end{list}
+
+    \item lists
+		\begin{list}{}{}
+			\item
+        この GNU Mailman サーバの公開メーリングリストの一覧を見る.
+		\end{list}
+
+    \item {password [$<$旧パスワード$>$ $<$新パスワード$>$] [address=$<$アドレス$>$]}
+		\begin{list}{}{}
+			\item
+        パスワードを取り出したり変更します. 引数がなければ, この
+        コマンドで現在のパスワードが取り出せます.
+        $<$旧パスワード$>$と$<$新パスワード$>$の引数があるときには, パス
+        ワードを変更します.
+        会員登録されたアドレス以外からメールを送っている場合は,
+        `address=$<$アドレス$>$' (かぎ括弧や引用符は付けないで) で
+        登録アドレスを指定してください. この場合, 返信は登録された
+        アドレスに宛てられることに注意してください.
+		\end{list}
+
+    \item {set ...}
+		\begin{list}{}{}
+			\item
+        会員オプションを設定したり, 確認したりします.
+
+        `set help' (引用符は付けない) で変更可能なオプションの一覧を
+        見ることができます.
+
+        `set show' (引用符は付けない) で現在のオプションを見ることが
+        できます.
+		\end{list}
+
+    \item {subscribe [パスワード] [digest|nodigest] [address=$<$アドレス$>$]}
+		\begin{list}{}{}
+			\item
+        このメーリングリストに入会する. パスワードは退会やオプションの
+        変更に必要ですが, もし省略した場合には自動的に生成されます.
+        パスワードは忘れないように定期的に通知します.
+
+        そのつぎの引数には `nodigest' (通常配送) か `digest' (まとめ読
+        み) のいずれか (引用符は付けない!) を書けます. 入会しようとす
+        るアドレス以外から申請を出すのであれば, `address=$<$アドレス$>$' 
+        を指定してください. (このアドレスには $<$$>$ や " を付けないでく
+        ださい!)
+		\end{list}
+
+    \item {unsubscribe [パスワード] [address=$<$アドレス$>$]}
+		\begin{list}{}{}
+			\item
+        メーリングリストから退会します. もしパスワードを付ける場合,
+        登録されたパスワードに一致しないといけません. パス
+        ワードを省略した場合には, 退会しようとするアドレスに宛てて
+        確認メッセージを発送します. 退会しようとするアドレス以外
+        から申請メールを出すのであれば, `address=$<$アドレス$>$' を
+        指定してください. (このメールアドレスには $<$$>$ や " を付けな
+        いでください!)
+		\end{list}
+
+    \item {who [$<$PASSWORD$>$] [address=$<$ADDRESS$>$]}
+		\begin{list}{}{}
+			\item
+        このメーリングリストの会員名簿を見る. 会員名簿の公開が会員のみに
+        限定されている場合は, あなたの会員パスワードを付けなければなりません.
+        入会しているアドレス以外送っているのであれば, 
+	`address=$<$アドレス$>$' で会員アドレスを
+        指定してください. (このメールアドレスには $<$$>$ や " を付けな
+        いでください!)
+		\end{list}
+\end{list}
+
+% ----------------------------------------------------------------------------
+\section{会員オプションコマンド クイックリファレンス\label{a:options}}
+
+\begin{list}{}{}
+    \item set help
+		\begin{list}{}{}
+			\item
+        この詳しい説明を取り出す.
+		\end{list}
+
+    \item {set show [address=$<$アドレス$>$]}
+		\begin{list}{}{}
+			\item
+        現在のオプション設定を見る. あなたが会員登録アドレス以外
+        からメールを出している場合には, 登録アドレスを
+        `address=$<$アドレス$>$' の形式で指定してください. (括弧や引用符を
+        メールアドレスに付けないように)
+		\end{list}
+
+    \item {set authenticate $<$パスワード$>$ [address=$<$アドレス$>$]}
+		\begin{list}{}{}
+			\item
+        オプションを設定する時には, まずこのコマンドを入れておく必要が
+        あります. $<$パスワード$>$はあなたの会員パスワードです. 会員として
+        登録したアドレス以外からメールを出している場合には, 登録アドレス
+        を `address=$<$アドレス$>$' の形式で指定してください. (括弧や引用符
+        を付けないように)
+		\end{list}
+
+    \item set ack on\\
+    set ack off
+		\begin{list}{}{}
+			\item
+        `ack' オプションを on にすると, あなたがリストにメールを出す
+        度に, 受領確認メッセージを受け取るようになります.
+		\end{list}
+
+    \item set digest plain\\
+    set digest mime\\
+    set digest off
+		\begin{list}{}{}
+			\item
+        `digest' オプションがオフのときは, 投稿されたメッセージをすぐに受け取り
+        ます. 何通かあるいは一定期間, 投稿をまとめて読みたいとき, 
+        これを平文形式 (RFC 1153 ダイジェスト) で受け取りたい場合には
+        `set digest plain' を使ってください. MIME形式のまとめ読みを
+        受け取りたい場合には `set digest mime' にしてください. 
+		\end{list}
+
+    \item set delivery on\\
+    set delivery off
+		\begin{list}{}{}
+			\item
+        配送を on/off します. これは, 退会するのとは違って, 暫くの間
+        Mailman がメール配送を止めるようにするだけです. これは, あなたが
+        休暇をとるときなどに便利でしょう. 休暇から帰ったら,
+        `set delivery on' にするのを忘れないように!
+		\end{list}
+
+    \item set myposts on\\
+    set myposts off
+		\begin{list}{}{}
+			\item
+        `set myposts off' を使うとあなたがこのリストに投稿したメッセージ
+        と同じものは受け取らないようになります. まとめ読みをして
+        いる場合には無効です.
+		\end{list}
+
+    \item set hide on\\
+    set hide off
+		\begin{list}{}{}
+			\item
+        `set hide on' を使うとあなたのメールアドレスが会員名簿には
+        出ないようになります.
+		\end{list}
+
+    \item set duplicates on\\
+    set duplicates off
+		\begin{list}{}{}
+			\item
+        `set duplicates off' にすると, もしあなたのアドレスが明示的に
+        To: または Cc: にあったら, Mailman からはあなたにメッセージを送ら
+        ようにします. そうすることによってあなたが重複して受け取る
+        投稿を減らすことができます.
+		\end{list}
+
+    \item set reminders on\\
+    set reminders off
+		\begin{list}{}{}
+			\item
+        `set reminders off' にすることで, このリストの毎月のパスワード
+        通知を受け取らないようにできます.
+		\end{list}
+\end{list}
+
+\end{document}

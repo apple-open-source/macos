@@ -1,0 +1,88 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:46:59 cpqbld Exp $
+
+
+
+XCOMM $XFree86: xc/nls/XLC_LOCALE/Imakefile,v 1.25 2003/01/15 03:59:47 dawes Exp $
+
+  WCHAR32 = HasWChar32
+
+#ifndef Win32Architecture
+# define LTarget(name)							@@\
+all:: name.lt								@@\
+									@@\
+CppFileTarget(name.lt,name,-DWCHAR32=$(WCHAR32),NullParameter)		@@\
+									@@\
+all:: name.lt								@@\
+	MakeDir($(BUILDLIBDIR)/locale/name)				@@\
+	RemoveFile($(BUILDLIBDIR)/locale/name/XLC_LOCALE)		@@\
+	cd $(BUILDLIBDIR)/locale/name && $(LN) $(BUILDLIBTOP)/../../$(CURRENT_DIR)/name.lt XLC_LOCALE @@\
+									@@\
+InstallNamedNonExec(name.lt,XLC_LOCALE,$(XLOCALEDIR)/name)
+#else
+# define LTarget(name)							@@\
+all:: name.lt								@@\
+									@@\
+CppFileTarget(name.lt,name,-DWCHAR32=$(WCHAR32),NullParameter)		@@\
+									@@\
+all:: name.lt								@@\
+	MakeDir(Concat($(BUILDLIBDIR:/=\)\locale\,name))		@@\
+	RemoveFile(Concat($(BUILDLIBDIR:/=\)\locale\,name\XLC_LOCALE))	@@\
+	cd Concat($(BUILDLIBDIR:/=\)\locale\,name) && $(LN) Concat($(BUILDLIBTOP:/=\)\..\..\$(CURRENT_DIR:/=\)\,name.lt) XLC_LOCALE @@\
+									@@\
+InstallNamedNonExec(name.lt,XLC_LOCALE,$(XLOCALEDIR)/name)
+#endif
+
+LTarget(C)
+LTarget(armscii-8)
+LTarget(en_US.UTF-8)
+LTarget(georgian-academy)
+LTarget(georgian-ps)
+LTarget(ibm-cp1133)
+LTarget(iscii-dev)
+LTarget(isiri-3342)
+LTarget(iso8859-1)
+LTarget(iso8859-2)
+LTarget(iso8859-3)
+LTarget(iso8859-4)
+LTarget(iso8859-5)
+LTarget(iso8859-6)
+LTarget(iso8859-7)
+LTarget(iso8859-8)
+LTarget(iso8859-9)
+LTarget(iso8859-10)
+LTarget(iso8859-11)
+LTarget(iso8859-13)
+LTarget(iso8859-14)
+LTarget(iso8859-15)
+LTarget(iso8859-9e)
+LTarget(ja)
+LTarget(ja.JIS)
+LTarget(ja.SJIS)
+LTarget(ja_JP.UTF-8)
+LTarget(ko)
+LTarget(ko_KR.UTF-8)
+LTarget(koi8-r)
+LTarget(koi8-u)
+LTarget(koi8-c)
+LTarget(microsoft-cp1251)
+LTarget(microsoft-cp1255)
+LTarget(microsoft-cp1256)
+LTarget(mulelao-1)
+LTarget(nokhchi-1)
+LTarget(tatar-cyr)
+LTarget(th_TH)
+LTarget(th_TH.UTF-8)
+LTarget(tscii-0)
+LTarget(vi_VN.tcvn)
+LTarget(vi_VN.viscii)
+LTarget(zh_CN)
+LTarget(zh_CN.gbk)
+LTarget(zh_HK.big5)
+LTarget(zh_HK.big5hkscs)
+LTarget(zh_TW)
+LTarget(zh_TW.big5)
+LTarget(zh_TW.UTF-8)
+#ifdef UXPArchitecture
+LTarget(ja.U90)
+LTarget(ja.S90)
+#endif /* UXPArchitecture */

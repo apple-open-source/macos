@@ -93,6 +93,9 @@
 # endif
 #endif
 
+#include <bsm/libbsm.h>
+#include <bsm/audit_uevents.h>
+
 #include "sudo.h"
 #include "interfaces.h"
 #include "version.h"
@@ -117,6 +120,9 @@ extern char **rebuild_env		__P((int, char **));
 extern char **zero_env			__P((char **));
 extern struct passwd *sudo_getpwnam	__P((const char *));
 extern struct passwd *sudo_getpwuid	__P((uid_t));
+void audit_success(struct passwd *pwd);
+void audit_fail(struct passwd *pwd, char *errmsg);
+
 
 /*
  * Globals
@@ -260,9 +266,11 @@ main(argc, argv, envp)
      * set the real, effective and saved uids to 0 and use set_perms_fallback()
      * instead of set_perms_posix().
      */
+
 #if !defined(NO_SAVED_IDS) && defined(_SC_SAVED_IDS) && defined(_SC_VERSION)
     if (!def_flag(I_STAY_SETUID) && set_perms == set_perms_posix) {
 	if (setuid(0)) {
+	    audit_fail(NULL, "setuid failure");
 	    perror("setuid(0)");
 	    exit(1);
 	}
@@ -283,24 +291,30 @@ main(argc, argv, envp)
 	}
     } else {
 	runas_pw = sudo_getpwnam(*user_runas);
-	if (runas_pw == NULL)
+	if (runas_pw == NULL) {
+	    audit_fail(NULL, "no passwd entry for user");
 	    log_error(NO_MAIL|MSG_ONLY, "no passwd entry for %s!", *user_runas);
+	}
     }
 
     /* This goes after the sudoers parse since we honor sudoers options. */
     if (sudo_mode == MODE_KILL || sudo_mode == MODE_INVALIDATE) {
 	remove_timestamp((sudo_mode == MODE_KILL));
+	/* no need to audit this event */
 	exit(0);
     }
 
-    if (validated & VALIDATE_ERROR)
+    if (validated & VALIDATE_ERROR) {
+	/*  need to audit this event */
 	log_error(0, "parse error in %s near line %d", _PATH_SUDOERS,
 	    errorlineno);
+    }
 
     /* Is root even allowed to run sudo? */
     if (user_uid == 0 && !def_flag(I_ROOT_SUDO)) {
 	(void) fputs("You are already root, you don't need to use sudo.\n",
 	    stderr);
+	/* no need to audit this event */
 	exit(1);
     }
 
@@ -319,8 +333,10 @@ main(argc, argv, envp)
 
     /* Bail if a tty is required and we don't have one.  */
     if (def_flag(I_REQUIRETTY)) {
-	if ((fd = open(_PATH_TTY, O_RDWR|O_NOCTTY)) == -1)
+	if ((fd = open(_PATH_TTY, O_RDWR|O_NOCTTY)) == -1) {
+	    audit_fail(runas_pw, "no tty");
 	    log_error(NO_MAIL, "sorry, you must have a tty to run sudo");
+	}
 	else
 	    (void) close(fd);
     }
@@ -339,29 +355,37 @@ main(argc, argv, envp)
 	/* Finally tell the user if the command did not exist. */
 	if (cmnd_status == NOT_FOUND_DOT) {
 	    (void) fprintf(stderr, "%s: ignoring `%s' found in '.'\nUse `sudo ./%s' if this is the `%s' you wish to run.\n", Argv[0], user_cmnd, user_cmnd, user_cmnd);
+	    audit_fail(runas_pw, "command in current dir");
 	    exit(1);
 	} else if (cmnd_status == NOT_FOUND) {
 	    (void) fprintf(stderr, "%s: %s: command not found\n", Argv[0],
 		user_cmnd);
+	    audit_fail(runas_pw, "Command not found");
 	    exit(1);
 	}
 
 	log_auth(validated, 1);
-	if (sudo_mode == MODE_VALIDATE)
+	if (sudo_mode == MODE_VALIDATE) {
+  	    audit_success(runas_pw);
 	    exit(0);
+	}
 	else if (sudo_mode == MODE_LIST) {
 	    list_matches();
+	    audit_success(runas_pw);
 	    exit(0);
 	}
 
 	/* This *must* have been set if we got a match but... */
 	if (safe_cmnd == NULL) {
+	    audit_fail(runas_pw, "internal error - safe_cmnd");
 	    log_error(MSG_ONLY,
 		"internal error, safe_cmnd never got set for %s; %s",
 		user_cmnd,
 		"please report this error at http://courtesan.com/sudo/bugs/");
 	}
 
+	/* sudo operation succeeded */
+	audit_success(runas_pw);
 	/* Reset signal handlers before we exec. */
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = SA_RESTART;
@@ -405,6 +429,7 @@ main(argc, argv, envp)
 	exit(127);
     } else if ((validated & FLAG_NO_USER) || (validated & FLAG_NO_HOST)) {
 	log_auth(validated, 1);
+	audit_fail(runas_pw, "No user or host");
 	exit(1);
     } else if (validated & VALIDATE_NOT_OK) {
 	if (def_flag(I_PATH_INFO)) {
@@ -426,10 +451,12 @@ main(argc, argv, envp)
 	    /* Just tell the user they are not allowed to run foo. */
 	    log_auth(validated, 1);
 	}
+	audit_fail(runas_pw, "Validation error");
 	exit(1);
     } else {
 	/* should never get here */
 	log_auth(validated, 1);
+	audit_fail(runas_pw, "Validation error");
 	exit(1);
     }
     exit(0);	/* not reached */
@@ -450,6 +477,7 @@ init_vars(sudo_mode)
     if (user_cmnd == NULL && strlen(NewArgv[0]) >= MAXPATHLEN) {
 	(void) fprintf(stderr, "%s: %s: Pathname too long\n", Argv[0],
 	    NewArgv[0]);
+	audit_fail(NULL, "pathname too long");
 	exit(1);
     }
 
@@ -551,6 +579,7 @@ init_vars(sudo_mode)
 	if (user_shell && *user_shell) {
 	    NewArgv[0] = user_shell;
 	} else {
+	    audit_fail(NULL, "unable to determine shell");
 	    (void) fprintf(stderr, "%s: Unable to determine shell.", Argv[0]);
 	    exit(1);
 	}
@@ -980,21 +1009,29 @@ get_authpw()
     struct passwd *pw;
 
     if (def_ival(I_ROOTPW)) {
-	if ((pw = sudo_getpwuid(0)) == NULL)
+	if ((pw = sudo_getpwuid(0)) == NULL) {
+	    audit_fail(NULL, "user does not exist in passwd file");
 	    log_error(0, "uid 0 does not exist in the passwd file!");
+	}
     } else if (def_ival(I_RUNASPW)) {
-	if ((pw = sudo_getpwnam(def_str(I_RUNAS_DEFAULT))) == NULL)
+	if ((pw = sudo_getpwnam(def_str(I_RUNAS_DEFAULT))) == NULL) {
+	    audit_fail(NULL, "user does not exist in passwd file");
 	    log_error(0, "user %s does not exist in the passwd file!",
 		def_str(I_RUNAS_DEFAULT));
+	}
     } else if (def_ival(I_TARGETPW)) {
 	if (**user_runas == '#') {
-	    if ((pw = sudo_getpwuid(atoi(*user_runas + 1))) == NULL)
+	    if ((pw = sudo_getpwuid(atoi(*user_runas + 1))) == NULL) {
+		audit_fail(NULL, "user does not exist in passwd file");
 		log_error(0, "uid %s does not exist in the passwd file!",
 		    user_runas);
+	    }
 	} else {
-	    if ((pw = sudo_getpwnam(*user_runas)) == NULL)
+	    if ((pw = sudo_getpwnam(*user_runas)) == NULL) {
+		audit_fail(NULL, "user does not exist in passwd file");
 		log_error(0, "user %s does not exist in the passwd file!",
 		    user_runas);
+	    }
 	}
     } else
 	pw = sudo_user.pw;
@@ -1006,8 +1043,7 @@ get_authpw()
  * Tell which options are mutually exclusive and exit.
  */
 static void
-usage_excl(exit_val)
-    int exit_val;
+usage_excl(int exit_val)
 {
     (void) fprintf(stderr,
 	"Only one of the -h, -k, -K, -l, -s, -v or -V options may be used\n");
@@ -1018,10 +1054,8 @@ usage_excl(exit_val)
  * Give usage message and exit.
  */
 static void
-usage(exit_val)
-    int exit_val;
+usage(int exit_val)
 {
-
     (void) fprintf(stderr, "usage: sudo -V | -h | -L | -l | -v | -k | -K | %s",
 	"[-H] [-P] [-S] [-b] [-p prompt]\n            [-u username/#uid] ");
 #ifdef HAVE_LOGIN_CAP_H
@@ -1033,3 +1067,121 @@ usage(exit_val)
     (void) fprintf(stderr, "-s | <command>\n");
     exit(exit_val);
 }
+
+/*
+ * Include the following tokens in the audit record for successful sudo operations
+ * header
+ * subject
+ * return
+ */
+void audit_success(struct passwd *pwd)
+{
+	int aufd;
+	token_t *tok;
+	auditinfo_t auinfo;
+	long au_cond;
+	uid_t uid = pwd->pw_uid;
+	gid_t gid = pwd->pw_gid;
+	pid_t pid = getpid();
+
+	/* If we are not auditing, don't cut an audit record; just return */
+	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
+		fprintf(stderr, "sudo: Could not determine audit condition\n");
+		exit(1);
+	}
+	if (au_cond == AUC_NOAUDIT)
+		return;
+
+	if(getaudit(&auinfo) != 0) {
+		fprintf(stderr, "sudo: getaudit failed:  %s\n", strerror(errno));
+		exit(1);
+	}
+
+	if((aufd = au_open()) == -1) {
+		fprintf(stderr, "sudo: Audit Error: au_open() failed\n");
+		exit(1);      
+	}
+
+	/* subject token represents the subject being created */
+	if((tok = au_to_subject32(auinfo.ai_auid, geteuid(), getegid(), 
+			uid, gid, pid, auinfo.ai_asid, &auinfo.ai_termid)) == NULL) {
+		fprintf(stderr, "sudo: Audit Error: au_to_subject32() failed\n");
+		exit(1);      
+	}
+	au_write(aufd, tok);
+
+	if((tok = au_to_return32(0, 0)) == NULL) {
+		fprintf(stderr, "sudo: Audit Error: au_to_return32() failed\n");
+		exit(1);
+	}
+	au_write(aufd, tok);
+
+	if(au_close(aufd, 1, AUE_sudo) == -1) {
+		fprintf(stderr, "sudo: Audit Error: au_close() failed\n");
+		exit(1);
+	}
+	return; 
+}
+
+/*
+ * Include the following tokens in the audit record for failed sudo operations
+ * header
+ * subject
+ * text
+ * return
+ */
+void audit_fail(struct passwd *pwd, char *errmsg)
+{
+	int aufd;
+	token_t *tok;
+	auditinfo_t auinfo;
+	long au_cond;
+	uid_t uid = pwd ? pwd->pw_uid : -1;
+	gid_t gid = pwd ? pwd->pw_gid : -1;
+	pid_t pid = getpid();
+
+	/* If we are not auditing, don't cut an audit record; just return */
+	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
+		fprintf(stderr, "sudo: Could not determine audit condition\n");
+		exit(1);
+	}
+	if (au_cond == AUC_NOAUDIT)
+		return;
+
+	if(getaudit(&auinfo) != 0) {
+		fprintf(stderr, "sudo: getaudit failed:  %s\n", strerror(errno));
+		exit(1);
+	}
+
+	if((aufd = au_open()) == -1) {
+		fprintf(stderr, "sudo: Audit Error: au_open() failed\n");
+		exit(1);      
+	}
+
+	/* subject token corresponds to the subject being created, or -1 if non attributable */
+	if((tok = au_to_subject32(auinfo.ai_auid, geteuid(), getegid(), 
+			uid, gid, pid, auinfo.ai_asid, &auinfo.ai_termid)) == NULL) {
+		fprintf(stderr, "sudo: Audit Error: au_to_subject32() failed\n");
+		exit(1);      
+	}
+	au_write(aufd, tok);
+
+	if((tok = au_to_text(errmsg)) == NULL) {
+		fprintf(stderr, "sudo: Audit Error: au_to_text() failed\n");
+		exit(1);
+	}
+	au_write(aufd, tok);
+
+	if((tok = au_to_return32(1, errno)) == NULL) {
+		fprintf(stderr, "sudo: Audit Error: au_to_return32() failed\n");
+		exit(1);
+	}
+	au_write(aufd, tok);
+
+	if(au_close(aufd, 1, AUE_sudo) == -1) {
+		fprintf(stderr, "sudo: Audit Error: au_close() failed\n");
+		exit(1);
+	}
+	return;
+}
+

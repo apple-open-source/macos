@@ -169,6 +169,7 @@
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -179,6 +180,7 @@
 				0995030C0434DB2B0BCE29CA,
 				099503100434FD1F0BCE29CA,
 				09E4E3FD043BA0B90BCE29CA,
+				2B7DB80F05810D4B005BA39A,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -210,8 +212,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleMacRISC2PE;
-				MODULE_VERSION = 1.4.2b3;
-				OTHER_CFLAGS = "\U0001-fpermissive -D_BIG_ENDIAN";
+				MODULE_VERSION = 1.4.6b1;
+				OTHER_CFLAGS = "\U0001-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = AppleMacRISC2PE;
@@ -225,6 +227,7 @@
 				09E4E3F0043B96510BCE29CA,
 				09E4E3EF043B964F0BCE29CA,
 				09E4E407043BA0C50BCE29CA,
+				2B8F302D058403CE00891BDE,
 			);
 			isa = PBXBundleTarget;
 			name = AppleMacRISC2PE;
@@ -240,7 +243,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleMacRISC2PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleMacRISC2PE version 1.4.2, Copyright 2002-2003 Apple Computer, Inc.</string>
+	<string>AppleMacRISC2PE version 1.4.6, Copyright 2002-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -252,11 +255,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.2</string>
+	<string>1.4.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.2b3</string>
+	<string>1.4.6b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacRISC2CPU</key>
@@ -731,7 +734,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -892,7 +894,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PB6_1_PlatformMonitor;
-				MODULE_VERSION = 1.4.2b1;
+				MODULE_VERSION = 1.4.6b1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -928,11 +930,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.2</string>
+	<string>1.4.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.2b1</string>
+	<string>1.4.6b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PB6_1_PlatformMonitor</key>
@@ -961,7 +963,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		0995030D0434DB2B0BCE29CA = {
 			isa = PBXBundleReference;
@@ -996,7 +997,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.PB5_1_PlatformMonitor;
-				MODULE_VERSION = 1.4.2b1;
+				MODULE_VERSION = 1.4.6b1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1032,11 +1033,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.2</string>
+	<string>1.4.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.2b1</string>
+	<string>1.4.6b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PB5_1_PlatformMonitor</key>
@@ -1065,7 +1066,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		099503110434FD1F0BCE29CA = {
 			buildActionMask = 2147483647;
@@ -1148,6 +1148,7 @@
 				09E4E3ED043B963F0BCE29CA,
 				09E4E3EE043B963F0BCE29CA,
 				09E4E553043D24E90BCE29CA,
+				2B05453E0584FC6F007439B6,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1188,7 +1189,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Portable2003_PlatformMonitor;
-				MODULE_VERSION = 1.4.2b2;
+				MODULE_VERSION = 1.4.6b1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1224,11 +1225,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.2</string>
+	<string>1.4.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.2b2</string>
+	<string>1.4.6b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Portable2003_PlatformMonitor</key>
@@ -1257,7 +1258,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		09E4E3FE043BA0B90BCE29CA = {
 			buildActionMask = 2147483647;
@@ -1387,6 +1387,7 @@
 				0995030D0434DB2B0BCE29CA,
 				099503190434FD1F0BCE29CA,
 				09E4E406043BA0B90BCE29CA,
+				2B7DB81805810D4B005BA39A,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -1422,6 +1423,8 @@
 				632003E403D342CB0FCE15D6,
 				09E4E409043BA0E90BCE29CA,
 				09E4E408043BA0E90BCE29CA,
+				2B8F302B0584013200891BDE,
+				2B8F30290584012800891BDE,
 				B088C5B903E5BD8505CE0DA1,
 			);
 			isa = PBXGroup;
@@ -1434,6 +1437,197 @@
 //242
 //243
 //244
+//2B0
+//2B1
+//2B2
+//2B3
+//2B4
+		2B05453E0584FC6F007439B6 = {
+			fileRef = 2B7DB81805810D4B005BA39A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2B7DB80F05810D4B005BA39A = {
+			buildPhases = (
+				2B7DB81005810D4B005BA39A,
+				2B7DB81105810D4B005BA39A,
+				2B7DB81305810D4B005BA39A,
+				2B7DB81505810D4B005BA39A,
+				2B7DB81605810D4B005BA39A,
+				2B7DB81705810D4B005BA39A,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.Portable2004_PlatformMonitor;
+				MODULE_VERSION = 1.4.6b1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Portable2004_PlatformMonitor;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = Portable2004_PlatformMonitor;
+			productName = PB6_1_PlatformMonitor;
+			productReference = 2B7DB81805810D4B005BA39A;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>Portable2004_PlatformMonitor</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.Portable2004_PlatformMonitor</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Portable2004_PlatformMonitor</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.6</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.4.6b1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>Portable2004_PlatformMonitor</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.Portable2004_PlatformMonitor</string>
+			<key>IOClass</key>
+			<string>Portable2004_PlatformMonitor</string>
+			<key>IONameMatch</key>
+			<string>Portable2004_PlatformMonitor</string>
+			<key>IOProviderClass</key>
+			<string>IOPlatformDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleMacRISC2PE</key>
+		<string>1.3.4</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+</dict>
+</plist>
+";
+		};
+		2B7DB81005810D4B005BA39A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		2B7DB81105810D4B005BA39A = {
+			buildActionMask = 2147483647;
+			files = (
+				2B8F302C0584013200891BDE,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B7DB81305810D4B005BA39A = {
+			buildActionMask = 2147483647;
+			files = (
+				2B8F302A0584012800891BDE,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B7DB81505810D4B005BA39A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B7DB81605810D4B005BA39A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B7DB81705810D4B005BA39A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		2B7DB81805810D4B005BA39A = {
+			isa = PBXBundleReference;
+			path = Portable2004_PlatformMonitor.kext;
+			refType = 3;
+		};
+		2B8F30290584012800891BDE = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Portable2004_PlatformMonitor.cpp;
+			refType = 4;
+		};
+		2B8F302A0584012800891BDE = {
+			fileRef = 2B8F30290584012800891BDE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2B8F302B0584013200891BDE = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Portable2004_PlatformMonitor.h;
+			refType = 4;
+		};
+		2B8F302C0584013200891BDE = {
+			fileRef = 2B8F302B0584013200891BDE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		2B8F302D058403CE00891BDE = {
+			isa = PBXTargetDependency;
+			target = 2B7DB80F05810D4B005BA39A;
+		};
+//2B0
+//2B1
+//2B2
+//2B3
+//2B4
 //630
 //631
 //632
@@ -1515,7 +1709,6 @@
 			productInstallPath = /usr/local/bin;
 			productName = PFParse;
 			productReference = B00EEA8E0416BED705CE0DA1;
-			shouldUseHeadermap = 0;
 		};
 		B00EEA8E0416BED705CE0DA1 = {
 			isa = PBXExecutableFileReference;
@@ -1654,8 +1847,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOPlatformFunction;
-				MODULE_VERSION = 1.4.2b1;
-				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
+				MODULE_VERSION = 1.4.6b1;
+				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOPlatformFunction;
@@ -1680,7 +1873,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPlatformFunction</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOPlatformVersion version 1.4.2, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOPlatformVersion version 1.4.6, Copyright 2003-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1692,11 +1885,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.2</string>
+	<string>1.4.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.2b1</string>
+	<string>1.4.6b1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOPlatformFunctionDriver</key>
@@ -1727,7 +1920,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		B088C5B403E5BABE05CE0DA1 = {
 			isa = PBXBundleReference;

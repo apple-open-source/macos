@@ -1974,7 +1974,7 @@ void RenderObject::updateWidgetPositions()
 }
 #endif
 
-void RenderObject::collectBorders(QPtrList<CollapsedBorderValue>& borderStyles)
+void RenderObject::collectBorders(QValueList<CollapsedBorderValue>& borderStyles)
 {
     for (RenderObject* curr = firstChild(); curr; curr = curr->nextSibling())
         curr->collectBorders(borderStyles);

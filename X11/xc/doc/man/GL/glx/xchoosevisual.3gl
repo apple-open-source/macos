@@ -1,0 +1,225 @@
+'\"! eqn | mmdoc
+'\"macro stdmacro
+.ds Vn Version 1.2
+.ds Dt 6 March 1997
+.ds Re Release 1.2.0
+.ds Dp Feb 16 02:56
+.ds Dm  Feb 10 17:2
+.ds Xs 58988 14 xchoosevisual.gl
+.TH GLXCHOOSEVISUAL
+.SH NAME
+glXChooseVisual
+\- return a visual that matches specified attributes
+
+.SH C SPECIFICATION
+XVisualInfo* \f3glXChooseVisual\fP(
+Display \fI*dpy\fP,
+.nf
+.ta \w'\f3XVisualInfo* \fPglXChooseVisual( 'u
+	int \fIscreen\fP,
+	int \fI*attribList\fP )
+.fi
+
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+.TP \w'\fIattribList\fP\ \ 'u 
+\f2dpy\fP
+Specifies the connection to the X server.
+.TP
+\f2screen\fP
+Specifies the screen number.
+.TP
+\f2attribList\fP
+Specifies a list of boolean attributes and integer attribute/value pairs.
+The last attribute must be \f3None\fP.
+.SH DESCRIPTION
+\f3glXChooseVisual\fP returns a pointer to an XVisualInfo structure describing the visual
+that best meets a minimum specification.
+The boolean GLX attributes of the visual that is returned will match the
+specified values,
+and the integer GLX attributes will meet or exceed the specified
+minimum values. 
+If all other attributes are equivalent, then TrueColor and PseudoColor
+visuals have priority over DirectColor and StaticColor visuals,
+respectively.
+If no conforming visual exists, \f3NULL\fP is returned.
+To free the data returned by this function, use \f3XFree\fP.
+.P
+All boolean GLX attributes default to \f3False\fP
+except \f3GLX_USE_GL\fP,
+which defaults to \f3True\fP.
+All integer GLX attributes default to zero.
+Default specifications are superseded by attributes included in \f2attribList\fP.
+Boolean attributes included in \f2attribList\fP are understood to be \f3True\fP.
+Integer attributes and enumerated type attributes are followed immediately 
+by the corresponding desired or
+minimum value.
+The list must be terminated with \f3None\fP.
+.P
+The interpretations of the various GLX visual attributes are as follows:
+.TP 22
+\f3GLX_USE_GL\fP
+Ignored.
+Only visuals that can be rendered with GLX are considered.
+.TP
+\f3GLX_BUFFER_SIZE\fP
+Must be followed by a nonnegative integer that indicates the desired
+color index buffer size.
+The smallest index buffer of at least the specified size is preferred.
+Ignored if \f3GLX_RGBA\fP is asserted.
+.BP
+.TP
+\f3GLX_LEVEL\fP
+Must be followed by an integer buffer-level specification.
+This specification is honored exactly.
+Buffer level zero corresponds to the main frame buffer of the display.
+Buffer level one is the first overlay frame buffer, level two the second
+overlay frame buffer, and so on.
+Negative buffer levels correspond to underlay frame buffers.
+.TP
+\f3GLX_RGBA\fP
+If present,
+only TrueColor and DirectColor visuals are considered.
+Otherwise,
+only PseudoColor and StaticColor visuals are considered.
+.TP
+\f3GLX_DOUBLEBUFFER\fP
+If present,
+only double-buffered visuals are considered.
+.BR
+Otherwise,
+only single-buffered visuals are considered.
+.TP
+\f3GLX_STEREO\fP
+If present,
+only stereo visuals are considered.
+Otherwise,
+only monoscopic visuals are considered.
+.TP
+\f3GLX_AUX_BUFFERS\fP
+Must be followed by a nonnegative integer that indicates the desired
+number of auxiliary buffers.
+Visuals with the 
+.BR
+smallest number of auxiliary buffers that meets or exceeds
+the specified number are preferred.
+.TP
+\f3GLX_RED_SIZE\fP
+Must be followed by a nonnegative minimum size specification.
+If this value is zero,
+the smallest available red buffer is preferred.
+Otherwise, the largest available red buffer of at least the minimum size
+is preferred.
+.TP
+\f3GLX_GREEN_SIZE\fP
+Must be followed by a nonnegative minimum size specification.
+If this value is zero,
+the smallest available green buffer is preferred.
+Otherwise, the largest available green buffer of at least the minimum size
+is preferred.
+.TP
+\f3GLX_BLUE_SIZE\fP
+Must be followed by a nonnegative minimum size specification.
+If this value is zero,
+the smallest available blue buffer is preferred.
+Otherwise, the largest available blue buffer of at least the minimum size
+is preferred.
+.TP
+\f3GLX_ALPHA_SIZE\fP
+Must be followed by a nonnegative minimum size specification.
+If this value is zero,
+the smallest available alpha buffer is preferred.
+Otherwise, the largest available alpha buffer of at least the minimum size
+is preferred.
+.TP
+\f3GLX_DEPTH_SIZE\fP
+Must be followed by a nonnegative minimum size specification.
+If this value is zero,
+visuals with no depth buffer are preferred.
+Otherwise, the largest available depth buffer of at least the minimum size
+is preferred.
+.TP
+\f3GLX_STENCIL_SIZE\fP
+Must be followed by a nonnegative integer that indicates the desired
+number of stencil bitplanes.
+The smallest stencil buffer of at least the specified size is preferred.
+If the desired value is zero,
+visuals with no stencil buffer are preferred.
+.TP
+\f3GLX_ACCUM_RED_SIZE\fP
+Must be followed by a nonnegative minimum size specification.
+If this value is zero,
+visuals with no red accumulation buffer are preferred.
+Otherwise, the largest possible red accumulation buffer
+of at least the minimum size is preferred.
+.TP
+\f3GLX_ACCUM_GREEN_SIZE\fP
+Must be followed by a nonnegative minimum size specification.
+If this value is zero,
+visuals with no green accumulation buffer are preferred.
+Otherwise, the largest possible green accumulation buffer
+of at least the minimum size is preferred.
+.TP
+\f3GLX_ACCUM_BLUE_SIZE\fP
+Must be followed by a nonnegative minimum size specification.
+If this value is zero,
+visuals with no blue accumulation buffer are preferred.
+Otherwise, the largest possible blue accumulation buffer
+of at least the minimum size is preferred.
+.TP
+\f3GLX_ACCUM_ALPHA_SIZE\fP
+Must be followed by a nonnegative minimum size specification.
+If this value is zero,
+visuals with no alpha accumulation buffer are preferred.
+Otherwise, the largest possible alpha accumulation buffer
+of at least the minimum size is preferred.
+.TE
+.SH EXAMPLES
+.TP 12
+\f2attribList\fP =
+{\f3GLX_RGBA\fP,
+\f3GLX_RED_SIZE\fP, 4,
+\f3GLX_GREEN_SIZE\fP, 4,
+\f3GLX_BLUE_SIZE\fP, 4,
+\f3None\fP};
+.P
+Specifies a single-buffered RGB visual in the normal frame buffer,
+not an overlay or underlay buffer.
+The returned visual supports at least four bits each of red,
+green, and blue,
+and possibly no bits of alpha.
+It does not support color index mode,
+double-buffering, or stereo display.
+It may or may not have one or more auxiliary color buffers,
+a depth buffer,
+a stencil buffer,
+or an accumulation buffer.
+.SH NOTES
+\f3XVisualInfo\fP is defined in \f2Xutil.h.\fP
+It is a structure that includes \f2visual\fP, \f2visualID\fP, \f2screen\fP, and
+\f2depth\fP elements.
+.P
+\f3glXChooseVisual\fP is implemented as a client-side utility using only \f3XGetVisualInfo\fP
+and \f3glXGetConfig\fP.
+Calls to these two routines can be used to implement selection algorithms
+other than the generic one implemented by \f3glXChooseVisual\fP.
+.P
+GLX implementers are strongly discouraged,
+but not proscribed,
+from changing the selection algorithm used by \f3glXChooseVisual\fP.
+Therefore, selections may change from release to release
+of the client-side library.
+.P
+There is no direct filter for picking only visuals that
+support GLXPixmaps.
+GLXPixmaps are supported for visuals whose
+\f3GLX_BUFFER_SIZE\fP
+is one of the pixmap depths supported by the X server.
+.SH ERRORS
+\f3NULL\fP is returned if an undefined GLX attribute is encountered in
+\f2attribList\fP.
+.SH SEE ALSO
+\f3glXCreateContext\fP,
+\f3glXGetConfig\fP

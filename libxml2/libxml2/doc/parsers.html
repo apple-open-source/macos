@@ -1,0 +1,65 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html">
+  <style type="text/css">
+  </style>
+  <title>Libxml2 Parsers Interfaces tutorial</title>
+</head>
+
+<body bgcolor="#fffacd" text="#000000">
+<h1 align="center">Libxml2 Parsers Interfaces tutorial</h1>
+
+<p></p>
+
+<p>This document provides an overview of the the different parsers interfaces
+provided by libxml2. There is 2 parsers available to deal with both XML and
+HTML, which can be used with 3 groups of APIs offering callbacks, streaming
+or tree results, and then there is different ways to provide the data to the
+parser. This document describes the set of interfaces available in version
+2.6.5:</p>
+<ul>
+  <li><a href="#Descriptio">Description of the parsers</a></li>
+  <li><a href="#callback">The callback based SAX(2) interface</a></li>
+  <li><a href="#xmlReader">The xmlReader interface</a></li>
+  <li><a href="#tree">The tree interface</a></li>
+  <li><a href="#Parser">Parser in pull mode</a></li>
+  <li><a href="#Parser1">Parser in push mode</a></li>
+</ul>
+
+<h2><a name="Descriptio">Description of the parsers</a></h2>
+
+<p>The parser are the core piece of the library which consumes the data,
+analyze and check the content and structure and returns the the informations
+and errors in a structured fashion to the application. The C structure <a
+href="html/libxml-tree.html#xmlParserCtxt">xmlParserCtxt </a>driving this
+process is public but should rather be used through the available APIs. It is
+the same for the HTML and XML parsers though most of the data are used only
+for XML parsing.</p>
+
+<h2><a name="callback">The callback based SAX(2) interface</a></h2>
+
+<p>The SAX callback interface is the lowest level interface available from
+the parsers, all the  other interfaces are actually built on top of this very
+low level layer. It is really fast but somewhat complex due to the callback
+programming model and lack of advanced features like validation. The
+principle is that as the parser is making progresses through the document
+data it will indicate the application of the informations found using
+callback registered when building the parser. </p>
+
+<h2><a name="xmlReader">The xmlReader interface</a></h2>
+
+<h2><a name="tree">The tree interface</a></h2>
+
+<h2><a name="Parser">Parser in pull mode</a></h2>
+
+<h2><a name="Parser1">Parser in push mode</a></h2>
+
+<p><a href="mailto:veillard@redhat.com">Daniel Veillard</a></p>
+
+<p>$Id: parsers.html,v 1.1.1.1 2004/02/26 20:58:30 rbraun Exp $</p>
+
+<p></p>
+</body>
+</html>

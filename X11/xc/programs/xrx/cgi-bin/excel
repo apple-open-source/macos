@@ -1,0 +1,228 @@
+#!/usr/local/bin/perl
+# $Xorg: excel,v 1.3 2000/08/17 19:54:57 cpqbld Exp $
+# CGI script to launch excel
+#
+
+# define every program we are going to use
+$project_root = "XPROJECT_ROOT";
+$command = "/usr/bin/rsh WINCENTERHOST wincenter";
+$xfindproxy = $project_root . "/bin/xfindproxy";
+
+# address of our proxy manager
+$proxymngr = "XPROXYMNGR";
+
+# make stderr and stdout unbuffered so nothing get lost
+select(STDERR); $| = 1;
+select(STDOUT); $| = 1;
+
+# print out header to content httpd no matter what happens later on
+print "Content-type: text/plain\r\n\r\n";
+
+# let's try not to leave any file behind us if things go really wrong
+sub handler {  # 1st argument is signal name
+    local($sig) = @_;
+    # send error code first and error msg then
+    print "1\n";
+    print "Error: Caught a SIG$sig -- Oops!\n";
+    system "rm -f /tmp/*$$";
+    exit(0);
+}
+
+$SIG{'INT'} = 'handler';
+$SIG{'QUIT'} = 'handler';
+$SIG{'TERM'} = 'handler';
+$SIG{'KILL'} = 'handler';
+$SIG{'STOP'} = 'handler';
+# this one is perhaps the most important one, since this is what we should get
+# when the user interrupts the GET request.
+$SIG{'PIPE'} = 'handler';
+
+
+######################
+# sub procedures
+######################
+
+# parse an url param of the form: proto:display[;param]
+sub parse_url {
+    local($input, *proto_ret, *display_ret, *param_ret) = @_;
+
+    # extract param first
+    ($sub_url, $param_ret) = split(/;/, $input, 2);
+    # then extract proto and display
+    ($proto_ret, $display_ret) = split(/:/, $sub_url, 2);
+    
+}
+
+# parse an auth param of the form: auth=name:key
+sub parse_auth {
+    local($input, *name_ret, *key_ret) = @_;
+
+    if ($input) {
+	($param_name, $param_value) = split(/=/, $input, 2);
+	if ($param_name eq "auth") {
+	    ($name_ret, $key_ret) = split(/:/, $param_value, 2);
+	}
+    }
+}
+
+# parse an LBX param of the form: either NO or YES[;auth=...]
+sub parse_lbx_param {
+    local($input, *lbx_ret, *lbx_auth_name_ret, *lbx_auth_key_ret) = @_;
+
+    ($lbx_ret, $lbxparam) = split(/;/, $input, 2);
+    if ($lbx_ret eq "YES") {
+	# look for an authentication auth in param
+	&parse_auth($lbxparam, *lbx_auth_name_ret, *lbx_auth_key_ret);
+    }
+}
+
+# setup proxy with possible auth, change display parameter when succeeding
+sub setup_lbx_proxy {
+    local(*display, $auth_name, $auth_key) = @_;
+
+    # setup auth file for xfindproxy
+    if ($auth_name && $auth_key) {
+	$proxy_input = "/tmp/xlbxauth.$$";
+	open(PROXYINPUT, ">$proxy_input");
+	print PROXYINPUT "$auth_name\n$auth_key\n";
+	close(PROXYINPUT);
+	$findproxy_param = " -auth <$proxy_input";
+    } else {
+	$findproxy_param = "";
+    }
+
+    # remove screen number specification if there is one
+    ($host, $tmp) = split(/:/, $display);
+    ($dpy, $screen) = split(/\./, $tmp);
+    $server = $host . ":" . $dpy;
+
+    # let's get an LBX proxy
+    open(PROXY, "$xfindproxy -manager $proxymngr -server $server -name LBX $findproxy_param|");
+    # get the proxy address from xfindproxy output
+    while (<PROXY>) {
+	chop;
+	($proxy_dpy, $proxy_port) = split(/:/, $_);
+	if ($proxy_dpy && $proxy_port) {
+	    # build up the new display name
+	    $display = $proxy_dpy . ":" . $proxy_port;
+	    if ($screen) {
+		$display .= "." . $screen;
+	    }
+	    last;
+	}
+    }
+    close(PROXY);
+
+    if ($proxy_input) {
+	system "rm -f $proxy_input";
+    }
+}
+
+######################
+# the main thing now
+######################
+
+
+# handle both ways of getting query
+if ($ENV{'QUERY_STRING'})
+{
+    $query = $ENV{'QUERY_STRING'};
+} else {
+    $query = $ARGV[0];
+}
+
+if ($query)
+{
+    $cleanup = "";
+
+    # parse params
+    %params = split(/\?/, $query);
+    foreach $param (split(/\?/, $query)) {
+
+	($name, $value) = split(/=/, $param, 2);
+	if ($name eq "WIDTH") {
+	    $width = $value;
+	} elsif ($name eq "HEIGHT") {
+	    $height = $value;
+	} elsif ($name eq "UI") {
+	    # look at what we got for the UI parameter, it should be of the
+	    # form: x11:hostname:dpynum[.screen][;auth=...]
+	    &parse_url($value, *proto, *display, *ui_param);
+	    if ($proto eq 'x11') {
+		$xdisplay = $display;
+	    } else {
+		# unknown UI protocol!!
+	    }
+	    # look for an authentication auth in param
+	    &parse_auth($ui_param, *xui_auth_name, *xui_auth_key);
+
+	} elsif ($name eq "X-UI-LBX") {
+	    &parse_lbx_param($value, *xui_lbx,
+			     *xui_lbx_auth_name, *xui_lbx_auth_key);
+	}
+    }
+
+    # process params
+    if ($xdisplay) {
+
+	if ($xui_lbx eq "YES") {
+	    &setup_lbx_proxy(*xdisplay, $xui_lbx_auth_name, $xui_lbx_auth_key);
+	}
+	if ($xui_auth_name && $xui_auth_key) {
+	    $command .= " -auth $xdisplay $xui_auth_name $xui_auth_key";
+	}
+	# add display specification to the command line
+	$command .= " -display $xdisplay";
+	# and put it in the environment too for good measure.
+	$ENV{'DISPLAY'} = $xdisplay;
+    }
+    if ($width && $height) {
+	# add geometry specification to the command line
+	$command .= " -geometry ${width}x${height}";
+    }
+    $command .= " -username IUSR_WINDY -password broadway -colors 16 -- C:/MSOffice/Excel/EXCEL.EXE C:/MSOffice/Excel/Examples/SAMPLES.XLS";
+
+    # Start application followed by a cleanup command in the background.
+    # The ouput and input need to be redirected, otherwise the CGI process will
+    # be kept alive by the http server and the browser will keep waiting for
+    # the end of the stream...
+    # Catching application's failure is not easy since we want to run it in
+    # background and therefore we can't get its exit status. However, we can
+    # catch obvious errors by logging its output and after some time looking
+    # at whether the application is still running or not. This is determine
+    # based on some kind of "lock" file.
+    # This is quite complicated but it allows to get some error report without
+    # leaving any file behind us in any case.
+
+    $LOCK= "/tmp/lock.$$";
+    $LOG= "/tmp/log.$$";
+    $LOG2 = "/tmp/log2.$$";
+    system "(touch $LOCK; _s=true; $command >$LOG 2>&1 || _s=false; if \$_s; then rm $LOG; else rm $LOCK; fi; if [ -f $LOG2 ]; then rm $LOG2; fi; $cleanup) >/dev/null 2>&1 </dev/null &";
+
+    # sleep for a while to let the application start or fail
+    # it's up to you to decide how long it could for the application to fail...
+    sleep(5);
+
+    # now lets see if the application died
+    if (open(LOCK, "<$LOCK")) {
+	close(LOCK);
+	# the application seems to be running, remove lock and rename the log
+	# so that it gets removed no matter how the application exits later on
+	system "rm $LOCK; mv $LOG $LOG2";
+	# send success error code as reply
+	print "0\n";
+    } else {
+	# the lock file is gone, for sure the application has failed so send
+	# back error code and log
+	print "1\n";
+	system "cat $LOG; rm $LOG";
+    }
+
+} else {
+
+    # reply with an error message
+    print "This script requires to be given the proper RX arguments
+to run successfully.
+";
+
+}

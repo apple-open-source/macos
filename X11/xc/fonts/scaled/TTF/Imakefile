@@ -1,0 +1,27 @@
+XCOMM $XFree86: xc/fonts/scaled/TTF/Imakefile,v 1.4 2002/05/22 04:30:13 keithp Exp $
+
+FONTS = luximb.ttf luximbi.ttf luximr.ttf luximri.ttf \
+        luxirb.ttf luxirbi.ttf luxirr.ttf luxirri.ttf \
+        luxisb.ttf luxisbi.ttf luxisr.ttf luxisri.ttf
+
+OBJS = $(FONTS)
+
+FONTINSTDIR = $(FONTDIR)/TTF
+
+MakeFontsDir(fonts.scale)
+
+#if UseFreetype2
+MakeFcCache($(FONTS))
+#endif
+
+InstallFonts($(FONTINSTDIR))
+InstallFontScale($(FONTINSTDIR))
+InstallEncodingsDir($(ENCODINGSSRC),$(FONTINSTDIR))
+#if UseFreetype2
+InstallFcCache($(FONTINSTDIR))
+#endif
+
+#ifdef IHaveSubdirs
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif

@@ -1,0 +1,103 @@
+##
+# $Xorg: README,v 1.3 2000/08/17 19:42:16 cpqbld Exp $
+##
+## 
+## Copyright (c) 1990, 1991 by Sun Microsystems, Inc.
+## 
+##                         All Rights Reserved
+## 
+## Permission to use, copy, modify, and distribute this software and its 
+## documentation for any purpose and without fee is hereby granted, 
+## provided that the above copyright notice appear in all copies and that
+## both that copyright notice and this permission notice appear in 
+## supporting documentation, and that the name of Sun Microsystems
+## not be used in advertising or publicity 
+## pertaining to distribution of the software without specific, written 
+## prior permission.  
+## 
+## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+## PERFORMANCE OF THIS SOFTWARE.
+##
+## Copyright (c) 1990, 1991 X Consortium
+##
+## Permission is hereby granted, free of charge, to any person obtaining
+## a copy of this software and associated documentation files (the
+## ``Software''), to deal in the Software without restriction, including
+## without limitation the rights to use, copy, modify, merge, publish,
+## distribute, sublicense, and/or sell copies of the Software, and to
+## permit persons to whom the Software is furnished to do so, subject to
+## the following conditions:
+##
+## The above copyright notice and this permission notice shall be
+## included in all copies or substantial portions of the Software.
+##
+## THE SOFTWARE IS PROVIDED ``AS IS'', WITHOUT WARRANTY OF ANY KIND,
+## EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+## MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+## IN NO EVENT SHALL THE X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR
+## OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+## ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+## OTHER DEALINGS IN THE SOFTWARE.
+##
+## Except as contained in this notice, the name of the X Consortium shall
+## not be used in advertising or otherwise to promote the sale, use or
+## other dealings in this Software without prior written authorization
+## from the X Consortium.
+
+
+			PEX-SI Porting Guide
+
+This document is intended for those users who wish to modify the PEX-SI.
+It is an extension of the Architecture Specification, and it provides
+implementation specific information that will help you to compile, port, and
+customize the PEX-SI.
+
+This document is still in progress. It does contain a lot of good information,
+and is organized fairly well.  We hope you find it useful.
+
+This directory contains the PostScript files you need to print the User Guide.  
+
+	cover.ps -- The cover sheet
+	contents.ps -- The table of contents
+	tables.ps -- The list of tables
+	figures.ps -- The list of figures
+	doc.ps -- The chapter and appendix body pages.
+	index.ps -- The index
+
+On most systems you can use lpr to print the files.  You should print in the 
+order listed above so you do not have to collate.  The document is designed 
+to be double sided, and each part of the document (i.e. table of contents, 
+tables and figures listings, chapters and index) begins on an odd page number.  
+You may have to supply some blank pages before copying.
+
+This directory also contains the document troff source files. The document 
+consists of 6 files:
+
+   cover -- The cover sheet
+   intro.pg -- The introduction, including the compile options.
+   api.pg -- 2 chapters covering the porting issues of PEX-API and InsPEX.
+   server.pg -- An introduction to porting the server, inc. diPEX and osPEX.
+   resources.pg -- 3 chapters covering the 3 upper level modules of PEX-ME.
+   trans_rend.pg -- 2 chapters covering the Transformation & Rendering modules.
+
+In addition, this directory contains this README and a Makefile.  The targets
+included in the Makefile are:
+
+	all --	Troffs all document files into dit (device independent troff) files.
+		It also creates an index, table of contents, and table and figure 
+		listings.  The resultant files are cover.dit, contents.dit 
+		(table of contents), tables.dit, figures.dit, doc.dit (all chapters), 
+		and index.dit. 
+
+		Note: You will have to provide your own mechanism for converting
+		the files to PostScript files if you are going to use the Makefile. 
+
+	clean -- If you modify the text in anyway and want to `re-make' the
+		document, you should first do a ``make clean'' before doing a 
+		``make all''.  This target will remove all dit files, the 
+		slush.file and the outline file created in the previous make.

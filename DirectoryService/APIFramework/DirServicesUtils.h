@@ -352,6 +352,16 @@ tDirStatus		dsGetRecordNameFromEntry	(	tRecordEntryPtr inRecEntryPtr, char **out
  */
 tDirStatus		dsGetRecordTypeFromEntry	(	tRecordEntryPtr inRecEntryPtr, char **outRecType );
 
+/*!
+ * @function dsParseAuthAuthority
+ * Pass in a complete authentication authority attribute
+ * format is version;tag;data
+ * retrieve version, tag, and data as separate strings
+ * Memory for the char** parameters is the responsibility of the client
+ * and can be cleaned up using free().
+ */
+tDirStatus dsParseAuthAuthority( const char *inAuthAuthority, char **outVersion, char **outAuthTag, char **outAuthData );
+
 #ifdef __cplusplus
 }
 #endif

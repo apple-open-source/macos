@@ -1,0 +1,35 @@
+#       Makefile for FTIFI using IBM VisualAge C++
+#
+# Explanation of compiler switches used:
+#  -C        compile only, do not link
+#  -Sp1      pack structures on byte boundaries (quite important)
+#  -Ss       accept double slash (//) comments
+#  -Ge-      build a DLL
+#  -Rn       build a subsystem DLL; means that a special C library is
+#            linked and some calls cannot be used
+#  -Fo<name> create object file <name>
+#  -O+       optimizations on
+#  -G4       optimize for 486 (should be better for my 6x86MX, produces smaller
+#            code than Pentium optimization)
+# Linker switches used:
+#  /DE       include debug info in executable
+#  /NOE      no extended dictionary search
+#  /E:2      exepack (for Warp 3 and higher)
+#  /A:32     align pages of code on 32-byte boundaries (makes smaller file)
+#  /DBGPACK  pack debug info
+
+# uncomment ICCR and LNKR to build a release version
+ICCR=-O+ -G4
+LNKR=/PACKC /PACKD /M /A:32 /E:2
+# uncomment ICCD and LNKD to build a debug version. Note that debug and
+# release version is not mutually exclusive in this case.
+#ICCD=-Ti+ -DDEBUG
+#ICCD=-Ti+
+#LNKD=/DE /DBGPACK /M
+
+
+FreeType.dll:       $*.obj $*.def ..\lib\libttf.lib
+   ilink /NOE $(LNKD) $(LNKR) $*.obj ..\lib\libttf.lib libconv.lib $*.def
+
+FreeType.obj:       ftifi.c ftifi.h FreeType.icc
+   icc $(ICCD) $(ICCR) -C -Sp1 -Ss -Ge- -Rn -FoFreeType -I..\lib -I..\lib\extend -I..\lib\arch\os2 ftifi.c

@@ -1,0 +1,290 @@
+XCOMM $XConsortium: Imakefile /main/34 1996/10/27 11:05:08 kaleb $
+
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/common/Imakefile,v 3.148 2003/02/17 17:06:41 dawes Exp $
+
+
+
+#include <Server.tmpl>
+
+#ifdef i386MachArchitecture
+#ifdef GNUMachArchitecture
+        KBD = xf86Kbd
+#else
+        KBD = xf86KbdMach
+#endif /* GNUMachArchitecture */
+#else
+# if defined(i386BsdArchitecture) || defined(AlphaBsdArchitecture) \
+	|| defined(OpenBSDArchitecture) || defined(NetBSDArchitecture)
+        KBD = xf86KbdBSD
+# else
+#  ifdef LinuxArchitecture
+        KBD = xf86KbdLnx
+#  else
+        KBD = xf86Kbd
+#  endif
+# endif
+#endif
+
+#ifdef SparcArchitecture
+        SBUSSRC = xf86sbusBus.c
+        SBUSOBJ = xf86sbusBus.o
+#endif
+
+#if BuildXKB
+     XKBDDXSRC = xf86XKB.c
+     XKBDDXOBJ = xf86XKB.o
+#endif
+
+#if BuildDebug
+     DEBUGSRC = xf86Debug.c
+     DEBUGOBJ = xf86Debug.o
+#endif
+
+#if BuildXInputExt
+ XF86_XINPUT_SRC = xf86Xinput.c xisb.c
+ XF86_XINPUT_OBJ = xf86Xinput.o xisb.o
+#endif
+
+#if BuildRandR
+ RANDRINCS = -I../../../randr
+  RANDRSRC = xf86RandR.c
+  RANDROBJ = xf86RandR.o
+#endif
+
+MODPATHDEFINES = -DDEFAULT_MODULE_PATH=\"$(MODULEDIR)\"
+LOGDEFINES = -DDEFAULT_LOGPREFIX=\"$(LOGDIRECTORY)/XLogFile.\"
+
+#if DoLoadableServer
+EXT_MODULES_DEFINES = $(GLX_DEFINES)
+#endif
+
+#if UseMemLeak
+MDEBUGDEFS = -DMEMDEBUG
+#endif
+
+#ifndef XF86ExpireServer
+#define XF86ExpireServer	NO
+#endif
+
+#if XF86ExpireServer
+      BETASRC = xf86Beta.c
+      BETAOBJ = xf86Beta.o
+     BETADEFS = -DDO_CHECK_BETA
+#ifndef NeedXF86Beta
+#define NeedXF86Beta YES
+#endif
+#endif
+
+#ifndef NeedXF86Beta
+#define NeedXF86Beta NO
+#endif
+
+#if XF86ExpireServer
+EXP_FORCE_DEFINES = -DSHOW_BETA_MESSAGE -DEXPIRE_SERVER
+#endif
+
+SRCS =	\
+	xf86Configure.c \
+	xf86Bus.c \
+	xf86isaBus.c \
+	xf86pciBus.c \
+	xf86fbBus.c \
+	xf86noBus.c \
+	xf86IniExt.c \
+	xf86Config.c \
+	xf86Cursor.c \
+	xf86DGA.c \
+	xf86DPMS.c \
+	xf86DefModeSet.c \
+	xf86DoProbe.c \
+	xf86DoScanPci.c \
+	xf86Events.c \
+	xf86Globals.c \
+	xf86Helper.c \
+	xf86Init.c \
+	xf86Io.c \
+	xf86MiscExt.c \
+	xf86Mode.c \
+	xf86Option.c \
+	xf86VidMode.c \
+	xf86fbman.c \
+	xf86xv.c \
+	xf86xvmc.c \
+	xf86cmap.c\
+	xf86PM.c \
+	$(DEBUGSRC) \
+	$(KBD).c \
+	$(SBUSSRC) \
+	$(XF86_XINPUT_SRC) \
+	$(XINPUT_DEV_SRCS) \
+	$(XKBDDXSRC) \
+	$(BETASRC) \
+	$(SERVERSRCS) \
+        $(RANDRSRC)
+
+OBJS = \
+	xf86Configure.o \
+	xf86Bus.o \
+	xf86isaBus.o \
+	xf86pciBus.o \
+	xf86fbBus.o \
+	xf86noBus.o \
+	xf86Config.o \
+	xf86Cursor.o \
+	xf86DGA.o \
+	xf86DPMS.o \
+	xf86DefModeSet.o \
+	xf86DoProbe.o \
+	xf86DoScanPci.o \
+	xf86Events.o \
+	xf86Globals.o \
+	xf86Helper.o \
+	xf86Io.o \
+	xf86MiscExt.o \
+	xf86Mode.o \
+	xf86Option.o \
+	xf86VidMode.o \
+	xf86fbman.o \
+	xf86xv.o \
+	xf86xvmc.o \
+	xf86cmap.o\
+	xf86PM.o \
+	$(DEBUGOBJ) \
+	$(SBUSOBJ) \
+	$(XF86_XINPUT_OBJ) \
+	$(XKBDDXOBJ) \
+	$(BETAOBJ) \
+	$(KBD).o \
+        $(RANDROBJ)
+
+OFILES = \
+	xf86Init.o \
+	xf86IniExt.o
+
+   VGAINCLUDES = -I$(XF86SRC)/vgahw
+   INCLUDES =	-I. -I$(XF86OSSRC) -I$(XF86OSSRC)/bus -I$(SERVERSRC)/mfb \
+		-I$(SERVERSRC)/mi -I$(SERVERSRC)/include -I$(SERVERSRC)/os \
+		-I$(XINCLUDESRC) -I$(SERVERSRC)/Xext -I$(EXTINCSRC) \
+		-I$(SERVERSRC)/Xi -I$(XF86SRC)/ddc -I$(XF86SRC)/i2c \
+		-I$(FONTLIBSRC)/include -I$(FONTINCSRC) \
+		-I$(XF86SRC) -I$(XF86PARSERSRC) \
+		-I$(XF86SRC)/loader $(VGAINCLUDES) -I$(XF86SRC)/rac \
+	        -I$(XF86SRC)/scanpci -I$(XF86SRC)/vbe -I$(XF86SRC)/int10 \
+		-I$(XF86SRC)/ddc -I$(SERVERSRC)/render $(RANDRINCS)
+
+     OSNAME = OSName
+   OSVENDOR = OSVendor
+  OSNAMEDEF = -DOSNAME='" $(OSNAME)"' -DOSVENDOR='" $(OSVENDOR)"'
+#if defined(XFree86CustomVersion)
+CUSTOMVERSION = XFree86CustomVersion
+ CUSTOMVERDEF = -DXF86_CUSTOM_VERSION='$(CUSTOMVERSION)'
+#endif
+#if defined(BuilderString)
+  BUILDERSTRING = BuilderString
+  BUILDERMSG = -DBUILDERSTRING='$(BUILDERSTRING)'
+#endif
+#if defined(BuildDate)
+    BUILD_DATE = BuildDate
+#endif
+       XORGREL = XOrgReleaseString
+   XORGREL_DEF = -DXORG_RELEASE='"$(XORGREL)"'
+
+CONSDEFINES = XFree86ConsoleDefines
+EXP_DEFINES = -DEXPIRY_TIME=XF86ServerExpiry $(EXP_FORCE_DEFINES)
+    DRIVERS = XF86CardDrivers
+   IDRIVERS = XInputDrivers
+XCONFIGDEFINES = -DPROJECTROOT='"$(PROJECTROOT)"' \
+		 -DDRIVERS='"$(DRIVERS)"' \
+		 -DIDRIVERS='"$(IDRIVERS)"'
+XF86CONFIGFILE = XConfigFile
+XCONFIGUREDEFINES = -DXF86CONFIGFILE='"$(XF86CONFIGFILE)"'
+
+    DEFINES = $(CONSDEFINES) $(KBDDEFINES) $(EXT_DEFINES) $(OS_DEFINES)
+
+AllTarget($(OFILES))
+
+SpecialCObjectRule(xf86Bus,NullParameter,$(BUGMSG) $(VGAINCLUDES))
+SpecialCObjectRule(xf86Init,$(ICONFIGFILES),$(OSNAMEDEF) $(BUILDERMSG) $(BUGMSG) $(CUSTOMVERDEF) $(XORGREL_DEF) $(EXT_DEFINES) $(BETADEFS) $(MDEBUGDEFS))
+SpecialCObjectRule(xf86Events,$(ICONFIGFILES),$(EXT_DEFINES) $(MDEBUGDEFS))
+SpecialCObjectRule(xf86Globals,$(ICONFIGFILES),$(EXT_DEFINES) $(MODPATHDEFINES) $(LOGDEFINES))
+SpecialCObjectRule(xf86Config,$(ICONFIGFILES),$(XCONFIGDEFINES))
+SpecialCObjectRule(xf86Configure,$(ICONFIGFILES),$(XCONFIGUREDEFINES))
+
+#if NeedXF86Beta
+SpecialCObjectRule($(BETAOBJ),NullParameter,$(EXP_DEFINES))
+#endif
+
+SpecialCObjectRule(xf86IniExt,$(ICONFIGFILES),$(EXT_DEFINES) $(EXT_MODULES_DEFINES))
+
+NormalLibraryObjectRule()
+NormalLibraryTarget(xf86,$(OBJS))
+
+LinkFile(xf86IniExt.c,$(SERVERSRC)/mi/miinitext.c)
+LinkSourceFile(xf86Version.h,..)
+LinkSourceFile(xf86Pci.h,$(XF86OSSRC)/bus)
+#ifdef SparcArchitecture
+LinkSourceFile(xf86Sbus.h,$(XF86OSSRC)/bus)
+#endif
+
+#if HasPerl
+MODEDEFSRCS = ../etc/vesamodes ../etc/extramodes
+
+MODEDEFS = modedefs
+
+$(MODEDEFS): $(MODEDEFSRCS)
+	RemoveFile($@)
+	cat $(MODEDEFSRCS) > $@
+
+includes:: xf86DefModeSet.c
+
+xf86DefModeSet.c: $(MODEDEFS) modeline2c.pl
+	RemoveFile($@)
+	RunPerlScript(modeline2c.pl, < $(MODEDEFS) > $@)
+
+clean::
+	RemoveFile($(MODEDEFS))
+	RemoveFile(xf86DefModeSet.c)
+#else
+LinkFile(xf86DefModeSet.c,xf86DefModes.c)
+#endif
+
+includes:: xf86Build.h
+
+clean::
+	RemoveFile(xf86Build.h)
+
+#if defined(BuildDate)
+xf86Build.h: FRC
+	RemoveFile($@)
+	echo "#define BUILD_DATE $(BUILD_DATE)" > $@
+
+FRC:
+#else
+xf86Build.h:
+	RemoveFile($@)
+	echo "" > $@
+#endif
+
+DependTarget()
+
+InstallDriverSDKNonExecFile(compiler.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(fourcc.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86Module.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86Opt.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86Pci.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86PciInfo.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86Priv.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86Privstr.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86Resources.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86Version.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86Xinput.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86cmap.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86fbman.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86str.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86xv.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86xvmc.h,$(DRIVERSDKINCLUDEDIR))

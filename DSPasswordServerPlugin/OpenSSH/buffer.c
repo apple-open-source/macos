@@ -126,7 +126,7 @@ void
 buffer_get(Buffer *buffer, char *buf, unsigned int len)
 {
 	if (len > buffer->end - buffer->offset)
-		fatal("buffer_get: trying to get more bytes than in buffer");
+		pwsf_fatal("buffer_get: trying to get more bytes than in buffer");
 	memcpy(buf, buffer->buf + buffer->offset, len);
 	buffer->offset += len;
 }
@@ -137,7 +137,7 @@ void
 buffer_consume(Buffer *buffer, unsigned int bytes)
 {
 	if (bytes > buffer->end - buffer->offset)
-		fatal("buffer_consume: trying to get more bytes than in buffer");
+		pwsf_fatal("buffer_consume: trying to get more bytes than in buffer");
 	buffer->offset += bytes;
 }
 
@@ -147,7 +147,7 @@ void
 buffer_consume_end(Buffer *buffer, unsigned int bytes)
 {
 	if (bytes > buffer->end - buffer->offset)
-		fatal("buffer_consume_end: trying to get more bytes than in buffer");
+		pwsf_fatal("buffer_consume_end: trying to get more bytes than in buffer");
 	buffer->end -= bytes;
 }
 

@@ -3,22 +3,19 @@
  *
  *@APPLE_LICENSE_HEADER_START@
  *
- *Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ *The contents of this file constitute Original Code as defined in and
+ *are subject to the Apple Public Source License Version 1.1 (the
+ *"License").  You may not use this file except in compliance with the
+ *License.  Please obtain a copy of the License at
+ *http://www.apple.com/publicsource and read it before using this file.
  *
- *This file contains Original Code and/or Modifications of Original Code
- *as defined in and that are subject to the Apple Public Source License
- *Version 2.0 (the 'License'). You may not use this file except in
- *compliance with the License. Please obtain a copy of the License at
- *http://www.opensource.apple.com/apsl/ and read it before using this
- *file.
- *
- *The Original Code and all software distributed under the License are
- *distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *This Original Code and all software distributed under the License are
+ *distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  *EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  *INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- *FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- *Please see the License for the specific language governing rights and
- *limitations under the License.
+ *FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ *License for the specific language governing rights and limitations
+ *under the License.
  *
  *@APPLE_LICENSE_HEADER_END@
  */
@@ -532,7 +529,6 @@ bool AppleRS232Serial::start(IOService *provider)
     
     initChip(&fPort);
 
-#if USE_WORK_LOOPS
     sccInterruptSource = IOInterruptEventSource::interruptEventSource(this, (IOInterruptEventAction)&AppleRS232Serial::interruptHandler,
                                                                                                                     provider, kIntChipSet);	
     if (!sccInterruptSource)
@@ -610,35 +606,6 @@ bool AppleRS232Serial::start(IOService *provider)
         shutDown();
         return false;
     }
-#else
-
-        // Register all the interrupts. We need the chip interrupts to handle the
-        // errors and the DMA to transfer the data.
-        
-    if (provider->registerInterrupt(kIntChipSet, this, handleInterrupt, 0) != kIOReturnSuccess)
-    {
-        ALERT(0, 0, "AppleRS232Serial::start - Register chip set interrupts failed");
-        shutDown();
-        return false;
-    }
-
-    if (provider->registerInterrupt(kIntTxDMA, this, handleDBDMATxInterrupt, 0) != kIOReturnSuccess)
-    {
-        ALERT(0, 0, "AppleRS232Serial::start - Register TX DMA interrupts failed");
-        provider->unregisterInterrupt(kIntChipSet);
-        shutDown();
-        return false;
-    }
-
-    if (provider->registerInterrupt(kIntRxDMA, this, handleDBDMARxInterrupt, 0) != kIOReturnSuccess)
-    {
-        ALERT(0, 0, "AppleRS232Serial::start - Register RX DMA interrupts failed");
-        provider->unregisterInterrupt(kIntChipSet);
-        provider->unregisterInterrupt(kIntTxDMA);
-        shutDown();
-        return false;
-    }
-#endif
 
         // Create and set up the ring buffers
             
@@ -660,6 +627,14 @@ bool AppleRS232Serial::start(IOService *provider)
         ALERT(0, 0, "AppleRS232Serial::start - Create serial stream failed");
         shutDown();
         return false;
+    }
+    
+    // register for power changes
+    fCurrentPowerState = 1;		// we default to power on
+    if (!initForPM(provider)) {
+        ALERT(0, 0, "AppleRS232Serial::start - failed to init for power management");
+        shutDown();
+	return false;
     }
         
     ELG(0, 0, "AppleRS232Serial::start - Successful");
@@ -685,15 +660,8 @@ void AppleRS232Serial::stop(IOService *provider)
 
     ELG(0, 0, "AppleRS232Serial::stop");
     
-#if !USE_WORK_LOOPS
-
-        // Unregister the interrupts
-        
-    provider->unregisterInterrupt(kIntChipSet);
-    provider->unregisterInterrupt(kIntTxDMA);
-    provider->unregisterInterrupt(kIntRxDMA);
-#endif
-
+    PMstop();		// unhook from power tree
+    
     shutDown();
    
     super::stop(provider);
@@ -826,33 +794,11 @@ IOReturn AppleRS232Serial::acquirePortGated(bool sleep)
 
             // Enable all the interrupts
             
-#if USE_WORK_LOOPS
 	sccInterruptSource->enable();
 	txDMAInterruptSource->enable();
 	rxDMAInterruptSource->enable();
-#else
-        rtn = fProvider->enableInterrupt(kIntChipSet);
-        if (rtn != kIOReturnSuccess)
-        {
-            ELG(0, rtn, "AppleRS232Serial::acquirePortGated - Enable SCC interrupt failed");
-            break;
-        }
 
-        rtn = fProvider->enableInterrupt(kIntTxDMA);
-        if (rtn != kIOReturnSuccess)
-        {
-            ELG(0, rtn, "AppleRS232Serial::acquirePortGated - Enable TX interrupt failed");
-            break;
-        }
-
-        rtn = fProvider->enableInterrupt(kIntRxDMA);
-        if (rtn != kIOReturnSuccess)
-        {
-            ELG(0, rtn, "AppleRS232Serial::acquirePortGated - Enable RX interrupt failed");
-            break;
-        }
-#endif
-            // Begin to monitor the channel
+	// Begin to monitor the channel
             
         SccdbdmaStartReception(&fPort);
         
@@ -970,15 +916,9 @@ IOReturn AppleRS232Serial::releasePortGated()
 
         // Disables the interrupts
         
-#if USE_WORK_LOOPS
     sccInterruptSource->disable();
     txDMAInterruptSource->disable();
     rxDMAInterruptSource->disable();
-#else
-    fProvider->disableInterrupt(kIntChipSet);
-    fProvider->disableInterrupt(kIntTxDMA);
-    fProvider->disableInterrupt(kIntRxDMA);    
-#endif
 
     fProvider->close(this);
     setStateGated(0, STATE_ALL);					// Clear the entire state word
@@ -2616,7 +2556,6 @@ void AppleRS232Serial::shutDown()
     SccFreeReceptionChannel(&fPort);
     SccFreeTansmissionChannel(&fPort);
 
-#if USE_WORK_LOOPS
     if (txDMAInterruptSource)
     {
         fWorkLoop->removeEventSource(txDMAInterruptSource);
@@ -2645,7 +2584,6 @@ void AppleRS232Serial::shutDown()
         fPort.rxTimer->release();						// release the timer
         fPort.rxTimer = NULL;
     }
-#endif
 
 #if USE_TIMER_EVENT_SOURCE_DEBUGGING
     if (fTimer)
@@ -2730,7 +2668,6 @@ IOReturn AppleRS232Serial::sleepThread(void *event)
     
 }/* end sleepThread */
 
-#if USE_WORK_LOOPS
 /****************************************************************************************************/
 //
 //		Method:		AppleRS232Serial::interruptFilter
@@ -2809,7 +2746,6 @@ void AppleRS232Serial::interruptHandler(OSObject* obj, IOInterruptEventSource *s
     }
     
 }/* end interruptHandler */
-#endif
 
 /****************************************************************************************************/
 //
@@ -2834,15 +2770,7 @@ void AppleRS232Serial::handleInterrupt(OSObject *target, void *refCon, IOService
     
     if (serialPortPtr != NULL) 
     {
-#if !USE_WORK_LOOPS
-        serialPortPtr->fProvider->disableInterrupt(kIntChipSet);
-#endif
-    
         PPCSerialISR(target, refCon, &serialPortPtr->fPort);
-
-#if !USE_WORK_LOOPS
-        serialPortPtr->fProvider->enableInterrupt(kIntChipSet);
-#endif    
     }
     
 }/* end handleInterrupt */
@@ -2870,14 +2798,7 @@ void AppleRS232Serial::handleDBDMATxInterrupt(OSObject *target, void *refCon, IO
     
     if (serialPortPtr != NULL)
     {
-#if !USE_WORK_LOOPS
-        serialPortPtr->fProvider->disableInterrupt(kIntTxDMA);
-#endif    
         PPCSerialTxDMAISR(NULL, NULL,  &serialPortPtr->fPort);
-        
-#if !USE_WORK_LOOPS
-        serialPortPtr->fProvider->enableInterrupt(kIntTxDMA);
-#endif    
     }
     
 }/* end handleDBDMATxInterrupt */
@@ -2910,15 +2831,7 @@ void AppleRS232Serial::handleDBDMARxInterrupt(OSObject *target, void *refCon, IO
         serialPortPtr->myTimer->setTimeoutMS( kTimerTimeout );		// Arm a 1 second timer
 #endif    
 
-#if !USE_WORK_LOOPS
-        serialPortPtr->fProvider->disableInterrupt(kIntRxDMA);
-#endif
-
         PPCSerialRxDMAISR(NULL, NULL,  &serialPortPtr->fPort);
-
-#if !USE_WORK_LOOPS
-        serialPortPtr->fProvider->enableInterrupt(kIntRxDMA);
-#endif
     }
     
 }/* end handleDBDMARxInterrupt */

@@ -1,0 +1,415 @@
+! FontSelect
+!
+! (c) Copyright 1991-1994 Adobe Systems Incorporated.
+! All rights reserved.
+! 
+! Permission to use, copy, modify, distribute, and sublicense this software
+! and its documentation for any purpose and without fee is hereby granted,
+! provided that the above copyright notices appear in all copies and that
+! both those copyright notices and this permission notice appear in
+! supporting documentation and that the name of Adobe Systems Incorporated
+! not be used in advertising or publicity pertaining to distribution of the
+! software without specific, written prior permission.  No trademark license
+! to use the Adobe trademarks is hereby granted.  If the Adobe trademark
+! "Display PostScript"(tm) is used to describe this software, its
+! functionality or for any other purpose, such use shall be limited to a
+! statement that this software works in conjunction with the Display
+! PostScript system.  Proper trademark attribution to reflect Adobe's
+! ownership of the trademark shall be given whenever any such reference to
+! the Display PostScript system is made.
+! 
+! ADOBE MAKES NO REPRESENTATIONS ABOUT THE SUITABILITY OF THE SOFTWARE FOR
+! ANY PURPOSE.  IT IS PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY.
+! ADOBE DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+! IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+! NON- INFRINGEMENT OF THIRD PARTY RIGHTS.  IN NO EVENT SHALL ADOBE BE LIABLE
+! TO YOU OR ANY OTHER PARTY FOR ANY SPECIAL, INDIRECT, OR CONSEQUENTIAL
+! DAMAGES OR ANY DAMAGES WHATSOEVER WHETHER IN AN ACTION OF CONTRACT,
+! NEGLIGENCE, STRICT LIABILITY OR ANY OTHER ACTION ARISING OUT OF OR IN
+! CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.  ADOBE WILL NOT
+! PROVIDE ANY TRAINING OR OTHER SUPPORT FOR THE SOFTWARE.
+! 
+! Adobe, PostScript, and Display PostScript are trademarks of Adobe Systems
+! Incorporated which may be registered in certain jurisdictions
+! 
+! Author:  Adobe Systems Incorporated
+!
+! Resource file for Font Selection Box
+!
+! This resource file must be merged into the resource file for
+! any application that uses the Font Selection Box
+!
+!
+*FontSelectionBox*fontList: -adobe-helvetica-bold-r-normal--*-120-*-*-*-*-iso8859-1
+*FontSelectionBox*XmPushButton.marginLeft:5
+*FontSelectionBox*XmPushButton.marginRight:5
+
+*FontSelectionBox*preview.background: white
+*FontSelectionBox*preview.height: 40
+
+*FontSelectionBox*panel.width: 397
+*FontSelectionBox*panel.height: 286
+
+*FontSelectionBox*panel.horizontalSpacing: 5
+*FontSelectionBox*panel.verticalSpacing: 2
+
+*FontSelectionBox*okButton.labelString: OK
+
+*FontSelectionBox*applyButton.labelString: Apply
+
+*FontSelectionBox*resetButton.labelString: Reset
+
+*FontSelectionBox*cancelButton.labelString: Cancel
+
+*FontSelectionBox*sizeLabel.labelString: Size:
+*FontSelectionBox*sizeLabel.leftOffset: 10
+*FontSelectionBox*sizeLabel.bottomOffset: 12
+
+*FontSelectionBox*sizeTextField.columns: 4
+*FontSelectionBox*sizeTextField.leftOffset: 2
+*FontSelectionBox*sizeTextField.bottomOffset: -7
+*FontSelectionBox*sizeTextField.value: 12
+*FontSelectionBox*sizeTextField.verifyBell: False
+
+*FontSelectionBox*other.labelString: ...
+
+*FontSelectionBox*sizeOptionMenu.labelString: 
+*FontSelectionBox*sizeOptionMenu.bottomOffset: -9
+*FontSelectionBox*sizeOptionMenu.leftOffset: -5
+
+*FontSelectionBox*sizeMultipleLabel.labelString: Multiple
+*FontSelectionBox*sizeMultipleLabel.leftOffset: 0
+*FontSelectionBox*sizeMultipleLabel.bottomOffset: 10
+
+*FontSelectionBox*previewButton.labelString: Preview
+*FontSelectionBox*previewButton.bottomOffset: -11
+*FontSelectionBox*previewButton.rightOffset: 5
+
+*FontSelectionBox*samplerButton.labelString: Sampler...
+*FontSelectionBox*samplerButton.bottomOffset: 0
+*FontSelectionBox*samplerButton.rightOffset: 0
+
+*FontSelectionBox*familyLabel.labelString: Family
+*FontSelectionBox*familyLabel.rightOffset: 7
+*FontSelectionBox*familyLabel.leftOffset: 10
+
+*FontSelectionBox*faceLabel.labelString: Face
+*FontSelectionBox*faceLabel.rightOffset: 10
+*FontSelectionBox*faceLabel.leftOffset: 7
+
+*FontSelectionBox*familyMultipleLabel.labelString: MULTIPLE
+*FontSelectionBox*familyMultipleLabel.background: black
+*FontSelectionBox*familyMultipleLabel.foreground: #729FFF
+*FontSelectionBox*familyMultipleLabel.leftOffset: 10
+*FontSelectionBox*familyMultipleLabel.rightOffset: 7
+*FontSelectionBox*familyMultipleLabel.topOffset: 2
+
+*FontSelectionBox*faceMultipleLabel.labelString: MULTIPLE
+*FontSelectionBox*faceMultipleLabel.background: black
+*FontSelectionBox*faceMultipleLabel.foreground: #729FFF
+*FontSelectionBox*faceMultipleLabel.leftOffset: 7
+*FontSelectionBox*faceMultipleLabel.topOffset: 2
+*FontSelectionBox*faceMultipleLabel.rightOffset: 10
+
+*FontSelectionBox*familyScrolledListSW.leftOffset: 10
+*FontSelectionBox*familyScrolledListSW.topOffset: 2
+*FontSelectionBox*familyScrolledListSW.rightOffset: 7
+
+*FontSelectionBox*faceScrolledListSW.topOffset: 2
+*FontSelectionBox*faceScrolledListSW.leftOffset: 7
+*FontSelectionBox*faceScrolledListSW.rightOffset: 10
+
+*FontSelectionBox*XmList.listSizePolicy: constant
+*FontSelectionBox*XmList.scrollBarDisplayPolicy: as_needed
+
+*FontSelectionBox*multipleMasterButton.labelString: Multiple Master...
+
+*FontSelectionBox*invalidFontMessage.dialogTitle: Font Alert
+*FontSelectionBox*invalidFontMessage.messageString: The selected font contains\n\
+an error and is not usable.
+
+! Font sampler resources
+
+! Keep mwm from deleting this window; it confuses everyone
+*FontSelectionBox*samplerShell.deleteResponse: unmap
+
+*FontSelectionBox*samplerShell.width: 530
+*FontSelectionBox*samplerShell.height: 620
+*FontSelectionBox*samplerShell.title: Font Sampler
+
+*FontSelectionBox*sampler.minimumWidth: 1000
+*FontSelectionBox*sampler.minimumHeight: 400
+
+*FontSelectionBox*sampler*panel.horizontalSpacing: 5
+*FontSelectionBox*sampler*panel.verticalSpacing: 5
+
+*FontSelectionBox*sampler*area.width: 1000
+*FontSelectionBox*sampler*area.height: 476
+*FontSelectionBox*sampler*area.background: white
+*FontSelectionBox*sampler*ScrolledWindowClipWindow.background: white
+
+*FontSelectionBox*sampler*area.translations: #override\n\
+	<ButtonPress> : FSBClickAction()
+
+*FontSelectionBox*sampler*text.value: Abc
+
+*FontSelectionBox*sampler*fontLabel.labelString: \040
+*FontSelectionBox*sampler*fontLabel.recomputeSize: FALSE
+
+*FontSelectionBox*sampler*displayButton.labelString: Display
+*FontSelectionBox*sampler*stopButton.labelString: Stop
+*FontSelectionBox*sampler*dismissButton.labelString: Dismiss
+*FontSelectionBox*sampler*clearButton.labelString: Reset Filters
+
+*FontSelectionBox*sampler*allToggle.labelString: All
+*FontSelectionBox*sampler*allToggle.set: true
+*FontSelectionBox*sampler*selectedToggle.labelString: Selected
+*FontSelectionBox*sampler*selectedFamilyToggle.labelString: Family
+*FontSelectionBox*sampler*filterToggle.labelString: Filter
+
+*FontSelectionBox*sampler*filterText.leftOffset: 0
+*FontSelectionBox*sampler*filterText.columns:10
+*FontSelectionBox*sampler*filterText.marginHeight: 5
+
+*FontSelectionBox*sampler*radioBox*marginHeight: 1
+*FontSelectionBox*sampler*radioBox.spacing: 0
+*FontSelectionBox*sampler*filterBox*XmToggleButtonGadget.marginHeight: 0
+*FontSelectionBox*sampler*filterBox.spacing: 0
+*FontSelectionBox*sampler*filterBox*packing: PACK_TIGHT
+
+*FontSelectionBox*sampler*filterBox*XmSeparatorGadget.height: 8
+
+*FontSelectionBox*sampler*radioBox.width: 129
+*FontSelectionBox*sampler*radioBox.resizeWidth: FALSE
+
+*FontSelectionBox*sampler*roman.labelString: Roman
+*FontSelectionBox*sampler*italic.labelString: Italic
+*FontSelectionBox*sampler*symbol.labelString: Symbol
+*FontSelectionBox*sampler*display.labelString: Display
+*FontSelectionBox*sampler*alternate.labelString: Alternate
+*FontSelectionBox*sampler*expert.labelString: Expert
+*FontSelectionBox*sampler*oldstyle.labelString: Oldstyle Figures
+*FontSelectionBox*sampler*smallcaps.labelString: Small Caps
+*FontSelectionBox*sampler*swash.labelString: Swash
+*FontSelectionBox*sampler*script.labelString: Script
+
+*FontSelectionBox*sampler*condensed.labelString: Condensed
+*FontSelectionBox*sampler*extended.labelString: Extended
+
+*FontSelectionBox*sampler*light.labelString: Light
+*FontSelectionBox*sampler*book.labelString: Book
+*FontSelectionBox*sampler*medium.labelString: Medium
+*FontSelectionBox*sampler*demi.labelString: Demi
+*FontSelectionBox*sampler*bold.labelString: Bold
+*FontSelectionBox*sampler*black.labelString: Black +
+
+*FontSelectionBox*sampler*sizeLabel.labelString: Size:
+*FontSelectionBox*sampler*sizeLabel.bottomOffset: 15
+*FontSelectionBox*sampler*sizeLabel.leftOffset: 0
+
+*FontSelectionBox*sampler*sizeTextField.columns: 4
+*FontSelectionBox*sampler*sizeTextField.leftOffset: 2
+*FontSelectionBox*sampler*sizeTextField.bottomOffset: -7
+*FontSelectionBox*sampler*sizeTextField.value: 24
+*FontSelectionBox*sampler*sizeTextField.verifyBell: False
+
+*FontSelectionBox*sampler*sizeOptionMenu.labelString: 
+*FontSelectionBox*sampler*sizeOptionMenu.bottomOffset: -9
+*FontSelectionBox*sampler*sizeOptionMenu.leftOffset: -5
+
+*FontSelectionBox*creatorShell.title: Multiple Master Font Creator
+
+*FontSelectionBox*creatorShell*preview.height: 50
+*FontSelectionBox*creatorShell*preview.leftOffset: 4
+*FontSelectionBox*creatorShell*preview.rightOffset: 4
+*FontSelectionBox*creatorShell*preview.topOffset: 4
+
+*FontSelectionBox*creatorShell*panel.horizontalSpacing: 10
+*FontSelectionBox*creatorShell*panel.verticalSpacing: 5
+*FontSelectionBox*creatorShell*panel.width: 500
+*FontSelectionBox*creatorShell*panel.height: 325
+*FontSelectionBox*creatorShell*panel.marginHeight: 5
+*FontSelectionBox*creatorShell*panel.marginWidth: 5
+
+*FontSelectionBox*creatorShell*displayTextLabel.labelString: String
+*FontSelectionBox*creatorShell*displayTextLabel.rightPosition: 15
+*FontSelectionBox*creatorShell*displayTextLabel.rightOffset: 5
+*FontSelectionBox*creatorShell*displayTextLabel.topOffset: 5
+
+*FontSelectionBox*creatorShell*displayText.leftPosition: 15
+*FontSelectionBox*creatorShell*displayText.rightPosition: 60
+*FontSelectionBox*creatorShell*displayText.rightOffset: 10
+*FontSelectionBox*creatorShell*displayText.topOffset: 0
+
+*FontSelectionBox*creatorShell*axisLabel1.rightPosition: 15
+*FontSelectionBox*creatorShell*axisLabel1.bottomOffset: 0
+*FontSelectionBox*creatorShell*axisLabel1.rightOffset: 5
+*FontSelectionBox*creatorShell*axisLabel1.topOffset: 5
+
+*FontSelectionBox*creatorShell*axisValue1.rightPosition: 60
+*FontSelectionBox*creatorShell*axisValue1.rightOffset: 10
+*FontSelectionBox*creatorShell*axisValue1.columns: 4
+
+*FontSelectionBox*creatorShell*axisScale1.rightOffset: 5
+*FontSelectionBox*creatorShell*axisScale1.leftPosition: 15
+*FontSelectionBox*creatorShell*axisScale1.topOffset: 5
+*FontSelectionBox*creatorShell*axisScale1.decimalPoints: 0
+*FontSelectionBox*creatorShell*axisScale1.orientation: horizontal
+*FontSelectionBox*creatorShell*axisScale1.showValue: false
+
+*FontSelectionBox*creatorShell*axisMin1.topOffset: 0
+*FontSelectionBox*creatorShell*axisMin1.leftOffset: 0
+
+*FontSelectionBox*creatorShell*axisMax1.topOffset: 0
+*FontSelectionBox*creatorShell*axisMax1.rightOffset: 0
+
+*FontSelectionBox*creatorShell*axisLabel2.rightPosition: 15
+*FontSelectionBox*creatorShell*axisLabel2.bottomOffset: 0
+*FontSelectionBox*creatorShell*axisLabel2.rightOffset: 5
+*FontSelectionBox*creatorShell*axisLabel2.topOffset: 5
+
+*FontSelectionBox*creatorShell*axisValue2.rightPosition: 60
+*FontSelectionBox*creatorShell*axisValue2.rightOffset: 10
+*FontSelectionBox*creatorShell*axisValue2.topOffset: 15
+*FontSelectionBox*creatorShell*axisValue2.columns: 4
+
+*FontSelectionBox*creatorShell*axisScale2.rightOffset: 5
+*FontSelectionBox*creatorShell*axisScale2.leftPosition: 15
+*FontSelectionBox*creatorShell*axisScale2.decimalPoints: 0
+*FontSelectionBox*creatorShell*axisScale2.orientation: horizontal
+*FontSelectionBox*creatorShell*axisScale2.showValue: false
+*FontSelectionBox*creatorShell*axisScale2.topOffset: 5
+
+*FontSelectionBox*creatorShell*axisMin2.topOffset: 0
+*FontSelectionBox*creatorShell*axisMin2.leftOffset: 0
+
+*FontSelectionBox*creatorShell*axisMax2.topOffset: 0
+*FontSelectionBox*creatorShell*axisMax2.rightOffset: 0
+
+*FontSelectionBox*creatorShell*axisLabel3.rightPosition: 15
+*FontSelectionBox*creatorShell*axisLabel3.bottomOffset: 0
+*FontSelectionBox*creatorShell*axisLabel3.rightOffset: 5
+*FontSelectionBox*creatorShell*axisLabel3.topOffset: 5
+
+*FontSelectionBox*creatorShell*axisValue3.rightPosition: 60
+*FontSelectionBox*creatorShell*axisValue3.rightOffset: 10
+*FontSelectionBox*creatorShell*axisValue3.topOffset: 15
+*FontSelectionBox*creatorShell*axisValue3.columns: 4
+
+*FontSelectionBox*creatorShell*axisScale3.rightOffset: 5
+*FontSelectionBox*creatorShell*axisScale3.leftPosition: 15
+*FontSelectionBox*creatorShell*axisScale3.decimalPoints: 0
+*FontSelectionBox*creatorShell*axisScale3.orientation: horizontal
+*FontSelectionBox*creatorShell*axisScale3.showValue: false
+*FontSelectionBox*creatorShell*axisScale3.topOffset: 5
+
+*FontSelectionBox*creatorShell*axisMin3.topOffset: 0
+*FontSelectionBox*creatorShell*axisMin3.leftOffset: 0
+
+*FontSelectionBox*creatorShell*axisMax3.topOffset: 0
+*FontSelectionBox*creatorShell*axisMax3.rightOffset: 0
+
+*FontSelectionBox*creatorShell*axisLabel4.rightPosition: 15
+*FontSelectionBox*creatorShell*axisLabel4.bottomOffset: 0
+*FontSelectionBox*creatorShell*axisLabel4.rightOffset: 5
+*FontSelectionBox*creatorShell*axisLabel4.topOffset: 5
+
+*FontSelectionBox*creatorShell*axisValue4.rightPosition: 60
+*FontSelectionBox*creatorShell*axisValue4.rightOffset: 10
+*FontSelectionBox*creatorShell*axisValue4.topOffset: 15
+*FontSelectionBox*creatorShell*axisValue4.columns: 4
+
+*FontSelectionBox*creatorShell*axisScale4.rightOffset: 5
+*FontSelectionBox*creatorShell*axisScale4.leftPosition: 15
+*FontSelectionBox*creatorShell*axisScale4.decimalPoints: 0
+*FontSelectionBox*creatorShell*axisScale4.orientation: horizontal
+*FontSelectionBox*creatorShell*axisScale4.showValue: false
+*FontSelectionBox*creatorShell*axisScale4.topOffset: 5
+
+*FontSelectionBox*creatorShell*axisMin4.topOffset: 0
+*FontSelectionBox*creatorShell*axisMin4.leftOffset: 0
+
+*FontSelectionBox*creatorShell*axisMax4.topOffset: 0
+*FontSelectionBox*creatorShell*axisMax4.rightOffset: 0
+
+*FontSelectionBox*creatorShell*faceLabel.leftPosition: 60
+*FontSelectionBox*creatorShell*faceLabel.leftOffset: 10
+*FontSelectionBox*creatorShell*faceLabel.labelString: Faces
+*FontSelectionBox*creatorShell*faceLabel.topOffset: 0
+
+*FontSelectionBox*creatorShell*faceListSW.leftPosition: 60
+*FontSelectionBox*creatorShell*faceListSW.leftOffset: 10
+*FontSelectionBox*creatorShell*faceListSW.topOffset: 0
+*FontSelectionBox*creatorShell*faceListSW.bottomPosition: 30
+
+*FontSelectionBox*creatorShell*blendLabel.leftPosition: 60
+*FontSelectionBox*creatorShell*blendLabel.leftOffset: 10
+*FontSelectionBox*creatorShell*blendLabel.topPosition: 30
+*FontSelectionBox*creatorShell*blendLabel.topOffset: 8
+*FontSelectionBox*creatorShell*blendLabel.labelString: Blends
+
+*FontSelectionBox*creatorShell*blendListSW.leftPosition: 60
+*FontSelectionBox*creatorShell*blendListSW.leftOffset: 10
+*FontSelectionBox*creatorShell*blendListSW.topOffset: 0
+
+*FontSelectionBox*creatorShell*nameLabel.labelString: Name
+*FontSelectionBox*creatorShell*nameLabel.rightPosition: 60
+*FontSelectionBox*creatorShell*nameLabel.rightOffset:-5
+*FontSelectionBox*creatorShell*nameLabel.bottomOffset: 8
+
+*FontSelectionBox*creatorShell*nameText.leftPosition: 60
+*FontSelectionBox*creatorShell*nameText.leftOffset: 8
+*FontSelectionBox*creatorShell*nameText.rightOffset: 3
+
+*FontSelectionBox*creatorShell*deleteButton.labelString: Delete
+
+*FontSelectionBox*creatorShell*replaceButton.labelString: Replace
+
+*FontSelectionBox*creatorShell*addButton.labelString: Add
+
+*FontSelectionBox*creatorShell*generateButton.labelString: Generate Name
+*FontSelectionBox*creatorShell*generateButton.rightOffset: 20
+
+*FontSelectionBox*creatorShell*optionsButton.labelString: Options...
+
+*FontSelectionBox*creatorShell*dismissButton.labelString: Dismiss
+
+*FontSelectionBox*creatorShell*noNameMessage.messageString: You must enter a\n\
+name in the Name field.
+*FontSelectionBox*creatorShell*noNameMessage.dialogTitle: Font Alert
+
+*FontSelectionBox*creatorShell*usedNameMessage.messageString: That name is already in use;\n\
+pick another or use the Replace button\n\
+to change its definition.
+*FontSelectionBox*creatorShell*usedNameMessage.dialogTitle: Font Alert
+
+*FontSelectionBox*creatorShell*someUsedNameMessage.messageString: That name was already in use in\n\
+some faces; use the Replace button\n\
+to change the definition in all faces.
+*FontSelectionBox*creatorShell*someUsedNameMessage.dialogTitle: Font Alert
+
+*FontSelectionBox*creatorShell*noSuchNameMessage.messageString: That blend does not exist.
+*FontSelectionBox*creatorShell*noSuchNameMessage.dialogTitle: Font Alert
+
+*FontSelectionBox*creatorShell*sizeLabel.labelString: Size
+*FontSelectionBox*creatorShell*sizeLabel.rightPosition: 15
+*FontSelectionBox*creatorShell*sizeLabel.rightOffset: 5
+*FontSelectionBox*creatorShell*sizeLabel.bottomOffset: 12
+
+*FontSelectionBox*creatorShell*sizeTextField.columns: 4
+*FontSelectionBox*creatorShell*sizeTextField.leftPosition: 15
+*FontSelectionBox*creatorShell*sizeTextField.bottomOffset: -7
+*FontSelectionBox*creatorShell*sizeTextField.verifyBell: False
+*FontSelectionBox*sizeTextField.value: 36
+
+*FontSelectionBox*creatorShell*other.labelString: ...
+
+*FontSelectionBox*creatorShell*sizeOptionMenu.labelString: 
+*FontSelectionBox*creatorShell*sizeOptionMenu.bottomOffset: -9
+*FontSelectionBox*creatorShell*sizeOptionMenu.leftOffset: -5
+
+*FontSelectionBox*creatorShell*optionBox_popup.title: Font Creator Options
+*FontSelectionBox*creatorShell*doAllToggle.labelString: Apply blend list changes to all faces
+*FontSelectionBox*creatorShell*followSizeToggle.labelString: Reflect font size in OpticalSize axis
+*FontSelectionBox*creatorShell*dismissOptionButton.labelString: Dismiss
+

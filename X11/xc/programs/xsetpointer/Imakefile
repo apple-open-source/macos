@@ -1,0 +1,14 @@
+XCOMM $XFree86: xc/programs/xsetpointer/Imakefile,v 3.1 1995/12/26 06:10:21 dawes Exp $
+
+        DEPLIBS = $(DEPXILIB) $(DEPXLIB)
+LOCAL_LIBRARIES = $(XILIB) $(XLIB)
+           SRCS = xsetpointer.c
+           OBJS = xsetpointer.o
+
+AllTarget(ProgramTargetName(xsetpointer))
+
+NormalProgramTarget(xsetpointer,$(OBJS),$(DEPLIBS),$(LOCAL_LIBRARIES),NullParameter)
+InstallProgram(xsetpointer,$(BINDIR))
+DependTarget()
+
+InstallManPageLong(xsetpnt,$(MANDIR),xsetpointer)

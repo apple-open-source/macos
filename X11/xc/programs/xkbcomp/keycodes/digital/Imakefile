@@ -1,0 +1,11 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:38 cpqbld Exp $
+
+#undef lk
+#undef pc
+
+     DATAFILES = lk pc 
+
+all::
+
+InstallMultiple($(DATAFILES),$(LIBDIR)/xkb/keycodes/digital)
+DependTarget()

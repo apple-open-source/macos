@@ -1,0 +1,135 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/xf86cfg/Imakefile,v 1.22 2003/02/26 20:08:03 dawes Exp $
+
+XCOMM CDEBUGFLAGS=-g -Wall -ansi -pedantic
+
+#if DoLoadableServer
+LDSRCS	= libc_wrapper.c loader.c loadmod.c
+LDOBJS	= libc_wrapper.o loader.o loadmod.o
+#endif
+
+#if HasNCurses
+TEXTSRC	= text-mode.c
+TEXTOBJ	= text-mode.o
+#endif
+
+SRCS	=\
+	accessx.c\
+	card-cfg.c\
+	cards.c\
+	config.c\
+	expert.c\
+	help.c\
+	interface.c\
+	keyboard-cfg.c\
+	$(LDSRCS) \
+	monitor-cfg.c\
+	mouse-cfg.c\
+	options.c\
+	screen-cfg.c\
+	screen.c\
+	startx.c\
+	stubs.c\
+	$(TEXTSRC)\
+	vidmode.c\
+	xf86config.c
+
+OBJS	=\
+	accessx.o\
+	cards.o\
+	config.o\
+	card-cfg.o\
+	expert.o\
+	help.o\
+	interface.o\
+	keyboard-cfg.o\
+	$(LDOBJS) \
+	monitor-cfg.o\
+	mouse-cfg.o\
+	options.o\
+	screen-cfg.o\
+	screen.o\
+	startx.o\
+	stubs.o\
+	$(TEXTOBJ)\
+	vidmode.o\
+	xf86config.o
+
+PROG	= xf86cfg
+
+XBMPICS =\
+	card.xbm\
+	keyboard.xbm\
+	monitor.xbm\
+	mouse.xbm\
+	left.xbm\
+	right.xbm\
+	up.xbm\
+	down.xbm\
+	wider.xbm\
+	narrower.xbm\
+	shorter.xbm\
+	taller.xbm
+
+XPMPICS =\
+	card.xpm\
+	computer.xpm\
+	keyboard.xpm\
+	monitor.xpm\
+	mouse.xpm
+
+AllTarget(ProgramTargetName($(PROG)))
+
+#if DoLoadableServer
+LOADERLIB      = -L../loader -lxloader -L../dummylib -ldummy
+MODULEDEFINES  = -DUSE_MODULES
+INCLUDES       = -I../common -I../scanpci -I../loader -I$(XF86OSSRC) \
+		 -I$(SERVERSRC)/include -I$(XINCLUDESRC) \
+		 -I$(FONTLIBSRC)/include
+#if !HasSnprintf
+SNPRINTF_DEFS  = -DNEED_SNPRINTF
+#endif
+WRAPPERDEFINES = -DSELF_CONTAINED_WRAPPER $(SNPRINTF_DEFS)
+#endif
+
+#if HasNCurses
+CURSESLIB = NCursesLibName
+CURSESDEFINES  = -DHAS_NCURSES
+#endif
+
+#if HasGlibc21Sigsetjmp
+SETJMPDEFINES = -DHAS_GLIBC_SIGSETJMP=1
+#endif
+
+XF86CONFIGFILE = XConfigFile
+XF86CONFIGDIR = XConfigDir
+
+DEFINES        = -DXF86CONFIG=\"$(XF86CONFIGFILE)\" $(MODULEDEFINES) \
+		 $(CURSESDEFINES) $(SETJMPDEFINES) \
+		 -DPROJECT_ROOT=\"$(PROJECTROOT)\" \
+		 -DXF86CONFIGDIR=\"$(XF86CONFIGDIR)\" XFree86ConsoleDefines
+
+#if HasDlopen
+DLLIB = DlLibrary
+#endif
+
+LOCAL_LIBRARIES = $(XKBUILIB) $(XKBFILELIB) -lxf86config $(XXF86MISCLIB) \
+		  $(XXF86VMLIB) $(XAWLIB) $(XMULIB) $(XTOOLLIB) \
+		  $(XPMLIB) $(LOADERLIB) $(DLLIB) $(XLIB) $(CURSESLIB) \
+		  RegexLibrary -lm
+
+NormalProgramTarget($(PROG),$(OBJS),,$(LOCAL_LIBRARIES),)
+InstallProgramWithFlags($(PROG),$(BINDIR),NullParameter)
+InstallMultipleFlags($(XBMPICS),$(INCDIR)/X11/bitmaps,$(INSTINCFLAGS))
+InstallMultipleFlags($(XPMPICS),$(INCDIR)/X11/pixmaps,$(INSTINCFLAGS))
+InstallAppDefaults(XF86Cfg)
+
+InstallManPage(xf86cfg,$(MANDIR))
+
+NormalLibraryObjectRule()
+
+#if DoLoadableServer
+LinkSourceFile(libc_wrapper.c, $(XF86OSSRC)/shared)
+SpecialCObjectRule(libc_wrapper,NullParameter,$(WRAPPERDEFINES) $(EXT_DEFINES))
+#endif
+
+DependTarget()

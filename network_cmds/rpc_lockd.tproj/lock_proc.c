@@ -194,7 +194,6 @@ get_client(host_addr, vers)
 	struct timeval retry_time, time_now;
 	int i;
 	int sock_no;
-	char host[NI_MAXHOST];
 
 	gettimeofday(&time_now, NULL);
 
@@ -265,7 +264,8 @@ get_client(host_addr, vers)
 	clnt_control(client, CLSET_TIMEOUT, (char *)&retry_time);
 
 	if (debug_level > 3)
-		syslog(LOG_DEBUG, "Created CLIENT* for %s", host);
+		syslog(LOG_DEBUG, "Created CLIENT* for %s",
+		    inet_ntoa(((struct sockaddr_in *)host_addr)->sin_addr));
 	return client;
 }
 
@@ -531,9 +531,12 @@ nlm_cancel_1_svc(arg, rqstp)
 	struct svc_req *rqstp;
 {
 	static nlm_res res;
-	struct nlm4_lock arg4;
+	struct nlm4_cancargs arg4;
 
-	nlmtonlm4(&arg->alock, &arg4);
+	arg4.cookie = arg->cookie;
+	arg4.block = arg->block;
+	arg4.exclusive = arg->exclusive;
+	nlmtonlm4(&arg->alock, &arg4.alock);
 
 	if (debug_level)
 		log_from_addr("nlm_cancel", rqstp);
@@ -541,11 +544,7 @@ nlm_cancel_1_svc(arg, rqstp)
 	/* copy cookie from arg to result.  See comment in nlm_test_1() */
 	res.cookie = arg->cookie;
 
-	/*
-	 * Since at present we never return 'nlm_blocked', there can never be
-	 * a lock to cancel, so this call always fails.
-	 */
-	res.stat.stat = unlock(&arg4, LOCK_CANCEL);
+	res.stat.stat = cancellock(&arg4, 0);
 	return (&res);
 }
 
@@ -555,19 +554,18 @@ nlm_cancel_msg_1_svc(arg, rqstp)
 	struct svc_req *rqstp;
 {
 	static nlm_res res;
-	struct nlm4_lock arg4;
+	struct nlm4_cancargs arg4;
 
-	nlmtonlm4(&arg->alock, &arg4);
+	arg4.cookie = arg->cookie;
+	arg4.block = arg->block;
+	arg4.exclusive = arg->exclusive;
+	nlmtonlm4(&arg->alock, &arg4.alock);
 
 	if (debug_level)
 		log_from_addr("nlm_cancel_msg", rqstp);
 
 	res.cookie = arg->cookie;
-	/*
-	 * Since at present we never return 'nlm_blocked', there can never be
-	 * a lock to cancel, so this call always fails.
-	 */
-	res.stat.stat = unlock(&arg4, LOCK_CANCEL);
+	res.stat.stat = cancellock(&arg4, 0);
 	transmit_result(NLM_CANCEL_RES, &res,
 	    (struct sockaddr *)svc_getcaller(rqstp->rq_xprt));
 	return (NULL);
@@ -645,13 +643,25 @@ nlm_granted_1_svc(arg, rqstp)
 	struct svc_req *rqstp;
 {
 	static nlm_res res;
+	nlm4_lock lock4;
+	int flags;
 
 	if (debug_level)
 		log_from_addr("nlm_granted", rqstp);
 
-	res.stat.stat = lock_answer(arg->alock.svid, &arg->cookie,
-		nlm_granted, NLM_VERS, NULL, 0, 0) == 0 ?
-		nlm_granted : nlm_denied;
+	lock4.fh = arg->alock.fh;
+	lock4.svid = arg->alock.svid;
+	lock4.l_offset = arg->alock.l_offset;
+	lock4.l_len = arg->alock.l_len;
+
+	flags = LOCK_ANSWER_GRANTED;
+	if (arg->exclusive)
+		flags |= LOCK_ANSWER_LOCK_EXCL;
+
+	if (lock_answer(NLM_VERS, &arg->cookie, &lock4, flags, nlm_granted))
+		res.stat.stat = nlm_denied;
+	else
+		res.stat.stat = nlm_granted;
 
 	/* copy cookie from arg to result.  See comment in nlm_test_1() */
 	res.cookie = arg->cookie;
@@ -665,13 +675,25 @@ nlm_granted_msg_1_svc(arg, rqstp)
 	struct svc_req *rqstp;
 {
 	static nlm_res res;
+	nlm4_lock lock4;
+	int flags;
 
 	if (debug_level)
 		log_from_addr("nlm_granted_msg", rqstp);
 
-	res.stat.stat = lock_answer(arg->alock.svid, &arg->cookie,
-		nlm_granted, NLM_VERS, NULL, 0, 0) == 0 ?
-		nlm_granted : nlm_denied;
+	lock4.fh = arg->alock.fh;
+	lock4.svid = arg->alock.svid;
+	lock4.l_offset = arg->alock.l_offset;
+	lock4.l_len = arg->alock.l_len;
+
+	flags = LOCK_ANSWER_GRANTED;
+	if (arg->exclusive)
+		flags |= LOCK_ANSWER_LOCK_EXCL;
+
+	if (lock_answer(NLM_VERS, &arg->cookie, &lock4, flags, nlm_granted))
+		res.stat.stat = nlm_denied;
+	else
+		res.stat.stat = nlm_granted;
 
 	res.cookie = arg->cookie;
 
@@ -690,12 +712,23 @@ nlm_test_res_1_svc(arg, rqstp)
 	nlm_testres *arg;
 	struct svc_req *rqstp;
 {
+	nlm4_lock lock4;
+	int flags = 0;
+
 	if (debug_level)
 		log_from_addr("nlm_test_res", rqstp);
-	(void)lock_answer(-1, &arg->cookie, arg->stat.stat, NLM_VERS,
-		&arg->stat.nlm_testrply_u.holder.svid,
-		arg->stat.nlm_testrply_u.holder.l_offset,
-		arg->stat.nlm_testrply_u.holder.l_len);
+
+	if (arg->stat.stat == nlm_denied) {
+		lock4.fh.n_len = 0;
+		lock4.svid = arg->stat.nlm_testrply_u.holder.svid;
+		lock4.l_offset = arg->stat.nlm_testrply_u.holder.l_offset;
+		lock4.l_len = arg->stat.nlm_testrply_u.holder.l_len;
+		if (arg->stat.nlm_testrply_u.holder.exclusive)
+			flags |= LOCK_ANSWER_LOCK_EXCL;
+		lock_answer(NLM_VERS, &arg->cookie, &lock4, flags, arg->stat.stat);
+	} else
+		lock_answer(NLM_VERS, &arg->cookie, NULL, 0, arg->stat.stat);
+
 	return (NULL);
 }
 
@@ -712,7 +745,7 @@ nlm_lock_res_1_svc(arg, rqstp)
 	if (debug_level)
 		log_from_addr("nlm_lock_res", rqstp);
 
-	(void)lock_answer(-1, &arg->cookie, arg->stat.stat, NLM_VERS, NULL, 0, 0);
+	lock_answer(NLM_VERS, &arg->cookie, NULL, 0, arg->stat.stat);
 
 	return (NULL);
 }
@@ -724,11 +757,14 @@ nlm_lock_res_1_svc(arg, rqstp)
  */
 void *
 nlm_cancel_res_1_svc(arg, rqstp)
-	nlm_res *arg __unused;
+	nlm_res *arg;
 	struct svc_req *rqstp;
 {
 	if (debug_level)
 		log_from_addr("nlm_cancel_res", rqstp);
+
+	lock_answer(NLM_VERS, &arg->cookie, NULL, 0, arg->stat.stat);
+
 	return (NULL);
 }
 
@@ -745,7 +781,7 @@ nlm_unlock_res_1_svc(arg, rqstp)
 	if (debug_level)
 		log_from_addr("nlm_unlock_res", rqstp);
 
-	lock_answer(-1, &arg->cookie, arg->stat.stat, NLM_VERS, NULL, 0, 0);
+	lock_answer(NLM_VERS, &arg->cookie, NULL, 0, arg->stat.stat);
 
 	return (NULL);
 }
@@ -757,12 +793,18 @@ nlm_unlock_res_1_svc(arg, rqstp)
  */
 void *
 nlm_granted_res_1_svc(arg, rqstp)
-	nlm_res *arg __unused;
+	nlm_res *arg;
 	struct svc_req *rqstp;
 {
 	if (debug_level)
 		log_from_addr("nlm_granted_res", rqstp);
-	/* XXX should undo lock if granted msg wasn't accepted! */
+	/* need to undo lock if granted msg wasn't accepted! */
+	if (arg->stat.stat != nlm_granted) {
+		nlm4_res arg4;
+		arg4.cookie = arg->cookie;
+		arg4.stat.stat = arg->stat.stat;
+		granted_failed(&arg4);
+	}
 	return (NULL);
 }
 
@@ -1061,11 +1103,7 @@ nlm4_cancel_4_svc(arg, rqstp)
 	/* copy cookie from arg to result.  See comment in nlm_test_1() */
 	res.cookie = arg->cookie;
 
-	/*
-	 * Since at present we never return 'nlm_blocked', there can never be
-	 * a lock to cancel, so this call always fails.
-	 */
-	res.stat.stat = unlock(&arg->alock, LOCK_CANCEL);
+	res.stat.stat = cancellock(arg, LOCK_V4);
 	return (&res);
 }
 
@@ -1080,11 +1118,7 @@ nlm4_cancel_msg_4_svc(arg, rqstp)
 		log_from_addr("nlm4_cancel_msg", rqstp);
 
 	res.cookie = arg->cookie;
-	/*
-	 * Since at present we never return 'nlm_blocked', there can never be
-	 * a lock to cancel, so this call always fails.
-	 */
-	res.stat.stat = unlock(&arg->alock, LOCK_CANCEL | LOCK_V4);
+	res.stat.stat = cancellock(arg, LOCK_V4);
 	transmit4_result(NLM4_CANCEL_RES, &res,
 	    (struct sockaddr *)svc_getcaller(rqstp->rq_xprt));
 	return (NULL);
@@ -1156,13 +1190,19 @@ nlm4_granted_4_svc(arg, rqstp)
 	struct svc_req *rqstp;
 {
 	static nlm4_res res;
+	int flags;
 
 	if (debug_level)
 		log_from_addr("nlm4_granted", rqstp);
 
-	res.stat.stat = lock_answer(arg->alock.svid, &arg->cookie,
-		nlm4_granted, NLM_VERS4, NULL, 0, 0) == 0 ?
-		nlm4_granted : nlm4_denied;
+	flags = LOCK_ANSWER_GRANTED;
+	if (arg->exclusive)
+		flags |= LOCK_ANSWER_LOCK_EXCL;
+
+	if (lock_answer(NLM_VERS4, &arg->cookie, &arg->alock, flags, nlm4_granted))
+		res.stat.stat = nlm4_denied;
+	else
+		res.stat.stat = nlm4_granted;
 
 	/* copy cookie from arg to result.  See comment in nlm_test_1() */
 	res.cookie = arg->cookie;
@@ -1176,13 +1216,19 @@ nlm4_granted_msg_4_svc(arg, rqstp)
 	struct svc_req *rqstp;
 {
 	static nlm4_res res;
+	int flags;
 
 	if (debug_level)
 		log_from_addr("nlm4_granted_msg", rqstp);
 
-	res.stat.stat = lock_answer(arg->alock.svid, &arg->cookie,
-		nlm4_granted, NLM_VERS4, NULL, 0, 0) == 0 ?
-		nlm4_granted : nlm4_denied;
+	flags = LOCK_ANSWER_GRANTED;
+	if (arg->exclusive)
+		flags |= LOCK_ANSWER_LOCK_EXCL;
+
+	if (lock_answer(NLM_VERS4, &arg->cookie, &arg->alock, flags, nlm4_granted))
+		res.stat.stat = nlm4_denied;
+	else
+		res.stat.stat = nlm4_granted;
 
 	res.cookie = arg->cookie;
 
@@ -1201,13 +1247,23 @@ nlm4_test_res_4_svc(arg, rqstp)
 	nlm4_testres *arg;
 	struct svc_req *rqstp;
 {
+	nlm4_lock lock4;
+	int flags = 0;
+
 	if (debug_level)
 		log_from_addr("nlm4_test_res", rqstp);
 
-	(void)lock_answer(-1, &arg->cookie, arg->stat.stat, NLM_VERS4,
-		(int *)&arg->stat.nlm4_testrply_u.holder.svid,
-		arg->stat.nlm4_testrply_u.holder.l_offset,
-		arg->stat.nlm4_testrply_u.holder.l_len);
+	if (arg->stat.stat == nlm4_denied) {
+		lock4.fh.n_len = 0;
+		lock4.svid = arg->stat.nlm4_testrply_u.holder.svid;
+		lock4.l_offset = arg->stat.nlm4_testrply_u.holder.l_offset;
+		lock4.l_len = arg->stat.nlm4_testrply_u.holder.l_len;
+		if (arg->stat.nlm4_testrply_u.holder.exclusive)
+			flags |= LOCK_ANSWER_LOCK_EXCL;
+		lock_answer(NLM_VERS4, &arg->cookie, &lock4, flags, arg->stat.stat);
+	} else
+		lock_answer(NLM_VERS4, &arg->cookie, NULL, 0, arg->stat.stat);
+
 	return (NULL);
 }
 
@@ -1224,7 +1280,7 @@ nlm4_lock_res_4_svc(arg, rqstp)
 	if (debug_level)
 		log_from_addr("nlm4_lock_res", rqstp);
 
-	(void)lock_answer(-1, &arg->cookie, arg->stat.stat, NLM_VERS4, NULL, 0, 0);
+	lock_answer(NLM_VERS4, &arg->cookie, NULL, 0, arg->stat.stat);
 
 	return (NULL);
 }
@@ -1236,11 +1292,14 @@ nlm4_lock_res_4_svc(arg, rqstp)
  */
 void *
 nlm4_cancel_res_4_svc(arg, rqstp)
-	nlm4_res *arg __unused;
+	nlm4_res *arg;
 	struct svc_req *rqstp;
 {
 	if (debug_level)
 		log_from_addr("nlm4_cancel_res", rqstp);
+
+	lock_answer(NLM_VERS4, &arg->cookie, NULL, 0, arg->stat.stat);
+
 	return (NULL);
 }
 
@@ -1256,6 +1315,9 @@ nlm4_unlock_res_4_svc(arg, rqstp)
 {
 	if (debug_level)
 		log_from_addr("nlm4_unlock_res", rqstp);
+
+	lock_answer(NLM_VERS4, &arg->cookie, NULL, 0, arg->stat.stat);
+
 	return (NULL);
 }
 
@@ -1271,7 +1333,9 @@ nlm4_granted_res_4_svc(arg, rqstp)
 {
 	if (debug_level)
 		log_from_addr("nlm4_granted_res", rqstp);
-	/* XXX should undo lock if granted msg wasn't accepted! */
+	/* need to undo lock if granted msg wasn't accepted! */
+	if (arg->stat.stat != nlm4_granted)
+		granted_failed(arg);
 	return (NULL);
 }
 

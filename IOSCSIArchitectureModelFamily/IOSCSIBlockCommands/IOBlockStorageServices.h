@@ -53,7 +53,7 @@ class IOBlockStorageServices : public IOBlockStorageDevice
 	
 private:
 	
-	bool							fMediaChanged;
+	bool							fMediaChanged;  /* DEPRECATED */
 	bool							fMediaPresent;
 	
 protected:

@@ -1,0 +1,9 @@
+XCOMM $XConsortium: Imakefile,v 1.4 91/07/16 23:06:58 gildea Exp $
+           SRCS = xfontsel.c ULabel.c
+           OBJS = xfontsel.o ULabel.o
+        DEPLIBS = XawClientDepLibs
+LOCAL_LIBRARIES = XawClientLibs
+
+ComplexProgramTarget(xfontsel)
+
+InstallAppDefaults(XFontSel)

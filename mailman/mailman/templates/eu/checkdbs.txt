@@ -1,0 +1,7 @@
+%(real_name)s@%(host_name)s eposta zerrendak %(count)d eskakizun
+ditu zure onarpenaren zai:
+
+        %(adminDB)s
+
+Mesedez ahalik eta azkarren so egiezu eskakizun haueri. Egiteko eskakizunen
+gogorarazle hau egunero (egitekoak baleude) bidaliko zaizu

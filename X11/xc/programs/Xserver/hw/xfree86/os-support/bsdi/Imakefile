@@ -1,0 +1,46 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bsdi/Imakefile,v 3.15 2002/10/17 02:22:45 dawes Exp $
+
+
+
+
+XCOMM $XConsortium: Imakefile /main/4 1996/09/28 17:23:38 rws $
+
+#include <Server.tmpl>
+
+MOUSESRC = bsdi_mouse.c
+MOUSEOBJ = bsdi_mouse.o
+
+SRCS = bsdi_init.c bsdi_video.c bsdi_io.c bios_devmem.c \
+       VTsw_noop.c std_kbdEv.c posix_tty.c $(MOUSESRC) \
+       libc_wrapper.c stdResource.c stdPci.c sigiostubs.c pm_noop.c \
+       kmod_noop.c agp_noop.c
+
+OBJS = bsdi_init.o bsdi_video.o bsdi_io.o bios_devmem.o \
+       VTsw_noop.o std_kbdEv.o posix_tty.o $(MOUSEOBJ) \
+       libc_wrapper.o stdResource.o stdPci.o sigiostubs.o pm_noop.o \
+       kmod_noop.o agp_noop.o
+
+INCLUDES = -I$(XF86COMSRC) -I$(XF86OSSRC) -I. -I$(SERVERSRC)/include \
+           -I$(XINCLUDESRC) -I$(EXTINCSRC)
+
+RESDEFINES = -DUSESTDRES
+
+DEFINES = $(RESDEFINES)
+
+SubdirLibraryRule($(OBJS))
+NormalLibraryObjectRule()
+
+LinkSourceFile(bios_devmem.c,../shared)
+LinkSourceFile(VTsw_noop.c,../shared)
+LinkSourceFile(std_kbdEv.c,../shared)
+LinkSourceFile(posix_tty.c,../shared)
+LinkSourceFile(libc_wrapper.c,../shared)
+LinkSourceFile(stdResource.c,../shared)
+LinkSourceFile(stdPci.c,../shared)
+LinkSourceFile(sigiostubs.c,../shared)
+LinkSourceFile(pm_noop.c,../shared)
+LinkSourceFile(kmod_noop.c,../shared)
+LinkSourceFile(agp_noop.c,../shared)
+
+DependTarget()
+

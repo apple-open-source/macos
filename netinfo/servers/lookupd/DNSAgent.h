@@ -43,6 +43,7 @@
 	BOOL allHostsEnabled;
 	BOOL localMulticast;
 	BOOL qualifyLocal;
+	unsigned int buffersize;
 }
 
 - (char **)searchList;

@@ -1,0 +1,33 @@
+XCOMM $XFree86: xc/lib/GL/mesa/src/drv/common/Imakefile,v 1.6 2001/04/03 02:29:34 dawes Exp $
+
+#if GlxUseBuiltInDRIDriver
+#define DoNormalLib (NormalLibGlx || SharedLibGlxWithoutPIC)
+#define DoSharedLib (SharedLibGlx && !SharedLibGlxWithoutPIC)
+#define DoExtraLib SharedLibGlx
+#define DoDebugLib DebugLibGlx
+#define DoProfileLib ProfileLibGlx
+#else
+#define DoNormalLib SharedLibGlxWithoutPIC
+#define DoSharedLib !SharedLibGlxWithoutPIC
+#define DoExtrasLib NO
+#define DoDebugLib NO
+#define DoProfileLib NO
+#endif
+
+#define MesaDrvCommonBuildDir /**/
+#include "Imakefile.inc"
+
+      DEFINES = $(ALLOC_DEFINES) $(DRI_DEFINES)
+     INCLUDES = $(X_INCLUDES) $(MESA_INCLUDES) $(DRI_INCLUDES)
+
+         SRCS = $(COMMONSRCS) 
+         OBJS = $(COMMONOBJS) 
+
+#include <Library.tmpl>
+
+LibraryObjectRule()
+
+SubdirLibraryRule($(OBJS))
+NormalLintTarget($(SRCS))
+
+DependTarget()

@@ -1,4 +1,5 @@
 #!/usr/bin/python -u
+# -*- coding: ISO-8859-1 -*-
 #
 # this tests the basic APIs of the XmlTextReader interface
 #
@@ -99,9 +100,9 @@ ret = reader.Read()
 while ret == 1:
     if reader.Name() == "ref":
         if reader.LookupNamespace("a") != "urn:456":
-	    print "error resolving namespace prefix"
-	    sys.exit(1)
-	break
+            print "error resolving namespace prefix"
+            sys.exit(1)
+        break
     ret = reader.Read()
 if ret != 1:
     print "Error finding the ref element"
@@ -300,14 +301,14 @@ def tst_reader(s):
     reader = input.newTextReader("tst")
     res = ""
     while reader.Read():
-	res=res + "%s (%s) [%s] %d %d\n" % (reader.NodeType(),reader.Name(),
-				      reader.Value(), reader.IsEmptyElement(),
-				      reader.Depth())
-	if reader.NodeType() == 1: # Element
-	    while reader.MoveToNextAttribute():
-		res = res + "-- %s (%s) [%s] %d %d\n" % (reader.NodeType(),
-				       reader.Name(),reader.Value(),
-				       reader.IsEmptyElement(), reader.Depth())
+        res=res + "%s (%s) [%s] %d %d\n" % (reader.NodeType(),reader.Name(),
+                                      reader.Value(), reader.IsEmptyElement(),
+                                      reader.Depth())
+        if reader.NodeType() == 1: # Element
+            while reader.MoveToNextAttribute():
+                res = res + "-- %s (%s) [%s] %d %d\n" % (reader.NodeType(),
+                                       reader.Name(),reader.Value(),
+                                       reader.IsEmptyElement(), reader.Depth())
     return res
     
 doc="""<a><b b1="b1"/><c>content of c</c></a>"""
@@ -396,6 +397,31 @@ expect="""1 (p) [None] 0 0
 res = tst_reader(doc)
 if res != expect:
     print "test14 failed"
+    print res
+    sys.exit(1)
+
+#
+# test from bug #108801 
+#
+doc="""<?xml version="1.0" standalone="no"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
+                  "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd" [
+]>
+
+<article>
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+</article>
+"""
+expect="""10 (article) [None] 0 0
+1 (article) [None] 0 0
+3 (#text) [
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+] 0 1
+15 (article) [None] 0 0
+"""
+res = tst_reader(doc)
+if res != expect:
+    print "test15 failed"
     print res
     sys.exit(1)
 

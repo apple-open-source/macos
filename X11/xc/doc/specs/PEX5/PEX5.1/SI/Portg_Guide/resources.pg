@@ -1,0 +1,2597 @@
+.\"##
+.\" $Xorg: resources.pg,v 1.3 2000/08/17 19:42:17 cpqbld Exp $
+.\"##
+.\"## 
+$XMCOPY
+.\"## Copyright (c) 1990, 1991 by Sun Microsystems, Inc. 
+.\"## 
+.\"##                         All Rights Reserved
+.\"## 
+.\"## Permission to use, copy, modify, and distribute this software and its 
+.\"## documentation for any purpose and without fee is hereby granted, 
+.\"## provided that the above copyright notice appear in all copies and that
+.\"## both that copyright notice and this permission notice appear in 
+.\"## supporting documentation, and that the name of Sun Microsystems,
+.\"## not be used in advertising or publicity 
+.\"## pertaining to distribution of the software without specific, written 
+.\"## prior permission.  
+.\"## 
+.\"## SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\"## INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\"## EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\"## CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\"## USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\"## OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\"## PERFORMANCE OF THIS SOFTWARE.
+.H C "Porting the PHIGS Workstation Module" wks_module
+.LP
+The \s-1PHIGS\s+1 Workstation Module supports the requests for the Structure, 
+\s-1PHIGS\s+1 Workstation, Pick, and Search Context Resources.
+\s-1PEX-ME\s+1 implements rendering for this module with the 
+Rendering Control Module and the Transformation Module
+operations.  To do this, there is some interaction between workstation resources 
+and the Rendering Control Module resources.  Each workstation has a renderer associated with it.
+This renderer is created and used by dd\s-1PEX\s+1 \(em not the client.  It is used
+to keep some of the workstation state information and is passed to the Rendering Control Module functions.
+The traverser in the \s-1PHIGS\s+1 Workstation Module calls the Rendering Control Module and the Transformation Module functions. 
+.LP
+When traversal begins, the Rendering Control Module BeginRendering
+function is called.  The traverser then steps through each structure 
+and calls the appropriate output command function for each element 
+in the structure.  It does this by calling through the OC table in the
+renderer.
+The traverser is described in Section
+.XR @NumberOf(traverser).
+.H 2 "Workstation Resources"
+.H 3 "Important Data Structures"
+.LP
+The dd\s-1PEX\s+1 data structure for the workstation resource is defined  
+in \fL\s-1mit/extensions/server/PEX/ddpex/mi/include/miWks.h\s+1\fR.  The corresponding procedures are in
+the file \fL\s-1mit/extensions/server/PEX/ddpex/mi/level4/miWks.c\fR\s+1.
+.LP
+The workstation resource data structure maintains the workstation state information.
+Because the actual rendering is performed in the Transformation and 3D Rendering
+Modules, some of the workstation state information is contained in the 
+Renderer Resource ddContext.
+The state information contained in the Workstation
+Resources, then, is that information that is not associated with rendering
+(for example, the view_input_priority_list and the list_of_posted_structures).
+The workstation resource contains a pointer to the renderer that 
+contains the workstation state information.  It is that renderer that is
+passed to the Transformation Module during traversal.
+.LP
+The workstation data structure also contains information that a specified
+pick device will use.
+Thus if the traverser called for picking, the pick path would be
+returned to the appropriate data structure.  The traverser does not change 
+any other workstation state information directly, but the client code that 
+called the traverser can change the workstation state information in the 
+workstation resource and the renderer resource.
+.H 3 "Procedures Used by diPEX"
+.LP
+The following procedures are defined in \fL\s-1mit/extensions/server/PEX/ddpex/mi/level4/miWks.c\fR\s+1.
+.KS
+.IX "PHIGS Workstation Module" "PHIGS Workstations"
+.LP
+The following procedure handles the dd\s-1PEX\s+1 portion of
+the PEXCreatePhigsWKS request.
+.LP
+.IX "PHIGS Workstation Functions" "CreatePhigsWks"
+.IX "Functions" "CreatePhigsWks"
+(ddpex4rtn)CreatePhigsWks(pInitInfo, pWKS)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddWksInit	*pInitInfo;	/* workstation info */
+	diWKSHandle	pWKS;	/* workstation handle */
+
+Errors: Match, Alloc, Drawable
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the dd\s-1PEX\s+1 portion of
+the PEXFreePhigsWKS request.
+.LP
+.IX "PHIGS Workstation Functions" "FreePhigsWks"
+.IX "Functions" "FreePhigsWks"
+(ddpex4rtn)FreePhigsWks(pWKS, WKSid)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddResourceId	WKSid;	/* PHIGS workstation resource id */
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetWKSInfo request.
+.LP
+.IX "PHIGS Workstation Functions" "InquireWksInfo"
+.IX "Functions" "InquireWksInfo"
+(ddpex4rtn)InquireWksInfo(pWKS, mask, pNumValues, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddBitmask	mask[2];	/* item mask */
+/* out */
+	ddULONG	*pNumValues;	/* number of items returned */
+	ddBufferPtr	pBuffer;	/* workstation information */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetDynamics request.
+.LP
+.IX "PHIGS Workstation Functions" "InquireWksDynamics"
+.IX "Functions" "InquireWksDynamics"
+(ddpex4rtn)InquireWksDynamics(pDrawable, pValues)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	DrawablePtr	pDrawable;	/* drawable */
+/* out */
+	ddWksDynamics	*pValues;	/* dynamics information */
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetViewRep request.
+.LP
+.IX "PHIGS Workstation Functions" "InquireViewRep"
+.IX "Functions" "InquireViewRep"
+(ddpex4rtn)InquireViewRep(pWKS, index, pUpdate, pRequested, pCurrent)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddTableIndex	index;	/* view table index */
+/* out */
+	ddUSHORT	*pUpdate;	/* (pending/notpending) */
+	ddViewRep	*pRequested;	/* requested view */
+	ddViewRep	*pCurrent;	/* current view */
+
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXRedrawAllStructures request.
+.LP
+.IX "PHIGS Workstation Functions" "RedrawStructures"
+.IX "Functions" "RedrawStructures"
+(ddpex4rtn)RedrawStructures(pWKS)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+
+Errors: Alloc, Drawable, Match
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXUpdateWorkstation request.
+.LP
+.IX "PHIGS Workstation Functions" "UpdateWks"
+.IX "Functions" "UpdateWks"
+(ddpex4rtn)UpdateWks(pWKS)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+
+Errors: Alloc, Drawable, Match
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXRedrawClipRegion request.
+.LP
+.IX "PHIGS Workstation Functions" "RedrawClipRegion"
+.IX "Functions" "RedrawClipRegion"
+(ddpex4rtn)RedrawClipRegion(pWKS, numRects, pRects)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddULONG	numRects;	/* number of rectangles in list */
+	ddDeviceRect	*pRects;	/* list of rectangles */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXExecuteDeferredActions request.
+(In \s-1PEX-ME\s+1 this does nothing.)
+.LP
+.IX "PHIGS Workstation Functions" "ExecuteDeferredActions"
+.IX "Functions" "ExecuteDeferredActions"
+(ddpex4rtn)ExecuteDeferredActions(pWKS)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXSetViewPriority request.
+.LP
+.IX "PHIGS Workstation Functions" "SetViewPriority"
+.IX "Functions" "SetViewPriority"
+(ddpex4rtn)SetViewPriority(pWKS, index1, index2, priority)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddTableIndex	index1;	/* view table */
+	ddTableIndex	index2;	/* view table */
+	ddUSHORT	priority;	/* (higher/lower) */
+
+Errors: Value
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXSetDisplayUpdateMode request.
+.LP
+.IX "PHIGS Workstation Functions" "SetDisplayUpdateMode"
+.IX "Functions" "SetDisplayUpdateMode"
+(ddpex4rtn)SetDisplayUpdateMode(pWKS, mode)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddSHORT	mode;	/* display update mode */
+
+Errors: Value, Alloc, Drawable, Match
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXMapDCtoWC request.
+.LP
+.IX "PHIGS Workstation Functions" "MapDcWc"
+.IX "Functions" "MapDcWc"
+(ddpex4rtn)MapDcWc(pWKS, numPoints, pDCpoints, pRetPoints, pWCpoints, pView)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddULONG	numPoints;	/* number of coords */
+	ddDeviceCoord	pDCpoints;	/* list of device coords */
+/* out */
+	ddULONG	*pRetPoints;	/* number of coords returned */
+	ddCoord3D	*pWCpoints;	/* list of world coords */
+	ddUSHORT	*pView;	/* view index */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXMapWCtoDC request.
+.LP
+.IX "PHIGS Workstation Functions" "MapWcDc"
+.IX "Functions" "MapWcDc"
+(ddpex4rtn)MapWcDc(pWKS, numPoints, pWCpoints, view, pRetPoints, pDCpoints)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddULONG	numPoints;	/* number of coords */
+	ddCoord3D	*pWCpoints;	/* list of world coords */
+	ddTableIndex	view;	/* view index */
+/* out */
+	ddULONG	*pRetPoints;	/* number of coords returned */
+	ddDeviceCoord	*pDCpoints;	/* list of device coords */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXSetViewRep request.
+.LP
+.IX "PHIGS Workstation Functions" "SetViewRep"
+.IX "Functions" "SetViewRep"
+(ddpex4rtn)SetViewRep(pWKS, pView)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddViewRep	*pView;	/* view rep */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXSetWKSWindow request.
+.LP
+.IX "PHIGS Workstation Functions" "SetWksWindow"
+.IX "Functions" "SetWksWindow"
+(ddpex4rtn)SetWksWindow(pWKS, pNpcSubvolume)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddNpcSubvolume	*pNpcSubvolume;	/* window volume */
+
+Errors:  Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXSetWKSViewport request.
+.LP
+.IX "PHIGS Workstation Functions" "SetWksViewport"
+.IX "Functions" "SetWksViewport"
+(ddpex4rtn)SetWksViewport(pWKS, pViewport)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddViewport	*pViewport;	/* viewport */
+
+Errors: Value, BadDrawable, Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXSetHLHSRMode request.
+.LP
+.IX "PHIGS Workstation Functions" "SetHlhsrMode"
+.IX "Functions" "SetHlhsrMode"
+(ddpex4rtn)SetHlhsrMode(pWKS, mode)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddEnumTypeIndex	mode;	/* hlhsr mode */
+
+Errors: Value, BadDrawable
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXSetWKSBufferMode request.
+.LP
+.IX "PHIGS Workstation Functions" "SetBufferMode"
+.IX "Functions" "SetBufferMode"
+(ddpex4rtn)SetBufferMode(pWKS, mode)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddUSHORT	mode;	/* buffer mode */
+
+Errors:  Value, BadDrawable
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXPostStructure request.
+.LP
+.IX "PHIGS Workstation Functions" "PostStructure"
+.IX "Functions" "PostStructure"
+(ddpex4rtn)PostStructure(pWKS, pStruct, priority)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	diStructHandle	pStruct;	/* structure handle */
+	ddFLOAT	priority;	/* structure priority */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXUnpostStructure request.
+.LP
+.IX "PHIGS Workstation Functions" "UnpostStructure"
+.IX "Functions" "UnpostStructure"
+(ddpex4rtn)UnpostStructure(pWKS, pStruct)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	diStructHandle	pStruct;	/* structure handle */
+.fi
+.RE
+.KE
+.LP
+.KS
+.LP
+.IX "PHIGS Workstation Functions" "UnpostAllStructures"
+.IX "Functions" "UnpostAllStructures"
+(ddpex4rtn)UnpostAllStructures(pWKS)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetWKSPostings request.
+.LP
+.IX "PHIGS Workstation Functions" "InquireWksPostings"
+.IX "Functions" "InquireWksPostings"
+(ddpex4rtn)InquireWksPostings(pStruct, pBuffer)
+.RS
+.nf
+/* in */
+    diStructHandle      pStruct;     /* structure handle */
+/* out */
+    ddBufferPtr         pBuffer;     /* list of workstation ids */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure is used to maintain resource cross-reference lists.
+.LP
+.IX "PHIGS Workstation Functions" "UpdateWksRefs"
+.IX "Functions" "UpdateWksRefs"
+(ddpex4rtn)UpdateWksRefs(pWKS, pResource, which, action)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;
+	diResourceHandle	pResource;	/* pick measure resource */
+	ddResourceType	which;
+	ddAction	action;
+.fi
+.RE
+.KE
+.KS
+.H 3 "Procedures Used by Other Parts of ddPEX"
+.LP
+miDealWithDynamics is called by the lookup table, name set and structure code.
+It determines whether each workstation in the supplied list needs to 
+have a Redraw depending upon the workstation state and the supplied
+dynamic.  The code for this routine is located in \L\s-1miDynamics.c\fR\s+1.
+.LP
+.IX "PHIGS Workstation Functions" "miDealWithDynamics"
+.IX "Functions" "miDealWithDynamics"
+(ddpex4rtn) miDealWithDynamics(dynamic, pwksToLookAt)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddDynamic	dynamic;
+	listofObj	*pwksToLookAt;
+
+Errors: Alloc, Drawable, Match
+.fi
+.RE
+.KE
+.H 3 "Procedures Most Likely to Be Changed"
+.LP
+The \s-1PEX-SI\s+1 team feels that this code, and the code that manipulates it, 
+is more likely to be replaced than it is to be modified.  In the event that you do
+want to add workstation state information fields, you will have
+to modify the \fL\s-1miWks.h\fR\s+1 file, and the ddContext code.  See Section
+.XR @NumberOf(renderer)
+for more information on ddContext.
+.H 2 "Structure Resources" struct_resource
+.H 3 "Important Data Structures"
+.LP
+The data structures for structure resource are defined
+in \fL\s-1mit/extensions/server/PEX/ddpex/mi/include/miStruct.h\fR\s+1.
+The corresponding procedures are defined 
+in \fL\s-1mit/extensions/server/PEX/ddpex/mi/level4/miStruct.c\fR\s+1.
+Macros for accessing the data structures are defined 
+in \fL\s-1mit/extensions/server/PEX/ddpex/mi/include/miStrMacro.h\fR\s+1.
+.LP
+Each data structure has a header and a pointer to a linked list of elements.
+The structure header contains all of the state information for a
+particular Structure Resource, including the current element pointer,
+the first element, the last element, etc.  The header is defined in
+the file \fL\s-1mit/extensions/server/PEX/ddpex/mi/include/miStruct.h\fR\s+1.
+.LP
+The elements are re-formatted versions of the \s-1PEX\s+1 protocol elements.
+The format must be acceptable by the lower level rendering code;
+in \s-1PEX-SI\s+1 the lower level rendering code is the Transformation
+Module, and the format is defined in \fL\s-1mit/extensions/server/PEX/ddpex/mi/include/ddpex2.h\fR\s+1.
+The format can be changed to match your graphics platform, see the Transformation Module.
+di\s-1PEX\s+1 does not interact with the formatted data.
+.LP
+Each instance of a structure resource is separate.
+The only way that the structure resources
+are linked together hierarchically is through the ExecuteStructure element procedure.
+In this procedure each structure identifier is mapped to a pointer to that particular
+structure's header.  In a workstation mode implementation, the structures
+are posted to the workstation, and when a RedrawStructures is performed, each
+of the posted structures traversed.
+.LP
+Finally, there is one data structure in the traverser code,
+the miTraverserState structure.  It contains
+the traverser state, and is defined in \fL\s-1mit/extensions/server/PEX/ddpex/mi/include/miStruct.h\fR\s+1.
+This data structure indicates whether the traverser is currently doing
+picking, search context, or rendering.  If it is picking, it also indicates
+whether the initial picking information contained a start path.  (A start path
+would define some point, other than the beginning, where the traversal was to start.) 
+The data structure also includes state information that the traverser
+returns when the traversals are completed.
+.H 3 "The Traverser" traverser
+.LP
+The traverser steps through the linked list associated with a Structure
+Resource to perform picking, searching, or rendering tasks.
+The traverser is defined in the file \fL\s-1mit/extensions/server/PEX/ddpex/mi/level4/miTraverse.c\fR\s+1.
+.LP
+The traverser performs these tasks via a Renderer Resource called the ExecuteOC table.
+The ExecuteOC procedure table is defined in the Transformation Module code.
+If the traverser encounters another ExecuteOC procedure table while it is
+traversing the element list, it completes the procedures in the new table, 
+and then returns to the original traversal.  Thus it performs recursively and
+continues until it runs out of elements.
+.H 3 "Handling Structure Elements"
+.LP
+The dd\s-1PEX\s+1 structure code defines six function tables, one for each of
+the six kinds of editing operations for structure elements:
+.RS
+.BP
+Create
+.BP
+Destroy
+.BP
+Copy
+.BP
+Replace
+.BP
+Inquire
+.BP
+Execute
+.RE
+.LP
+The six tables each have one entry per element type (plus one for
+out-of-range elements).  Each entry contains a pointer to a function
+to perform the editing operation on that element.  The same binding
+is used for all of the functions in one table; the binding for
+each table is described below.
+.LP
+There is only one instance of the Create, Destroy, Copy, Replace
+and Inquire function tables in the server.  There is one Execute
+function table for each workstation resource created.
+.LP
+These structure editing procedures may only change the element
+data \(em they do not manipulate the way in which elements are linked
+together.  For example, it is assumed that the element created
+by a function in the CreateCSSElement table will be inserted into
+the structure's element list by the code which calls the function
+(and similarly for the other procedure types).
+.LP
+Each of the six kinds of tables take as one of the arguments a pointer
+to the structure that the element belongs to, in order to allow
+manipulation of implementation-specific cached information in the 
+structure header.  Note that \s-1PEX-ME\s+1 does not implement any
+information caching in the structure header;  this interface is
+provided as a help to implementers who may wish to do so and still
+use other portions of the \s-1PEX-ME\s+1 structure element code.
+.H 4 "CSS Element Data Structures"
+.LP
+Each \s-1CSS\s+1 element contains a fixed part and a variable part.
+The fixed part is the same for every element type and is defined below
+(see miGenericElementStr).  The variable part is different for each
+element and its definition may be implementation dependent.
+However, the first two shorts of the variable part must be the
+same for all element types.  The first two fields in the variable part
+must be the element type and the length of the element in \s-1PEX\s+1 format
+(not the implementation-dependent size).  All other fields of the
+variable part are implementation-dependent.  A generic element
+type is defined below to specify the variable part (see miGenericStr).
+.nf
+.ta 0.5i 2.0i 4.0i
+typedef struct _miCSSElement {
+.sp .2
+	struct _miCSSElement	*prev, *next;
+	diStructHandle	pStruct;
+	miGenericStr	element;	/* replace this with imp.
+			 * dep. data structure */
+.sp .2
+} miGenericElementStr, *miGenericElementPtr;
+.sp .4
+typedef struct {
+.sp .2
+	ddUSHORT	elementType;
+	ddUSHORT	pexOClength;
+	/* concatenate imp. dep. data definitions here */
+.sp .2
+} miGenericStr;
+.fi
+.LP
+Both miGenericStr and miGenericElementStr are in ...ddpex/mi/include/miStruct.h.
+.KE
+.H 4 "Creating Structure Elements"
+.LP
+Functions in the CreateCSSElement table create a new structure element
+from the given \s-1PEX\s+1 element.  They allocate memory and format the data
+from the \s-1PEX\s+1 element to the new \s-1CSS\s+1 element and return a pointer to
+this new parsed element.  Functions in the CreateCSSElement function
+table have the following form:\**
+.FS
+Note that there are no functions named ``CreateCSSElement'', ``DeleteCSSElement'', etc.
+\(em these are function prototypes.)
+.FE
+.LP
+.IX "Structure Functions" "CreateCSSElement"
+.IX "Functions" "CreateCSSElement"
+(ddpex4rtn) CreateCSSElement(pStruct, pPEXOC, ppCSSElement)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle  pStruct;
+	ddPointer       pPEXOC;		/* pointer to incoming PEX data */
+/* out */
+	miGenericElementStr **ppCSSElement;	/* pointer to new element */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.KS
+.H 4 "Deleting Structure Elements"
+.LP
+Functions in the DestroyCSSElement function table free the memory
+that was allocated for the specified structure element.  These functions
+have the following form:
+.LP  
+(ddpex4rtn) DestroyCSSElement(pStruct, pCSSElement)
+.IX "Structure Functions" "DestroyCSSElements"
+.IX "Functions" "DestroyCSSElements"
+.RS
+.nf
+.ta .5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;
+	miGenericElementPtr	pCSSElement;
+.fi
+.RE
+.KE
+.KS
+.H 4 "Copying Structure Elements"
+.LP
+Functions in the CopyCSSElement function table create a new element
+(allocate memory) and copy the element data from the specified 
+existing structure element to the new element.
+.LP
+(ddpex4rtn) CopyCSSElement(pSrcCSSElement, pDestStruct, ppDestCSSElement)
+.IX "Structure Functions" "CopyCSSElements"
+.IX "Functions" "CopyCSSElements"
+.RS
+.ta .5i 2.0i 4.0i
+.nf
+/* in */
+	miGenericElementPtr	pSrcCSSElement;
+	diStructHandle	pDestStruct;
+/* out */
+	miGenericElementStr **ppDestCSSElement;
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.KS
+.H 4 "Replacing Structure Elements"
+.LP
+Functions in the ReplaceCSSElement function table replace the specified
+existing \s-1CSS\s+1 element with a new element.
+Replace is used only in the case where an element is being stored
+via replace mode, and the new element type is identical to the type
+of the element being replaced, and the amount of memory that the new
+element will use is identical to the amount used now.
+This allows more efficient memory allocation if possible.
+The procedure returns \fISuccess\fR if it successfully replaced the
+element; otherwise it returns an error.
+In the case of an unsuccessful replace, the calling code must perform
+the replace by destroying the existing element and creating a new element (via the
+DestroyCSSElement and CreateCSSElement function tables).
+.LP
+(ddpex4rtn) replaceCSS_Plain(pStruct, pCSSElement, pPEXOC)
+.IX "Structure Functions" "replaceCSS_Plain"
+.IX "Functions" "replaceCSS_Plain"
+.RS
+.nf
+.ta .5i 2.0i 4.0i
+	diStructHandle	pStruct;
+	miGenericElementPtr	pCSSElement;
+	ddElementInfo	*pPEXOC;
+.fi
+.RE
+.KE
+.KS
+.H 4 "Inquiring Structure Elements"
+.LP
+Functions in the InquireCSSElement function table convert the specified
+existing element data back to \s-1PEX\s+1 format and returns a pointer to this
+PEX data.  The \s-1PEX\s+1 element data is written into a ddBuffer.
+Functions in the InquireCSSElement table may use the ddBuffer utilities to
+reallocate for more memory in which to write the element data.
+.LP
+(ddpex4rtn) inquireCSS_Plain(pCSSElement, pBuf, ppPEXOC)
+.IX "Structure Functions" "inquireCSS_Plain"
+.IX "Functions" "inquireCSS_Plain"
+.RS
+.nf
+.ta .5i 2.0i 4.0i
+/* in */
+	miGenericElementPtr	pCSSElement;
+	ddBuffer	*pBuf;	/* where the element data is written */
+/* out */
+	ddElementInfo	**ppPEXOC;	/* pointer to the \s-1PEX\s+1 data */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.H 4 "The PEX-ME Implementation"
+.LP
+The CreateCSSElement, DestroyCSSElement, CopyCSSElement, ReplaceCSSElement,
+and InquireCSSElement tables are defined in \fL\s-1css_tbls.c\fR\s+1.
+Looking at this file you will see that \s-1PEX-ME\s+1 only implements two functions per
+function table:\ \ one for the ExecuteStructure element, and one to cover
+all the rest.
+This is because \s-1PEX-ME\s+1 does not perform any information-caching
+in the structure header.
+See the procedures in the files \fL\s-1css_ex_str.c\fR\s+1 (for the
+ExecuteStructure element type) and \fL\s-1css_plain.c\fR\s+1 (for all others).
+.LP
+The implementation-specific portion of each element is parsed by
+routines in the the Transformation Module code.  In \s-1PEX-ME\s+1,
+each function in the CreateCSSElement, DestroyCSSElement, CopyCSSElement,
+ReplaceCSSElement and InquireCSSElement calls a corresponding routine in the five
+Tranformation Module function tables ParseOCTable\**, DestroyOCTable,
+CopyOCTable, ReplaceOCTable, and InquireOCTable, respectively.
+.FS
+The CreateCSSElement function corresponds to the ParseOCTable.
+.FE
+See the Transformation Module for more information, and also the code
+in \fL\s-1mit/extensions/server/PEX/ddpex/mi/level2\fR\s+1 directory in the
+files \fL\s-1pexOCParse.c, miDestroy.c miCopy.c, miReplace.c\s+1\fR
+and \fL\s-1miInquire.c\fR\s+1.
+.H 3 "Procedures Used by diPEX"
+.LP
+These procedures support the structure resource requests.  
+They call the element handling procedures through the tables
+defined in the above section on Procedures Used by Other Parts of dd\s-1PEX\s+1.
+.LP
+.KS
+The following procedure handles the PEXCreateStructure request.
+.LP
+.IX "Structure Functions" "CreateStructure"
+.IX "Functions" "CreateStructure"
+(ddpex4rtn)CreateStructure(pStruct)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;	/* structure handle */
+
+Errors:  Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXCopyStructure request.
+.LP
+.IX "Structure Functions" "CopyStructure"
+.IX "Functions" "CopyStructure"
+(ddpex4rtn)CopyStructure(pSrcStruct, pDestStruct)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pSrcStruct;	/* source structure */
+	diStructHandle	pDestStruct;	/* destination structure */
+
+Errors:  Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+This function supports the PEXDestroyStructures request for only one
+structure at a time.
+It is also the delete routine for the structure resource registered
+with the core \s-1X\s+1 sever via the procedure CreateNewResourceType.
+.LP
+.IX "Structure Functions" "DeleteStructure"
+.IX "Functions" "DeleteStructure"
+(ddpex4rtn)DeleteStructure(pStruct, Sid)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;	/* structure handle */
+	ddResourceId	Sid;	/* structure resource id */
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetStructureInfo request.
+.LP
+.IX "Structure Functions" "InquireStructureInfo"
+.IX "Functions" "InquireStructureInfo"
+(ddpex4rtn)InquireStructureInfo(fpFormat, pStruct, itemMask, pEditMode, 
+pElOffset, pNumElements, pLength, pHasRefs)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddEnumTypeIndex	fpFormat;
+	diStructHandle	pStruct;	/* structure handle */
+	ddBitmask	itemMask;
+/* out */
+	ddUSHORT	*pEditMode;	/* edit mode */
+	ddULONG	*pElOffset;	/* current element pointer */
+	ddULONG	*pNumElements;	/* number of elements in structure */
+	ddULONG	*pLength;	/* total size of structure */
+	ddULONG	*pHasRefs;	/* is structure referenced by others */
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetElementInfo request.
+.LP
+.IX "Structure Functions" "InquireElementInfo"
+.IX "Functions" "InquireElementInfo"
+(ddpex4rtn) InquireElementInfo(pStruct, pRange, pNumElements, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;/*	structure handle */
+	ddElementRange	*pRange;	/* element range */
+/* out */
+	ddULONG	*pNumElements;	/* number of items in list */
+	ddBufferPtr	pBuffer;	/* list of element information */
+
+Errors: Value, Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetStructuresInNetwork request.
+.LP
+.IX "Structure Functions" "InquireStructureNetwork"
+.IX "Functions" "InquireStructureNetwork"
+(ddpex4rtn)InquireStructureNetwork(pStruct, which, pNumSids, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;	/* structure handle */
+	ddUSHORT	which;	/* which structures to inquire */
+/* out */
+	ddULONG	*pNumSids;	/* number of ids in list */
+	ddBufferPtr	pBuffer;	/* list of structure ids */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetAncestors request.
+.LP
+.IX "Structure Functions" "InquireAncestors"
+.IX "Functions" "InquireAncestors"
+(ddpex4rtn)InquireAncestors(pStruct, pathPart, depth, pNumLists, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandlep	Struct;	/* structure handle */
+	ddUSHORT	pathPart;	/* which paths to return */
+	ddULONG	depth;	/* how deep to search */
+/* out */
+	ddULONG	*pNumLists;	/* number of lists returned */
+	ddBufferPtr	pBuffer;	/* list of lists of element refs */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetDescendants request.
+.LP
+.IX "Structure Functions" "InquireDescendants"
+.IX "Functions" "InquireDescendants"
+(ddpex4rtn)InquireDescendants(pStruct, pathPart, depth, pNumLists, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;	/* structure handle */
+	ddUSHORT	pathPart;	/* which paths to return */
+	ddULONG	depth;	/* how deep to search */
+/* out */
+	ddULONG	*pNumLists;	/* number of lists returned */
+	ddBufferPtr	pBuffer;	/* list of lists of element refs */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXFetchElements request.
+Note that if there are any ExecuteStructure elements in the list of
+elementOCs, the structure id must be stored, not the structure handle \(em
+di\s-1PEX\s+1 does not perform this reference.
+However, the structure id is stored in a field of the structure data structure.
+.LP
+.IX "Structure Functions" "InquireElements"
+.IX "Functions" "InquireElements"
+(ddpex4rtn) InquireElements(pStruct, pRange, pNumOCs, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;	/* structure handle */
+	ddElementRange	*pRange;	/* range of elements */
+/* out */
+	ddULONG	*pNumOCs;	/* number of items in list */
+	ddBufferPtr	pBuffer;	/* list of element OCs */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXSetEditingMode request.
+.LP
+.IX "Structure Functions" "SetEditMode"
+.IX "Functions" "SetEditMode"
+(ddpex4rtn)SetEditMode(pStruct, editMode)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;	/* structure handle */
+	ddUSHORT	editMode;	/* edit mode */
+
+Errors: Value
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXSetElementPointer request.
+.LP
+.IX "Structure Functions" "SetElementPointer"
+.IX "Functions" "SetElementPointer"
+(ddpex4rtn)SetElementPointer(pStruct, pPosition)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+diStructHandle	pStruct;	/* structure handle */
+ddElementPos	*pPosition;	/* position to set pointer at */
+
+Errors: Value
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXSetElementPointerAtLabel request.
+.LP
+.IX "Structure Functions" "SetElementPointerAtLabel"
+.IX "Functions" "SetElementPointerAtLabel"
+(ddpex4rtn)SetElementPointerAtLabel(pStruct, label, offset)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;	/* structure handle */
+	ddLONG	label;	/* label id */
+	ddLONG	offset;	/* offset from label */
+
+Errors: Label
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXElementSearch request.
+.LP
+.IX "Structure Functions" "ElementSearch"
+.IX "Functions" "ElementSearch"
+(ddpex4rtn)ElementSearch(pStruct, pPosition, direction, numIncl, 
+numExcl, pIncls, pExcls, pStatus, pOffset)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;	/* structure handle */
+	ddElementPos	*pPosition;	/* search start position */
+	ddULONG	direction;	/* search direction (forward/backward) */
+	ddULONG	numIncl;	/* number of types in incl list */
+	ddULONG	numExcl;	/* number of types in excl list */
+	ddUSHORT	*pIncls;	/* list of included element types */
+	ddUSHORT	*pExcls;	/* list of excluded element types */
+/* out */
+	ddUSHORT	*pStatus;	/* (found/notfound) */
+	ddULONG	*pOffset;	/* offset from the start position */
+
+Errors: Value
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXStoreElements request.
+If an error occurs during the storing of the structure elements,
+this command also alllocates and formats a pexOutputCommandError
+that is passed back to di\s-1PEX\s+1 for error reporting.
+.LP
+.IX "Structure Functions" "StoreElements"
+.IX "Functions" "StoreElements"
+(ddpex4rtn) StoreElements(pStruct, numOCs, pOCs, ppErr)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;	/* structure handle */
+	register ddULONG	numOCs;	/* number of output commands */
+	ddElementInfo	*pOCs;	/* list of output commands */
+/* out */
+	pexOutputCommandError	**ppErr;
+
+Errors: PEXOutputCommand, Alloc, BadImplementation
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXDeleteElements request.
+.LP
+.IX "Structure Functions" "DeleteElements"
+.IX "Functions" "DeleteElements"
+(ddpex4rtn)DeleteElements(pStruct, pRange)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;	/* structure handle */
+	ddElementRange	*pRange;	/* range of elements to delete */
+
+Errors: Value
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXDeleteElementsToLabel request.
+.LP
+.IX "Structure Functions" "DeleteToLabel"
+.IX "Functions" "DeleteToLabel"
+(ddpex4rtn)DeleteToLabel(pStruct, pPosition, label)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;	/* structure handle */
+	ddElementPos	*pPosition;	/* starting position */
+	ddLONG	label;	/* label id to delete to */
+
+Errors: Value, Label
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXDeleteElementsBetweenLabels request.
+.LP
+.IX "Structure Functions" "DeleteBetweenLabels"
+.IX "Functions" "DeleteBetweenLabels"
+(ddpex4rtn)DeleteBetweenLabels(pStruct, label1, label2)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;	/* structure handle */
+	ddLONG	label1;	/* first label id */
+	ddLONG	label2;	/* second label id */
+
+Errors: Label
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXCopyElements request.
+.LP
+.IX "Structure Functions" "CopyElements"
+.IX "Functions" "CopyElements"
+(ddpex4rtn)CopyElements(pSrcStruct, pSrcRange, pDestStruct, pDestPosition)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pSrcStruct;	/* source structure handle */
+	ddElementRange	*pSrcRange;	/* element range to copy */
+	diStructHandle	pDestStruct;	/* destination structure handle */
+	ddElementPos	*pDestPosition;	/* destination position to put stuff */
+
+Errors: Value, Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXChangeStructureReferences request.
+.LP
+.IX "Structure Functions" "ChangeStructureReferences"
+.IX "Functions" "ChangeStructureReferences"
+(ddpex4rtn)ChangeStructureReferences(pStruct, pNewStruct)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;	/* structure handle */
+	diStructHandle	pNewStruct;	/* new structure resource */
+.fi
+.RE
+.KE
+.H 3 "Other Utilities"
+.LP
+.KS
+The following procedure is used to maintain resource cross-reference lists.
+.LP
+.IX "Structure Functions" "UpdateStructRefs"
+.IX "Functions" "UpdateStructRefs"
+(ddpex4rtn)UpdateStructRefs(pStruct, pResource, which, action)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diStructHandle	pStruct;	/* structure handle */
+	diResourceHandle	pResource;	/* workstation, structure, search context, pick handle */
+	ddResourceType	which;	/* workstation or structure */
+	ddAction	action;	/* add or remove */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure checks that a given path is valid.
+The path may be a list of element references (for search context paths) 
+or a list of pick element references (for pick paths). 
+The 
+.I listofObj 
+type specifies which list it is.
+The procedure checks for valid structures and offsets.
+It is successful if the path is valid, but
+a path error is returned if it is not.
+.LP
+This only checks if the path is valid ``as it exists.''
+It does not recognize whether a structure has been edited.  
+For example:  if a path is valid when a search context is created, 
+and then a structure in the path is edited,
+this procedure will still find the path is valid
+if the {structure, offset} pairs in the path are still
+traversable.
+.LP
+.IX "Structure Functions" "ValidateStructurePath"
+.IX "Functions" "ValidateStructurePath"
+(ddpex4rtn)ValidateStructurePath(pPath)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	listofObj	*pPath;
+
+Errors: Path
+.fi
+.RE
+.KE
+.H 3 "Areas Most Likely to Be Changed"
+.LP
+There are several parts of the structure resource code that could be modified.
+Typically, an implementation will want to change the format of the element
+data; this information is discussed in the Transformation Module.
+.LP
+Some implementations may want to cache information about element contents
+in the structure header.  For example, you may want to cache
+information about whether this structure contains an ExecuteStructure
+element, or whether or not it contains any elements that change
+attributes that may affect your implementation of the workstation state.
+For this, you may wish to modify the structure header for the
+caching of the kind of information you use to make your implementation
+more efficient, and allow for modification of this cached data
+when an element is stored or removed.
+To maintain this information, therefore, you will want to modify
+the structure editing routines\(em Create, Destroy, Copy, Replace \(em as
+described above.  In addition, you may also wish to modify
+the routines CreateStructure, CopyStructure, and DeleteStructure
+to correspond to any changes you make to the structure header.
+.H 2 "Search Context Resources"
+.H 3 "Important Data Structures"
+.LP
+The search context data structure is defined in 
+the file \fL\s-1mit/extensions/server/PEX/include/ddpex4.h\fR\s+1.
+The data structure is created and managed by di\s-1PEX\s+1.
+dd\s-1PEX\s+1 provides only the code that does the actual search.
+.H 3 "Procedures Used by diPEX"
+.LP
+.KS
+dd\s-2PEX\s+2 only supports the PEXSearchNetwork request for search context resources.  
+This procedure controls the spatial search traversal.  It uses the same traverser
+used for rendering and picking.  You may need to change this procedure's interaction
+with the traverser if you change the traversal code.  
+This routine returns its information in a ddBuffer which di\s-1PEX\s+1
+passes to it.
+.LP
+.IX "Search Context Functions" "SearchNetwork"
+.IX "Functions" "SearchNetwork"
+(ddpex4rtn)SearchNetwork(pSC, pNumRefs, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddSCStr	*pSC;	/* search context */
+/* out */
+	ddULONG	*pNumRefs;	/* number of references returned in list */
+	ddBufferPtr	pBuffer;	/* list of element references */
+
+Errors: Path, Alloc
+.fi
+.RE
+.KE
+.H 3 "Procedures Most Likely to Be Changed" ball_o_wax
+.LP
+If you are customizing the search context resources you may also be customizing
+the pick and renderer resources.  These functions all use the same traverser.
+Before the traverser is called for a search, the Rendering Control routine
+BeginSearching is called.  For more information see the Rendering Control Module.
+.H 2 "Pick Resources"
+.H 3 "Important Data Structures"
+.LP
+The pick resource data structures are defined
+in \fL\s-1mit/extensions/server/PEX/ddpex/mi/include/miPick.h\s+1\fR.
+The procedures that manipulate these structures are
+in \fL\s-1mit/extensions/server/PEX/ddpex/mi/level4/miPick.c\fR\s+1.
+.LP
+The pick resource has two parts, a pick device, and a pick measure.
+A pick device data structure contains the initial state information for the pick measure.
+A pick measure is the data structure that is used during picking to keep 
+track of the current path and any state information associated with picking.  
+\s-1PEX-ME\s+1 supports the two kinds of pick devices defined
+for the \s-1PEX\s+1 protocol:\ \ NPC_SubVolume, and DC_HitBox. 
+.LP
+The pick measure contains the information necessary to perform a pick traversal. 
+.H 3 "Procedures Used by diPEX"
+.LP
+dd\s-2PEX\s+2 supports all of the \s-2PEX\s+2 pick device and 
+pick measure requests.  One pick device exists for each workstation 
+and is considered part of the workstation.  This device is the 
+cursor and left mouse button.  It has one \s-2PET\s+2
+that highlights the picked primitive by blinking
+twice with the background color.
+.LP
+.KS
+The following procedure handles the PEXGetPickDevice request.
+The list of items is returned in a ddBuffer which was allocated by
+di\s-1PEX\s+1 and passed to the routine.
+.LP
+.IX "Picking Functions" "InquirePickDevice"
+.IX "Functions" "InquirePickDevice"
+(ddpex4rtn)InquirePickDevice(pWKS, devType, mask, pNumItems, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddEnumTypeIndex	devType;	/* pick device type */
+	ddBitmask	mask;	/* item bit mask */
+/* out */
+	ddULONG	*pNumItems;	/* number of items in list */
+	ddBufferPtr	pBuffer;	/* list of items */
+
+Errors: Value, Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXChangePickDevice request.
+.LP
+.IX "Picking Functions" "ChangePickDevice"
+.IX "Functions" "ChangePickDevice"
+(ddpex4rtn)ChangePickDevice(pWKS, devType, mask, pItems)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;	/* workstation handle */
+	ddEnumTypeIndex	devType;	/* pick device type */
+	ddBitmask	mask;	/* item bit mask */
+	ddPointer	pItems;	/* list of items */
+
+Errors: Value 
+.fi
+.RE
+.KE
+.LP
+.LP
+.KS
+The following procedure handles the PEXCreatePickMeasure request.
+.LP
+.IX "Picking Functions" "CreatePickMeasure"
+.IX "Functions" "CreatePickMeasure"
+(ddpex4rtn)CreatePickMeasure(pWKS, devType, pPM)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diWKSHandle	pWKS;
+	ddEnumTypeIndex	devType;	/* pick device type */
+	diPMHandle	pPM;	/* pick measure handle */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXFreePickMeasure request.
+It is also the delete routine for the pick measure resource registered
+with the core \s-1X\s+1 sever via the procedure CreateNewResourceType.
+.LP
+.IX "Picking Functions" "FreePickMeasure"
+.IX "Functions" "FreePickMeasure"
+(ddpex4rtn)FreePickMeasure(pPM, PMid)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diPMHandle	pPM;	/* pick measure */
+	ddResourceId	PMid;	/* pick measure id */
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetPickMeasure request.
+The list of items is returned in a ddBuffer which was
+allocated by di\s-1PEX\s+1 and passed to the routine.
+.LP
+.IX "Picking Functions" "InquirePickMeasure"
+.IX "Functions" "InquirePickMeasure"
+(ddpex4rtn)InquirePickMeasure(pPM, itemMask, pNumItems, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diPMHandle	pPM;	/* pick measure */
+	ddBitmask	itemMask;	/* pick item bit mask */
+/* out */
+	ddULONG	*pNumItems;	/* number of items returned */
+	ddBufferPtr	pBuffer;	/* return buffer */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.KS
+The following procedure handles the PEXUpdatePickMeasure request.
+.LP
+.IX "Picking Functions" "UpdatePickMeasure"
+.IX "Functions" "UpdatePickMeasure"
+(ddpex4rtn)UpdatePickMeasure(pPM, size, pInput)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diPMHandle	pPM;	/* pick measure */
+	ddULONG	size;	/* input record size */
+	ddPointer	pInput;	/* input record */
+/* out */
+
+Errors: Path, Drawable
+.fi
+.RE
+.KE
+.H 3 "Procedures Used by Other Parts of ddPEX"
+.LP
+Before the traversal begins, the UpdatePickMeasure procedure calls the procedure 
+SetPickAttributes.  This initializes picking in the rendering code.  You can replace the
+BeginPick procedure with a procedure that interacts with your software or hardware.
+The result of this procedure is that the executeOC table in the renderer is filled 
+with procedures that perform picking operations.
+During traversal, these procedures are called for each structure element.
+See Sections
+.XR @NumberOf(transformation), and
+.XR @NumberOf(three_d)
+for details on these procedures.  The Rendering Control Module routine EndPick
+is called after the traversal to turn off picking.
+.LP
+Another Rendering Control Module procedure, InquirePickStatus, is called by the
+traverser after any graphics primitive elements are traversed.
+This procedure checks for a ``hit'' of the
+picking.  You can replace it to work with your software or hardware.
+The traverser is defined in \fL\s-1mit/extensions/server/PEX/ddpex/mi/level4/miTraverse.c\fR\s+1.
+.H 3 "Areas Most Likely to Be Changed"
+.LP
+If you have pick devices that are different from the ones defined
+by \s-1PEX-ME\s+1, you need to modify the \fL\s-1miPick.h\fR\s+1
+file to accomodate them.
+.LP
+To add a pick device you need to define the data structure for the resource,
+including a pointer to the array of pick devices(**??**).
+You will also need to have the pick device initialized in the 
+CreateWorkstation procedure.
+For more information see Section
+.XR @NumberOf(ball_o_wax).
+.H C "Porting the Shared Resources Module" shared
+.IX "ddPEX" "shared resources"
+.IX "Shared Resources Module"
+.LP
+The Shared Resource Module consists of the lookup table, name set, and font resources.
+There is a dd\s-2PEX\s+2 procedure for each \s-2PEX\s+2 request for these 
+resources that functions according to the specification of the request. 
+The mapping of \s-2PEX\s+2 requests to dd\s-2PEX\s+2 procedures is 
+given with the bindings.
+.H 2 "Lookup Tables"lut
+.H 3 "Important Data Structures"
+.LP
+There are 12 lookup table types.  Each lookup table type can be modified to support
+a different number of table entries.  The lookup table data structures are defined 
+in \fL\s-1mit/extensions/server/PEX/ddpex/mi/include/miLUT.h\fR\s+1.
+For each lookup table there is a data structure that defines its table entries.
+Each data structure has a header with the same format.
+.LP
+Each lookup table type also has a corresponding file 
+in the directory \fL\s-1mit/extensions/server/PEX/ddpex/mi/shared\fR\s+1.  
+Each file name begins with an abbreviation of the lookup table type,
+and ends with the letters \fL\s-1LUT.c\fR\s+1.
+.LP
+Each lookup table type has certain predefined entries.  These entries are
+defined in the \fL\s-1mit/extensions/server/PEX/shared/*LUT.c\fR\s+1 files in arrays with
+variable names that begin with the letters \fL\s-1pde\fR\s+1.
+.LP
+In the \fL\s-1mit/extensions/server/PEX/shared\fR\s+1 directory there is also a file 
+called \fL\s-1miLUT.c\fR\s+1.
+This file contains procedures that are called directly by the di\s-1PEX\s+1.
+The di\s-1PEX\s+1 only calls the procedures in this file.  The procedures in turn call 
+the specific lookup table via an operation vector contained in the header 
+of each of the lookup table data structures.
+.LP
+Each \fL\s-1LUT.c\fR\s+1 file has its own set of operation procedures defined in the
+data structure header.  Because the \s-1PEX-SI\s+1 is a generic implementation,
+all of the lookup table types handle their requests almost identically.  To
+keep duplication of code to a minimum, the \s-1PEX-SI\s+1 has isolated much of the 
+shared code in a separate file, \fL\s-1mit/extensions/server/PEX/shared/miLUTProcs.ci\fR\s+1.  This file
+is a template for the procedures used in each lookup table file, and 
+is included in all of the \fL\s-1LUT.c\fR\s+1 files.
+.LP
+Each \fL\s-1LUT.c\fR\s+1 file contains information that is used by 
+the \fL\s-1miLUTProcs.ci\fR\s+1 file to create the complete procedures needed
+by each lookup table type.  This information consists of macro pre-processor 
+definitions for the lookup table type, the number of entries in the table, etc.
+.KS
+.H 3 "Procedures Used by diPEX"
+.IX "lookup tables"
+.IX "ddPEX" "lookup tables"
+.LP
+.IX "Lookup Table Functions" "CreateLUT"
+.IX "Functions" "CreateLUT"
+The following procedure handles the PEXCreateLookupTable request.
+.LP
+(ddpex43rtn)CreateLUT(pDrawable, pLUT)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	DrawablePtr	pDrawable;	/* pointer to example drawable */
+	diLUTHandle	pLUT;	/* lut handle */
+/* out */
+
+Errors: Alloc, Value, Drawable, Lookup Table
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXFreeLookupTable request.
+It is also the delete routine for the lookup table resource registered
+with the core \s-1X\s+1 server via the procedure CreateNewResourceType.
+.LP
+.IX "Lookup Table Functions" "FreeLUT"
+.IX "Functions" "FreeLUT"
+(ddpex43rtn)FreeLUT(pLUT, LUTid)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diLUTHandle	pLUT;	/* lut handle */
+	ddResourceId	LUTid;	/* lookup table resource id */
+/* out */
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXCopyLookupTable request.
+.LP
+.IX "Lookup Table Functions" "CopyLUT"
+.IX "Functions" "CopyLUT"
+(ddpex43rtn)CopyLUT(pSrcLUT, pDestLUT)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diLUTHandle	pSrcLUT;	/* source lookup table */
+	diLUTHandle	pDestLUT;	/* destination lookup table */
+/* out */
+
+Errors:  Match, Lookup Table
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetTableInfo request.
+.LP
+.IX "Lookup Table Functions" "InquireLUTInfo"
+.IX "Functions" "InquireLUTInfo"
+(ddpex43rtn)InquireLUTInfo(pDrawable, LUTtype, pLUTinfo)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	DrawablePtr	pDrawable;	/* pointer to example drawable */
+	ddUSHORT	LUTtype;	/* lookup table type */
+/* out */
+	ddTableInfo	*pLUTinfo;	/* table information */
+
+Errors: Value, Drawable
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetPredefinedEntries request.
+.LP
+.IX "Lookup Table Functions" "InquireLUTPredEntries"
+.IX "Functions" "InquireLUTPredEntries"
+(ddpex43rtn)InquireLUTPredEntries(pDrawable, LUTtype, start, 
+count, pNumEntries, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	DrawablePtr	pDrawable;	/* pointer to example drawable */
+	ddUSHORT	LUTtype;	/* table type */
+	ddTableIndex	start;	/* start index */
+	ddUSHORT	count;	/* number of entries to return /* out */
+	ddULONG	*pNumEntries;	/* number of entries */
+	ddBufferPtr	pBuffer;	/* table entries */
+
+Errors: Value, Alloc, Drawable, Lookup Table
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetDefinedIndices request.
+.LP
+.IX "Lookup Table Functions" "InquireLUTIndices"
+.IX "Functions" "InquireLUTIndices"
+(ddpex43rtn)InquireLUTIndices(pLUT, pNumIndices, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diLUTHandle	pLUT;	/* lut handle */
+/* out */
+	ddULONG	*pNumIndices;	/* number of indices in list */
+	ddBufferPtr	pBuffer;	/* list of table indices */
+
+Errors: Alloc, Lookup Table
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetTableEntry request.
+.LP
+.IX "Lookup Table Functions" "InquireLUTEntry"
+.IX "Functions" "InquireLUTEntry"
+(ddpex43rtn)InquireLUTEntry(pLUT, index, valueType, pStatus, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diLUTHandle	pLUT;	/* lut handle */
+	ddTableIndex	index;	/* index of entry to get */
+	ddUSHORT	valueType;	/* SET or REALIZED */
+/* out */
+	ddUSHORT	*pStatus;	/* entry status */
+	ddBufferPtr	pBuffer;	/* table entry */
+
+Errors: Value, Alloc, Lookup Table
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetTableEntries request.
+.LP
+.IX "Lookup Table Functions" "InquireLUTEntries"
+.IX "Functions" "InquireLUTEntries"
+(ddpex43rtn)InquireLUTEntries(pLUT, start, count, valueType, pNumEntries, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diLUTHandle	pLUT;	/* lut handle */
+	ddTableIndex	start;	/* index of first entry to get */
+	ddUSHORT	count;	/* number of entries requested */
+	ddUSHORT	valueType;	/* SET or REALIZED */
+/* out */
+	ddULONG	*pNumEntries;	/* number of entries in list */
+	ddBufferPtr	pBuffer;	/* list of table entries */
+
+Errors: Value, Alloc, Lookup Table
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXSetTableEntries request.
+.LP
+.IX "Lookup Table Functions" "SetLUTEntries"
+.IX "Functions" "SetLUTEntries"
+(dpex43rtn)SetLUTEntries(pLUT, start, numEntries, pEntries)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diLUTHandle	pLUT;	/* lut handle */
+	ddTableIndex	start;	/* index of first entry to set */
+	ddUSHORT	numEntries;	/* number of entries to set */
+	ddPointer	pEntries;	/* list of entries */
+
+Errors: Value, Colour Type, Alloc, Lookup Table
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXDeleteTableEntries request.
+.LP
+.IX "Lookup Table Functions" "DeleteLUTEntries"
+.IX "Functions" "DeleteLUTEntries"
+(ddpex43rtn)DeleteLUTEntries(pLUT, start, numEntries)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diLUTHandle	pLUT;	/* lut handle */
+	ddUSHORT	start;	/* index of first entry to delete */
+	ddUSHORT	numEntries;	/* number of entries to delete */
+
+Errors: Value, Lookup Table
+.fi
+.RE
+.KE
+.KS
+.LP
+The following procedure is used to maintain resource cross-reference lists.
+.LP
+.IX "Lookup Table Functions" "UpdateLUTRefs"
+.IX "Functions" "UpdateLUTRefs"
+(ddpex43rtn)UpdateLUTRefs(pLUT, pResource, which, action)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diLUTHandle	pLUT;	/* lut handle */
+	diResourceHandle	pResource;	/* workstation or renderer handle */
+	ddResourceType	which;	/* workstation or renderer */
+	ddAction	action;	/* add or remove */
+
+Errors: Alloc, Value
+.fi
+.RE
+.KE
+.LP
+The following procedure checks the drawable type for which the Lookup
+Table was created against the specified drawable. 
+If they are compatible, it returns \fISuccess\fR; otherwise it returns a
+\fIMatch\fR error.
+It is called for the following requests:\ \  PEXCopyLookupTable,
+PEXCreateRenderer, PEXChangeRenderer, PEXBeginRendering,
+PEXCreatePhigsWKS.
+.LP
+.IX "Lookup Table Functions" "MatchLUTDrawable"
+.IX "Functions" "MatchLUTDrawable"
+(ddpex43rtn)MatchLUTDrawable(pLUT, pDrawable)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diLUTHandle	pLUT;
+	DrawablePtr	pDrawable;
+
+Errors:  Match
+.fi
+.RE
+.H 3 "Procedures Used by Other Parts of ddPEX"
+.LP
+This routine may be called by the rendering and traversing code.
+It allows quick access to a lookup table entry.
+.IX "Lookup Table Functions" "InquireLUTEntryAddress"
+.IX "Functions" "InquireLUTEntryAddress"
+(ddpex43rtn)InquireLUTEntryAddress(LUTtype, pLUT, index, pStatus, ppEntry)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddUSHORT	LUTtype;	/* lookup table type */
+	diLUTHandle	pLUT;	/* lut handle */
+	ddTableIndex	index;	/* index of entry to get */
+/* out */
+	ddUSHORT	*pStatus;	/* entry status */
+	ddPointer	*ppEntry;	/* table entry */
+.fi
+.RE
+.H 3 "Procedures Most Likely to Be Changed"
+.LP
+The lookup table resources can be individually modified to support any number of
+entries.  Thus, you can add, delete, or change the entries in the data structures.
+At the beginning of each data structure there is a pre-processor macro that describes the
+contents of the structure and indicates whether there are predefined entries.  You must 
+change these macro definitions to correspond with any table entry changes.
+.LP
+If you want to change the predefined entries for a particular lookup table, you have
+to change the \fL\s-1pde\fR\s+1 array(s) in the \fL\s-1LUT.c\fR\s+1 file for the 
+specific lookup table type.
+.LP
+The \s-1PEX-SI\s+1 has isolated the operation vector interface between di\s-1PEX\s+1
+and dd\s-1PEX\s+1 in the \fL\s-1miLUT.h\fR\s+1 file.
+The interface is a simple one in that
+separate calls do not have to be made for the individual lookup table types.  
+If you wanted to change the interface for any reason, you would need to modify
+the \fL\s-1miLUT.h\fR\s+1 file and all of the lookup table data structure headers.
+.H 2 "Name Set Resources"ns
+.H 3 "Important Data Structures"
+.LP
+Data structures for name sets are defined in the
+file \fL\s-1mit/extensions/server/PEX/ddpex/mi/include/miNS.h\fR\s+1.
+All procedures that are associated with name sets are defined in the
+file \fL\s-1mit/extensions/server/PEX/ddpex/shared/miNS.c\fR\s+1.
+.LP
+Names are stored as bits that are set to ``1'' when the name is defined,
+and ``0'' when the name is removed.  Macros for doing bit manipulation are
+defined in \fL\s-1miNS.h\s+1\fR.  The bits are stored in words.
+The length of the word is defined by length of the ddNamePiece structure.
+\s-1PEX-SI\s+1 uses 32 bit words.
+.LP
+Names used in name sets are numbers in the range of 0 to 63.  You can
+define MINS_MAX_NAME in the file \fL\s-1.../mi/include/miNS.h\fR\s+1.
+.H 3 "Procedures Used by diPEX"
+.KS
+.IX "name sets"
+.IX "ddPEX" "name sets"
+.LP
+The following procedure handles the PEXCreateNameSet request.
+.LP
+.IX "Name Set Functions" "CreateNameSet"
+.IX "Functions" "CreateNameSet"
+(ddpex43rtn)CreateNameSet(pNS)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diNSHandle	pNS;	/* name set handle */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXCopyNameSet request.
+.LP
+.IX "Name Set Functions" "CopyNameSet"
+.IX "Functions" "CopyNameSet"
+(ddpex43rtn)CopyNameSet(pSrcNS, pDestNS)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diNSHandle	pSrcNS;	/* pointer to source name set */
+	diNSHandle	pDestNS;	/* pointer to destination name set */
+
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXFreeNameSet request.
+It is also the delete procedure for the name set resource registered
+with the core \s-1X\s+1 server via the procedure CreateNewResourceType.
+.LP
+.IX "Name Set Functions" "FreeNameSet"
+.IX "Functions" "FreeNameSet"
+(ddpex43rtn)FreeNameSet(pNS, NSid)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diNSHandle	pNS;	/* name set handle */
+	ddResourceId	NSid;	/* name set resource id */
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetNameSet request.
+.LP
+.IX "Name Set Functions" "InquireNameSet"
+.IX "Functions" "InquireNameSet"
+(ddpex43rtn)InquireNameSet(pNS, pNumNames, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diNSHandle	pNS;	/* name set handle */
+/* out */
+	ddULONG	*pNumNames;	/* number of names in list */
+	ddBufferPtr	pBuffer;	/* list of names */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXChangeNameSet request.
+.LP
+.IX "Name Set Functions" "ChangeNameSet"
+.IX "Functions" "ChangeNameSet"
+(ddpex43rtn)ChangeNameSet(pNS, action, numNames, pNames)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diNSHandle	pNS;	/* name set handle */
+	ddUSHORT	action;	/* (add/remove/replace) */
+	ddUSHORT	numNames;	/* number of names in list */
+	ddULONG	*pNames;	/* list of names */
+
+Errors:  Value
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure is used to maintain resource cross-reference lists.
+.LP
+.IX "Name Set Functions" "UpdateNSRefs"
+.IX "Functions" "UpdateNSRefs"
+(ddpex43rtn)UpdateNSRefs(pNS, pResource, which, action)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diNSHandle	pNS;	/* name set handle */
+	diResourceHandle	pResource;	/* workstation or renderer handle */
+	ddResourceType	which;	/* workstation or renderer */
+	ddAction	action;	/* add or remove */
+
+Errors:  Alloc, Value
+.fi
+.RE
+.KE 
+.H 3 "Procedures Used by Other Parts of ddPEX"
+.LP
+UpdateNSRefs is also called by \s-1PHIGS\s+1 Workstation Module routines in
+the \s-1PHIGS\s+1 workstation and pick measure code.
+.H 3 "Procedures Most Likely to Be Changed"
+.LP
+You can change the number of names allowed in a name set by changing
+the MINS_MAX_NAME variable in the \fL\s-1mit/extensions/server/PEX/ddpex/mi/include/miNS.h\fR\s+1 file.
+.LP
+You can change the type of the ddNamePiece structure if you need to use a different 
+length word for the names.  
+.LP
+If you change the dd\s-1PEX\s+1 structure for \fL\s-1miNS.h\fR\s+1, you also
+need to check the corresponding macros in that file, and the procedures
+in the \fL\s-1miNS.c\fR\s+1 file for possible changes.
+.H 2 "Font Resources"
+.H 3 "Important Data Structures"
+.LP
+Data structures for the font resources are defined in the 
+file \fL\s-1mit/extensions/server/PEX/ddpex/mi/include/miFont.h\fR\s+1.
+.LP
+The procedures that are associated with these data structures
+have been divided into operating system dependent, and operating
+system independent pieces.  The code that is operating system independent
+is in \fL\s-1mit/extensions/server/PEX/ddpex/mi/shared/miFont.c\fR\s+1.
+The code that is dependent on the operating system 
+is in \fL\s-1mit/extensions/server/PEX/ospex/osPexFont.c\fR\s+1.
+.LP
+The dd\s-1PEX\s+1 procedures operate on a font source file that has
+been translated into your server native machine format.
+In the \s-1PEX-SI\s+1 the font source is in
+the \fL\s-1mit/fonts/PEX/Roman.src\fR\s+1 file.
+You use a program called \fL\s-1to_wfont\fR\s+1 to translate \fL\s-1Roman.src\fR\s+1 
+to \fL\s-1Roman.phont\fR\s+1.  See Section
+.XR @NumberOf(font_create)
+for more information on the translation program \fL\s-1to_wfont\fR\s+1.
+.LP
+The PEXOpenFont procedure defined in \fL\s-1miFont.c\fR\s+1 opens 
+the \fL\s-1Roman.phont\fR\s+1 file and loads it into memory.
+.LP
+The characters in the \s-1PEX-SI\s+1 fonts are rendered with polylines.
+The speed with which they are rendered is directly 
+proportional to the polyline rendering speed of the server native machine.
+.H 3 "Procedures Used by diPEX"
+.IX fonts
+.IX "ddPEX" "fonts"
+.KS
+.LP
+The following procedure handles the PEXOpenFont request.
+.LP
+.IX "Font Functions" "OpenPEXFont"
+.IX "Functions" "OpenPEXFont"
+(ddpex43rtn)OpenPEXFont(strLen, pName, pFont)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddULONG	strLen;	/* length of name */
+	ddUCHAR	*pName;	/* font name */
+	diFontHandle	pFont;	/* font handle */
+
+Errors:  Alloc, PEXFontError
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXCloseFont request.
+It is also the delete routine for the \s-1PEX\s+1 font resource that
+is registered with the core \s-1X\s+1 server via the procedure CreateNewResourceType.
+.LP
+.IX "Font Functions" "FreePEXFont"
+.IX "Functions" "FreePEXFont"
+(ddpex43rtn)FreePEXFont(pFont, Fid)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diFontHandle	pFont;	/* font handle */
+	ddResourceId	Fid;	/* font resource id */
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXQueryFont request.
+.LP
+.IX "Font Functions" "QueryPEXFont"
+.IX "Functions" "QueryPEXFont"
+(ddpex43rtn)QueryPEXFont(pFont, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diFontHandle	pFont;	/* font handle */
+	ddBufferPtr	pBuffer;	/* font info */
+
+Errors:  Alloc
+.fi
+.RE
+.KE
+.LP
+The following procedure handles the PEXListFonts request.
+.LP
+.IX "Font Functions" "ListPEXFonts"
+.IX "Functions" "ListPEXFonts"
+.KS
+(ddpex43rtn)ListPEXFonts(patLen, pPattern, maxNames, pNumNames, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddUSHORT	patLen;	/* number of chars in pattern */
+	ddUCHAR	*pPattern;	/* pattern */
+	ddUSHORT	maxNames;	/* maximum number of names to return */
+/* out */
+	ddULONG	*pNumNames;	/* number of names in reply */
+	ddBufferPtr	pBuffer;	/* list of names */
+
+Errors:  Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXListFontsWithInfo request.
+.LP
+.IX "Font Functions" "ListPEXFontsPlus"
+.IX "Functions" "ListPEXFontsPlus"
+(ddpex43rtn)ListPEXFontsPlus(patLen, pPattern, maxNames, pNumNames, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddUSHORT	patLen;	/* number of chars in pattern */
+	ddUCHAR	*pPattern;	/* pattern */
+	ddUSHORT	maxNames;	/* maximum number of names to return */
+/* out */
+	ddULONG	*pNumNames;	/* number of names in reply */
+	ddBufferPtr	pBuffer;	/* font names and info */
+
+Errors:  Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXQueryTextExtents request.
+.LP
+.IX "Font Functions" "QueryPEXTextExtents"
+.IX "Functions" "QueryPEXTextExtents"
+.nf
+.ta 0.5i
+(ddpex43rtn)QueryPEXTextExtents(resource, resourceType, fontIndex, path, expansion, spacing, 
+height,
+	pAlignment, numStrings, pStrings, pBuffer)
+.RS
+.ta 0.5i 2.0i 4.0i
+/* in */
+	cdPointer	resource;
+	ddResourceType	resourceType;
+	ddUSHORT	fontIndex;	/* font index */
+	ddUSHORT	path;	/* text path */
+	ddFLOAT	expansion;	/* character expansion */
+	ddFLOAT	spacing;	/* character spacing */
+	ddFLOAT	height;	/* character height */
+	ddTextAlignmentData	*pAlignment;	/* text alignment */
+	ddULONG	numStrings;	/* num strings */
+	ddPointer	pStrings;	/* list of ISTRINGS */
+/* out */
+	ddBufferPtr	pBuffer;	/* extent info */
+
+Errors: Value, Match
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure is used to maintain resource cross-reference lists.
+.LP
+.IX "Font Functions" "UpdateFontRefs"
+.IX "Functions" "UpdateFontRefs"
+(ddpex43rtn)UpdateFontRefs(pFont, pResource, action)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diFontHandle	pFont;	/* font handle */
+	diLUTHandle	pResource;	/* lut handle */
+	ddAction	action;	/* add or remove */
+.fi
+.RE
+.KE
+.H 3 "Procedures Most Likely to Be Changed"
+.LP
+The only portions of the font resources likely to change are the
+operating system dependent procedures.
+These procedures have been isolated in the
+file \fL\s-1mit/extensions/server/PEX/ospex/osPexFont.c\fR\s+1.
+The majority of the operating system dependencies in the code
+concern file input/output and directory information.
+\s-1PEX-SI\s+1 only provides \s-14.2BSD\s+1 versions of these routines.
+.LP
+If you want to add other fonts, you must supply a font source file
+and compile it with the \fIto_wfont\fR program.  The \s-1PEX-SI\s+1 does not
+support filled fonts or curves.  The characters are created solely from
+polylines.  If you wish to customize your fonts, you will have to change
+the font compiler program.  See Section
+.XR @NumberOf(font_create) for more information.
+.H 2 "Additional Functions or Features"
+.IX "Functions" "ddpexInit"
+.LP
+The procedures described in this section are found in 
+the file \fL\s-1mit/extensions/server/PEX/ddpex/mi/shared/miMisc.c\fR\s+1.
+They are all called by di\s-1PEX\s+1.
+.LP
+The procedure ddpexInit is called when the server starts up.
+It initializes any dd\s-1PEX\s+1 data or devices.
+The \s-1PEX-ME\s+1 version of this routine does not allocate any memory.
+ddpexInit is found in the file \s-1\fLmit/extensions/server/PEX/ddpex/mi/shared/miMisc.c\fR\s+1.
+.LP
+.IX "Miscellaneous Functions" "ddpexInit"
+.IX "Functions" "ddpexInit"
+.nf
+(ddpex43rtn)ddpexInit()
+.fi
+The following procedure is called whenever the server resets.
+ddpexReset should free any buffers and initialize any device-specific
+data that must be initialized during server reset.
+It is called from the di\s-1PEX\s+1 routine PEXResetProc,
+the reset callback registered for the extension.
+.LP 
+The \s-1PEX-ME\s+1 allocates no buffers and so we provide only a stub
+for the convenience of porters.
+You may wish to replace this routine. 
+.LP
+.IX "Miscellaneous Functions" "ddpexReset"
+.IX "Functions" "ddpexReset"
+.nf 
+void ddpexReset()
+.fi
+.LP
+.IX "PEXGetEnumeratedTypeInfo" "" "\s-1PEXGetEnumeratedTypeInfo\s+1"
+.KS
+The following procedure handles the \s-1PEXGetEnumeratedTypeInfo\s+1 request.
+.LP
+(ddpex43rtn)InquireEnumTypeInfo(pDrawable, itemMask, numEnumTypes, 
+pEnumTypeList, pNumLists, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	DrawablePtr	pDrawable;	/* drawable */
+	ddBitmask	itemMask;
+	ddULONG	numEnumTypes;	/* number of enumerated types */
+	ddUSHORT	*pEnumTypeList;	/* list of types */
+/* out */
+	ddULONG	*pNumLists;      
+	ddBufferPtr	pBuffer;	/* list of constants */
+
+Errors:  Value, Alloc
+.fi
+.RE
+.KE
+.LP
+.IX "PEXGetImpDepConstants" "" "\s-1PEXGetImpDepConstants\s+1"
+.KS
+The following procedure handles the \s-1PEXGetImpDepConstants\s+1 request.
+.LP
+.IX "Miscellaneous Functions" "InquireImpDepConstants"
+.IX "Functions" "InquireImpDepConstants"
+(ddpex43rtn)InquireImpDepConstants(pDrawable, numNames, pNames, pBuffer)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	DrawablePtr	pDrawable;	/* drawable */
+	ddULONG	numNames;	/* number of names */
+	ddUSHORT	*pNames;	/* list of names */
+/* out */
+	ddBufferPtr	pBuffer;	/* list of constants */
+
+Errors:  Value, Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure is called whenever an \s-2X\s+2 resource which is used by
+\s-2PEX\s+2 is deleted.  \s-1pPEXResource\s+1 is the handle of the \s-2PEX\s+2
+resource of type \s-1PEXtype\s+1, which depends on the \s-2X\s+2 resource that 
+is of type Xtype.  This procedure must take appropriate steps to insure
+that no problems occur because the \s-2X\s+2 resource has been deleted.
+.LP
+.IX "Miscellaneous Functions" "LostXResource"
+.IX "Functions" "LostXResource"
+(void)LostXResource(pPEXResource, PEXtype, Xtype)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	diResourceHandle	pPEXResource;
+	ddResourceType	PEXtype;
+	ddXResourceType	Xtype;
+/* out */
+.fi
+.RE
+.KE
+.H C "Porting the Rendering Control Module" immed_rend
+.LP
+The Rendering Control Module provides immediate rendering support in 
+the \s-1PEX\s+1 server.  Two resources are involved in immediate rendering:\ \ 
+the Renderer Resource and the pipeline context resource.  The Rendering Control Module is 
+designed to support control of the rendering. It is not designed to manage these resources.
+The di\s-1PEXs\s+1 is the portion of the \s-1PEX-SI\s+1 responsible for creating, 
+modifing, copying, and handling inquiries of these resources.
+.H 2 "Renderer Resources" renderer
+.H 3 "Important Data Structures"
+.LP
+A renderer resource is defined with two functional parts:  a 
+device-independent part and a device-dependent part (the ddContext).  
+.LP
+The device-independent part is managed by di\s-1PEX\s+1 and is defined
+in the file \fL\s-1mit/extensions/server/PEX/server/PEX/include/ddpex.h\fR\s+1.
+This file contains the attributes defined in the protocol specification for the renderer. 
+Resource handles for lookup tables and name sets are stored in this 
+part of the renderer.  In addition, the renderer has a procedure vector
+(also called the output command table) that contains pointers to the 
+dd\s-2PEX\s+2 Transformation Module functions that support the output commands.
+di\s-2PEX\s+2 creates this vector and dd\s-2PEX\s+2 fills it in.  
+.LP
+The device-dependent renderer data structure ddContext is defined
+in the file \fL\s-1mit/extensions/server/PEX/ddpex/mi/include/miRender.h\fR\s+1.
+The ddContext is basically the definition of the renderer state of your
+implementation.  In the \s-1PEX-SI\s+1 the ddContext
+links closely with the Graphics Contexts (GC), which ultimately
+is used with the ddx code.
+.LP
+The renderer resource defines its dynamics differently than the workstation resource.
+In the workstation traversal, a structure is completely traversed before the state 
+of the workstation is changed.  With the renderer resource, some of the procedures 
+executed during traversal actually do change the state of the workstation.
+The renderer resource provides a mechanism for indicating whether these 
+changes should be realized during the rest of the traversal (dynamic), or whether 
+they should be ignored until traversal is complete (static).
+.LP
+There are fields, or bit masks, in the \fL\s-1ddpex.h\fR\s+1 
+renderer structure ddRendererStr that indicate whether the renderer
+is in a dynamic or static state.
+If one of these bit masks is dynamic, the procedure ValidateRenderer 
+is called to validate that those changes have been realized by the renderer.
+See Section 
+.XR @NumberOf(val_rend)
+for more information.
+.LP
+The renderer also has a pointer to the device-dependent part of the renderer.
+This part is created and maintained by code in the Transformation Module.
+It contains all of the graphics context and rendering information
+needed by the supporting software and/or hardware. 
+This includes the attributes from the pipeline context that 
+are copied from the renderer when rendering begins.
+It also contains the list of names that are in the current 
+name set, state information needed when rendering (such 
+as whether primitives should be highlighted), 
+and any buffer or cache that is used during rendering.
+It is this part of the renderer that is
+updated during rendering by the attribute-setting output commands.
+For more information see the Transformation Module.
+.H 3 "Procedures Used by diPEX"
+.LP
+.KS
+The following procedure creates and initializes the device-dependent part
+of the renderer.
+.LP
+.IX "Renderer Functions" "InitRenderer"
+.IX "Functions" "InitRenderer"
+(ddpex3rtn)InitRenderer(pRend)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddRendererPtr	pRend;	/* renderer handle */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXGetRendererDynamics request.
+.LP
+.IX "Renderer Functions" "InquireRendererDynamics"
+.IX "Functions" "InquireRendererDynamics"
+(ddpex3rtn)InquireRendererDynamics(pRend, pTablesMask, pNSMask, pAttrMask)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddRendererPtr	pRend;	/* renderer handle */
+/* out */
+	ddBitmask	*pTablesMask;	/* dynamics mask for luts */
+	ddBitmask	*pNSMask;	/* dynamics mask for name sets */
+	ddBitmask	*pAttrMask;	/* dynamics mask for renderer attributes */
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXBeginRendering request.
+.LP
+.IX "Renderer Functions" "BeginRendering"
+.IX "Functions" "BeginRendering"
+(ddpex3rtn)BeginRendering(pRend, pDrawable)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddRendererPtr	pRend;	/* renderer handle */
+	DrawablePtr	pDrawable;	/* pointer to drawable */
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXEndRendering request.
+It is also called by the routine EndPick.
+.LP
+.IX "Renderer Functions" "EndRendering"
+.IX "Functions" "EndRendering"
+(ddpex3rtn)EndRendering(pRend)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddRendererPtr	pRend;	/* renderer handle */
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXBeginStructure request.
+.LP
+.IX "Renderer Functions" "BeginStructure"
+.IX "Functions" "BeginStructure"
+(ddpex3rtn)BeginStructure(pRend, sId)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddRendererPtr	pRend;	/* renderer handle */
+	ddResourceId	sId;	/* structure id */
+
+Errors: Alloc
+.fi
+.RE
+.KE
+.LP
+.KS
+The following procedure handles the PEXEndStructure request.
+.LP
+.IX "Renderer Functions" "EndStructure"
+.IX "Functions" "EndStructure"
+(ddpex3rtn)EndStructure(pRend)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddRendererPtr	pRend;	/* renderer handle */
+
+Errors: RendererState
+.fi
+.RE
+.KE
+.LP
+The following procedure handles the PEXRenderOutputCommands request.
+It is passed a pointer to a renderer and a pointer to the list of 
+\s-2PEX\s+2 output commands.
+It uses the Transformation Module function tables described in Chapter
+.XR @NumberOf(transformation)
+to format each output command into the implementation-dependent internal
+form, execute the output command, then destroy the formatted output command.
+.KS
+.LP
+.IX "Renderer Functions" "RenderOCs"
+.IX "Functions" "RenderOCs"
+(ddpex3rnt)RenderOCs(pRend, numOCs, pOCs)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddRendererPtr	pRend;
+	ddULONG	numOCs;
+	ddElementInfo	*pOCs;	/* pointer to PEX OCs */
+
+Errors: OutputCommand
+.fi
+.RE
+.KE
+.H 3 "Procedures Used by Other Parts of ddPEX" val_rend
+.LP
+.IX "Renderer Functions" "ValidateRenderer"
+.IX "Functions" "ValidateRenderer"
+The ValidateRenderer procedure is an internal dd\s-2PEX\s+2 procedure
+that loads the output command table in the renderer and updates 
+the rendering state that is kept in the device-dependent part 
+of the renderer.  It is provided to support the dynamics of the 
+attributes in the renderer.  The fields \fItablesChanges\fR, 
+\fInamesetsChanges\fR, and \fIattrsChanges\fR in the renderer are 
+bit masks, where one bit is defined for each attribute that can be 
+bound statically or dynamically to the renderer during rendering. 
+(See the PEXGetRendererDynamics request.)  Whenever one of these 
+attributes is changed, its corresponding bit is set in one of 
+these bitmasks.  ValidateRenderer checks the bitmasks to see which 
+attributes have changed since the last time the renderer was validated.  
+It then updates the output command table and rendering state as 
+needed for the rendering code to realize the changes.  
+The specific actions taken depend on the state of renderer (idle 
+or rendering) and on whether the attribute is statically or dynamically 
+bound to the renderer. When the renderer is idle, all changes are 
+validated and realized. When the renderer is rendering, only changes 
+to dynamic attributes are validated and realized.  Changes to the static 
+attributes are not realized until the next validation when the renderer is idle.  
+.KS
+The bits for each attribute that is realized are reset by ValidateRenderer. 
+ValidateRenderer is called by the procedures InitRenderer, BeginRenderer,
+and RenderOCs.
+.LP
+(ddpex3rtn)ValidateRenderer(pRend)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddRendererPtr	pRend;
+.fi
+.RE
+.KE
+.IX "pipeline context resources"
+.LP
+A pipeline context is used to specify the initial attribute state when
+rendering begins.  The data structure for the pipeline context is defined 
+in \fL\s-1mit/extensions/server/PEX/include/ddpex.h\fR\s+1.
+.LP
+The BeginRendering procedure copies the attributes in the pipeline context 
+to ddContext in the appropriate format when rendering begins.
+The dd\s-1PEX\s+1 uses a pipeline context for this purpose only. 
+There are no dd\s-1PEX\s+1 procedures that manipulate the pipeline context.
+.KS
+.LP
+The following procedure sets up the pipeline for a pick.  It is called by
+the (level4) routine UpdatePickMeasure.
+.LP
+.IX "Renderer Functions" "BeginPicking"
+.IX "Functions" "BeginPicking"
+(ddpex3rtn)BeginPicking(pRend, pPM)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddRendererPtr	pRend;	/* renderer handle */
+	diPMHandle	pPM;	/* pick measure */
+.fi
+.RE
+.KE
+.KS
+.LP
+The following procedure resets the pipeline for the rendering and is
+done after picking.  It is called by the (level4) routine UpdatePickMeasure.
+.LP
+.IX "Renderer Functions" "EndPicking"
+.IX "Functions" "EndPicking"
+(ddpex3rtn)EndPicking(pRend)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddRendererPtr	pRend;	/* renderer handle */
+.fi
+.RE
+.KE
+.KS
+.LP
+The following procedure sets up the rendering pipeline for a spatial
+search.  It is called by the (level4) routine SearchNetwork.
+.LP
+.IX "Renderer Functions" "BeginSearching"
+.IX "Functions" "BeginSearching"
+(ddpex3rtn)BeginSearching(pRend, pSC)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+/* in */
+	ddRendererPtr	pRend;	/* renderer handle */
+	ddSCStr	*pSC;	/* search context */
+.fi
+.RE
+.KE
+.KS
+.LP
+The following procedure resets the rendering pipeline after a spatial
+search.  It is called by the (level4) routine SearchNetwork.
+.LP
+.IX "Renderer Functions" "EndSearching"
+.IX "Functions" "EndSearching"
+(ddpex3rtn)EndSearching(pRend)
+.RS
+.nf
+0.5i 2.0i 4.0i
+/* in */
+	ddRendererPtr	pRend;	/* renderer handle */
+.fi
+.RE
+.KE
+.KS
+.LP
+The following routine returns the status of a spatial search.  It is
+called by the (level4) routine traverser during a spatial search traversal.
+.LP
+.IX "Renderer Functions" "InquireSearchStatus"
+.IX "Functions" "InquireSearchStatus"
+void InquireSearchStatus(pRend, pStatus)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+	ddRendererPtr	pRend;
+	ddUSHORT	*pStatus;	/* PEXFound or PEXNotFound */
+.fi
+.RE
+.KE
+.LP
+A default pipeline context is created by the following routine.
+.KS
+.LP
+The following routine fills in the default values for a pipeline context.
+It is called by the (level4) routine ddpexInit to initialize a global
+static copy of a pipeline context; this copy is used to initialize 
+created pipeline context to the initial values.
+.LP
+.IX "Renderer Functions" "DefaultPC"
+.IX "Functions" "DefaultPC"
+void DefaultPC(pPC)
+.RS
+.nf
+.ta 0.5i 2.0i 4.0i
+	ddPCAttr	*pPC;
+.fi
+.RE
+.KE

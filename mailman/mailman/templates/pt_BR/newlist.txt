@@ -33,7 +33,7 @@ no corpo da mensagem ou no assunto para o endereço:
 Para descadastrar um usuário: através da página web 'listinfo', 
 clique ou entre com o endereço de email do usuário como 
 se fosse ele. No espaço onde o usuário deve colocar sua senha
-para descadastramento, coloque sua senha administrativa.
+para desinscrição, coloque sua senha administrativa.
 Você também poderá usar sua senha para modificar as opções dos 
 membros, incluindo agrupamento de mensagens (digest), 
 desativação de entrega, etc.

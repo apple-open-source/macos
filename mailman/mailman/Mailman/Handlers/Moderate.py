@@ -1,4 +1,4 @@
-# Copyright (C) 2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -45,7 +45,7 @@ class ModeratedMemberPost(Hold.ModeratedPost):
 
 
 def process(mlist, msg, msgdata):
-    if msgdata.get('approved'):
+    if msgdata.get('approved') or msgdata.get('fromusenet'):
         return
     # First of all, is the poster a member or not?
     for sender in msg.get_senders():

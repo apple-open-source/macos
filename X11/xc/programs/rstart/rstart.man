@@ -1,0 +1,117 @@
+.\" $Xorg: rstart.man,v 1.3 2000/08/17 19:54:01 cpqbld Exp $
+.\" Copyright (c) 1993 Quarterdeck Office Systems
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and
+.\" its documentation for any purpose is hereby granted without fee, provided
+.\" that the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation, and that the name Quarterdeck Office Systems, Inc. not
+.\" be used in advertising or publicity pertaining to distribution of this
+.\" software without specific, written prior permission.
+.\" 
+.\" THIS SOFTWARE IS PROVIDED `AS-IS'.  QUARTERDECK OFFICE SYSTEMS, INC.,
+.\" DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING WITHOUT
+.\" LIMITATION ALL IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+.\" PARTICULAR PURPOSE, OR NONINFRINGEMENT.  IN NO EVENT SHALL QUARTERDECK
+.\" OFFICE SYSTEMS, INC., BE LIABLE FOR ANY DAMAGES WHATSOEVER, INCLUDING
+.\" SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES, INCLUDING LOSS OF USE,
+.\" DATA, OR PROFITS, EVEN IF ADVISED OF THE POSSIBILITY THEREOF, AND
+.\" REGARDLESS OF WHETHER IN AN ACTION IN CONTRACT, TORT OR NEGLIGENCE, ARISING
+.\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+.\"
+.\" $XFree86: xc/programs/rstart/rstart.man,v 1.6 2001/01/27 18:21:05 dawes Exp $
+.\"
+.hy 0		\" I hate hyphenation.
+.de EX		\"Begin example
+.ne 5
+.if n .sp 1
+.if t .sp .5
+.nf
+.in +.5i
+..
+.de EE
+.fi
+.in -.5i
+.if n .sp 1
+.if t .sp .5
+..
+.ta .3i .6i .9i 1.2i 1.5i 1.8i
+.TH RSTART 1 __xorgversion__
+.SH NAME
+rstart - a sample implementation of a Remote Start client
+.SH SYNOPSIS
+.B "rstart"
+[\-c \fIcontext\fP]
+[\-g]
+[\-l \fIusername\fP]
+[\-v]
+\fIhostname\fP
+\fIcommand args ...\fP
+.SH DESCRIPTION
+.PP
+\fIRstart\fP is a simple implementation of a Remote Start client as
+defined in "A Flexible Remote Execution Protocol Based on \fBrsh\fP".
+It uses \fIrsh\fP as its underlying remote execution mechanism.
+.SH OPTIONS
+.TP 8
+.B \-c \fIcontext\fP
+This option specifies the \fIcontext\fP in which the command is to be
+run.  A \fIcontext\fP specifies a general environment the program is to
+be run in.  The details of this environment are host-specific; the
+intent is that the client need not know how the environment must be
+configured.  If omitted, the context defaults to \fBX\fP.  This should
+be suitable for running X programs from the host's "usual" X
+installation.
+.TP 8
+.B \-g
+Interprets \fIcommand\fP as a \fIgeneric command\fP, as discussed
+in the protocol document.  This is intended to allow common applications
+to be invoked without knowing what they are called on the remote system.
+Currently, the only generic commands defined are \fBTerminal\fP,
+\fBLoadMonitor\fP, \fBListContexts\fP, and \fBListGenericCommands\fP.
+.TP 8
+.B \-l \fIusername\fP
+This option is passed to the underlying \fIrsh\fP; it requests that
+the command be run as the specified user.
+.TP 8
+.B \-v
+This option requests that \fIrstart\fP be verbose in its operation.
+Without this option, \fIrstart\fP discards output from the remote's
+\fIrstart\fP helper, and directs the \fIrstart\fP helper to detach
+the program from the \fIrsh\fP connection used to start it.  With
+this option, responses from the helper are displayed and the resulting
+program is not detached from the connection.
+.SH NOTES
+This is a trivial implementation.  Far more sophisticated implementations
+are possible and should be developed.
+.PP
+Error handling is nonexistant.  Without \fB\-v\fP, error reports from
+the remote are discarded silently.  With \fB\-v\fP, error reports are
+displayed.
+.PP
+The $DISPLAY environment variable is passed.  If it starts with a colon,
+the local hostname is prepended.  The local domain name should be appended
+to unqualified host names, but isn't.
+.PP
+The $SESSION_MANAGER environment variable should be passed, but isn't.
+.PP
+X11 authority information is passed for the current display.
+.PP
+ICE authority information should be passed, but isn't.  It isn't
+completely clear how \fIrstart\fP should select what ICE authority
+information to pass.
+.PP
+Even without \fB\-v\fP, the sample \fIrstart\fP helper will leave a
+shell waiting for the program to complete.  This causes no real harm
+and consumes relatively few resources, but if it is undesirable
+it can be avoided by explicitly specifying the "exec" command to the
+shell, eg
+.EX 0
+rstart somehost exec xterm
+.EE
+This is obviously dependent on the command interpreter being used on
+the remote system; the example given will work for the Bourne and C shells.
+.SH "SEE ALSO"
+rstartd(1), rsh(1), A Flexible Remote Execution Protocol Based on \fBrsh\fP
+.SH AUTHOR
+Jordan Brown, Quarterdeck Office Systems

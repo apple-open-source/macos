@@ -1,0 +1,14 @@
+XCOMM $Xorg: sgiLib.tmpl,v 1.3 2000/08/17 19:41:48 cpqbld Exp $
+
+/*
+ * SGI shared library template
+ */
+#define SharedXtReqs $(LDPRELIBS) $(XLIBONLY) -delay_load $(SMLIB) -delay_load $(ICELIB)
+#define SharedXmuReqs $(LDPRELIBS) $(XTOOLONLYLIB)
+#define SharedXawReqs -lw
+#define SharedXpReqs $(LDPRELIBS) $(XLIB)
+
+#define SharedXReqs $(XTOOLLIB) $(XPLIB) $(XLIB) -lgen
+#define SharedXmReqs $(LDPRELIBS) SharedXReqs
+#define SharedMrmReqs $(LDPRELIBS) $(XMLIB) SharedXReqs
+#define SharedUilReqs $(LDPRELIBS) $(MRESOURCELIB) $(XMLIB) SharedXReqs

@@ -13,7 +13,7 @@ DIALSUFFIX=""
 LOCK='-x /var/spool/lock/LCK..$DEV'
 OWNER=
 MODE=
-UMASK=077
+UMASK=027
 DCMD=
 VCMD=
 

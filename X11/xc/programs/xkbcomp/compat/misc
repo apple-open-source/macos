@@ -1,0 +1,40 @@
+// $Xorg: misc,v 1.3 2000/08/17 19:54:34 cpqbld Exp $
+//
+//
+//
+// $XFree86: xc/programs/xkbcomp/compat/misc,v 1.3 2003/02/21 03:17:42 dawes Exp $
+
+default partial xkb_compatibility "misc"  {
+
+    virtual_modifiers	Alt,ScrollLock;
+
+    // Interpretations for some other useful keys
+
+    interpret Terminate_Server     { action = Terminate(); };
+
+    // Sets the "Alt" virtual modifier
+
+    setMods.clearLocks= True;
+    interpret Alt_L+Any     { 
+	virtualModifier= Alt;
+	action = SetMods(modifiers=modMapMods);
+    };
+
+    interpret Alt_R+Any	{
+	action = SetMods(modifiers=Alt);
+    };
+
+    // Sets the "ScrollLock" virtual modifier and
+    // makes it actually lock when pressed.  Sets
+    // up a map for the scroll lock indicator.
+    interpret Scroll_Lock+Any	{
+	virtualModifier= ScrollLock;
+	action = LockMods(modifiers=modMapMods);
+    };
+
+    indicator "Scroll Lock" {
+	allowExplicit;
+	whichModState= Locked;
+	modifiers= ScrollLock;
+    };
+};

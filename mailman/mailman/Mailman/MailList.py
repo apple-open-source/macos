@@ -112,7 +112,11 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         try:
             execfile(filename, dict)
         except IOError, e:
-            if e.errno <> errno.ENOENT: raise
+            # Ignore missing files, but log other errors
+            if e.errno == errno.ENOENT:
+                pass
+            else:
+                syslog('error', 'IOError reading list extension: %s', e)
         else:
             func = dict.get('extend')
             if func:
@@ -311,6 +315,7 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         self.send_goodbye_msg = mm_cfg.DEFAULT_SEND_GOODBYE_MSG
         self.bounce_matching_headers = \
                 mm_cfg.DEFAULT_BOUNCE_MATCHING_HEADERS
+        self.header_filter_rules = []
         self.anonymous_list = mm_cfg.DEFAULT_ANONYMOUS_LIST
         internalname = self.internal_name()
         self.real_name = internalname[0].upper() + internalname[1:]
@@ -428,7 +433,8 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
     #
     # List creation
     #
-    def Create(self, name, admin, crypted_password, langs=None):
+    def Create(self, name, admin, crypted_password,
+               langs=None, emailhost=None):
         if Utils.list_exists(name):
             raise Errors.MMListAlreadyExistsError, name
         # Validate what will be the list's posting address.  If that's
@@ -436,7 +442,9 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         # part doesn't really matter, since that better already be valid.
         # However, most scripts already catch MMBadEmailError as exceptions on
         # the admin's email address, so transform the exception.
-        postingaddr = '%s@%s' % (name, mm_cfg.DEFAULT_EMAIL_HOST)
+        if emailhost is None:
+            emailhost = mm_cfg.DEFAULT_EMAIL_HOST
+        postingaddr = '%s@%s' % (name, emailhost)
         try:
             Utils.ValidateEmail(postingaddr)
         except Errors.MMBadEmailError:
@@ -473,6 +481,9 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
             fp = open(fname_tmp, 'w')
             # Use a binary format... it's more efficient.
             cPickle.dump(dict, fp, 1)
+            fp.flush()
+            if mm_cfg.SYNC_AFTER_WRITE:
+                os.fsync(fp.fileno())
             fp.close()
         except IOError, e:
             syslog('error',
@@ -683,6 +694,7 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         crafting a message to the member informing them of the invitation.
         """
         invitee = userdesc.address
+        Utils.ValidateEmail(invitee)
         requestaddr = self.GetRequestEmail()
         # Hack alert!  Squirrel away a flag that only invitations have, so
         # that we can do something slightly different when an invitation
@@ -799,7 +811,7 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         # means the user must confirm; 2 means the admin must approve; 3 means
         # the user must confirm and then the admin must approve
         if self.subscribe_policy == 0:
-            self.ApprovedAddMember(userdesc)
+            self.ApprovedAddMember(userdesc, whence=remote or '')
         elif self.subscribe_policy == 1 or self.subscribe_policy == 3:
             # User confirmation required.  BAW: this should probably just
             # accept a userdesc instance.
@@ -846,7 +858,8 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
             raise Errors.MMNeedApproval, _(
                 'subscriptions to %(realname)s require moderator approval')
 
-    def ApprovedAddMember(self, userdesc, ack=None, admin_notif=None, text=''):
+    def ApprovedAddMember(self, userdesc, ack=None, admin_notif=None, text='',
+                          whence=''):
         """Add a member right now.
 
         The member's subscription must be approved by what ever policy the
@@ -895,8 +908,8 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
             kind = ' (digest)'
         else:
             kind = ''
-        syslog('subscribe', '%s: new%s %s', self.internal_name(),
-               kind, formataddr((email, name)))
+        syslog('subscribe', '%s: new%s %s, %s', self.internal_name(),
+               kind, formataddr((email, name)), whence)
         if ack:
             self.SendSubscribeAck(email, self.getMemberPassword(email),
                                   digest, text)
@@ -1029,7 +1042,13 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
         msg.send(self)
 
     def ApprovedChangeMemberAddress(self, oldaddr, newaddr, globally):
-        self.changeMemberAddress(oldaddr, newaddr)
+        # It's possible they were a member of this list, but choose to change
+        # their membership globally.  In that case, we simply remove the old
+        # address.
+        if self.isMember(newaddr):
+            self.removeMember(oldaddr)
+        else:
+            self.changeMemberAddress(oldaddr, newaddr)
         # If globally is true, then we also include every list for which
         # oldaddr is a member.
         if not globally:
@@ -1045,7 +1064,11 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
                 continue
             mlist.Lock()
             try:
-                mlist.changeMemberAddress(oldaddr, newaddr)
+                # Same logic as above, re newaddr is already a member
+                if mlist.isMember(newaddr):
+                    mlist.removeMember(oldaddr)
+                else:
+                    mlist.changeMemberAddress(oldaddr, newaddr)
                 mlist.Save()
             finally:
                 mlist.Unlock()
@@ -1055,15 +1078,16 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
     # Confirmation processing
     #
     def ProcessConfirmation(self, cookie, context=None):
-        data = Pending.confirm(cookie)
-        if data is None:
-            raise Errors.MMBadConfirmation, 'data is None'
+        rec = Pending.confirm(cookie)
+        if rec is None:
+            raise Errors.MMBadConfirmation, 'No cookie record for %s' % cookie
         try:
-            op = data[0]
-            data = data[1:]
+            op = rec[0]
+            data = rec[1:]
         except ValueError:
-            raise Errors.MMBadConfirmation, 'op-less data %s' % (data,)
+            raise Errors.MMBadConfirmation, 'op-less data %s' % (rec,)
         if op == Pending.SUBSCRIPTION:
+            whence = 'via email confirmation'
             try:
                 userdesc = data[0]
                 # If confirmation comes from the web, context should be a
@@ -1072,6 +1096,7 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
                 # context is a Message and isn't relevant, so ignore it.
                 if isinstance(context, UserDesc):
                     userdesc += context
+                    whence = 'via web confirmation'
                 addr = userdesc.address
                 fullname = userdesc.fullname
                 password = userdesc.password
@@ -1096,7 +1121,7 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
                 name = self.real_name
                 raise Errors.MMNeedApproval, _(
                     'subscriptions to %(name)s require administrator approval')
-            self.ApprovedAddMember(userdesc)
+            self.ApprovedAddMember(userdesc, whence=whence)
             return op, addr, password, digest, lang
         elif op == Pending.UNSUBSCRIPTION:
             addr = data[0]
@@ -1117,8 +1142,10 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
             approved = None
             # Confirmation should be coming from email, where context should
             # be the confirming message.  If the message does not have an
-            # Approved: header, this is a discard, otherwise it's an approval
-            # (if the passwords match).
+            # Approved: header, this is a discard.  If it has an Approved:
+            # header that does not match the list password, then we'll notify
+            # the list administrator that they used the wrong password.
+            # Otherwise it's an approval.
             if isinstance(context, Message.Message):
                 # See if it's got an Approved: header, either in the headers,
                 # or in the first text/plain section of the response.  For
@@ -1132,7 +1159,7 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
                         subpart = None
                     if subpart:
                         s = StringIO(subpart.get_payload())
-                        while 1:
+                        while True:
                             line = s.readline()
                             if not line:
                                 break
@@ -1145,11 +1172,19 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
                                     # then
                                     approved = line[i+1:].strip()
                             break
-            # Okay, does the approved header match the list password?
-            if approved and self.Authenticate([mm_cfg.AuthListAdmin,
-                                               mm_cfg.AuthListModerator],
-                                              approved) <> mm_cfg.UnAuthorized:
-                action = mm_cfg.APPROVE
+            # Is there an approved header?
+            if approved is not None:
+                # Does it match the list password?  Note that we purposefully
+                # do not allow the site password here.
+                if self.Authenticate([mm_cfg.AuthListAdmin,
+                                      mm_cfg.AuthListModerator],
+                                     approved) <> mm_cfg.UnAuthorized:
+                    action = mm_cfg.APPROVE
+                else:
+                    # The password didn't match.  Re-pend the message and
+                    # inform the list moderators about the problem.
+                    Pending.repend(cookie, rec)
+                    raise Errors.MMBadPasswordError
             else:
                 action = mm_cfg.DISCARD
             try:
@@ -1163,6 +1198,8 @@ class MailList(HTMLFormatter, Deliverer, ListAdmin,
             member = data[1]
             self.setDeliveryStatus(member, MemberAdaptor.ENABLED)
             return op, member
+        else:
+            assert 0, 'Bad op: %s' % op
 
     def ConfirmUnsubscription(self, addr, lang=None, remote=None):
         if lang is None:
@@ -1362,4 +1399,6 @@ bad regexp in bounce_matching_header line: %s
         # preferred language.
         if mm_cfg.DEFAULT_SERVER_LANGUAGE not in langs:
             langs.append(mm_cfg.DEFAULT_SERVER_LANGUAGE)
-        return langs
+        # When testing, it's possible we've disabled a language, so just
+        # filter things out so we don't get tracebacks.
+        return [lang for lang in langs if mm_cfg.LC_DESCRIPTIONS.has_key(lang)]

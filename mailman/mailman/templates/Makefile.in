@@ -42,8 +42,8 @@ TEMPLATEDIR= 	$(prefix)/templates
 
 SHELL=		/bin/sh
 
-LANGUAGES=	big5 cs en es et de fi fr gb hu it ja ko lt nl \
-		no pl pt pt_BR ru sv
+LANGUAGES=	big5 ca cs de en es et eu fi fr gb hr hu it ja ko lt nl \
+		no pl pt pt_BR ro ru sl sr sv uk
 
 # Modes for directories and executables created by the install
 # process.  Default to group-writable directories but
@@ -52,6 +52,7 @@ DIRMODE=	775
 EXEMODE=	755
 FILEMODE=	644
 INSTALL_PROGRAM=$(INSTALL) -m $(EXEMODE)
+DIRSETGID=	$(CHMOD) g+s
 
 
 # Rules
@@ -61,10 +62,13 @@ all:
 install:
 	for d in $(LANGUAGES); \
 	do \
-	    $(srcdir)/../mkinstalldirs $(DESTDIR)$(TEMPLATEDIR)/$$d; \
+	    dir=$(DESTDIR)$(TEMPLATEDIR)/$$d; \
+	    $(srcdir)/../mkinstalldirs $$dir; \
+	    $(CHMOD) $(DIRMODE) $$dir; \
+	    $(DIRSETGID) $$dir; \
 	    for f in $(srcdir)/$$d/*.html $(srcdir)/$$d/*.txt; \
 	    do \
-	    	$(INSTALL) -m $(FILEMODE) $$f $(DESTDIR)$(TEMPLATEDIR)/$$d; \
+	    	$(INSTALL) -m $(FILEMODE) $$f $$dir; \
 	    done; \
 	done
 

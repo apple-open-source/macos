@@ -1,0 +1,10 @@
+# $Xorg: jump_vars,v 1.3 2000/08/17 19:45:27 cpqbld Exp $
+#
+#
+#
+#
+# $XFree86: xc/lib/XIE/jump_vars,v 3.2 2001/01/17 19:42:22 dawes Exp $
+00000004 D __XieExtInfoHeader   libXIE         init
+000000b4 D __XieElemFuncs       libXIE         init
+00000004 D __XieTechFuncsInitialized libXIE         init
+00000080 C __XieTechFuncs       libXIE         init

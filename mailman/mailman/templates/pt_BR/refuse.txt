@@ -7,7 +7,7 @@ razão para rejeitar sua mensagem:
 
 "%(reason)s"
 
-Quaisquer questões ou comentáris devem ser direcionados para o 
+Quaisquer questões ou comentários devem ser direcionados para o 
 moderador da lista em:
 
     %(adminaddr)s

@@ -338,6 +338,21 @@ int main( int argc, char **argv )
 	openlog( serverName, OPENLOG_OPTIONS );
 #endif
 
+#ifdef __APPLE__
+	{
+		struct rlimit rlim;
+		rlim.rlim_cur = 1024;
+		rlim.rlim_max = 1024;
+		if (setrlimit(RLIMIT_NOFILE, &rlim) < 0) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( SLAPD, ERR, "main: setrlimit failed with %d.\n", errno, 0, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY, "setrlimit failed with %d.\n", errno, 0, 0 );
+#endif
+		}
+	}
+#endif
+
 	if( !check_config && slapd_daemon_init( urls ) != 0 ) {
 		rc = 1;
 		SERVICE_EXIT( ERROR_SERVICE_SPECIFIC_ERROR, 16 );
@@ -525,21 +540,6 @@ int main( int argc, char **argv )
 	LDAP_LOG( SLAPD, INFO, "main: slapd starting.\n", 0, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_ANY, "slapd starting\n", 0, 0, 0 );
-#endif
-
-#ifdef __APPLE__
-	{
-		struct rlimit rlim;
-		rlim.rlim_cur = 1024;
-		rlim.rlim_max = 1024;
-		if (setrlimit(RLIMIT_NOFILE, &rlim) < 0) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( SLAPD, ERR, "main: setrlimit failed with %d.\n", errno, 0, 0 );
-#else
-			Debug( LDAP_DEBUG_ANY, "setrlimit failed with %d.\n", errno, 0, 0 );
-#endif
-		}
-	}
 #endif
 
 	if ( slapd_pid_file != NULL ) {

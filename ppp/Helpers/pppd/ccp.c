@@ -47,7 +47,7 @@
  * OR MODIFICATIONS.
  */
 
-#define RCSID	"$Id: ccp.c,v 1.7 2003/08/14 00:00:29 callie Exp $"
+#define RCSID	"$Id: ccp.c,v 1.7.30.1 2004/03/04 03:27:08 lindak Exp $"
 
 #include <stdlib.h>
 #include <string.h>
@@ -937,6 +937,9 @@ ccp_nakci(f, p, len)
     int len;
 {
     ccp_options *go = &ccp_gotoptions[f->unit];
+#ifdef __APPLE__
+    ccp_options *ao = &ccp_allowoptions[f->unit];
+#endif
     ccp_options no;		/* options we've seen already */
     ccp_options try;		/* options to ask for next time */
 
@@ -952,6 +955,23 @@ ccp_nakci(f, p, len)
 	 * Fail if we aren't willing to use his suggestion.
 	 */
 	MPPE_CI_TO_OPTS(&p[2], try.mppe);
+#ifdef __APPLE__
+        /*
+         * Failing completly is extreme and shows interoperability issues.
+         * We insist on our options set.
+        */
+       if ((try.mppe & MPPE_OPT_STATEFUL) && refuse_mppe_stateful)
+           try.mppe &= ~MPPE_OPT_STATEFUL;
+        if ((try.mppe & MPPE_OPT_40) && !(ao->mppe & MPPE_OPT_40))
+           try.mppe &= ~MPPE_OPT_40;
+        if ((try.mppe & MPPE_OPT_128) && !(ao->mppe & MPPE_OPT_128))
+           try.mppe &= ~MPPE_OPT_128;
+
+       if (!(try.mppe & (MPPE_OPT_40 + MPPE_OPT_128))) {
+           error("MPPE required but peer negotiation failed");
+           lcp_close(f->unit, "MPPE required but peer negotiation failed");
+       }
+#else
 	if ((try.mppe & MPPE_OPT_STATEFUL) && refuse_mppe_stateful)
 	    try.mppe = 0;
 	else if ((go->mppe & try.mppe) != try.mppe)
@@ -962,6 +982,7 @@ ccp_nakci(f, p, len)
 	    error("MPPE required but peer negotiation failed");
 	    lcp_close(f->unit, "MPPE required but peer negotiation failed");
 	}
+#endif
     }
 #endif /* MPPE */
     if (go->deflate && len >= CILEN_DEFLATE

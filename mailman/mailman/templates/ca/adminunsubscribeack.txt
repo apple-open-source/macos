@@ -1,0 +1,2 @@
+%(member) ha estat donat de baixa amb èxit de %(listname)s.
+

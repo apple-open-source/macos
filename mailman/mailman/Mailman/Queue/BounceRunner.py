@@ -1,4 +1,4 @@
-# Copyright (C) 2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -17,6 +17,8 @@
 """Bounce queue runner."""
 
 import re
+import time
+
 from email.MIMEText import MIMEText
 from email.MIMEMessage import MIMEMessage
 from email.Utils import parseaddr
@@ -33,12 +35,22 @@ from Mailman.i18n import _
 
 COMMASPACE = ', '
 
+REGISTER_BOUNCES_EVERY = mm_cfg.minutes(15)
+
 
 
 class BounceRunner(Runner):
     QDIR = mm_cfg.BOUNCEQUEUE_DIR
-    # We only do bounce processing once per minute.
-    SLEEPTIME = mm_cfg.minutes(1)
+
+    def __init__(self, slice=None, numslices=1):
+        Runner.__init__(self, slice, numslices)
+        # This is a simple sequence of bounce score events.  Each entry in the
+        # list is a tuple of (address, day, msg) where day is a tuple of
+        # (YYYY, MM, DD).  We'll sort and collate all this information in
+        # _register_bounces() below.
+        self._bounces = {}
+        self._bouncecnt = 0
+        self._next_registration = time.time() + REGISTER_BOUNCES_EVERY
 
     def _dispose(self, mlist, msg, msgdata):
         # Make sure we have the most up-to-date state
@@ -84,57 +96,48 @@ class BounceRunner(Runner):
         # although I'm unsure how that could happen.  Possibly ScanMessages()
         # can let None's sneak through.  In any event, this will kill them.
         addrs = filter(None, addrs)
-        # Okay, we have some recognized addresses.  We now need to register
-        # the bounces for each of these.  If the bounce came to the site list,
-        # then we'll register the address on every list in the system, but
-        # note: this could be VERY resource intensive!
-        foundp = 0
-        listname = mlist.internal_name()
-        if listname == mm_cfg.MAILMAN_SITE_LIST:
-            foundp = 1
-            for listname in Utils.list_names():
-                xlist = self._open_list(listname)
-                xlist.Load()
-                for addr in addrs:
-                    if xlist.isMember(addr):
-                        unlockp = 0
-                        if not xlist.Locked():
-                            try:
-                                xlist.Lock(timeout=mm_cfg.LIST_LOCK_TIMEOUT)
-                            except LockFile.TimeOutError:
-                                # Oh well, forget aboutf this list
-                                continue
-                            unlockp = 1
-                        try:
-                            xlist.registerBounce(addr, msg)
-                            foundp = 1
-                            xlist.Save()
-                        finally:
-                            if unlockp:
-                                xlist.Unlock()
+        # Store the bounce score events so we can register them periodically
+        today = time.localtime()[:3]
+        events = [(addr, today, msg) for addr in addrs]
+        self._bounces.setdefault(mlist.internal_name(), []).extend(events)
+        self._bouncecnt += len(addrs)
+
+    def _doperiodic(self):
+        now = time.time()
+        if self._next_registration > now or not self._bounces:
+            return
+        # Let's go ahead and register the bounces we've got stored up
+        self._next_registration = now + REGISTER_BOUNCES_EVERY
+        self._register_bounces()
+
+    def _register_bounces(self):
+        syslog('bounce', 'Processing %s queued bounces', self._bouncecnt)
+        # First, get the list of bounces register against the site list.  For
+        # these addresses, we want to register a bounce on every list the
+        # address is a member of -- which we don't know yet.
+        sitebounces = self._bounces.get(mm_cfg.MAILMAN_SITE_LIST, [])
+        if sitebounces:
+            listnames = Utils.list_names()
         else:
+            listnames = self._bounces.keys()
+        for listname in listnames:
+            mlist = self._open_list(listname)
+            mlist.Lock()
             try:
-                mlist.Lock(timeout=mm_cfg.LIST_LOCK_TIMEOUT)
-            except LockFile.TimeOutError:
-                # Try again later
-                syslog('bounce', "%s: couldn't get list lock", listname)
-                return 1
-            else:
-                try:
-                    for addr in addrs:
-                        if mlist.isMember(addr):
-                            mlist.registerBounce(addr, msg)
-                            foundp = 1
-                    mlist.Save()
-                finally:
-                    mlist.Unlock()
-        if not foundp:
-            # It means an address was recognized but it wasn't an address
-            # that's on any mailing list at this site.  BAW: don't forward
-            # these, but do log it.
-            syslog('bounce', 'bounce message with non-members of %s: %s',
-                   listname, COMMASPACE.join(addrs))
-            #maybe_forward(mlist, msg)
+                events = self._bounces.get(listname, []) + sitebounces
+                for addr, day, msg in events:
+                    mlist.registerBounce(addr, msg, day=day)
+                mlist.Save()
+            finally:
+                mlist.Unlock()
+        # Reset and free all the cached memory
+        self._bounces = {}
+        self._bouncecnt = 0
+
+    def _cleanup(self):
+        if self._bounces:
+            self._register_bounces()
+        Runner._cleanup(self)
 
 
 

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -200,6 +197,10 @@ PPCI2CInterface::setPort(UInt8 newPort)
     portSelect = newPort;
     if (!pseudoI2C)     
        writeRegisterField(mode, (UInt8)kPortMask, (UInt8)I2CPortShift, (UInt8)newPort);
+	   
+	// over-ride passed in value for smu-i2c with "reg" property value
+	if (i2cSMU)
+		portSelect = portRegSelect;
 }
 
 INLINE UInt8
@@ -894,6 +895,10 @@ PPCI2CInterface::start(IOService *provider)
 // Retrive any properties from the provider and stores the data we need locally
 bool PPCI2CInterface::retrieveProperty(IOService *provider)
 {
+	OSData *compatible;
+	const char *start, *el;
+	int len;
+	
     i2cPMU = false;
     i2cUniN = false;
     i2cK2 = false;
@@ -917,14 +922,23 @@ bool PPCI2CInterface::retrieveProperty(IOService *provider)
     }
 	
 	// Are we attaching to the SMU I2C bus?
-    if (IODTMatchNubWithKeys(provider, "smu-i2c")) {
-    #ifdef DEBUGPMU
-		IOLog("                                      APPLE I2C:    smu-i2c COMPATIBLE !\n");
-    #endif // DEBUGPMU
-		i2cSMU = true;
-		pseudoI2C = true;
+	if ((compatible = OSDynamicCast(OSData, provider->getProperty("compatible"))) != NULL)
+	{
+		len = compatible->getLength();
+		start = el = (const char *) compatible->getBytesNoCopy();
 
-		return true;
+		while ((el - start) < len)
+		{
+			if (strcmp(el, "smu-i2c") == 0)
+			{
+				kprintf("AppleI2C: GOT SMU-I2C\n");
+				i2cSMU = true;
+				pseudoI2C = true;
+				return true;
+			}
+
+			el += strlen(el) + 1;
+		}
 	}
 
     // Are we attaching to the Uni-N I2C bus?
@@ -1222,14 +1236,22 @@ PPCI2CInterface::openI2CBus(UInt8 port)
     IORecursiveLockLock(mutexLock);
 #endif // DEBUGMODE
 
+	if (i2cSMU)  //ask SMU to take a lock
+		{
+		if (kIOReturnSuccess != AppleSMUSendI2CCommand( myProvider, (IOByteCount)portRegSelect, NULL, NULL, NULL, kSMU_Open ))
+			kprintf("PPCI2CInterface::openI2CBus ON SMU DIDN'T WORK !!\n");
+		}
+		
     if (pseudoI2C)  {
         lastMode = kSimpleI2CStream;	//Default case, unless changed after openI2CBus with set...Mode command
 #ifdef DEBUGPMU
         IOLog(" APPLE I2C-PMU  Try to open I2CBus..................port = 0x%2x, mode = 0x%2x\n", port, lastMode);
 #endif // DEBUGPMU
         }
-
+	
+	// In i2cSMU case, setPort() uses portRegSelect from "reg" property instead of port.
     setPort(port);
+
 
     if (!pseudoI2C)  {
         // by default we go on polling, if the client wishes to change
@@ -1455,6 +1477,12 @@ PPCI2CInterface::closeI2CBus()
         return false;
     }
 
+	if (i2cSMU)  //ask SMU to take a lock; portSelect has already been set to portRegSelect for SMU case in setPort()
+		{
+		if (kIOReturnSuccess != AppleSMUSendI2CCommand( myProvider, (IOByteCount)portSelect, NULL, NULL, NULL, kSMU_Close ))
+			kprintf("PPCI2CInterface::closeI2CBus ON SMU DIDN'T WORK !!\n");
+		}
+
     // just in case the client set the driver to function as interrupt driven
     // this sets it back in polling mode. (basically disables the interrupts
     // if needed).
@@ -1480,20 +1508,37 @@ PPCI2CInterface::closeI2CBus()
 const char *
 PPCI2CInterface::getResourceName()
 {
-    OSData *t;
+    OSData *t, *regprop;
     char *dot = ".";
+	UInt8 fI2CBus;
+	
     // creates the bottom part of the string from the driver name:
     strcpy(resourceName, getName());
 
     // builds the resource name:
     if (!pseudoI2C)
-        t = OSDynamicCast(OSData, getProvider()->getProperty("AAPL,driver-name"));
-    else {
-        t = OSDynamicCast(OSData, getProvider()->getProperty("name"));
+		{
+        t = OSDynamicCast(OSData, myProvider->getProperty("AAPL,driver-name"));
+		if (t != NULL)
+			strncat(resourceName, (char*)t->getBytesNoCopy(), t->getLength());
+		}
+
+    else if (i2cPMU) {
+        t = OSDynamicCast(OSData, myProvider->getProperty("name"));
         strncat(resourceName, (char*)dot, 1);
+		if (t != NULL)
+			strncat(resourceName, (char*)t->getBytesNoCopy(), t->getLength());
         }
-    if (t != NULL)
-        strncat(resourceName, (char*)t->getBytesNoCopy(), t->getLength());
+		
+	else if (i2cSMU) {
+		regprop = OSDynamicCast(OSData, myProvider->getProperty("reg"));
+		if (regprop != NULL)
+			{
+			fI2CBus = *((UInt32 *)regprop->getBytesNoCopy());
+			portRegSelect = fI2CBus;                           // used in setPort()
+			sprintf(resourceName, "PPCI2CInterface.smu-i2c@%1x", fI2CBus);
+			}
+		}
     
 #ifdef DEBUGMODE
     IOLog("PPCI2CInterface::getResourceName returns \"%s\"\n",resourceName);
@@ -1875,7 +1920,7 @@ PPCI2CInterface::setCombined4Mode()
 /*static*/ IOReturn
 PPCI2CInterface::AppleSMUSendI2CCommand( IOService *smu,
                         IOByteCount sendLength, UInt8 * sendBuffer,
-                        IOByteCount * readLength, UInt8 * readBuffer )
+                        IOByteCount * readLength, UInt8 * readBuffer, UInt8 command )
 {
     struct SendI2CCommandParameterBlock {
         IOByteCount sLength;
@@ -1885,12 +1930,33 @@ PPCI2CInterface::AppleSMUSendI2CCommand( IOService *smu,
     };
     IOReturn ret = kIOReturnError;
 	static const OSSymbol *i2cCommandSym = OSSymbol::withCStringNoCopy("sendSMUI2CCommand");
+	static const OSSymbol *i2cOpenSym = OSSymbol::withCStringNoCopy("openSMUI2CCommand");
+	static const OSSymbol *i2cCloseSym = OSSymbol::withCStringNoCopy("closeSMUI2CCommand");
 
     SendI2CCommandParameterBlock params = { sendLength, sendBuffer,
                                                       readLength, readBuffer };
-    if( smu)
-        ret = smu->callPlatformFunction( i2cCommandSym, true,
+    if( smu)  {
+		switch (command) {
+			case 1:
+				ret = smu->callPlatformFunction( i2cOpenSym, true,
+										(void*)&params, NULL, NULL, NULL );
+				break;
+				
+			case 2:
+				ret = smu->callPlatformFunction( i2cCommandSym, true,
                                          (void*)&params, NULL, NULL, NULL );
+				break;
+				
+			case 3:
+				ret = smu->callPlatformFunction( i2cCloseSym, true,
+                                         (void*)&params, NULL, NULL, NULL );
+				break;
+				
+			default:
+			   //ret = kIOReturnError;
+				break;
+			}	
+		}
     return( ret );
 }
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1942,7 +2008,7 @@ PPCI2CInterface::readSmuI2C( UInt8 address, UInt8 subAddress, UInt8 * readBuf, I
         readLen 		= count;	       	// added one byte for the leading pmu status byte	
         length 			= (short) ((UInt8 *)&iicPB.data - (UInt8 *)&iicPB.bus);   
 
-        ioResult = AppleSMUSendI2CCommand( myProvider, length, (UInt8 *) &iicPB, &readLen, myreadbuffer );   
+        ioResult = AppleSMUSendI2CCommand( myProvider, length, (UInt8 *) &iicPB, &readLen, myreadbuffer, kSMU_I2C_Cmd );   
 
         if ((ioResult == kIOReturnSuccess) && (myreadbuffer[0] == STATUS_OK)) 
             break;					// if pb accepted, proceed to status/read phase
@@ -1969,7 +2035,7 @@ PPCI2CInterface::readSmuI2C( UInt8 address, UInt8 subAddress, UInt8 * readBuf, I
             readLen 		= count+1;		// added one byte for the leading pmu status byte
             myreadbuffer[0]	= 0xff;
 
-            ioResult = AppleSMUSendI2CCommand( myProvider, 1, (UInt8 *) &iicPB, &readLen, myreadbuffer );
+            ioResult = AppleSMUSendI2CCommand( myProvider, 1, (UInt8 *) &iicPB, &readLen, myreadbuffer, kSMU_I2C_Cmd);
 
             if ( (ioResult == kIOReturnSuccess) && ( ( myreadbuffer[0] == STATUS_DATAREAD ) ||  ((SInt8)myreadbuffer[0] >= STATUS_OK ) ) )
             {
@@ -2054,7 +2120,7 @@ PPCI2CInterface::writeSmuI2C( UInt8 address, UInt8 subAddress, UInt8 * buffer, I
         length = (short) (&iicPB.data[iicPB.dataCount] - &iicPB.bus);  
 
 
-        ioResult = AppleSMUSendI2CCommand( myProvider, length, (UInt8 *) &iicPB, &readLen, readBuf );
+        ioResult = AppleSMUSendI2CCommand( myProvider, length, (UInt8 *) &iicPB, &readLen, readBuf, kSMU_I2C_Cmd );
 
         if ( (ioResult == kIOReturnSuccess) && (readBuf[0] == STATUS_OK) )
             break;			// if pb accepted, proceed to status phase
@@ -2083,7 +2149,7 @@ PPCI2CInterface::writeSmuI2C( UInt8 address, UInt8 subAddress, UInt8 * buffer, I
             readLen 		= sizeof( readBuf );
             readBuf[0]		= 0xff;
 
-            ioResult = AppleSMUSendI2CCommand( myProvider, 1, (UInt8 *) &iicPB, &readLen, readBuf );
+            ioResult = AppleSMUSendI2CCommand( myProvider, 1, (UInt8 *) &iicPB, &readLen, readBuf, kSMU_I2C_Cmd );
 
             if ( (ioResult == kIOReturnSuccess) && (readBuf[0] == STATUS_OK) ) {
 #ifdef DEBUGPMU

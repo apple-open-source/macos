@@ -1,0 +1,53 @@
+XCOMM $Xorg: Imakefile,v 1.4 2000/08/17 19:44:07 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/lib/FS/Imakefile,v 3.6 2001/04/23 16:17:06 tsi Exp $
+
+#define DoNormalLib NormalLibFS
+#define DoSharedLib SharedLibFS
+#define DoExtraLib SharedLibFS
+#define DoDebugLib DebugLibFS
+#define DoProfileLib ProfileLibFS
+#define LibName FS
+#define SoRev SOFSREV
+#define IncSubdir X11
+#define IncSubSubdir fonts
+
+#if Malloc0ReturnsNull
+        DEFINES = -DMALLOC_0_RETURNS_NULL
+#endif
+
+DEPEND_DEFINES = $(TRANS_INCLUDES) $(CONN_DEFINES) DependDefines
+
+HEADERS = FSlib.h
+
+INCLUDES = -I$(FONTINCSRC)
+
+SRCS =	FSClServ.c FSCloseFt.c FSConnServ.c FSErrDis.c FSErrHndlr.c \
+	FSFlush.c FSFontInfo.c FSFtNames.c FSGetCats.c FSListCats.c \
+	FSListExt.c FSMisc.c FSNextEv.c FSOpenFont.c FSOpenServ.c \
+	FSQGlyphs.c FSQXExt.c FSQXInfo.c FSQuExt.c FSServName.c \
+	FSSetCats.c FSSync.c FSSynchro.c FSlibInt.c transport.c
+
+OBJS =	FSClServ.o FSCloseFt.o FSConnServ.o FSErrDis.o FSErrHndlr.o \
+	FSFlush.o FSFontInfo.o FSFtNames.o FSGetCats.o FSListCats.o \
+	FSListExt.o FSMisc.o FSNextEv.o FSOpenFont.o FSOpenServ.o \
+	FSQGlyphs.o FSQXExt.o FSQXInfo.o FSQuExt.o FSServName.o \
+	FSSetCats.o FSSync.o FSSynchro.o FSlibInt.o transport.o
+
+CONN_DEFINES = $(CONNECTION_FLAGS) -DFS_t -DTRANS_CLIENT
+#if HasBSD44Sockets
+SOCK_DEFINES = -DBSD44SOCKETS
+#endif
+
+#include <Library.tmpl>
+
+SpecialCLibObjectRule(FSlibInt,$(ICONFIGFILES),$(CONN_DEFINES))
+SpecialCLibObjectRule(FSOpenServ,$(ICONFIGFILES),$(CONN_DEFINES))
+SpecialCLibObjectRule(FSConnServ,$(ICONFIGFILES),$(CONN_DEFINES) $(SOCK_DEFINES))
+SpecialCLibObjectRule(transport,$(ICONFIGFILES),$(TRANS_INCLUDES) $(CONN_DEFINES) $(SOCK_DEFINES))
+LinkSourceFile(transport.c,$(TRANSCOMMSRC))
+
+DependTarget()

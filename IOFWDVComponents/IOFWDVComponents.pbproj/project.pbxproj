@@ -33,7 +33,6 @@
 			productInstallPath = /usr/local/bin;
 			productName = AVCTest;
 			productReference = 00F08188FFB3905911CE206C;
-			shouldUseHeadermap = 0;
 		};
 		00F0818AFFB3905911CE206C = {
 			buildActionMask = 2147483647;
@@ -121,7 +120,6 @@
 			buildRules = (
 			);
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
@@ -131,7 +129,6 @@
 			buildRules = (
 			);
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -165,7 +162,6 @@
 			productInstallPath = /usr/local/bin;
 			productName = writetest;
 			productReference = 014F01ABFF9D04C111CE206C;
-			shouldUseHeadermap = 0;
 		};
 		014F01ADFF9D04C111CE206C = {
 			buildActionMask = 2147483647;
@@ -325,7 +321,7 @@
 	<key>CFBundleExecutable</key>
 	<string></string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFWDVComponents version 1.5.3, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOFWDVComponents version 1.6.1, Copyright 2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -337,11 +333,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.3</string>
+	<string>1.6.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.3</string>
+	<string>1.6.1</string>
 	<key>CarbonLazyValues</key>
 	<dict>
 		<key>CodeFragmentManager</key>
@@ -353,7 +349,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		01CE0AB8FFF92E6711CE206D = {
 			buildActionMask = 2147483647;
@@ -447,7 +442,6 @@
 			productInstallPath = /usr/local/bin;
 			productName = DVTest;
 			productReference = 01D7427BFF9D28DA11CE206C;
-			shouldUseHeadermap = 0;
 		};
 		01D7427DFF9D28DA11CE206C = {
 			buildActionMask = 2147483647;
@@ -808,7 +802,6 @@
 			name = readtest;
 			productName = readtest;
 			productReference = 0889979DFF7ABFC811CA29CE;
-			shouldUseHeadermap = 0;
 		};
 		0889979FFF7ABFC811CA29CE = {
 			buildActionMask = 2147483647;
@@ -866,6 +859,7 @@
 				014F01A9FF9D02F711CE206C,
 				4D537F0E039BF1D900CE20D6,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -954,17 +948,16 @@
 	<key>CFBundlePackageType</key>
 	<string>thng</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.3</string>
+	<string>1.6.1</string>
 	<key>CFBundleSignature</key>
 	<string>appl</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.3</string>
+	<string>1.6.1</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -1139,7 +1132,6 @@
 			isa = PBXAggregateTarget;
 			name = All;
 			productName = All;
-			shouldUseHeadermap = 0;
 		};
 		0C08A467FF66C08911CA29CE = {
 			isa = PBXTargetDependency;
@@ -1206,7 +1198,7 @@
 	<key>CFBundleExecutable</key>
 	<string>DVFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFWDVComponents version 1.5.3, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOFWDVComponents version 1.6.1, Copyright 2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1218,15 +1210,14 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.3</string>
+	<string>1.6.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.3</string>
+	<string>1.6.1</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		13FACE9EFF67159C11CA29CE = {
 			buildActionMask = 2147483647;
@@ -1336,7 +1327,6 @@
 			buildRules = (
 			);
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
@@ -1447,7 +1437,6 @@
 			productInstallPath = /usr/local/bin;
 			productName = devicetest;
 			productReference = 8CA281E400E2BF7B04CE206D;
-			shouldUseHeadermap = 0;
 		};
 		8CA281E600E2BF7B04CE206D = {
 			buildActionMask = 2147483647;
@@ -1616,7 +1605,6 @@
 			productInstallPath = /usr/local/bin;
 			productName = CFTest;
 			productReference = 8CFF00A70282093404CE237C;
-			shouldUseHeadermap = 0;
 		};
 		8CFF00A90282093404CE237C = {
 			buildActionMask = 2147483647;

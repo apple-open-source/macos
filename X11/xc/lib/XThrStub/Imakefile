@@ -1,0 +1,34 @@
+XCOMM $XFree86: xc/lib/XThrStub/Imakefile,v 3.2 1998/12/20 11:57:00 dawes Exp $
+#define DoNormalLib NormalLibXThrStub
+#define DoSharedLib SharedLibXThrStub
+#define DoExtraLib SharedLibXThrStub
+#define DoDebugLib DebugLibXThrStub
+#define DoProfileLib ProfileLibXThrStub
+#define LibName XThrStub
+#define SoRev SOXTHRSTUBREV
+#define LibHeaders NO
+
+#include <Threads.tmpl>
+
+#ifdef SharedXThrStubReqs
+REQUIREDLIBS = SharedXThrStubReqs
+#endif
+
+#if NeedUIThrStubs
+STUBSRCS = UIThrStubs.c
+STUBOBJS = UIThrStubs.o
+#endif
+
+#if Malloc0ReturnsNull
+ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
+#endif
+
+      DEFINES = $(ALLOC_DEFINES)
+     INCLUDES = 
+         SRCS = $(STUBSRCS)
+         OBJS = $(STUBOBJS)
+     LINTLIBS = $(LINTXLIB)
+
+#include <Library.tmpl>
+
+DependTarget()

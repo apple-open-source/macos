@@ -1,0 +1,9 @@
+// Hungarian keyboard symbols for XKB and 101-key qwerty PC keyboard
+//
+//
+// Check also ../rules/xfree86.lst
+
+default partial
+xkb_symbols "default" {
+    include "hu(uni_101_qwerty_comma)"
+};

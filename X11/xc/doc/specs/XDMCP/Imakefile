@@ -1,0 +1,7 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:42:20 cpqbld Exp $
+XCOMM $XFree86: xc/doc/specs/XDMCP/Imakefile,v 1.2 2001/04/23 15:53:51 dawes Exp $
+
+MakeEqnDoc(xdmcp,xdmcp.ms)
+
+InstallRoffDoc(xdmcp)
+

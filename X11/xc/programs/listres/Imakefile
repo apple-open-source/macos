@@ -1,0 +1,9 @@
+XCOMM $XConsortium: Imakefile,v 1.14 93/08/17 21:15:52 rws Exp $
+        DEPLIBS = XawClientDepLibs
+LOCAL_LIBRARIES = XawClientLibs
+  SYS_LIBRARIES = MathLibrary
+           SRCS = listres.c 
+           OBJS = listres.o 
+
+ComplexProgramTarget(listres)
+

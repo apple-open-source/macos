@@ -1,0 +1,108 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ $Date$ $Revision$
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(LookAt, define a viewing transformation)
+_names(LookAt)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1 _param2 _param3)
+Specifies the position of the eye point.
+_phead(_param4 _param5 _param6)
+Specifies the position of the reference point.
+_phead(_param7 _param8 _param9)
+Specifies the direction of the \f2up\fP vector.
+.SH DESCRIPTION
+_cmnd creates a viewing matrix derived from an eye point, a reference
+point indicating the center of the scene, and an \f2UP\fP vector.  
+.P
+The matrix
+maps the reference point to the negative \f2z\fP axis and the
+eye point to the origin.
+When a typical projection matrix is used,
+the center of the scene therefore maps to the center of the viewport.
+Similarly, the direction described by the \f2UP\fP
+vector projected onto the viewing plane is mapped to the positive \f2y\fP 
+axis so that it points upward in the viewport.
+The \f2UP\fP vector must not be parallel to the line of sight from the
+eye point to the reference point.
+.P
+Let 
+.sp
+.EQ
+F ~=~ left (  down 20 { ~ matrix {
+   ccol {_eqnparam4 above _eqnparam5 above _eqnparam6}
+   ccol { ~-~ above ~-~ above ~-~}
+   ccol {_eqnparam1 above _eqnparam2 above _eqnparam3}
+} } ~~ right )
+
+.EN
+
+.sp
+Let \f2UP\fP be the vector $(_eqnparam7, _eqnparam8, _eqnparam9)$. 
+.P
+Then normalize as follows: 
+.EQ
+f ~=~ F over {|| F ||}
+.EN
+.P
+.EQ
+UP sup prime ~=~ UP over {|| UP ||}
+.EN
+.sp
+.P
+Finally, let $s ~=~ f ~times~ UP sup prime$, and $u ~=~ s ~times~ f$.
+.P
+.sp
+M is then constructed as follows:
+.EQ
+M ~=~ left (  matrix {
+   ccol { ~s[0] above ~u[0] above -f[0] above 0 }
+   ccol { ~s[1] above ~u[1] above -f[1] above 0 }
+   ccol { ~s[2] above ~u[2] above -f[2] above 0 }
+   ccol { 0 above 0 above 0  above 1 }
+} ~~right )
+.EN
+.P
+and _cmnd is equivalent to 
+.Ex
+glMultMatrixf(M);
+glTranslated (-eyex, -eyey, -eyez);
+.Ee
+.SH SEE ALSO
+_glcmnd(Frustum), _cmnd(Perspective)

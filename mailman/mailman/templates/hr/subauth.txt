@@ -1,0 +1,11 @@
+Da bi vas zahtjev za pretplatom na mailing listu bio odobren, 
+trebate napraviti autorizaciju:
+
+    Za:  	 %(username)s
+    Lista: %(listname)s@%(hostname)s
+
+Posjetite:
+
+    %(admindb_url)s
+	
+da bi zahtjev bio procesiran.

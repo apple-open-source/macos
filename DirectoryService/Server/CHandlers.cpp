@@ -25,6 +25,18 @@
  * @header CHandlers
  */
 
+#define USE_BSM_AUDIT		1
+
+#if USE_BSM_AUDIT
+extern "C" {
+#include <bsm/audit.h>
+#include <bsm/audit_uevents.h>
+#include <sys/syscall.h>
+#include <bsm/libbsm.h>
+#define	_SYS_AUDIT_H	// disable sys/audit.h
+};
+#endif
+
 #include "CHandlers.h"
 #include "ServerControl.h"
 #include "CSrvrEndPoint.h"
@@ -51,6 +63,14 @@
 #include <sys/sysctl.h>	// for sysctl()
 #include <sys/time.h>	// for struct timespec and gettimeofday()
 #include <mach/mach.h>	// for mach destroy of client port
+
+#define kAuditUnknownNameStr			"unknown"
+
+typedef enum AuditTypeHint {
+	kATHChange,
+	kATHAdd,
+	kATHRemove
+};
 
 static const char *sServerMsgType[ 13 ] =
 {
@@ -109,6 +129,150 @@ static const char *sPlugInMsgType[ 37 ] =
 	/*    */	"DoCheckNIAutoSwitch()",
 	/* 36 */	"*** End of list ***"
 };
+
+
+/* list of attributes that are auditted */
+
+#define		kAuditAttrConsts		26
+
+static const char *sAuditAttrTable[ kAuditAttrConsts ] = 
+{
+	/* attributes */
+	kDS1AttrSMBRID,
+	kDS1AttrSMBGroupRID,
+	kDS1AttrDistinguishedName,
+	kDS1AttrFirstName,
+	kDS1AttrMiddleName,
+	kDS1AttrLastName,
+	kDS1AttrPassword,
+	kDS1AttrPasswordPlus,
+	kDS1AttrAuthenticationHint,
+	kDS1AttrUniqueID,
+	kDS1AttrPrimaryGroupID,
+	kDS1AttrGeneratedUID,
+	kDS1AttrRealUserID,
+	kDSNAttrGroupMembership,
+	kDS1AttrAuthCredential,
+	kDSNAttrKDCAuthKey,
+	kDSNAttrRecordName,
+	kDSNAttrSetPasswdMethod,
+	kDSNAttrGroup,
+	kDSNAttrMember,
+	kDSNAttrNetGroups,
+	kDSNAttrNickName,
+	kDSNAttrNamePrefix,
+	kDSNAttrNameSuffix,
+	kDSNAttrComputers,
+	
+	/* end */
+	NULL
+};
+
+/* list of authentication methods that are auditted */
+
+#define		kAuditAuthPasswordChangeConsts		6
+#define		kAuditAuthChangeConsts				14
+#define		kAuditAuthMethodConsts				28
+
+static const char *sAuditMethodTable[ kAuditAuthMethodConsts ] = 
+{
+	/* changes password */
+	kDSStdAuthSetPasswd,
+	kDSStdAuthChangePasswd,
+	kDSStdAuthSetPasswdAsRoot,
+	kDSStdAuth2WayRandomChangePasswd,
+	kDSStdAuthWriteSecureHash,
+	kDSStdAuthSetWorkstationPasswd,
+	
+	/* changes something other than the password */
+	kDSStdAuthSetPolicyAsRoot,
+	kDSStdAuthNewUser,
+	kDSStdAuthSetPolicy,
+	kDSStdAuthSetGlobalPolicy,
+	kDSStdAuthSetUserName,
+	kDSStdAuthSetUserData,
+	kDSStdAuthDeleteUser,
+	
+	/* auth-only */
+	kDSStdAuthClearText,
+	kDSStdAuthAPOP,
+	kDSStdAuth2WayRandom,
+	kDSStdAuthNodeNativeClearTextOK,
+	kDSStdAuthNodeNativeNoClearText,
+	kDSStdAuthSMB_NT_Key,
+	kDSStdAuthSMB_LM_Key,
+	kDSStdAuthCRAM_MD5,
+	kDSStdAuthDIGEST_MD5,
+	kDSStdAuthSecureHash,
+	kDSStdAuthMSCHAP2,
+	kDSStdAuthMSCHAP1,
+	kDSStdAuthCHAP,
+	kDSStdAuthWithAuthorizationRef,
+
+	/* end */
+	NULL
+};
+
+enum {
+	kAuditCtlStrNewUser						= 0,
+	kAuditCtlStrModifyUser1					= 1,
+	kAuditCtlStrModifyUser2					= 2,
+	kAuditCtlStrModifyPassword				= 3,
+	kAuditCtlStrDeleteUser					= 4,
+	kAuditCtlStrCreateGroup					= 5,
+	kAuditCtlStrDeleteGroup					= 6,
+	kAuditCtlStrModifyGroupMembership1		= 7,
+	kAuditCtlStrModifyGroupMembership2		= 8,
+	kAuditCtlStrAddToGroup					= 9,
+	kAuditCtlStrRemoveFromGroup				= 10,
+	kAuditCtlStrModifyGroupAttribute		= 11,
+	kAuditCtlStrAuthenticateUser			= 12,
+	kAuditControlStrConsts
+};
+
+static const char *sAuditControlStr[ kAuditControlStrConsts ] = 
+{
+	// "New user [<domain>:<shortname>]",														// AUE_create_user
+	"New user [<%s>:<%s>]",
+	
+	// (In the following, if the short name is changing, use the old shortname following "Modify user.")
+	
+	// "Modify user <shortname> <UID|GID|SHORTNAME|LONGNAME>: old = <oldval>, new = <newval>",  // AUE_modify_user
+	"Modify user <%s>: attribute = <%s>, value = <%s>",
+	"Modify user <%s>: new attribute <%s> = <%s>",
+	
+	// "Modify password for user <shortname>",													// AUE_modify_password
+	"Modify password for user <%s>",
+	
+	// "Delete user [<uid>, <gid>, <shortname>, <longname>]",									// AUE_delete_user
+	"Delete user [<%lu>, <%lu>, <%s>, <%s>]",
+	
+	// "Add group [<groupname>]",																// AUE_create_group
+	"Add group [<%s>]",
+	
+	// "Delete group [<gid>, <groupname>]",														// AUE_delete_group
+	"Delete group [<%lu>, <%s>]",
+	
+	// (In the following, if the name is changing, use the old name following "Modify group.")
+	
+	// "Modify group <groupname> <GID|NAME>: old = <oldval>, new = <newval>",					// AUE_modify_group (membership)
+	"Modify group <%s> <%lu>: old = <%s>, new = <%s>",
+	"Modify group <%s>: attribute = <%s>, value = <%s>",
+	
+	// "Add user <shortname> to group <groupname>",												// AUE_add_to_group
+	"Add user <%s> to group <%s>",
+	
+	// "Removed user <shortname> from group <groupname>"										// AUE_remove_from_group
+	"Removed user <%s> from group <%s>",
+
+	// "Modify group <groupname> <GID|NAME>: old = <oldval>, new = <newval>",					// AUE_modify_group (non-membership-attribute)
+	"Modify group <%s>: attribute = <%s>, value = <%s>",
+	
+	// "Authentication for user <shortname>",													// 
+	"Authentication for user <%s>"
+	
+};
+
 
 // --------------------------------------------------------------------------------
 //	* Globals
@@ -964,6 +1128,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 						}
 						if ( password != NULL )
 						{
+							bzero(password, strlen(password));
 							::free( password );
 							password = NULL;
 						}
@@ -990,6 +1155,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 					}
 					if ( dataBuff != NULL )
 					{
+						bzero(dataBuff->fBufferData, dataBuff->fBufferLength);
 						dsDataBufferDeallocatePriv( dataBuff );
 						dataBuff = NULL;
 					}
@@ -1253,6 +1419,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 				}
 				if ( dataBuff != NULL )
 				{
+					bzero(dataBuff->fBufferData, dataBuff->fBufferLength);
 					dsDataBufferDeallocatePriv( dataBuff );
 					dataBuff = NULL;
 				}
@@ -1263,6 +1430,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 				}
 				if ( password != NULL )
 				{
+					bzero(password, strlen(password));
 					::free( password );
 					password = NULL;
 				}
@@ -1319,14 +1487,18 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 	double			outTime			= 0;
 	bool			performanceStatGatheringActive = gSrvrCntl->IsPeformanceStatGatheringActive();
 	sInt32			pluginResult	= eDSNoErr;
-
+	uInt32			type			= 0;
+	char		   *textStr			= nil;
+	
 	// Set this to nil, it will get set in next call
 	fPluginPtr = nil;
 
 	aClientPID	= (*inMsg)->fPID;
 	anIPAddress	= (*inMsg)->fIPAddress;
-	aMsgName	= GetCallName( GetMsgType( *inMsg ) );
-
+	
+	type = GetMsgType( *inMsg );
+	aMsgName = GetCallName( type );
+	
 	pData = GetRequestData( (*inMsg), &siResult, &shouldProcess ); //fPluginPtr gets set inside this call
 	if ( siResult == eDSNoErr )
 	{
@@ -1353,7 +1525,71 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 
 						if ( shouldProcess )
 						{
+							#if USE_BSM_AUDIT
+								// need to evaluate the event before calling the dispatch in case the
+								// event is a DeleteRecord event. 
+								uInt32 bsmEventCode = AuditForThisEvent( type, pData, &textStr );
+							#endif
+							
 							siResult = fPluginPtr->ProcessRequest( pData );
+							
+							#if USE_BSM_AUDIT
+								// BSM Audit
+								if ( bsmEventCode > 0 )
+								{
+									token_t *tok;
+									au_tid_t tid = {0,0};
+									
+									if ( inMsg != NULL )
+									{
+										tid.port = (*inMsg)->fTail.msgh_audit.val[2];
+										tid.machine = (*inMsg)->fTail.msgh_audit.val[3];
+										
+										if ( siResult == eDSNoErr )
+										{
+											tok = au_to_text( textStr );
+											audit_write_success( bsmEventCode, tok,
+																	(*inMsg)->fTail.msgh_audit.val[0],
+																	(*inMsg)->fTail.msgh_sender.val[0],
+																	(*inMsg)->fTail.msgh_sender.val[1],
+																	(*inMsg)->fTail.msgh_sender.val[0],
+																	(*inMsg)->fTail.msgh_sender.val[1],
+																	aClientPID,
+																	(*inMsg)->fTail.msgh_audit.val[1],
+																	&tid );
+										}
+										else
+										{
+											audit_write_failure( bsmEventCode, textStr, (int)siResult,
+																	(*inMsg)->fTail.msgh_audit.val[0],
+																	(*inMsg)->fTail.msgh_sender.val[0],
+																	(*inMsg)->fTail.msgh_sender.val[1],
+																	(*inMsg)->fTail.msgh_sender.val[0],
+																	(*inMsg)->fTail.msgh_sender.val[1],
+																	aClientPID,
+																	(*inMsg)->fTail.msgh_audit.val[1],
+																	&tid );
+										}
+									}
+									else
+									{
+										if ( siResult == eDSNoErr )
+										{
+											tok = au_to_text( textStr );
+											audit_write_success( bsmEventCode, tok, 0,0,0,0,0, aClientPID, 0, &tid );
+										}
+										else
+										{
+											audit_write_failure( bsmEventCode, textStr, (int)siResult, 0,0,0,0,0, aClientPID, 0, &tid );
+										}
+									}
+								}
+								if ( textStr != NULL )
+								{
+									free( textStr );
+									textStr = NULL;
+								}
+							#endif
 						}
 						else
 						{
@@ -1429,7 +1665,71 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 
 							if ( shouldProcess )
 							{
+								#if USE_BSM_AUDIT
+									// need to evaluate the event before calling the dispatch in case the
+									// event is a DeleteRecord event. 
+									uInt32 bsmEventCode = AuditForThisEvent( type, pData, &textStr );
+								#endif
+							
 								siResult = fPluginPtr->ProcessRequest( pData );
+								
+								#if USE_BSM_AUDIT
+									// BSM Audit
+									if ( bsmEventCode > 0 )
+									{
+										token_t *tok;
+										au_tid_t tid = {0,0};
+										
+										if ( inMsg != NULL )
+										{
+											tid.port = (*inMsg)->fTail.msgh_audit.val[2];
+											tid.machine = (*inMsg)->fTail.msgh_audit.val[3];
+											
+											if ( siResult == eDSNoErr )
+											{
+												tok = au_to_text( textStr );
+												audit_write_success( bsmEventCode, tok,
+																		(*inMsg)->fTail.msgh_audit.val[0],
+																		(*inMsg)->fTail.msgh_sender.val[0],
+																		(*inMsg)->fTail.msgh_sender.val[1],
+																		(*inMsg)->fTail.msgh_sender.val[0],
+																		(*inMsg)->fTail.msgh_sender.val[1],
+																		aClientPID,
+																		(*inMsg)->fTail.msgh_audit.val[1],
+																		&tid );
+											}
+											else
+											{
+												audit_write_failure( bsmEventCode, textStr, (int)siResult,
+																		(*inMsg)->fTail.msgh_audit.val[0],
+																		(*inMsg)->fTail.msgh_sender.val[0],
+																		(*inMsg)->fTail.msgh_sender.val[1],
+																		(*inMsg)->fTail.msgh_sender.val[0],
+																		(*inMsg)->fTail.msgh_sender.val[1],
+																		aClientPID,
+																		(*inMsg)->fTail.msgh_audit.val[1],
+																		&tid );
+											}
+										}
+										else
+										{
+											if ( siResult == eDSNoErr )
+											{
+												tok = au_to_text( textStr );
+												audit_write_success( bsmEventCode, tok, 0,0,0,0,0, aClientPID, 0, &tid );
+											}
+											else
+											{
+												audit_write_failure( bsmEventCode, textStr, (int)siResult, 0,0,0,0,0, aClientPID, 0, &tid );
+											}
+										}
+									}
+									if ( textStr != NULL )
+									{
+										free( textStr );
+										textStr = NULL;
+									}
+								#endif
 							}
 							else
 							{
@@ -1513,8 +1813,72 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 								inTime = dsTimestamp();
 							}
 
+							#if USE_BSM_AUDIT
+								// need to evaluate the event before calling the dispatch in case the
+								// event is a DeleteRecord event. 
+								uInt32 bsmEventCode = AuditForThisEvent( type, pData, &textStr );
+							#endif
+							
 							siResult = pPlugin->ProcessRequest( pData );
-
+							
+							#if USE_BSM_AUDIT
+								// BSM Audit
+								if ( bsmEventCode > 0 )
+								{
+									token_t *tok;
+									au_tid_t tid = {0,0};
+									
+									if ( inMsg != NULL )
+									{
+										tid.port = (*inMsg)->fTail.msgh_audit.val[2];
+										tid.machine = (*inMsg)->fTail.msgh_audit.val[3];
+										
+										if ( siResult == eDSNoErr )
+										{
+											tok = au_to_text( textStr );
+											audit_write_success( bsmEventCode, tok,
+																	(*inMsg)->fTail.msgh_audit.val[0],
+																	(*inMsg)->fTail.msgh_sender.val[0],
+																	(*inMsg)->fTail.msgh_sender.val[1],
+																	(*inMsg)->fTail.msgh_sender.val[0],
+																	(*inMsg)->fTail.msgh_sender.val[1],
+																	aClientPID,
+																	(*inMsg)->fTail.msgh_audit.val[1],
+																	&tid );
+										}
+										else
+										{
+											audit_write_failure( bsmEventCode, textStr, (int)siResult,
+																	(*inMsg)->fTail.msgh_audit.val[0],
+																	(*inMsg)->fTail.msgh_sender.val[0],
+																	(*inMsg)->fTail.msgh_sender.val[1],
+																	(*inMsg)->fTail.msgh_sender.val[0],
+																	(*inMsg)->fTail.msgh_sender.val[1],
+																	aClientPID,
+																	(*inMsg)->fTail.msgh_audit.val[1],
+																	&tid );
+										}
+									}
+									else
+									{
+										if ( siResult == eDSNoErr )
+										{
+											tok = au_to_text( textStr );
+											audit_write_success( bsmEventCode, tok, 0,0,0,0,0, aClientPID, 0, &tid );
+										}
+										else
+										{
+											audit_write_failure( bsmEventCode, textStr, (int)siResult, 0,0,0,0,0, aClientPID, 0, &tid );
+										}
+									}
+								}
+								if ( textStr != NULL )
+								{
+									free( textStr );
+									textStr = NULL;
+								}
+							#endif
+							
 							pluginResult = siResult;
 							if ( ( siResult == eDSNoErr ) || (siResult == eDSBufferTooSmall) )
 							{
@@ -1854,7 +2218,7 @@ void CRequestHandler::DebugAPIPluginResponse (	void		   *inData,
 		case kOpenDirNode:
 		{
 			sOpenDirNode *p = (sOpenDirNode *)inData;
-			DBGLOG4( kLogHandler, "%s : DAR : Dir Ref = %u : Node Ref = %u : Result code = %d", inDebugDataTag, p->fInDirNodeName, p->fOutNodeRef, inResult );
+			DBGLOG4( kLogHandler, "%s : DAR : Dir Ref = %u : Node Ref = %u : Result code = %d", inDebugDataTag, p->fInDirRef, p->fOutNodeRef, inResult );
 			break;
 		}
 
@@ -2264,6 +2628,8 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 				DBGLOG6( kLogHandler, "%s : DAC : 2 : Node Ref = %u : Requested Attrs = %s : Attr Type Only Flag = %u : Record Count Limit = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, requestedAttrs+1, p->fInAttrInfoOnly, p->fOutMatchRecordCount, p->fIOContinueData );
 				free(requestedRecTypes);
 				requestedRecTypes = nil;
+				free(requestedAttrs);
+				requestedAttrs = nil;
 			}
 
 			break;
@@ -3214,12 +3580,14 @@ void CRequestHandler::DoFreeMemory ( void *inData )
 
 			if ( p->fInAuthStepData != nil )
 			{
+				bzero(p->fInAuthStepData->fBufferData, p->fInAuthStepData->fBufferLength);
 				::dsDataBufferDeallocatePriv( p->fInAuthStepData );
 				p->fInAuthStepData = nil;
 			}
 
 			if ( p->fOutAuthStepDataResponse != nil )
 			{
+				bzero(p->fOutAuthStepDataResponse->fBufferData, p->fOutAuthStepDataResponse->fBufferLength);
 				::dsDataBufferDeallocatePriv( p->fOutAuthStepDataResponse );
 				p->fOutAuthStepDataResponse = nil;
 			}
@@ -3244,12 +3612,14 @@ void CRequestHandler::DoFreeMemory ( void *inData )
 
 			if ( p->fInAuthStepData != nil )
 			{
+				bzero(p->fInAuthStepData->fBufferData, p->fInAuthStepData->fBufferLength);
 				::dsDataBufferDeallocatePriv( p->fInAuthStepData );
 				p->fInAuthStepData = nil;
 			}
 
 			if ( p->fOutAuthStepDataResponse != nil )
 			{
+				bzero(p->fOutAuthStepDataResponse->fBufferData, p->fOutAuthStepDataResponse->fBufferLength);
 				::dsDataBufferDeallocatePriv( p->fOutAuthStepDataResponse );
 				p->fOutAuthStepDataResponse = nil;
 			}
@@ -4424,7 +4794,7 @@ void* CRequestHandler::DoGetRecRefInfo ( sComData *inMsg, sInt32 *outStatus )
 		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
 
 		// Verify the Record Reference
-		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
+		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress, true );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		*outStatus = eDSNoErr;
@@ -6326,3 +6696,449 @@ sInt32 CRequestHandler:: FailedCallRefCleanUp ( void *inData, sInt32 inClientPID
 } // FailedCallRefCleanUp
 
 
+//------------------------------------------------------------------------------------
+//	* AuditForThisEvent
+//
+//  RETURNS: BSM event code
+//  Caller must free <outTextStr>
+//------------------------------------------------------------------------------------
+
+uInt32 CRequestHandler::AuditForThisEvent( uInt32 inType, void *inData, char **outTextStr )
+{
+	uInt32				eventCode					= 0;
+	tDataNodePtr		recType						= NULL;
+	tRecordReference	recRef						= 0;
+	bool				typeIsAudited				= false;
+	bool				attrIsAudited				= false;
+	tDirStatus			siResult					= eDSNoErr;
+	char				*recTypeStr					= NULL;
+	char				*recNameStr					= NULL;
+	const char			*recNameToUseStr			= NULL;
+	tDataNodePtr		pAttrType					= NULL;
+	tDataNodePtr		pAttrValue					= NULL;
+	const char			*attrValueNameStr			= NULL;
+	tDataNodePtr		pAuthMethod					= NULL;
+	tDataBufferPtr		authBuffer					= NULL;
+	AuditTypeHint		hint						= kATHChange;
+	char				textStr[256]				= {0};
+	
+#if USE_BSM_AUDIT
+	try
+	{
+		if ( outTextStr != NULL )
+			*outTextStr = NULL;
+		
+		if ( au_get_state() == AUDIT_OFF )
+			return 0;
+		
+		switch ( inType )
+		{
+			case kCreateRecord:
+			case kCreateRecordAndOpen:
+				if ( inData != NULL )
+					recType = ((sCreateRecord *)inData)->fInRecType;
+				if ( recType != NULL )
+				{
+					recNameToUseStr = ((sCreateRecord *)inData)->fInRecName ? ((sCreateRecord *)inData)->fInRecName->fBufferData : kAuditUnknownNameStr;
+					
+					if ( strcmp( recType->fBufferData, kDSStdRecordTypeUsers ) == 0 )
+					{
+						eventCode = AUE_create_user;
+						snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrNewUser], "", recNameToUseStr );
+					}
+					else
+					if ( strcmp( recType->fBufferData, kDSStdRecordTypeGroups ) == 0 )
+					{
+						eventCode = AUE_create_group;
+						snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrCreateGroup], recNameToUseStr );
+					}
+				}
+				break;
+				
+			case kAddAttribute:
+				if ( inData != NULL )
+				{
+					recRef = ((sAddAttribute *)inData)->fInRecRef;
+					pAttrType = ((sAddAttribute *)inData)->fInNewAttr;
+					pAttrValue = ((sAddAttribute *)inData)->fInFirstAttrValue;
+					hint = kATHAdd;
+					AuditUserOrGroupRecord( recRef, &recNameStr, &recTypeStr, &eventCode );
+				}
+				break;
+							
+			case kRemoveAttribute:
+				if ( inData != NULL )
+				{
+					recRef = ((sRemoveAttribute *)inData)->fInRecRef;
+					pAttrType = ((sRemoveAttribute *)inData)->fInAttribute;
+					hint = kATHRemove;
+					AuditUserOrGroupRecord( recRef, &recNameStr, &recTypeStr, &eventCode );
+				}
+				break;
+				
+			case kAddAttributeValue:
+				if ( inData != NULL )
+				{
+					recRef = ((sAddAttributeValue *)inData)->fInRecRef;
+					pAttrType = ((sAddAttributeValue *)inData)->fInAttrType;
+					pAttrValue = ((sAddAttributeValue *)inData)->fInAttrValue;
+					hint = kATHAdd;
+					AuditUserOrGroupRecord( recRef, &recNameStr, &recTypeStr, &eventCode );
+				}
+				break;
+				
+			case kRemoveAttributeValue:
+				if ( inData != NULL )
+				{
+					recRef = ((sRemoveAttributeValue *)inData)->fInRecRef;
+					pAttrType = ((sRemoveAttributeValue *)inData)->fInAttrType;
+					hint = kATHRemove;
+					AuditUserOrGroupRecord( recRef, &recNameStr, &recTypeStr, &eventCode );
+				}
+				break;
+				
+			case kSetAttributeValue:
+				if ( inData != NULL )
+				{
+					recRef = ((sSetAttributeValue *)inData)->fInRecRef;
+					pAttrType = ((sSetAttributeValue *)inData)->fInAttrType;
+					if ( ((sSetAttributeValue *)inData)->fInAttrValueEntry != NULL )
+						pAttrValue = &(((sSetAttributeValue *)inData)->fInAttrValueEntry->fAttributeValueData);
+					AuditUserOrGroupRecord( recRef, &recNameStr, &recTypeStr, &eventCode );
+				}
+				break;
+			
+			case kDeleteRecord:
+				if ( inData != NULL )
+				{
+					recRef = ((sDeleteRecord *)inData)->fInRecRef;
+					siResult = AuditGetRecordRefInfo( recRef, &recNameStr, &recTypeStr );
+					if ( siResult == eDSNoErr )
+					{
+						recNameToUseStr = (recNameStr != NULL) ? recNameStr : kAuditUnknownNameStr;
+						
+						if ( strcmp( (const char *)recTypeStr, kDSStdRecordTypeUsers ) == 0 )
+						{
+							eventCode = AUE_delete_user;
+							snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrDeleteUser], "", "", recNameToUseStr, "" );
+						}
+						else
+						if ( strcmp( (const char *)recTypeStr, kDSStdRecordTypeGroups ) == 0 )
+						{
+							eventCode = AUE_delete_group;
+							snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrDeleteGroup], "", recNameToUseStr );
+						}
+					}
+				}
+				break;
+				
+			case kSetRecordName:
+				if ( inData != NULL )
+				{
+					recRef = ((sSetRecordName *)inData)->fInRecRef; 
+					AuditUserOrGroupRecord( recRef, &recNameStr, &recTypeStr, &eventCode );
+				}
+				break;
+				
+			case kSetRecordType:
+				if ( inData != NULL )
+				{
+					recRef = ((sSetRecordType *)inData)->fInRecRef;	
+					AuditUserOrGroupRecord( recRef, &recNameStr, &recTypeStr, &eventCode );
+				}
+				break;
+			
+			case kDoDirNodeAuth:
+				pAuthMethod = ((sDoDirNodeAuth *)inData)->fInAuthMethod;
+				authBuffer = ((sDoDirNodeAuth *)inData)->fInAuthStepData;
+				eventCode = AUE_modify_user;
+				typeIsAudited = true;
+				break;
+				
+			case kDoDirNodeAuthOnRecordType:
+				pAuthMethod = ((sDoDirNodeAuthOnRecordType *)inData)->fInAuthMethod;
+				authBuffer = ((sDoDirNodeAuthOnRecordType *)inData)->fInAuthStepData;
+				eventCode = AUE_modify_user;
+				typeIsAudited = true;
+				break;
+			
+			default:
+				typeIsAudited = false;
+		}
+		
+		if ( eventCode > 0 )
+			typeIsAudited = true;
+		
+		if ( ! typeIsAudited )
+			throw((sInt32)-1);
+		
+		if ( pAttrType != NULL )
+		{
+			for ( int idx = 0; sAuditAttrTable[idx] != NULL; idx++ )
+			{
+				if ( strcmp( pAttrType->fBufferData, sAuditAttrTable[idx] ) == 0 )
+				{
+					attrIsAudited = true;
+					break;
+				}
+			}
+			
+			if ( ! attrIsAudited )
+				throw( (sInt32)-1 );
+			
+			attrValueNameStr = (pAttrValue != NULL) ? pAttrValue->fBufferData : "";
+			
+			if ( eventCode == AUE_modify_user )
+			{
+				recNameToUseStr = (recNameStr != NULL) ? recNameStr : kAuditUnknownNameStr;
+				switch( hint )
+				{
+					case kATHAdd:
+						snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrModifyUser2], recNameToUseStr, pAttrType->fBufferData, attrValueNameStr );
+						break;
+					
+					default:
+						snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrModifyUser1], recNameToUseStr, pAttrType->fBufferData, attrValueNameStr );
+				}
+			}
+			else
+			// special-case for special attribute
+			if ( eventCode == AUE_modify_group )
+			{
+				recNameToUseStr = (recNameStr != NULL) ? recNameStr : kAuditUnknownNameStr;
+				
+				if ( strcmp( pAttrType->fBufferData, kDSNAttrGroupMembership ) == 0 )
+				{
+					switch( hint )
+					{
+						case kATHChange:
+							//eventCode = AUE_modify_group;
+							snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrModifyGroupMembership2], recNameToUseStr, attrValueNameStr );
+							break;
+						
+						case kATHAdd:
+							eventCode = AUE_add_to_group;
+							if ( attrValueNameStr == NULL || *attrValueNameStr == '\0' )
+								snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrModifyGroupAttribute], recNameToUseStr, pAttrType->fBufferData, "" );
+							else
+								snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrAddToGroup], attrValueNameStr, recNameToUseStr );
+							break;
+						
+						case kATHRemove:
+							eventCode = AUE_remove_from_group;
+							snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrRemoveFromGroup], attrValueNameStr, recNameToUseStr );
+							break;
+					}
+				}
+				else
+				{
+					snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrModifyGroupAttribute], recNameToUseStr, pAttrType->fBufferData, attrValueNameStr );
+				}
+			}
+		}
+		
+		if ( pAuthMethod != NULL && attrIsAudited == false )
+		{
+			int idx;
+			
+			for ( idx = 0; sAuditMethodTable[idx] != NULL; idx++ )
+			{
+				if ( strcmp( pAuthMethod->fBufferData, sAuditMethodTable[idx] ) == 0 )
+				{
+					attrIsAudited = true;
+					break;
+				}
+			}
+			
+			if ( ! attrIsAudited )
+				throw( (sInt32)-1 );
+			
+			AuditGetNameFromAuthBuffer( pAuthMethod, authBuffer, &recNameStr );
+			
+			// change code for auth-only
+			if ( eventCode == AUE_modify_user )
+			{
+				recNameToUseStr = (recNameStr != NULL) ? recNameStr : kAuditUnknownNameStr;
+				
+				if ( idx > kAuditAuthChangeConsts )
+				{
+					eventCode = AUE_auth_user;
+					snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrAuthenticateUser], recNameToUseStr );
+				}
+				else
+				if ( idx < kAuditAuthPasswordChangeConsts )
+				{
+					eventCode = AUE_modify_password;
+					snprintf( textStr, sizeof(textStr), sAuditControlStr[kAuditCtlStrModifyPassword], recNameToUseStr );
+				}
+			}
+		}
+		
+		if ( outTextStr != NULL && textStr[0] != '\0' )
+		{
+			long len = strlen( textStr );
+			*outTextStr = (char *) malloc( len + 1 );
+			if ( *outTextStr != NULL )
+				strcpy( *outTextStr, textStr );
+		}		
+	}
+	catch(...)
+	{
+		eventCode = 0;
+	}
+	
+	if ( recTypeStr != NULL ) {
+		free( recTypeStr );
+		recTypeStr = NULL;
+	}
+	if ( recNameStr != NULL ) {
+		free( recNameStr );
+		recNameStr = NULL;
+	}
+#endif
+	
+	return eventCode;
+}
+
+
+//------------------------------------------------------------------------------------
+//	* AuditUserOrGroupRecord
+//
+//  RETURNS: DS status
+//------------------------------------------------------------------------------------
+
+tDirStatus CRequestHandler::AuditUserOrGroupRecord( tRecordReference inRecRef, char **outRecNameStr, char **outRecTypeStr, uInt32 *outEventCode )
+{
+	tDirStatus			siResult			= eDSNoErr;
+	
+	if ( outRecNameStr == NULL || outRecTypeStr == NULL || outEventCode == NULL )
+		return eParameterError;
+	
+	siResult = AuditGetRecordRefInfo( inRecRef, outRecNameStr, outRecTypeStr );
+	if ( siResult == eDSNoErr )
+	{
+		if ( strcmp( *outRecTypeStr, kDSStdRecordTypeUsers ) == 0 )
+		{
+			*outEventCode = AUE_modify_user;
+		}
+		else
+		if ( strcmp( *outRecTypeStr, kDSStdRecordTypeGroups ) == 0 )
+		{
+			*outEventCode = AUE_modify_group;
+		}
+	}
+	
+	return siResult;
+}
+		
+		
+//------------------------------------------------------------------------------------
+//	* AuditGetRecordRefInfo
+//
+//  RETURNS: DS status
+//------------------------------------------------------------------------------------
+
+tDirStatus CRequestHandler::AuditGetRecordRefInfo( tRecordReference inRecRef, char **outRecNameStr, char **outRecTypeStr )
+{
+	tDirStatus siResult = eDSNoErr;
+	tRecordEntryPtr recInfoPtr = NULL;
+	
+	siResult = dsGetRecordReferenceInfo( inRecRef, &recInfoPtr );
+	if ( siResult == eDSNoErr )
+	{
+		siResult = dsGetRecordTypeFromEntry( recInfoPtr, outRecTypeStr );
+		if ( siResult == eDSNoErr )
+		{
+			siResult = dsGetRecordNameFromEntry( recInfoPtr, outRecNameStr );
+			if ( siResult != eDSNoErr && *outRecTypeStr != NULL )
+			{
+				free( *outRecTypeStr );
+				*outRecTypeStr = NULL;
+			}
+		}
+		
+		dsDeallocRecordEntry( 0, recInfoPtr );
+	}
+	
+	return siResult;
+}
+
+
+//------------------------------------------------------------------------------------
+//	* AuditGetNameFromAuthBuffer
+//
+//  RETURNS: DS status
+//------------------------------------------------------------------------------------
+
+tDirStatus CRequestHandler::AuditGetNameFromAuthBuffer( tDataNodePtr inAuthMethod, tDataBufferPtr inAuthBuffer, char **outUserNameStr )
+{
+	tDirStatus siResult = eDSNoErr;
+	tDataListPtr dataList = NULL;
+    tDataNodePtr dataNode = NULL;
+	uInt32 len = 0;
+	
+	if ( outUserNameStr == NULL )
+		return eParameterError;
+	*outUserNameStr = NULL;
+	
+	if ( strcmp( inAuthMethod->fBufferData, kDSStdAuth2WayRandom ) == 0 )
+	{
+		*outUserNameStr = (char *) malloc( inAuthBuffer->fBufferLength + 1 );
+		if ( *outUserNameStr == NULL )
+			return eMemoryError;
+		
+		strncpy( *outUserNameStr, inAuthBuffer->fBufferData, inAuthBuffer->fBufferLength );
+		(*outUserNameStr)[inAuthBuffer->fBufferLength] = '\0';
+	}
+	else
+	if ( strncmp( inAuthMethod->fBufferData, kDSStdAuthMethodPrefix, sizeof(kDSStdAuthMethodPrefix)-1 ) == 0 )
+	{
+		try
+		{
+			// name is the first item in the buffer
+			dataList = dsAuthBufferGetDataListAllocPriv( inAuthBuffer );
+			if ( dataList == NULL )
+				throw( (tDirStatus)eDSInvalidBuffFormat );
+			
+			if ( dsDataListGetNodeCountPriv(dataList) < 1 ) 
+				throw ( (tDirStatus)eDSInvalidBuffFormat );
+			
+			siResult = dsDataListGetNodeAllocPriv( dataList, 1, &dataNode );
+			if ( siResult != eDSNoErr )
+				throw( (tDirStatus)eDSInvalidBuffFormat );
+			
+			if ( dataNode->fBufferLength > 34 && strncmp( dataNode->fBufferData, "0x", 2 ) == 0 )
+				len = 34;
+			else
+				len = dataNode->fBufferLength;
+				
+			*outUserNameStr = (char *) calloc( len + 1, 1 );
+			if ( *outUserNameStr == NULL )
+				throw( (tDirStatus)eMemoryError );
+			
+			memcpy( *outUserNameStr, dataNode->fBufferData, len );
+		}
+		catch( tDirStatus catchErr )
+		{
+			siResult = catchErr;
+		}
+        
+		if ( dataNode != NULL ) {
+			dsDataBufferDeallocatePriv( dataNode );
+			dataNode = NULL;
+		}
+		
+		if ( dataList != NULL ) {
+			(void)dsDataListDeallocatePriv( dataList );
+			free( dataList );
+		}
+	}
+	
+	return siResult;
+}
+
+
+
+
+
+		

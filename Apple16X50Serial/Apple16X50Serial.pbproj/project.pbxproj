@@ -109,7 +109,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50Serial;
-				MODULE_VERSION = 1.5;
+				MODULE_VERSION = 1.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -146,11 +146,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5</string>
+	<string>1.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5</string>
+	<string>1.6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PCI 16X50 Serial Port</key>
@@ -170,7 +170,7 @@
 		</dict>
 	</dict>
 	<key>OSBundleCompatibleVersion</key>
-	<string>1.5</string>
+	<string>1.6</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOPCIFamily</key>
@@ -424,7 +424,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50ACPI;
-				MODULE_VERSION = 1.5;
+				MODULE_VERSION = 1.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -461,11 +461,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5</string>
+	<string>1.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5</string>
+	<string>1.6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>ACPI 16X50 Serial Port</key>
@@ -487,7 +487,7 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.Apple16X50Serial</key>
-		<string>1.5</string>
+		<string>1.6</string>
 		<key>com.apple.iokit.IOACPIFamily</key>
 		<string>1.0.0d1</string>
 		<key>com.apple.kernel.iokit</key>
@@ -588,7 +588,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.Apple16X50PCCard;
-				MODULE_VERSION = 1.5;
+				MODULE_VERSION = 1.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -625,11 +625,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5</string>
+	<string>1.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5</string>
+	<string>1.6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>PCCard 16X50 Serial Port</key>
@@ -653,7 +653,7 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.driver.Apple16X50Serial</key>
-		<string>1.5</string>
+		<string>1.6</string>
 		<key>com.apple.iokit.IOPCCardFamily</key>
 		<string>1.1.0</string>
 		<key>com.apple.kernel.iokit</key>

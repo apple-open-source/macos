@@ -1,6 +1,6 @@
 Abonnenmentsbestätigung für die Mailing-Liste %(listname)s
 
-Wir haben einen Auftrag %(remote)s zur Aufnahme Ihrer e-mail-Adresse
+Wir haben einen Auftrag %(remote)s zur Aufnahme Ihrer e-Mail-Adresse
 "%(email)s" in die Mailing-Liste %(listaddr)s erhalten.
 
 Um sicherzustellen, dass Sie diese Mailing-Liste tatsaechlich abonnieren
@@ -16,7 +16,7 @@ Zeile! -- in einer Email an %(requestaddr)s zu schicken:
 
     confirm %(cookie)s
 
-Normalerweise reicht eine einfache Antwort aus diese e-mail voellig aus, da
+Normalerweise reicht eine einfache Antwort aus diese e-Mail voellig aus, da
 das Generieren einer Antwort das "Subject:" bzw. "Betreff:" intakt laesst
 (das zusaetzliche "Re:" im "Subject:" bzw. "Betreff:" ist kein Problem).
 

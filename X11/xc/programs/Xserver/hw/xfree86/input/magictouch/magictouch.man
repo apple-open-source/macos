@@ -1,0 +1,25 @@
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/input/magictouch/magictouch.man,v 1.1 2001/07/03 15:13:57 paulo Exp $
+.\" shorthand for double quote that works everywhere.
+.ds q \N'34'
+.TH VOID __drivermansuffix__ __vendorversion__
+.SH NAME
+void \- null input driver
+.SH SYNOPSIS
+.nf
+.B "Section \*qInputDevice\*q"
+.BI "  Identifier \*q" idevname \*q
+.B  "  Driver \*qmagictouch\*q"
+\ \ ...
+.B EndSection
+.fi
+.SH DESCRIPTION
+.B magictouch
+is an XFree86 input driver.
+.SH CONFIGURATION DETAILS
+Please refer to XF86Config(__filemansuffix__) for general configuration
+details and for options that can be used with all input drivers.  This
+driver doesn't have any configuration options in addition to those.
+.SH "SEE ALSO"
+XFree86(1), XF86Config(__filemansuffix__), xf86cfg(1), xf86config(1), Xserver(1), X(__miscmansuffix__).
+.SH AUTHORS
+Authors include...

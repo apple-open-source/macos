@@ -1,0 +1,7 @@
+Listen %(real_name)s@%(host_name)s har %(count)d forespørgsel/forespørgsler
+som afenter din behandling på:
+
+	%(adminDB)s
+
+Vennligst Tag aktion så snart du får tid.
+Denne påmindelse vil blive sent til dig daglig.

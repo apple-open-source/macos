@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -87,7 +84,7 @@ Burgundy_writeCodecReg( volatile UInt8 *ioBaseBurgundy, int regInfo, int value )
       eieio();
 
 
-      debugIOLog (3,  "PPCSound(burgundy): CodecWrite = %08x\n\r", regValue );
+      debugIOLog (3,  "PPCSound(burgundy): CodecWrite = %08x", regValue );
 
       value >>= 8;
 
@@ -179,7 +176,7 @@ static int Burgundy_readCodecReg( volatile UInt8 *ioBaseBurgundy, int regInfo )
   }
 
 
-    // debugIOLog (3,  "PPCSound(burgundy): CodecRead = %08x %08x\n\r", regValue, value );
+    // debugIOLog (3,  "PPCSound(burgundy): CodecRead = %08x %08x", regValue, value );
 
   return value;
 }
@@ -329,9 +326,6 @@ void AppleBurgundyAudio::timerCallback(OSObject *target, IOAudioDevice *device)
         burgundy->checkStatus(false);
 }
 
-
-
-
 // --------------------------------------------------------------------------
 // Method: checkStatusRegister
 //
@@ -340,9 +334,10 @@ void AppleBurgundyAudio::timerCallback(OSObject *target, IOAudioDevice *device)
 //        it "unmutes" it.
 void AppleBurgundyAudio::checkStatus(bool force)
 {
-    UInt32 tempInSense, i;
-    AudioHardwareDetect *theDetect;
-    UInt32 mextdev;
+    UInt32					tempInSense, i;
+    AudioHardwareDetect *	theDetect;
+    UInt32					mextdev;
+	UInt32					numDetects;
     
     if(false == gCanPollSatus)
         return;
@@ -354,7 +349,8 @@ void AppleBurgundyAudio::checkStatus(bool force)
         curInsense = tempInSense;
         AudioDetects = super::getDetectArray();
         if(AudioDetects) {
-            for(i = 0; i < AudioDetects->getCount(); i++) {
+			numDetects = AudioDetects->getCount();
+            for(i = 0; i < numDetects; i++) {
                 theDetect = OSDynamicCast(AudioHardwareDetect, AudioDetects->getObject(i));
                 if ( theDetect ) {
 					mextdev |= theDetect->refreshDevices(curInsense);
@@ -601,19 +597,21 @@ UInt32	AppleBurgundyAudio::sndHWGetActiveOutputExclusive(void){
     return(result);
 }
 
-IOReturn   AppleBurgundyAudio::sndHWSetActiveOutputExclusive(UInt32 outputPort ){
-    IOReturn result= kIOReturnSuccess;
-    UInt32	physicalPort, tempOutputReg;
-    UInt32 	logicalOutputPort;
+IOReturn   AppleBurgundyAudio::sndHWSetActiveOutputExclusive (UInt32 outputPort) {
+    IOReturn				result= kIOReturnSuccess;
+    UInt32					physicalPort;
+//	UInt32					tempOutputReg;
+    UInt32					logicalOutputPort;
     
     logicalOutputPort = outputPort;
     
-    if( logicalOutputPort > kSndHWOutput5)
-        return(kIOReturnError);
+    if (logicalOutputPort > kSndHWOutput5)
+        return (kIOReturnError);
 	
-    physicalPort = GetPhysicalOutputPort(logicalOutputPort);	
+    physicalPort = GetPhysicalOutputPort (logicalOutputPort);	
 
-    tempOutputReg = kBurgundyMuteAll;
+	// Changes here are to fix 3461225
+//	tempOutputReg = kBurgundyMuteAll;
     
 	mModemActive = FALSE;
 	mInternalSpeakerActive = FALSE;
@@ -621,39 +619,43 @@ IOReturn   AppleBurgundyAudio::sndHWSetActiveOutputExclusive(UInt32 outputPort )
 	mHeadphonesActive = FALSE;
 	mMonoSpeakerActive = FALSE;
 
-    switch(physicalPort) {
-        case kBurgundyPhysOutputPortNone:
-            debugIOLog (3, " ++ Writing Port None");
-            break;
-        case kBurgundyPhysOutputPort13:
-            debugIOLog (3, " ++ Writing Port 13");
+	debugIOLog (3, "sndHWSetActiveOutputExclusive switching to port %d", outputPort);
+	switch (physicalPort) {
+		case kBurgundyPhysOutputPortNone:
+			debugIOLog (3, " ++ Writing Port None");
+			break;
+		case kBurgundyPhysOutputPort13:
+			debugIOLog (3, " ++ Writing Port 13");
 			mModemActive = TRUE;
-            tempOutputReg |= ( kBurgundyMuteOffState << kBurgundyPort13MonoMute);
-            break;
-        case kBurgundyPhysOutputPort14:
-            debugIOLog (3, " ++ Writing Port 14");
+//			tempOutputReg |= ( kBurgundyMuteOffState << kBurgundyPort13MonoMute);
+			break;
+		case kBurgundyPhysOutputPort14:
+			debugIOLog (3, " ++ Writing Port 14");
 			mInternalSpeakerActive = TRUE;
-            tempOutputReg |= (( kBurgundyMuteOffState << kBurgundyPort14LMute) | ( kBurgundyMuteOffState << kBurgundyPort14RMute));
-            break;
-        case kBurgundyPhysOutputPort15:
-            debugIOLog (3, " ++ Writing Port 15");
+//			tempOutputReg |= (( kBurgundyMuteOffState << kBurgundyPort14LMute) | ( kBurgundyMuteOffState << kBurgundyPort14RMute));
+			break;
+		case kBurgundyPhysOutputPort15:
+			debugIOLog (3, " ++ Writing Port 15");
 			mExternalSpeakerActive = TRUE;
-            tempOutputReg |= (( kBurgundyMuteOffState << kBurgundyPort15LMute) | ( kBurgundyMuteOffState << kBurgundyPort15RMute));
-            break;
-        case kBurgundyPhysOutputPort16:
-            debugIOLog (3, " ++ Writing Port 16");
+//			tempOutputReg |= (( kBurgundyMuteOffState << kBurgundyPort15LMute) | ( kBurgundyMuteOffState << kBurgundyPort15RMute));
+			break;
+		case kBurgundyPhysOutputPort16:
+			debugIOLog (3, " ++ Writing Port 16");
 			mHeadphonesActive = TRUE;
-            tempOutputReg |= (( kBurgundyMuteOffState << kBurgundyPort16LMute) | ( kBurgundyMuteOffState << kBurgundyPort16RMute));
-            break;
-        case kBurgundyPhysOutputPort17:
-            debugIOLog (3, " ++ Writing Port 17");
+//			tempOutputReg |= (( kBurgundyMuteOffState << kBurgundyPort16LMute) | ( kBurgundyMuteOffState << kBurgundyPort16RMute));
+			break;
+		case kBurgundyPhysOutputPort17:
+			debugIOLog (3, " ++ Writing Port 17");
 			mMonoSpeakerActive = TRUE;
-            tempOutputReg |= ( kBurgundyMuteOffState << kBurgundyPort17MonoMute);
-            break;        
-    } 
-    
-    Burgundy_writeCodecReg (ioBaseBurgundy, kOutputMuteReg, tempOutputReg);
-    return(result);
+//			tempOutputReg |= ( kBurgundyMuteOffState << kBurgundyPort17MonoMute);
+			break;        
+	} 
+
+//	Burgundy_writeCodecReg (ioBaseBurgundy, kOutputMuteReg, tempOutputReg);
+	sndHWSetSystemMute (mIsMute | mVolumeMuteIsActive);
+	// end 3461225 changes
+
+    return (result);
 }
 
 UInt32 	AppleBurgundyAudio::sndHWGetActiveInputExclusive(void){
@@ -984,17 +986,17 @@ IOReturn  AppleBurgundyAudio::sndHWSetSystemMute (bool mutestate){
 	UInt32				mutes;
 
 	mutes = 0;		// mute everything and keep the compiler happy
-	if (mutestate != mIsMute) {
+//	if (mutestate != mIsMute) {						// 3461225
 		mIsMute = mutestate;
-		if (mutestate) {
+		if (mutestate | mVolumeMuteIsActive) {		// 3461225
 			// we are muting. We do it by disconnecting the output from the mixer
 			// we let only the OS_E stream for the sound input. Ther may be other
 			// possibilities
 			// Burgundy_writeCodecReg( ioBaseBurgundy, kOSReg, kBurgundyOS_E_MXO_1);
-
+	
 			// Mute all the amps
 			mutestate = kBurgundyMuteAll;
-        } else {
+		} else {
 			// we reconnect everything
 			// Burgundy_writeCodecReg( ioBaseBurgundy, kOSReg, kBurgundyOS_0_MXO_2| kBurgundyOS_1_MXO_2 | kBurgundyOS_E_MXO_1);
 
@@ -1012,17 +1014,19 @@ IOReturn  AppleBurgundyAudio::sndHWSetSystemMute (bool mutestate){
 			} else if (TRUE == mMonoSpeakerActive) {
 				mutes =  kBurgundyMuteOffState << kBurgundyPort17MonoMute;
 			}
-        } 
+		} 
 		Burgundy_writeCodecReg (ioBaseBurgundy, kOutputMuteReg, mutes);
-    }
+//	}
 
     return (result);
 }
 
-bool AppleBurgundyAudio::sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVolume){
+bool AppleBurgundyAudio::sndHWSetSystemVolume (UInt32 leftVolume, UInt32 rightVolume) {
     UInt8 leftAttn, rightAttn;
     UInt8 comAttn;
     UInt32 tLeftVolume, tRightVolume;
+
+	debugIOLog (3, "sndHWSetSystemVolume (%ld, %ld)", leftVolume, rightVolume);
 
 	// mVolLeft and leftVolume between 0 and 16
     if (leftVolume != mVolLeft) 
@@ -1044,26 +1048,46 @@ bool AppleBurgundyAudio::sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVol
 
 	if (mVolLeft == 0) {
 		// Mute headphone and speaker because volume is 0
-		muteStates &= ~(kOutputMuteReg_Port14L | kOutputMuteReg_Port16L);
+		// Changes here are to fix 3461225
+//		muteStates = kBurgundyMuteAll;
+		muteStates &= ~(kOutputMuteReg_Port13M | kOutputMuteReg_Port14L | kOutputMuteReg_Port15L | kOutputMuteReg_Port16L | kOutputMuteReg_Port17M);
+		debugIOLog (3, "muting left speaker/headphone");
 	} else {
-		// Mute either the headphone or the speaker, depending on which we're not using
-		if (TRUE == mInternalSpeakerActive) {
+		// Unmute either the headphone or the speaker, depending on which we're not using
+		if (TRUE == mModemActive) {
+			muteStates |=  kBurgundyMuteOffState << kBurgundyPort13MonoMute;
+		} else if (TRUE == mInternalSpeakerActive) {
 			muteStates |=  kBurgundyMuteOffState << kBurgundyPort14LMute;
+		} else if (TRUE == mExternalSpeakerActive) {
+			muteStates |=  kBurgundyMuteOffState << kBurgundyPort15LMute;
 		} else if (TRUE == mHeadphonesActive) {
 			muteStates |=  kBurgundyMuteOffState << kBurgundyPort16LMute;
+		} else if (TRUE == mMonoSpeakerActive) {
+			muteStates |=  kBurgundyMuteOffState << kBurgundyPort17MonoMute;
 		}
+		// end 3461225 changes
 	}
 
 	if (mVolRight == 0) {
 		// Mute headphone and speaker because volume is 0
-		muteStates &= ~(kOutputMuteReg_Port14R | kOutputMuteReg_Port16R);
+		// Changes here are to fix 3461225
+//		muteStates = kBurgundyMuteAll;
+		muteStates &= ~(kOutputMuteReg_Port13M | kOutputMuteReg_Port14R | kOutputMuteReg_Port15R | kOutputMuteReg_Port16R | kOutputMuteReg_Port17M);
+		debugIOLog (3, "muting right speaker/headphone");
 	} else {
-		// Mute either the headphone or the speaker, depending on which we're not using
-		if (TRUE == mInternalSpeakerActive) {
+		// Unmute either the headphone or the speaker, depending on which we're not using
+		if (TRUE == mModemActive) {
+			muteStates |=  kBurgundyMuteOffState << kBurgundyPort13MonoMute;
+		} else if (TRUE == mInternalSpeakerActive) {
 			muteStates |=  kBurgundyMuteOffState << kBurgundyPort14RMute;
+		} else if (TRUE == mExternalSpeakerActive) {
+			muteStates |=  kBurgundyMuteOffState << kBurgundyPort15RMute;
 		} else if (TRUE == mHeadphonesActive) {
 			muteStates |=  kBurgundyMuteOffState << kBurgundyPort16RMute;
+		} else if (TRUE == mMonoSpeakerActive) {
+			muteStates |=  kBurgundyMuteOffState << kBurgundyPort17MonoMute;
 		}
+		// End 3461225 changes
 	}
 
     Burgundy_writeCodecReg (ioBaseBurgundy, kOutputMuteReg, muteStates);
@@ -1104,13 +1128,13 @@ bool AppleBurgundyAudio::sndHWSetSystemVolume(UInt32 leftVolume, UInt32 rightVol
     return(result);
 }
 
-IOReturn AppleBurgundyAudio::sndHWSetSystemVolume(UInt32 value){
+IOReturn AppleBurgundyAudio::sndHWSetSystemVolume (UInt32 value) {
     IOReturn result= kIOReturnSuccess;
     sndHWSetSystemVolume(value, value);
     return(result);
 }
 
-IOReturn AppleBurgundyAudio::sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rightGain){
+IOReturn AppleBurgundyAudio::sndHWSetSystemInputGain (UInt32 leftGain, UInt32 rightGain) {
     IOReturn myReturn = kIOReturnSuccess; 
     UInt32 totGain;
     UInt8 galeft, garight;
@@ -1128,6 +1152,7 @@ IOReturn AppleBurgundyAudio::sndHWSetSystemInputGain(UInt32 leftGain, UInt32 rig
     Burgundy_writeCodecReg( ioBaseBurgundy, kVGA1Reg,   totGain );
     Burgundy_writeCodecReg( ioBaseBurgundy, kVGA2Reg,   totGain );
     Burgundy_writeCodecReg( ioBaseBurgundy, kVGA3Reg,   leftGain );
+
     debugIOLog (3, "- AppleBurgundyAudio::sndHWSetSystemInputGain");
     return(myReturn);
 }

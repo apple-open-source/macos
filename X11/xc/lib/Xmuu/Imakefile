@@ -1,0 +1,67 @@
+XCOMM $XFree86: xc/lib/Xmuu/Imakefile,v 1.3 2002/11/14 21:01:18 tsi Exp $
+XCOMM Mini Xmu library: pull out just those things that are used by apps 
+XCOMM that do not use Xt and Xaw in the core applications
+XCOMM 
+XCOMM Feel free to include additional code into this library, please
+XCOMM be careful not to use anything which requires libraries other
+XCOMM other than Xlib and the system C library
+
+#define DoNormalLib NormalLibXmuu
+#define DoSharedLib SharedLibXmuu
+#define DoExtraLib SharedLibXmuu
+#define DoDebugLib DebugLibXmuu
+#define DoProfileLib ProfileLibXmuu
+#define LibName Xmuu
+#define SoRev SOXMUUREV
+#define LibHeaders NO
+
+#ifdef SharedXmuuReqs
+REQUIREDLIBS = SharedXmuuReqs
+#endif
+       LINTLIBS = $(LINTXLIB) 
+
+#if HasSnprintf
+   MISC_DEFINES = -DHAS_SNPRINTF
+#else
+  MISC_INCLUDES = -I$(LIBSRC)/misc
+#endif
+
+        DEFINES = $(MISC_DEFINES)
+       INCLUDES = $(MISC_INCLUDES)
+
+#ifdef OsNameDefines
+OS_NAME_DEFINES = OsNameDefines
+#endif
+        CSSDEFS = $(OS_NAME_DEFINES) $(CONNECTION_FLAGS)
+
+
+SRCS = 	ClientWin.c\
+	CursorName.c\
+	DefErrMsg.c\
+	GetHost.c\
+	Lower.c
+
+OBJS = 	ClientWin.o\
+	CursorName.o\
+	DefErrMsg.o\
+	GetHost.o\
+	Lower.o
+
+### Commented out following line...
+### INCLUDES = -I$(XMUSRC)
+### ... it breaks Lower.c (which needs -I../../lib/misc to find snprintf.c)
+###
+
+#include <Library.tmpl>
+
+#if DoSharedLib
+SpecialCObjectRule(sharedlib,NullParameter,$(SHLIBDEF))
+#endif
+
+LinkSourceFile(ClientWin.c,$(XMUSRC))
+LinkSourceFile(CursorName.c,$(XMUSRC))
+LinkSourceFile(DefErrMsg.c,$(XMUSRC))
+LinkSourceFile(GetHost.c,$(XMUSRC))
+LinkSourceFile(Lower.c,$(XMUSRC))
+
+DependTarget()

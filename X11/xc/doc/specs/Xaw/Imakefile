@@ -1,0 +1,29 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:42:26 cpqbld Exp $
+XCOMM $XFree86: xc/doc/specs/Xaw/Imakefile,v 1.3 2001/04/27 12:58:27 dawes Exp $
+
+EVERYWHERE=strings.mit strings.xaw
+CHAPTER1=CH1
+CHAPTER2=CH2
+CHAPTER3=CH3.intro Command Grip Label List Panner Repeater \
+	 Scrollbar Simple StripChart Toggle
+CHAPTER4=CH4.intro SimpleMenu SmeBSB SmeLine Sme MenuButton
+CHAPTER5=CH5.intro TextActions TextFuncs AsciiText AsciiSource AsciiSink \
+	 TextCustom Text TextSource TextSink
+CHAPTER6=CH6.intro Box Dialog Form Paned Porthole Tree Viewport
+CHAPTER7=CH7.intro Template
+
+SRCS = \
+	$(EVERYWHERE) TPage_Credits \
+	$(CHAPTER1) $(CHAPTER2) $(CHAPTER3) $(CHAPTER4) \
+	$(CHAPTER5) $(CHAPTER6) $(CHAPTER7) 
+
+MakeTblDoc(widgets,$(SRCS))
+
+MakeDocIndex(widg,widg.idxmac.t)
+
+InstallRoffDoc(widgets)
+
+XCOMM Useful for running off part of the manual by hand,
+XCOMM e.g., make part PART=Label
+part: $(PART)
+	$(TBL) $(PART) | $(TROFF) $(MSMACROS) $(XDOCMACROS) $(EVERYWHERE) - > part.PS

@@ -366,6 +366,23 @@ If the proccess that created the AuthorizationRef has uid = 0 this right will au
 			<key>rule</key>
 			<string>appserver-admin</string>
 		</dict>
+	        <key>com.apple.desktopservices</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>authorize privileged file operations from the finder</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>mechanisms</key>
+			<array>
+				<string>builtin:authenticate</string>
+			</array>
+			<key>shared</key>
+			<false/>
+			<key>timeout</key>
+			<integer>0</integer>
+		</dict>
 		<key>com.apple.appserver.privilege.user</key>
 		<dict>
 			<key>class</key>

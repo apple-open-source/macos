@@ -1,0 +1,11 @@
+This directory contains the DCS3 Draft Consortium Standard for the 
+PEX 5.2 library specification.
+    
+The Draft Consortium Standard specification is considered to be a
+viable and complete specification.  However, it is not an official
+X Consortium standard because the proof of concept implementation
+requirement has not yet been fulfilled.  This specification will
+remain in Draft Consortium Standard status until the proof of
+concept criteria has been met.
+
+10 January 1996

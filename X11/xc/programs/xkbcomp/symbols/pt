@@ -1,0 +1,78 @@
+// $Xorg: pt,v 1.3 2000/08/17 19:54:43 cpqbld Exp $
+
+
+
+
+// $XFree86: xc/programs/xkbcomp/symbols/pt,v 3.6 2001/01/17 23:45:59 dawes Exp $
+
+partial default alphanumeric_keys 
+xkb_symbols "basic" {
+
+    // Describes the differences between a very simple en_US
+    // keyboard and a very simple Portuguese keybaord
+
+    name[Group1]= "Portuguese";
+
+    key <TLDE> {	[       backslash,	       bar     	]	};
+    key <LSGT> {	[	     less,	   greater	],
+			[	      bar,       brokenbar	]	};
+    key <AE02> {	[               2,	  quotedbl    	],	
+			[	       at,       oneeighth	]	};
+    key <AE04> {	[               4,	    dollar     	],
+			[         section,          dollar	]	};
+    key <AE03> {	[               3,	numbersign     	],
+			[        sterling,        sterling     	]	};
+    key <AE06> {	[               6,       ampersand     	]	};
+    key <AE07> {	[               7,           slash     	]	};
+    key <AE08> {	[               8,       parenleft     	]	};
+    key <AB08> {	[           comma,       semicolon     	]	};
+    key <AE10> {	[               0,           equal      ]	};
+    key <AE09> {	[               9,      parenright      ]	};
+    key <AB09> {	[          period,           colon      ]	};
+    key <AB10> {	[           minus,      underscore      ]	};
+    key <AC10> {	[        ccedilla,        Ccedilla      ]	};
+    key <AE11> {	[      apostrophe,        question      ]	};
+    key <AC11> {	[       masculine,     ordfeminine      ]	};
+    key <AD11> {	[	     plus,        asterisk 	],
+    			[            dead_diaeresis             ]	};
+    key <AE12> {	[   guillemotleft,  guillemotright     	]	};
+    key <AD12> {	[      dead_acute,      dead_grave 	]	};
+    key <BKSL> {	[      dead_tilde, dead_circumflex	]	};
+    key <AD03> {        [               e,               E      ],
+                        [        EuroSign,            cent      ]	};
+
+    // End alphanumeric section
+
+    // begin modifier mappings
+    include "ralt(mode_switch)"
+
+    modifier_map Shift  { Shift_L };
+    modifier_map Lock   { Caps_Lock };
+    modifier_map Control{ Control_L };
+    modifier_map Mod3   { Mode_switch };
+};
+
+partial alphanumeric_keys 
+xkb_symbols "Sundeadkeys" {
+    include "pt(basic)" // for consistent naming
+    
+    key <AD11> {	[	     plus,        asterisk 	],
+			[ SunFA_Diaeresis, SunFA_Diaeresis      ]	};
+    key <BKSL> {	[     SunFA_Tilde,    SunFA_Circum	]	};
+    key <AD12> {	[     SunFA_Acute,     SunFA_Grave 	]	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "sundeadkeys" {
+    include "pt(Sundeadkeys)" // for consistent naming
+};
+
+partial alphanumeric_keys 
+xkb_symbols "nodeadkeys" {
+    include "pt(basic)" // for consistent naming
+
+    key <AD11> {	[	     plus,        asterisk 	],
+			[	 quotedbl,        quotedbl      ]	};
+    key <BKSL> {	[      asciitilde,     asciicircum	]	};
+    key <AD12> {	[	    acute,           grave 	]	};
+};

@@ -17,6 +17,7 @@
 #include <libxml/hash.h>
 #include <libxml/entities.h>
 #include <libxml/parser.h>
+#include <libxml/parserInternals.h>
 #include <libxml/xmlerror.h>
 #include <libxml/globals.h>
 
@@ -24,23 +25,41 @@
  * The XML predefined entities.
  */
 
-struct xmlPredefinedEntityValue {
-    const char *name;
-    const char *value;
+static xmlEntity xmlEntityLt = {
+    NULL, XML_ENTITY_DECL, BAD_CAST "lt",
+    NULL, NULL, NULL, NULL, NULL, NULL, 
+    BAD_CAST "<", BAD_CAST "<", 1,
+    XML_INTERNAL_PREDEFINED_ENTITY,
+    NULL, NULL, NULL, NULL, 0
 };
-static struct xmlPredefinedEntityValue xmlPredefinedEntityValues[] = {
-    { "lt", "<" },
-    { "gt", ">" },
-    { "apos", "'" },
-    { "quot", "\"" },
-    { "amp", "&" }
+static xmlEntity xmlEntityGt = {
+    NULL, XML_ENTITY_DECL, BAD_CAST "gt",
+    NULL, NULL, NULL, NULL, NULL, NULL, 
+    BAD_CAST ">", BAD_CAST ">", 1,
+    XML_INTERNAL_PREDEFINED_ENTITY,
+    NULL, NULL, NULL, NULL, 0
 };
-
-/*
- * TODO: This is GROSS, allocation of a 256 entry hash for
- *       a fixed number of 4 elements !
- */
-static xmlHashTablePtr xmlPredefinedEntities = NULL;
+static xmlEntity xmlEntityAmp = {
+    NULL, XML_ENTITY_DECL, BAD_CAST "amp",
+    NULL, NULL, NULL, NULL, NULL, NULL, 
+    BAD_CAST "&", BAD_CAST "&", 1,
+    XML_INTERNAL_PREDEFINED_ENTITY,
+    NULL, NULL, NULL, NULL, 0
+};
+static xmlEntity xmlEntityQuot = {
+    NULL, XML_ENTITY_DECL, BAD_CAST "quot",
+    NULL, NULL, NULL, NULL, NULL, NULL, 
+    BAD_CAST "\"", BAD_CAST "\"", 1,
+    XML_INTERNAL_PREDEFINED_ENTITY,
+    NULL, NULL, NULL, NULL, 0
+};
+static xmlEntity xmlEntityApos = {
+    NULL, XML_ENTITY_DECL, BAD_CAST "apos",
+    NULL, NULL, NULL, NULL, NULL, NULL, 
+    BAD_CAST "'", BAD_CAST "'", 1,
+    XML_INTERNAL_PREDEFINED_ENTITY,
+    NULL, NULL, NULL, NULL, 0
+};
 
 /*
  * xmlFreeEntity : clean-up an entity record.
@@ -93,9 +112,7 @@ xmlAddEntity(xmlDtdPtr dtd, const xmlChar *name, int type,
 	    table = dtd->pentities;
 	    break;
         case XML_INTERNAL_PREDEFINED_ENTITY:
-	    if (xmlPredefinedEntities == NULL)
-		xmlPredefinedEntities = xmlHashCreate(8);
-	    table = xmlPredefinedEntities;
+	    return(NULL);
     }
     if (table == NULL)
 	return(NULL);
@@ -140,48 +157,6 @@ xmlAddEntity(xmlDtdPtr dtd, const xmlChar *name, int type,
 }
 
 /**
- * xmlInitializePredefinedEntities:
- *
- * Set up the predefined entities.
- */
-void xmlInitializePredefinedEntities(void) {
-    unsigned int i;
-    xmlChar name[50];
-    xmlChar value[50];
-    const char *in;
-    xmlChar *out;
-
-    if (xmlPredefinedEntities != NULL) return;
-
-    xmlPredefinedEntities = xmlCreateEntitiesTable();
-    for (i = 0;i < sizeof(xmlPredefinedEntityValues) / 
-                   sizeof(xmlPredefinedEntityValues[0]);i++) {
-        in = xmlPredefinedEntityValues[i].name;
-	out = &name[0];
-	for (;(*out++ = (xmlChar) *in);)in++;
-        in = xmlPredefinedEntityValues[i].value;
-	out = &value[0];
-	for (;(*out++ = (xmlChar) *in);)in++;
-
-        xmlAddEntity(NULL, (const xmlChar *) &name[0],
-	             XML_INTERNAL_PREDEFINED_ENTITY, NULL, NULL,
-		     &value[0]);
-    }
-}
-
-/**
- * xmlCleanupPredefinedEntities:
- *
- * Cleanup up the predefined entities table.
- */
-void xmlCleanupPredefinedEntities(void) {
-    if (xmlPredefinedEntities == NULL) return;
-
-    xmlFreeEntitiesTable(xmlPredefinedEntities);
-    xmlPredefinedEntities = NULL;
-}
-
-/**
  * xmlGetPredefinedEntity:
  * @name:  the entity name
  *
@@ -191,9 +166,30 @@ void xmlCleanupPredefinedEntities(void) {
  */
 xmlEntityPtr
 xmlGetPredefinedEntity(const xmlChar *name) {
-    if (xmlPredefinedEntities == NULL)
-        xmlInitializePredefinedEntities();
-    return((xmlEntityPtr) xmlHashLookup(xmlPredefinedEntities, name));
+    if (name == NULL) return(NULL);
+    switch (name[0]) {
+        case 'l':
+	    if (xmlStrEqual(name, BAD_CAST "lt"))
+	        return(&xmlEntityLt);
+	    break;
+        case 'g':
+	    if (xmlStrEqual(name, BAD_CAST "gt"))
+	        return(&xmlEntityGt);
+	    break;
+        case 'a':
+	    if (xmlStrEqual(name, BAD_CAST "amp"))
+	        return(&xmlEntityAmp);
+	    if (xmlStrEqual(name, BAD_CAST "apos"))
+	        return(&xmlEntityApos);
+	    break;
+        case 'q':
+	    if (xmlStrEqual(name, BAD_CAST "quot"))
+	        return(&xmlEntityQuot);
+	    break;
+	default:
+	    break;
+    }
+    return(NULL);
 }
 
 /**
@@ -397,163 +393,7 @@ xmlGetDocEntity(xmlDocPtr doc, const xmlChar *name) {
 	    }
 	}
     }
-    if (xmlPredefinedEntities == NULL)
-        xmlInitializePredefinedEntities();
-    table = xmlPredefinedEntities;
-    return(xmlGetEntityFromTable(table, name));
-}
-
-/*
- * [2] Char ::= #x9 | #xA | #xD | [#x20-#xD7FF] | [#xE000-#xFFFD]
- *                  | [#x10000-#x10FFFF]
- * any Unicode character, excluding the surrogate blocks, FFFE, and FFFF.
- */
-#define IS_CHAR(c)							\
-    (((c) == 0x09) || ((c) == 0x0a) || ((c) == 0x0d) ||			\
-     (((c) >= 0x20) && ((c) != 0xFFFE) && ((c) != 0xFFFF)))
-
-/*
- * A buffer used for converting entities to their equivalent and back.
- */
-static int static_buffer_size = 0;
-static xmlChar *static_buffer = NULL;
-
-static int growBuffer(void) {
-    static_buffer_size *= 2;
-    static_buffer = (xmlChar *) xmlRealloc(static_buffer,
-	                                static_buffer_size * sizeof(xmlChar));
-    if (static_buffer == NULL) {
-        xmlGenericError(xmlGenericErrorContext, "malloc failed\n");
-	return(-1);
-    }
-    return(0);
-}
-
-
-/**
- * xmlEncodeEntities:
- * @doc:  the document containing the string
- * @input:  A string to convert to XML.
- *
- * Do a global encoding of a string, replacing the predefined entities
- * and non ASCII values with their entities and CharRef counterparts.
- *
- * TODO: remove xmlEncodeEntities, once we are not afraid of breaking binary
- *       compatibility
- *
- * People must migrate their code to xmlEncodeEntitiesReentrant !
- * This routine will issue a warning when encountered.
- * 
- * Returns A newly allocated string with the substitution done.
- */
-const xmlChar *
-xmlEncodeEntities(xmlDocPtr doc, const xmlChar *input) {
-    const xmlChar *cur = input;
-    xmlChar *out = static_buffer;
-    static int warning = 1;
-    int html = 0;
-
-
-    if (warning) {
-    xmlGenericError(xmlGenericErrorContext,
-	    "Deprecated API xmlEncodeEntities() used\n");
-    xmlGenericError(xmlGenericErrorContext,
-	    "   change code to use xmlEncodeEntitiesReentrant()\n");
-    warning = 0;
-    }
-
-    if (input == NULL) return(NULL);
-    if (doc != NULL)
-        html = (doc->type == XML_HTML_DOCUMENT_NODE);
-
-    if (static_buffer == NULL) {
-        static_buffer_size = 1000;
-        static_buffer = (xmlChar *)
-	    xmlMalloc(static_buffer_size * sizeof(xmlChar));
-	if (static_buffer == NULL) {
-	    xmlGenericError(xmlGenericErrorContext, "malloc failed\n");
-            return(NULL);
-	}
-	out = static_buffer;
-    }
-    while (*cur != '\0') {
-        if (out - static_buffer > static_buffer_size - 100) {
-	    int indx = out - static_buffer;
-
-	    growBuffer();
-	    out = &static_buffer[indx];
-	}
-
-	/*
-	 * By default one have to encode at least '<', '>', '"' and '&' !
-	 */
-	if (*cur == '<') {
-	    *out++ = '&';
-	    *out++ = 'l';
-	    *out++ = 't';
-	    *out++ = ';';
-	} else if (*cur == '>') {
-	    *out++ = '&';
-	    *out++ = 'g';
-	    *out++ = 't';
-	    *out++ = ';';
-	} else if (*cur == '&') {
-	    *out++ = '&';
-	    *out++ = 'a';
-	    *out++ = 'm';
-	    *out++ = 'p';
-	    *out++ = ';';
-	} else if (*cur == '"') {
-	    *out++ = '&';
-	    *out++ = 'q';
-	    *out++ = 'u';
-	    *out++ = 'o';
-	    *out++ = 't';
-	    *out++ = ';';
-	} else if ((*cur == '\'') && (!html)) {
-	    *out++ = '&';
-	    *out++ = 'a';
-	    *out++ = 'p';
-	    *out++ = 'o';
-	    *out++ = 's';
-	    *out++ = ';';
-	} else if (((*cur >= 0x20) && (*cur < 0x80)) ||
-	    (*cur == '\n') || (*cur == '\r') || (*cur == '\t')) {
-	    /*
-	     * default case, just copy !
-	     */
-	    *out++ = *cur;
-#ifndef USE_UTF_8
-	} else if ((sizeof(xmlChar) == 1) && (*cur >= 0x80)) {
-	    char buf[10], *ptr;
-
-	    snprintf(buf, sizeof(buf), "&#%d;", *cur);
-            buf[sizeof(buf) - 1] = 0;
-            ptr = buf;
-	    while (*ptr != 0) *out++ = *ptr++;
-#endif
-	} else if (IS_CHAR(*cur)) {
-	    char buf[10], *ptr;
-
-	    snprintf(buf, sizeof(buf), "&#%d;", *cur);
-            buf[sizeof(buf) - 1] = 0;
-            ptr = buf;
-	    while (*ptr != 0) *out++ = *ptr++;
-	}
-#if 0
-	else {
-	    /*
-	     * default case, this is not a valid char !
-	     * Skip it...
-	     */
-	    xmlGenericError(xmlGenericErrorContext,
-		    "xmlEncodeEntities: invalid char %d\n", (int) *cur);
-	}
-#endif
-	cur++;
-    }
-    *out++ = 0;
-    return(static_buffer);
+    return(xmlGetPredefinedEntity(name));
 }
 
 /*
@@ -632,22 +472,6 @@ xmlEncodeEntitiesReentrant(xmlDocPtr doc, const xmlChar *input) {
 	    *out++ = 'm';
 	    *out++ = 'p';
 	    *out++ = ';';
-	} else if (*cur == '"') {
-	    *out++ = '&';
-	    *out++ = 'q';
-	    *out++ = 'u';
-	    *out++ = 'o';
-	    *out++ = 't';
-	    *out++ = ';';
-#if 0
-	} else if ((*cur == '\'') && (!html)) {
-	    *out++ = '&';
-	    *out++ = 'a';
-	    *out++ = 'p';
-	    *out++ = 'o';
-	    *out++ = 's';
-	    *out++ = ';';
-#endif
 	} else if (((*cur >= 0x20) && (*cur < 0x80)) ||
 	    (*cur == '\n') || (*cur == '\t') || ((html) && (*cur == '\r'))) {
 	    /*
@@ -670,7 +494,7 @@ xmlEncodeEntitiesReentrant(xmlDocPtr doc, const xmlChar *input) {
 		/*
 		 * We assume we have UTF-8 input.
 		 */
-		char buf[10], *ptr;
+		char buf[11], *ptr;
 		int val = 0, l = 1;
 
 		if (*cur < 0xC0) {
@@ -731,24 +555,14 @@ xmlEncodeEntitiesReentrant(xmlDocPtr doc, const xmlChar *input) {
 		cur += l;
 		continue;
 	    }
-	} else if (IS_CHAR(*cur)) {
-	    char buf[10], *ptr;
+	} else if (IS_BYTE_CHAR(*cur)) {
+	    char buf[11], *ptr;
 
 	    snprintf(buf, sizeof(buf), "&#%d;", *cur);
 	    buf[sizeof(buf) - 1] = 0;
             ptr = buf;
 	    while (*ptr != 0) *out++ = *ptr++;
 	}
-#if 0
-	else {
-	    /*
-	     * default case, this is not a valid char !
-	     * Skip it...
-	     */
-	    xmlGenericError(xmlGenericErrorContext,
-		    "xmlEncodeEntities: invalid char %d\n", (int) *cur);
-	}
-#endif
 	cur++;
     }
     *out++ = 0;
@@ -766,16 +580,12 @@ xmlEncodeEntitiesReentrant(xmlDocPtr doc, const xmlChar *input) {
  * Returns A newly allocated string with the substitution done.
  */
 xmlChar *
-xmlEncodeSpecialChars(xmlDocPtr doc, const xmlChar *input) {
+xmlEncodeSpecialChars(xmlDocPtr doc ATTRIBUTE_UNUSED, const xmlChar *input) {
     const xmlChar *cur = input;
     xmlChar *buffer = NULL;
     xmlChar *out = NULL;
     int buffer_size = 0;
-    int html = 0;
-
     if (input == NULL) return(NULL);
-    if (doc != NULL)
-        html = (doc->type == XML_HTML_DOCUMENT_NODE);
 
     /*
      * allocate an translation buffer.
@@ -815,12 +625,20 @@ xmlEncodeSpecialChars(xmlDocPtr doc, const xmlChar *input) {
 	    *out++ = 'm';
 	    *out++ = 'p';
 	    *out++ = ';';
+#if 0
 	} else if (*cur == '"') {
 	    *out++ = '&';
 	    *out++ = 'q';
 	    *out++ = 'u';
 	    *out++ = 'o';
 	    *out++ = 't';
+	    *out++ = ';';
+#endif
+	} else if (*cur == '\r') {
+	    *out++ = '&';
+	    *out++ = '#';
+	    *out++ = '1';
+	    *out++ = '3';
 	    *out++ = ';';
 	} else {
 	    /*
@@ -872,6 +690,7 @@ xmlFreeEntitiesTable(xmlEntitiesTablePtr table) {
     xmlHashFree(table, (xmlHashDeallocator) xmlFreeEntityWrapper);
 }
 
+#ifdef LIBXML_TREE_ENABLED
 /**
  * xmlCopyEntity:
  * @ent:  An entity
@@ -921,6 +740,50 @@ xmlEntitiesTablePtr
 xmlCopyEntitiesTable(xmlEntitiesTablePtr table) {
     return(xmlHashCopy(table, (xmlHashCopier) xmlCopyEntity));
 }
+#endif /* LIBXML_TREE_ENABLED */
+
+#ifdef LIBXML_OUTPUT_ENABLED
+
+/**
+ * xmlDumpEntityContent:
+ * @buf:  An XML buffer.
+ * @content:  The entity content.
+ *
+ * This will dump the quoted string value, taking care of the special
+ * treatment required by %
+ */
+static void
+xmlDumpEntityContent(xmlBufferPtr buf, const xmlChar *content) {
+    if (buf->alloc == XML_BUFFER_ALLOC_IMMUTABLE) return;
+    if (xmlStrchr(content, '%')) {
+        const xmlChar * base, *cur;
+
+	xmlBufferCCat(buf, "\"");
+	base = cur = content;
+	while (*cur != 0) {
+	    if (*cur == '"') {
+		if (base != cur)
+		    xmlBufferAdd(buf, base, cur - base);
+		xmlBufferAdd(buf, BAD_CAST "&quot;", 6);
+		cur++;
+		base = cur;
+	    } else if (*cur == '%') {
+		if (base != cur)
+		    xmlBufferAdd(buf, base, cur - base);
+		xmlBufferAdd(buf, BAD_CAST "&#x25;", 6);
+		cur++;
+		base = cur;
+	    } else {
+		cur++;
+	    }
+	}
+	if (base != cur)
+	    xmlBufferAdd(buf, base, cur - base);
+	xmlBufferCCat(buf, "\"");
+    } else {
+        xmlBufferWriteQuotedString(buf, content);
+    }
+}
 
 /**
  * xmlDumpEntityDecl:
@@ -939,7 +802,7 @@ xmlDumpEntityDecl(xmlBufferPtr buf, xmlEntityPtr ent) {
 	    if (ent->orig != NULL)
 		xmlBufferWriteQuotedString(buf, ent->orig);
 	    else
-		xmlBufferWriteQuotedString(buf, ent->content);
+		xmlDumpEntityContent(buf, ent->content);
 	    xmlBufferWriteChar(buf, ">\n");
 	    break;
 	case XML_EXTERNAL_GENERAL_PARSED_ENTITY:
@@ -982,7 +845,7 @@ xmlDumpEntityDecl(xmlBufferPtr buf, xmlEntityPtr ent) {
 	    xmlBufferWriteCHAR(buf, ent->name);
 	    xmlBufferWriteChar(buf, " ");
 	    if (ent->orig == NULL)
-		xmlBufferWriteQuotedString(buf, ent->content);
+		xmlDumpEntityContent(buf, ent->content);
 	    else
 		xmlBufferWriteQuotedString(buf, ent->orig);
 	    xmlBufferWriteChar(buf, ">\n");
@@ -1009,6 +872,18 @@ xmlDumpEntityDecl(xmlBufferPtr buf, xmlEntityPtr ent) {
 }
 
 /**
+ * xmlDumpEntityDeclScan:
+ * @ent:  An entity table
+ * @buf:  An XML buffer.
+ *
+ * When using the hash table scan function, arguments need to be reversed
+ */
+static void
+xmlDumpEntityDeclScan(xmlEntityPtr ent, xmlBufferPtr buf) {
+    xmlDumpEntityDecl(buf, ent);
+}
+      
+/**
  * xmlDumpEntitiesTable:
  * @buf:  An XML buffer.
  * @table:  An entity table
@@ -1017,5 +892,6 @@ xmlDumpEntityDecl(xmlBufferPtr buf, xmlEntityPtr ent) {
  */
 void
 xmlDumpEntitiesTable(xmlBufferPtr buf, xmlEntitiesTablePtr table) {
-    xmlHashScan(table, (xmlHashScanner)xmlDumpEntityDecl, buf);
+    xmlHashScan(table, (xmlHashScanner)xmlDumpEntityDeclScan, buf);
 }
+#endif /* LIBXML_OUTPUT_ENABLED */

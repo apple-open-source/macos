@@ -3,24 +3,21 @@
  *  Apple02Audio
  *
  *  @APPLE_LICENSE_HEADER_START@
- *  
- *  Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- *  
- *  This file contains Original Code and/or Modifications of Original Code
- *  as defined in and that are subject to the Apple Public Source License
- *  Version 2.0 (the 'License'). You may not use this file except in
- *  compliance with the License. Please obtain a copy of the License at
- *  http://www.opensource.apple.com/apsl/ and read it before using this
- *  file.
- *  
- *  The Original Code and all software distributed under the License are
- *  distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ *  The contents of this file constitute Original Code as defined in and
+ *  are subject to the Apple Public Source License Version 1.1 (the
+ *  "License").  You may not use this file except in compliance with the
+ *  License.  Please obtain a copy of the License at
+ *  http://www.apple.com/publicsource and read it before using this file.
+ * 
+ *  This Original Code and all software distributed under the License are
+ *  distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  *  EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  *  INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- *  FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- *  Please see the License for the specific language governing rights and
- *  limitations under the License.
- *  
+ *  FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ *  License for the specific language governing rights and limitations
+ *  under the License.
+ * 
  *  @APPLE_LICENSE_HEADER_END@
  *
  *  Contains a lot of constants used across the Apple02Audio project.
@@ -121,6 +118,7 @@ typedef enum {
 	kHeadphoneStatus,
 	kExtSpeakersStatus,
 	kLineOutStatus,
+	kDigitalInStatus,
 	kDigitalOutStatus,
 	kLineInStatus,
 	kInputMicStatus,
@@ -132,8 +130,6 @@ typedef enum {
 	kClockLockStatus,
 	kClockUnLockStatus,
 	kAES3StreamErrorStatus,
-	kComboIsAnalogStatus,
-	kComboIsDigitalStatus,
 	kCodecErrorInterruptStatus,
 	kCodecInterruptStatus,
 	kBreakClockSelect,
@@ -152,8 +148,14 @@ typedef enum {
 	kNumberOfActionSelectors					//	ALWAYS MAKE THIS LAST!!!!
 } ActionSelector;
 
-// Machine layout constants. All NewWorld machines have a device-id property
-// matching one of these layout constants for specifying the sound hardware layout.
+//	================================================================================
+//	Machine layout constants. All NewWorld machines have a device-id property
+//	matching one of these layout constants for specifying the sound hardware layout.
+//	Note that current allocation scheme is allocating an entry for both i2s-a and
+//	i2s-c for each new CPU regardless whether both i2s cells are used.  Layout ID
+//	label suffixes should include either 'a' or 'c' (not 'b' because i2s-b belongs
+//	to the modem team).  The dual layout id allocation policy allows for marketing
+//	to extend the feature set on a CPU.
 enum {
 	layoutC1					=	1,
 	layout101					=	2,
@@ -196,10 +198,9 @@ enum {
 	layoutQ41					=	39,
 	layoutQ54					=	40,
 	layoutQ59					=	41,
-	layoutNeoBorg_Analog		=	42,
-	layoutNeoBorg_Digital		=	43,
-	layoutP73D					=	44
 };
+//	See process comment above when adding layout ID values to the above enumerations!!!
+//	================================================================================
 
 // Hardware type 
 enum{

@@ -1,0 +1,41 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/misc/Imakefile,v 3.11 2001/11/19 15:44:18 tsi Exp $
+
+
+
+
+XCOMM $XConsortium: Imakefile /main/4 1996/09/28 17:24:12 rws $
+
+#include <Server.tmpl>
+
+
+#if defined(i386Architecture) && !defined(cygwinArchitecture)
+XSRCS = BUSmemcpy.S IODelay.S SlowBcopy.S
+XOBJS = BUSmemcpy.o IODelay.o SlowBcopy.o
+#else
+XSRCS = BUSmemcpy.c IODelay.c SlowBcopy.c
+XOBJS = BUSmemcpy.o IODelay.o SlowBcopy.o
+#endif
+
+#if HasGcc || HasGcc2
+ILHACKSRCS = xf86_IlHack.c
+ILHACKOBJS = xf86_IlHack.o
+#endif
+
+SRCS = xf86_Util.c Delay.c $(ILHACKSRCS) $(XSRCS)
+
+OBJS = xf86_Util.o Delay.o $(ILHACKOBJS) $(XOBJS)
+
+INCLUDES = -I$(XF86COMSRC) -I$(XF86OSSRC) -I. -I$(SERVERSRC)/include \
+           -I$(XINCLUDESRC)
+
+SubdirLibraryRule($(OBJS))
+NormalLibraryObjectRule()
+
+#if defined(i386Architecture) && !defined(cygwinArchitecture)
+ObjectFromAsmSource(BUSmemcpy,NullParameter)
+ObjectFromAsmSource(IODelay,NullParameter)
+ObjectFromAsmSource(SlowBcopy,NullParameter)
+#endif
+
+DependTarget()
+

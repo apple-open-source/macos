@@ -1,0 +1,111 @@
+<!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN"[
+<!ENTITY % defs SYSTEM "defs.ent"> %defs;
+]>
+
+<article>
+<title>Information for Rendition (Micron) Verité Users
+<author>The XFree86 Project Inc.
+<date>9 June 2000, last update by Dejan Ilic <email>dejan.ilic@home.se</email>
+
+<ident>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/rendition.sgml,v 1.12 2000/06/17 02:30:33 dawes Exp $
+</ident>
+
+<toc>
+
+<sect>Supported hardware <p>
+All cards based on the V1000 or the V2x00 should be supported. The server
+was tested on a miroCRYSTAL VRX (V1000), Intergraph Intense-100 3D (V1000), Diamond Stealth II S220 (V2100), Hercules Thriller3D (V2200), Innovision Warrior3D (V2200) and Genoa V-Raptor (v2200).
+
+<sect>Limitations <p>
+V1000 cards can only work as primary display card due to hardware limitations. <p>
+V2x00 cards can work even if not primary, but primary display card will be disabled when server is run. This is a driver limitation.<p>
+Hopefully these limitations will be workaround and fixed before final XFree86 4.0 release.<p>
+
+<sect>Important notices <p>
+Some V1000-based video cards are known to lock up the computer if you have write-combine activated. Disabling it removes the problem. Look for settings in the motherboards BIOS and disable ALL settings that has to do with write-combine (usually called USWC or just WC for short). <p>
+
+15 bits per pixel is only supported on V1000-based cards due to hardware limitations on V2x00 chipsets.<p>
+
+If you have problems with hardware cursor use the "sw_cursor" option to revert back to software cursor.<p>
+
+This is essentially a port of XFree86 3.3.x driver to the new XFree86
+4.0 API, and thus we have put most of effort in making a working driver
+with the most basic features. Support for multi-head support and
+acceleration are next on the list of features to be included.<p>
+
+<sect>Features <p>
+<itemize>
+<item>Hardware acceleration
+<item>Hardware cursor
+<item>Supported color depths
+<itemize>
+<item>8 bits per pixel (256 pseudo colour)
+<item>15 bits per pixel (actually 16-bits with RGB-weight 555, 32768 colors)
+<item>16 bits per pixel (high colour, RGB-weight 565, 65536 colors)
+<item>32 bits per pixel (true colour, sparse 24bit, 16M colors)
+</itemize>
+</itemize>
+
+<sect>XF86Config Option <p>
+<descrip>
+<tag>Option "SW_Cursor"</tag>
+Disables use of the hardware cursor.
+<tag>Option "Overclock_Mem"</tag>
+Run the memory at a higher clock. Useful on some cards with display glitches
+at higher resolutions. But adds the risk to damage the hardware. Use with
+caution.
+<tag>DacSpeed "MHz"</tag>
+Set custom ramdac limit. We have currently no way of knowing if the v2x00 chip is a v2100 (170MHz) or v2200 (203MHz and 230MHz) so we assume the lowest. Use this option to manually override the value.
+<tag>Option "FramebufferWC"</tag>
+If writecombine is disabled in BIOS, and you add this option in configuration file, then the driver will try to request writecombined access to the framebuffer. This can drastically increase the performance on unaccelerated server. Requires that "MTRR"-support is compiled into the OS-kernel.
+<tag>Option "NoDDC"</tag>
+Disable probing of DDC-information from your monitor. This information is not used yet and is only there for informational purposes. This might change before final XFree86 4.0 release. Safe to disable if you experience problems during startup of X-server.
+<tag>Option "ShadowFB"</tag>
+If this option is enabled, the driver will cause the CPU to do each drawing
+operation first into a shadow frame buffer in system virtual memory and then
+copy the result into video memory.
+If this option is not active, the CPU will draw directly into video memory.
+Enabling this option is beneficial for those systems where reading from video
+memory is, on average, slower than the corresponding read/modify/write
+operation in system virtual memory.
+This is normally the case for PCI or AGP adapters, and, so, this option is
+enabled by default unless acceleration is enabled.
+<tag>Option "Rotate"</tag>
+The option expect a value "CW" for clockwise or "CCW" for counterclockwise rotation of the screen. This is useful when you need more height then width on the screen. Desktop publishing is one example where a monitor could display the whole page at once on a monitor laying on the side.
+Notice that this option requires "ShadowFB" and automatically enable it. It also disables the acceleration.
+The option is not activated by default.
+</descrip>
+
+<sect>News in this release (XFree86 4.1)<p>
+<itemize>
+<item>DirectColor support
+<item>SilkenMouse support
+</itemize>
+
+<sect>Major changes in this release <p>
+<itemize>
+<item>Gamma works now for >8bpp
+</itemize>
+
+<sect>Bugfixes<p>
+<itemize>
+<item>Only some code cleanup done. No real bugfixes.
+</itemize>
+
+<sect>Known problems in current driver<p>
+<itemize>
+<item>The acceleration code hangs the computer during X-server startup.
+<item>DDC-probing does not work correctly yet. No DDC information is found.
+<item>Switching from display to VC and back to display can lock up V2x00 cards.
+<item>When scrolling the virtual display on a V1000 card parts of the screen will become distorted. Problem disappears when you continue moving around. V2x00 does not exhibit this problem. Probably a bug in the driver rather than a limitation of the chip.
+<item>Depth 15 & 16 has problems with colors when DirectColor is used.
+</itemize>
+
+<sect>Work in progress (not finished in time for release) <p>
+<itemize>
+<item>Acceleration is disabled for the moment. If you want to play with it enable the "USE_ACCEL" define in rendition.c file! Beware as it has several bugs left to clear out before if is stable for general use.
+</itemize>
+
+</article>
+

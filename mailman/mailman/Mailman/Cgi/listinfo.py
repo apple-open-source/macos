@@ -91,8 +91,9 @@ def listinfo_overview(msg=''):
                 # List is for different identity of this host - skip it.
                 continue
             else:
-                advertised.append(mlist)
-
+                advertised.append((mlist.GetScriptURL('listinfo'),
+                                   mlist.real_name,
+                                   mlist.description))
     if msg:
         greeting = FontAttr(msg, color="ff5060", size="+1")
     else:
@@ -122,7 +123,7 @@ def listinfo_overview(msg=''):
          Link(Utils.ScriptURL('admin'),
               _('the list admin overview page')),
          _(''' to find the management interface for your list.
-         <p>Send questions or comments to '''),
+         <p>If you are having trouble using the lists, please contact '''),
          Link('mailto:' + siteowner, siteowner),
          '.<p>'))
 
@@ -135,10 +136,10 @@ def listinfo_overview(msg=''):
                       Bold(FontAttr(_('Description'), size='+2'))
                       ])
         highlight = 1
-        for mlist in advertised:
+        for url, real_name, description in advertised:
             table.AddRow(
-                [Link(mlist.GetScriptURL('listinfo'), Bold(mlist.real_name)),
-                 mlist.description or Italic(_('[no description available]'))])
+                [Link(url, Bold(real_name)),
+                      description or Italic(_('[no description available]'))])
             if highlight and mm_cfg.WEB_HIGHLIGHT_COLOR:
                 table.AddRowInfo(table.GetCurrentRowIndex(),
                                  bgcolor=mm_cfg.WEB_HIGHLIGHT_COLOR)

@@ -7,6 +7,43 @@ To Do:
   could have been set otherwise and does not print the next line.
 - Maybe add fat support for segedit(1)
 
+Changes for the 5.13.2 release (the cctools-495.3 release):
+- Added a -u option to redo_prebinding(1) and the unprebind(3) API to allow
+  binaries to be "unprebound".  Unprebound binaries are identified by the
+  MH_PREBINDABLE flag.  The unprebind operation will remove all
+  LC_PREBOUND_DYLIB load commands, set LC_LOAD_DYLIB load command's timestamps
+  to zero, slide dynamic libraries to address 0x0, set prebound symbols' symtab
+  entries to be of type N_UNDF and address zero, resets lazy symbol pointers to
+  their original values as specified in their corresponding relocation entries,
+  sets non-lazy symbol pointers to zero, and sets two-level hints to zero.  If
+  a dynamic library has all two-level namespace modules bound, the unprebound
+  binary will also have the MH_ALLMODSBOUND flag set (because this fact is lost
+  when the LC_PREBOUND_DYLIB commands are removed).  It is also 
+  possible to unprebind non-prebound dylibs, executables, and bundles.  
+  These files do not gain the MH_PREBINDABLE flag, however they will have 
+  their dependent library timestamps and versions zeroed, and their hints 
+  table will be zeroed as well.  As unprebind is intended to produce a 
+  canonical Mach-O, all unprebound binaries are identified with the 
+  MH_CANONICAL flag.  Radar bug #3176679.
+- Added a -s option to redo_prebinding(1).  If -s is specified, the resulting
+  output file will be written to standard output, rather than to an output file.
+  Radar bug #3176679.
+- Added a -seg1addr option to redo_prebinding(1).  If -seg1addr is specified,
+  the next command-line argument should be a valid hexadecimal address.  
+  redo_prebinding(1) will then slide the input dynamic library to this address.
+  This option does not apply when -u, -seg_addr_table or
+  -seg_addr_table_filename are specified.
+- Modified the redo_prebinding code to support reprebinding of unprebound
+  binaries.  This included recognizing binaries with MH_PREBINDABLE as opposed
+  to MH_PREBOUND as binaries acceptable for reprebinding, using the
+  MH_ALLMODSBOUND flag (or lack thereof) to determine if all two-level namespace
+  modules should be bound for input binaries with MH_PREBINDABLE, and changing
+  the type of the input symbols to N_PBUD if the type was read in as N_UNDF and
+  the file has MH_PREBINDABLE set in setup_initial_undefined_list() (this is
+  because these symbols can be assumed to have been prebound symbols prior to
+  the file being unprebound, and these symbols must be treated as prebound
+  during the reprebinding process).  Radar bug #3176679.
+
 Changes for the 5.13 release (the cctools-493 release):
 - Fixed a bug in the redo_prebinding code that was incorrectly checking that an
   executable does not have any extra LC_PREBOUND_DYLIB load commands for

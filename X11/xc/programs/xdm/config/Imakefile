@@ -1,0 +1,97 @@
+XCOMM $Xorg: Imakefile,v 1.4 2000/08/17 19:54:17 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/xdm/config/Imakefile,v 1.12 2002/12/07 20:20:16 herrb Exp $
+
+SERVERSTYPE = XdmServersType
+
+all:: Xservers.ws xdm-config Xservers Xresources
+
+#if defined(i386Architecture) && (defined(NetBSDArchitecture) || defined(OpenBSDArchitecture))
+DEFAULTVT=vt05
+#endif
+
+#if defined(LinuxDistribution) && (LinuxDistribution == LinuxDebian)
+DEFAULTVT=vt7
+#endif
+
+#ifndef XdmPixmap
+# define XdmPixmap XFree86.xpm
+# define XdmbwPixmap XFree86bw.xpm
+#endif
+
+XPM_DEFINES=-DXPM -DBITMAPDIR=$(XDMDIR)/pixmaps -DXDM_PIXMAP=XdmPixmap\ @@\
+	-DXDM_BWPIXMAP=XdmbwPixmap
+
+XDMLOGDIR = $(LOGDIRECTORY)
+#ifdef VarRunDirectory
+XDMPIDDIR = $(VARRUNDIR)
+#else
+XDMPIDDIR = $(XDMDIR)
+#endif
+
+#if defined(OpenBSDArchitecture) || defined(NetBSDArchitecture) || defined(FreeBSDArchitecture)
+SU = "su -m"
+#else
+SU = su
+#endif
+
+CppFileTarget(Xservers.ws,Xserv.ws.cpp,-DBINDIR=$(BINDIR) -DDEFAULTVT=$(DEFAULTVT),NullParameter)
+CppFileTarget(xdm-config,xdm-conf.cpp,-DXDMDIR=$(XDMDIR) -DXDMLOGDIR=$(XDMLOGDIR) -DXDMPIDDIR=$(XDMPIDDIR) -DSU=$(SU),NullParameter)
+CppFileTarget(Xresources,Xres.cpp,$(XPM_DEFINES),NullParameter)
+
+LinkFile(Xservers,Xservers.$(SERVERSTYPE))
+
+#if InstallXdmConfig
+InstallNonExecFile(xdm-config,$(XDMDIR))
+InstallNonExecFile(Xresources,$(XDMDIR))
+InstallNonExecFile(Xservers,$(XDMDIR))
+InstallNonExecFile(Xaccess,$(XDMDIR))
+InstallNamedProg(Xsession,Xsession,$(XDMDIR))
+InstallNamedProg(GiveConsole,GiveConsole,$(XDMDIR))
+InstallNamedProg(TakeConsole,TakeConsole,$(XDMDIR))
+InstallNamedProg(Xsetup_0,Xsetup_0,$(XDMDIR))
+InstallNamedProg(Xwilling,Xwilling,$(XDMDIR))
+#else
+InstallNonExecFileNoClobber(xdm-config,$(XDMDIR))
+InstallNonExecFileNoClobber(Xresources,$(XDMDIR))
+InstallNonExecFileNoClobber(Xservers,$(XDMDIR))
+InstallNonExecFileNoClobber(Xaccess,$(XDMDIR))
+InstallNamedProgNoClobber(Xsession,Xsession,$(XDMDIR))
+InstallNamedProgNoClobber(GiveConsole,GiveConsole,$(XDMDIR))
+InstallNamedProgNoClobber(TakeConsole,TakeConsole,$(XDMDIR))
+InstallNamedProgNoClobber(Xsetup_0,Xsetup_0,$(XDMDIR))
+InstallNamedProgNoClobber(Xwilling,Xwilling,$(XDMDIR))
+#endif
+
+#if InstallXdmConfig
+InstallNonExecFile(XdmPixmap,$(XDMDIR)/pixmaps)
+InstallNonExecFile(XdmbwPixmap,$(XDMDIR)/pixmaps)
+#else
+InstallNonExecFileNoClobber(XdmPixmap,$(XDMDIR)/pixmaps)
+InstallNonExecFileNoClobber(XdmbwPixmap,$(XDMDIR)/pixmaps)
+#endif
+
+#ifdef SequentArchitecture
+
+CppFileTarget(windows.sh,windows.sh.cpp,"-DBINDIR=$(BINDIR)" "-DXDMDIR=$(XDMDIR)",NullParameter)
+
+InstallNamedProg(windows.sh,windows,/etc/init.d)
+InstallNamedProg(system.xsession.sequent,.xsession,$(ADMINBASEDIR))
+InstallNamedNonExec(system.Xdefaults.sequent,.Xresources,$(ADMINBASEDIR))
+InstallNamedNonExec(system.Xdefaults.sequent,system.Xdefaults,$(LIBDIR))
+
+/* force a hard link from S81windows to windows */
+
+MakeDirectories(install,/etc/rc2.d)
+install::
+        $(RM) $(DESTDIR)/etc/rc2.d/S81windows
+        ln $(DESTDIR)/etc/init.d/windows $(DESTDIR)/etc/rc2.d/S81windows
+        AddToPrototype f /etc/rc2.d/S81windows 0555 bin bin
+
+clean::
+        $(RM) windows.sh
+
+#endif /* SequentArchitecture */

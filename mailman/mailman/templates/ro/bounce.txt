@@ -1,0 +1,13 @@
+Aceasta este o notificare de eºec (bounce) a livrãrii mesajelor listei de discuþii:
+
+    Lista:       %(listname)s
+    Membrul:     %(addr)s
+    Actiunea:    Abonare %(negative)s%(did)s.
+    Motivul:     Eºecuri (bounces) excesive sau fatale.
+    %(but)s
+
+%(reenable)s
+Detaliile sunt ataºate mai jos.
+
+Întrebãri?
+Contactaþi administratorul acestei liste la adresa %(owneraddr)s.

@@ -1,0 +1,51 @@
+.TH XvUngrabPort 3X __vendorversion__
+.\" $XFree86: xc/doc/man/Xv/XvUngrabPort.man,v 1.6 2001/08/17 13:27:50 dawes Exp $
+.SH Name
+XvUngrabPort \- release port grabbed for video operation
+.\"
+.SH Syntax
+\fB#include <X11/extensions/Xvlib.h>
+.sp 1l
+XvUngrabPort(\fIdpy, port, time\fR)
+.sp 1l
+\fBDisplay \fI*dpy\fR;
+.br
+\fBXvPortID \fIport\fR;
+.br
+\fBTime \fItime\fR;
+.SH Arguments
+.\"
+.IP \fIdpy\fR 15
+Specifies the display screen on which the
+Xv Server is to accept requests from Xv clients.  If the
+display option is not specified, Xv uses the display screen
+specified by your DISPLAY environment variable.  The display
+option has the format hostname:number.  Using two colons
+(::) instead of one (:) indicates that DECnet is to be used
+for transport.
+.IP \fIport\fR 15
+Specifies the port to be released.  If the port had not been
+previously grabbed, the request is ignored.
+.IP \fItime\fR 15
+Specifies the request timestamp.
+.\"
+.SH Description
+XvUngrabPort(3X) releases a grabbed port.  If \fItime\fR specifies a
+time before the last XvGrabPort(3X) was executed, the
+request is ignored.
+.\"
+.SH Returned Values
+.IP [Success] 8
+Returned if XvUngrabPort(3X) completed successfully.
+.IP [XvBadExtension] 8
+Returned if the Xv extension is unavailable.
+.IP [XvBadAlloc] 8
+Returned if XvUngrabPort(3X) failed to allocate memory to process
+the request.
+.SH Diagnostics
+.IP [XvBadPort] 8
+Generated if the requested port does not exist.
+.SH See Also
+.\"
+XvGrabPort(3X)
+.br

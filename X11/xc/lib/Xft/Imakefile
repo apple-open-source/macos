@@ -1,0 +1,139 @@
+XCOMM $XFree86: xc/lib/Xft/Imakefile,v 1.24 2003/02/25 22:18:03 dawes Exp $
+
+#define DoNormalLib NormalLibXft
+#define DoSharedLib SharedLibXft
+#define DoExtraLib SharedLibXft
+#define DoDebugLib DebugLibXft
+#define DoProfileLib ProfileLibXft
+
+#define HasSharedData YES
+#define LibName Xft
+#define SoRev SOXFTREV
+#define IncSubdir X11
+#define IncSubSubdir Xft
+
+#include <Threads.tmpl>
+
+#ifndef XftLibDir
+#define XftLibDir $(LIBDIR)
+#endif
+
+#ifndef XftType1Dir
+#define XftType1Dir $(LIBDIR)/fonts/Type1
+#endif
+
+#ifdef UseInstalled
+/* when using xmkmf, make sure the needed definitions for the fontconfig
+ * library are available
+ */
+
+#ifndef SharedFontconfigRev
+#define SharedFontconfigRev 1.0
+SharedLibReferences(FONTCONFIG,fontconfig,$(FONTCONFIGLIBSRC),SOFONTCONFIGREV,SharedFontconfigRev)
+#endif
+
+/* make sure we're building the right major version */
+SOXFTREV=2.1
+
+#endif
+
+XFTLIBDIR=XftLibDir
+
+TYPE1DIR=XftType1Dir
+#if HasGcc2 || HasGcc3
+WARNINGS=-Wall -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations -Wnested-externs
+#endif
+INCLUDES=$(FONTCONFIGINCLUDES) $(FREETYPE2INCLUDES) $(WARNINGS)
+DEFINES=$(FREETYPE2DEFINES) $(RENDERDEFINES)
+
+XFT_REVISION=0
+
+FREETYPE_LIBS=$(FREETYPE2LIB)
+FREETYPE_CFLAGS=$(FREETYPE2INCLUDES)
+XRENDER_LIBS=$(XRENDERLIB)
+XRENDER_CFLAGS=$(XRENDERINCLUDES)
+FONTCONFIG_CFLAGS=$(FONTCONFIGINCLUDES)
+FONTCONFIG_LIBS=$(FONTCONFIGLIB)
+
+#if !defined(UseInstalled)
+
+/* these must always be computed using the installed location,
+ * when building inside the tree that means extra work
+ */
+#if BuildFontconfigLibrary
+FONTCONFIG_LIBS=-L$(USRLIBDIR) -lfontconfig
+FONTCONFIG_CFLAGS=-I$(INCROOT)
+#endif
+
+#if BuildFreetype2Library
+FREETYPE_LIBS=-L$(USRLIBDIR) -lfreetype
+FREETYPE_CFLAGS=-I$(INCROOT)/freetype2
+#endif
+
+#if BuildRenderLibrary
+XRENDER_LIBS=-L$(USRLIBDIR) -lXrender
+XRENDER_CFLAGS=-I$(INCROOT)
+#endif
+
+#endif
+
+SUBSTVARS=prefix="$(PROJECTROOT)" \
+	  exec_prefix="$(BINDIR)" \
+	  libdir="$(USRLIBDIR)" \
+	  includedir="$(INCROOT)" \
+	  PACKAGE_VERSION="$(SOXFTREV).$(XFT_REVISION)" \
+	  FREETYPE_LIBS="$(FREETYPE_LIBS)" \
+	  FREETYPE_CFLAGS="$(FREETYPE_CFLAGS)" \
+	  XRENDER_LIBS="$(XRENDER_LIBS)" \
+	  XRENDER_CFLAGS="$(XRENDER_CFLAGS)" \
+	  FONTCONFIG_CFLAGS="$(FONTCONFIG_CFLAGS)" \
+	  FONTCONFIG_LIBS="$(FONTCONFIG_LIBS)"
+
+REQUIREDLIBS=$(LDPRELIBS) $(XRENDERLIB) $(XLIB) $(FONTCONFIGLIB) $(EXPATLIB) $(FREETYPE2LIB)
+
+HEADERS = Xft.h XftCompat.h
+
+   SRCS = xftcolor.c xftdbg.c xftdpy.c \
+          xftdraw.c xftextent.c xftfont.c \
+          xftinit.c xftlist.c \
+          xftname.c xftstr.c xftswap.c xftxlfd.c \
+	  xftfreetype.c xftglyphs.c xftrender.c xftcore.c
+  
+   OBJS = xftcolor.o xftdbg.o xftdpy.o \
+          xftdraw.o xftextent.o xftfont.o \
+          xftinit.o xftlist.o \
+          xftname.o xftstr.o xftswap.o xftxlfd.o \
+	  xftfreetype.o xftglyphs.o xftrender.o xftcore.o
+
+#include <Library.tmpl>
+
+#if DoSharedLib && SharedDataSeparation
+SpecialCObjectRule(sharedlib,NullParameter,$(SHLIBDEF))
+#endif
+
+MANSUFFIX = $(LIBMANSUFFIX)
+InstallManPage(Xft,$(LIBMANDIR))
+DependTarget()
+
+all:: xft-config.script
+
+xft-config.script: xft-config.in
+	RemoveFile($@)
+	sh config/config-subst $(SUBSTVARS) < xft-config.in > $@
+
+InstallScript(xft-config,$(BINDIR))
+
+clean::
+	RemoveFile(xft-config.script)
+
+all:: xft.pc
+
+xft.pc: xft.pc.in
+	RemoveFile($@)
+	sh config/config-subst $(SUBSTVARS) < xft.pc.in > $@
+
+InstallNonExecFile(xft.pc,$(USRLIBDIR)/pkgconfig)
+
+clean::
+	RemoveFile(xft.pc)
+

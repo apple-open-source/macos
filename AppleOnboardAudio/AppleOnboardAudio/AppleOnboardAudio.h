@@ -152,6 +152,8 @@ typedef struct AOAStateUserClientStruct {
 #define kClockUnLockIntMessage			"ClockUnLock"
 #define kDigitalInInsertIntMessage		"DigitalInDetectInsert"
 #define kDigitalInRemoveIntMessage		"DigitalInDetectRemove"
+#define kSignalProcessing				"SignalProcessing"
+#define kSoftwareDSP					"SoftwareDSP"
 #define kMaxVolumeOffset				"maxVolumeOffset"
 #define kSpeakerID						"SpeakerID"
 #define kMicrophoneID					"MicrophoneID"
@@ -161,7 +163,7 @@ typedef struct AOAStateUserClientStruct {
 #define kIsMixable						"IsMixable"
 #define	kComboInObject					"ComboIn"
 #define	kComboOutObject					"ComboOut"
-
+#define kSleepPriority					"SleepPriority"
 
 #define kLeftVolControlString			"Left"
 #define kRightVolControlString			"Right"
@@ -246,9 +248,9 @@ protected:
     thread_call_t						mPowerThread;
 	thread_call_t						mInitHardwareThread;
 	bool								mTerminating;
-	bool								mHeadLineDigExclusive;
 	bool								mClockSelectInProcessSemaphore;
 	bool								mSampleRateSelectInProcessSemaphore;
+	bool								mPowerOrderHasBeenSet;			//	[3515371]	rbm		19 Dec 2003
 	OSString *							mInternalSpeakerOutputString;
 	OSString *							mExternalSpeakerOutputString;
 	OSString *							mLineOutputString;
@@ -268,9 +270,10 @@ protected:
 	Boolean								mUsePlaythroughControl;			//	[3281535]
 	UInt32								mLayoutID;
 	UInt32								mDetectCollection;
-	UInt32								mSpeakerID;
-	UInt32								mMicrophoneID;
-	bool								mCurrentPluginHasSoftwareInputGain;
+	UInt32								mInternalSpeakerID;
+	UInt32								mInternalMicrophoneID;
+	bool								mCurrentPluginNeedsSoftwareInputGain;
+	bool								mCurrentPluginNeedsSoftwareOutputVolume;
 	UInt32								mAmpRecoveryMuteDuration;
 	
 	UInt32								mOutputLatency;
@@ -278,11 +281,13 @@ protected:
 	unsigned long long					idleSleepDelayTime;
 	IOTimerEventSource *				idleTimer;
 	IOTimerEventSource *				pollTimer;
+	UInt32								mCurrentOutputSelection;		//	[3581695]
     Boolean								mIsMute;
     Boolean								mAutoUpdatePRAM;
 	IOAudioDevicePowerState				ourPowerState;
 	Boolean								shuttingDown;
 
+    OSArray	*							AudioSoftDSPFeatures;
 	OSString *							mCurrentProcessingOutputString;
 	OSString *							mCurrentProcessingInputString;
 
@@ -321,6 +326,8 @@ public:
 
 	static bool 			aoaPublished (AppleOnboardAudio * aoaObject, void * refCon, IOService * newService);
 	static void				softwareInterruptHandler (OSObject *, IOInterruptEventSource *, int count);
+	virtual UInt32			getLayoutID ( void ) { return mLayoutID; }	//	[3515371]	rbm		19 Dec 2003
+
 
 	// Classical Unix funxtions
 	virtual bool			start (IOService * provider);
@@ -423,7 +430,7 @@ public:
 	virtual void			setInputDataMuxForConnection ( char * connectionString );
 
 	AOAStateUserClientStruct	mUCState;
-
+	
 protected:
 	// Do the link to the IOAudioFamily 
 	// These will help to create the port config through the OF Device Tree
@@ -501,6 +508,8 @@ protected:
 	static void			pollTimerCallback ( OSObject *owner, IOTimerEventSource *device );
 	void				runPolledTasks ( void );
 	bool				isTargetForMessage ( UInt32 index, AppleOnboardAudio * theAOA );
+	virtual AppleOnboardAudio* findAOAInstanceWithLayoutID ( UInt32 layoutID );				//	[3515371]	rbm		19 Dec 2003
+	UInt32				mPowerManagementPriorityID;											//	[3515371]	rbm		19 Dec 2003
 	
 protected:
     // The PRAM utility

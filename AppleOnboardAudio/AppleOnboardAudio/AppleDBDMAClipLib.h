@@ -26,9 +26,3 @@ typedef enum {
     e_Mode_CopyLeftToRight,
     e_Mode_CopyRightToLeft
 } DualMonoModeType;
-
-typedef enum {
-	kModuleNotCreated = 0,
-	kModuleDisabled = 1,
-	kModuleActive = 2,
-} ModuleState;

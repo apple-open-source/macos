@@ -1,0 +1,241 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,tbl|eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(TexSubImage3D,specify a three-dimensional texture subimage)
+_names(TexSubImage3D)
+.EQ
+delim $$
+.EN
+_define(@<__target>@,@<_param1>@)_C_
+_define(@<__level>@,@<_param2>@)_C_
+_define(@<__xoffset>@,@<_param3>@)_C_
+_define(@<__eqnxoffset>@,@<_eqnparam3>@)_C_
+_define(@<__yoffset>@,@<_param4>@)_C_
+_define(@<__eqnyoffset>@,@<_eqnparam4>@)_C_
+_define(@<__zoffset>@,@<_param5>@)_C_
+_define(@<__eqnzoffset>@,@<_eqnparam5>@)_C_
+_define(@<__width>@,@<_param6>@)_C_
+_define(@<__eqnwidth>@,@<_eqnparam6>@)_C_
+_define(@<__height>@,@<_param7>@)_C_
+_define(@<__eqnheight>@,@<_eqnparam7>@)_C_
+_define(@<__depth>@,@<_param8>@)_C_
+_define(@<__eqndepth>@,@<_eqnparam8>@)_C_
+_define(@<__format>@,@<_param9>@)_C_
+_define(@<__type>@,@<_param10>@)_C_
+_define(@<__pixels>@,@<_param11>@)_C_
+.SH PARAMETERS
+_phead(__target)
+Specifies the target texture.
+Must be _const(TEXTURE_3D).
+_phead(__level)
+Specifies the level-of-detail number.
+Level 0 is the base image level.
+Level \f2n\fP is the \f2n\fPth mipmap reduction image.
+_phead(__xoffset)
+Specifies a texel offset in the x direction within the texture array.
+_phead(__yoffset)
+Specifies a texel offset in the y direction within the texture array.
+_phead(__zoffset)
+Specifies a texel offset in the z direction within the texture array.
+_phead(__width)
+Specifies the width of the texture subimage.
+_phead(__height)
+Specifies the height of the texture subimage.
+_phead(__depth)
+Specifies the depth of the texture subimage.
+_phead(__format)
+Specifies the format of the pixel data.
+The following symbolic values are accepted:
+_const(COLOR_INDEX),
+_const(RED),
+_const(GREEN),
+_const(BLUE),
+_const(ALPHA),
+_const(RGB),
+_const(BGR),
+_const(RGBA),
+_const(BGRA),
+_C_ _const(ABGR_EXT),
+_const(LUMINANCE), and
+_const(LUMINANCE_ALPHA).
+_phead(__type)
+Specifies the data type of the pixel data.
+The following symbolic values are accepted:
+_const(UNSIGNED_BYTE),
+_const(BYTE),
+_const(BITMAP),
+_const(UNSIGNED_SHORT),
+_const(SHORT),
+_const(UNSIGNED_INT),
+_const(INT), 
+_const(FLOAT),
+_const(UNSIGNED_BYTE_3_3_2),
+_const(UNSIGNED_BYTE_2_3_3_REV),
+_const(UNSIGNED_SHORT_5_6_5),
+_const(UNSIGNED_SHORT_5_6_5_REV),
+_const(UNSIGNED_SHORT_4_4_4_4),
+_const(UNSIGNED_SHORT_4_4_4_4_REV),
+_const(UNSIGNED_SHORT_5_5_5_1),
+_const(UNSIGNED_SHORT_1_5_5_5_REV),
+_const(UNSIGNED_INT_8_8_8_8),
+_const(UNSIGNED_INT_8_8_8_8_REV),
+_const(UNSIGNED_INT_10_10_10_2), and
+_const(UNSIGNED_INT_2_10_10_10_REV).
+_phead(__pixels)
+Specifies a pointer to the image data in memory.
+.SH DESCRIPTION
+Texturing maps a portion of a specified texture image
+onto each graphical primitive for which texturing is enabled.
+To enable and disable three-dimensional texturing, call _cmnd(Enable)
+and _cmnd(Disable) with argument _const(TEXTURE_3D).
+.P
+_cmnd redefines a contiguous subregion of an existing three-dimensional
+texture image.
+The texels referenced by __pixels replace the portion of the
+existing texture array with x indices __xoffset and
+$__eqnxoffset ~+~ __eqnwidth ~-~ 1$, inclusive,
+y indices __yoffset and $__eqnyoffset ~+~ __eqnheight ~-~ 1$, inclusive,
+and z indices __zoffset and $__eqnzoffset ~+~ __eqndepth ~-~ 1$, inclusive. 
+This region may not include any texels outside the range of the
+texture array as it was originally specified.
+It is not an error to specify a subtexture with zero width, height, or
+depth but such a specification has no effect.
+.SH NOTES
+_cmnd is available only if the GL version is 1.2 or greater.
+.P
+Texturing has no effect in color index mode.
+.P
+_cmnd(PixelStore) and _cmnd(PixelTransfer) modes affect texture images
+in exactly the way they affect _cmnd(DrawPixels).
+.P
+Formats _const(BGR), and _const(BGRA) and types
+_const(UNSIGNED_BYTE_3_3_2),
+_const(UNSIGNED_BYTE_2_3_3_REV),
+_const(UNSIGNED_SHORT_5_6_5),
+_const(UNSIGNED_SHORT_5_6_5_REV),
+_const(UNSIGNED_SHORT_4_4_4_4),
+_const(UNSIGNED_SHORT_4_4_4_4_REV),
+_const(UNSIGNED_SHORT_5_5_5_1),
+_const(UNSIGNED_SHORT_1_5_5_5_REV),
+_const(UNSIGNED_INT_8_8_8_8),
+_const(UNSIGNED_INT_8_8_8_8_REV),
+_const(UNSIGNED_INT_10_10_10_2), and
+_const(UNSIGNED_INT_2_10_10_10_REV) are available only if the GL version 
+is 1.2 or greater.
+.P
+When the _arbstring(multitexture) extension is supported, _cmnd
+specifies a three-dimensional sub texture for the current texture unit,
+specified with _cmnd(ActiveTextureARB).
+.P
+When the _arbstring(imaging) extension is supported, the RGBA components
+specified in __pixels may be processed by the imaging pipeline.  See
+_cmnd(TexImage3D) for specific details.
+.SH ERRORS
+_const(INVALID_ENUM) is generated if __target is not _const(TEXTURE_3D). 
+.P
+_const(INVALID_OPERATION) is generated if the texture array has not
+been defined by a previous _cmnd(TexImage3D) operation.
+.P
+_const(INVALID_VALUE) is generated if __level is less than 0.
+.P 
+_const(INVALID_VALUE) may be generated if __level is greater
+than $log sub 2$\f2max\fP,
+where \f2max\fP is the returned value of _const(MAX_TEXTURE_SIZE).
+.P
+_const(INVALID_VALUE) is generated if $__eqnxoffset ~<~ ~-b$,
+$(__eqnxoffset ~+~ __eqnwidth) ~>~ (w~-~b)$, 
+$__eqnyoffset ~<~ ~-b$, or $(__eqnyoffset ~+~ __eqnheight) ~>~ (h~-~b)$, 
+or $__eqnzoffset ~<~ ~-b$, or $(__eqnzoffset ~+~ __eqndepth) ~>~ (d~-~b)$,
+where $w$ is the _const(TEXTURE_WIDTH), 
+$h$ is the _const(TEXTURE_HEIGHT), $d$ is the _const(TEXTURE_DEPTH) 
+and $b$ is the border width of the texture image being modified.
+Note that $w$, $h$, and $d$ include twice the border width.
+.P
+_const(INVALID_VALUE) is generated if __width, __height, or __depth
+is less than 0.
+.P
+_const(INVALID_ENUM) is generated if __format is not an accepted
+format constant.
+.P
+_const(INVALID_ENUM) is generated if __type is not a type constant.
+.P
+_const(INVALID_ENUM) is generated if __type is _const(BITMAP) and
+__format is not _const(COLOR_INDEX).
+.P
+_const(INVALID_OPERATION) is generated if _cmnd is executed
+between the execution of _cmnd(Begin) and the corresponding
+execution of _cmnd(End).
+.P
+_const(INVALID_OPERATION) is generated if __type is one of
+_const(UNSIGNED_BYTE_3_3_2),
+_const(UNSIGNED_BYTE_2_3_3_REV),
+_const(UNSIGNED_SHORT_5_6_5), or
+_const(UNSIGNED_SHORT_5_6_5_REV)
+and __format is not _const(RGB).
+.P
+_const(INVALID_OPERATION) is generated if __type is one of
+_const(UNSIGNED_SHORT_4_4_4_4),
+_const(UNSIGNED_SHORT_4_4_4_4_REV),
+_const(UNSIGNED_SHORT_5_5_5_1),
+_const(UNSIGNED_SHORT_1_5_5_5_REV),
+_const(UNSIGNED_INT_8_8_8_8),
+_const(UNSIGNED_INT_8_8_8_8_REV),
+_const(UNSIGNED_INT_10_10_10_2), or
+_const(UNSIGNED_INT_2_10_10_10_REV)
+and __format is neither _const(RGBA) nor _const(BGRA).
+.SH ASSOCIATED GETS
+_cmnd(GetTexImage)
+.br
+_cmnd(IsEnabled) with argument _const(TEXTURE_3D)
+.SH SEE ALSO
+_cmnd(ActiveTextureARB),
+_cmnd(CopyTexImage1D),
+_cmnd(CopyTexImage2D),
+_cmnd(CopyTexSubImage1D),
+_cmnd(CopyTexSubImage2D),
+_cmnd(CopyTexSubImage3D),
+_cmnd(DrawPixels),
+_cmnd(PixelStore),
+_cmnd(PixelTransfer),
+_cmnd(TexEnv),
+_cmnd(TexGen),
+_cmnd(TexImage1D),
+_cmnd(TexImage2D),
+_cmnd(TexImage3D),
+_cmnd(TexSubImage1D),
+_cmnd(TexSubImage2D),
+_cmnd(TexParameter)
+

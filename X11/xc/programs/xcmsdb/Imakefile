@@ -1,0 +1,9 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:12 cpqbld Exp $
+SRCS = xcmsdb.c loadData.c
+OBJS = xcmsdb.o loadData.o
+INCLUDES = -I$(XLIBSRC)
+DEPLIBS = $(DEPXONLYLIB)
+LOCAL_LIBRARIES = $(XONLYLIB)
+
+ComplexProgramTarget(xcmsdb)
+

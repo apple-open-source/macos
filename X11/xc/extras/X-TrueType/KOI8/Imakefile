@@ -1,0 +1,9 @@
+/* code converter: KOI8 */
+
+#define ModuleName KOI8
+SRCS = KOI8_RtoUCS2.c KOI8_UNItoUCS2.c main.c
+OBJS = KOI8_RtoUCS2.o KOI8_UNItoUCS2.o main.o
+
+#include <xttMod.tmpl>
+
+/* end of file */

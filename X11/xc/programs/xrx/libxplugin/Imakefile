@@ -1,0 +1,166 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:59 cpqbld Exp $
+
+
+
+XCOMM $XFree86: xc/programs/xrx/libxplugin/Imakefile,v 1.2 2002/11/22 22:56:05 tsi Exp $
+
+#if defined(SGIArchitecture) && (OSMajorVersion > 5)
+
+/* Even though we want to build the distribution with -n32, Navigator 3.0 
+ * binaries are still built on IRIX 5.2, which means we need to use the 
+ * old style object format. This is a hack because this Imakefile gets
+ * included too late to do this properly, that is to say that the
+ * CCOPTIONS in Imake.tmpl gets the -n32 options that we don't want,
+ * but the CCOPTIONS in Library.tmpl does get set correctly, and over-
+ * rides the value. So it works, but it's not pretty.
+ */
+#undef sgiCCOptions
+#define sgiCCOptions -xansi
+        SRCS = XSecurity.c XAppgroup.c
+        OBJS = XSecurity.o XAppgroup.o
+    INCLUDES = -I$(XLIBSRC) -I$(EXTINCSRC)
+
+NormalLibraryTarget(xplugin,$(OBJS))
+
+#include <Library.tmpl>
+
+XSecurity.c::
+	RemoveFile($@)
+	$(LN) $(XEXTLIBSRC)/$@ .
+
+XAppgroup.c::
+	RemoveFile($@)
+	$(LN) $(XEXTLIBSRC)/$@ .
+
+#else
+
+#undef DependTarget
+#define DependTarget() /**/
+#undef ObjectCompile
+#define ObjectCompile(options) $(_NULLCMD_)
+
+XCOMM This is only necessary until Sun and HP ship libICE.
+#if defined(HPArchitecture) || defined(SunArchitecture)
+#if defined(HPArchitecture) || \
+   (defined(SunArchitecture) && \
+    (OSMajorVersion == 4) || ((OSMajorVersion == 5) && (OSMinorVersion < 6)))
+      ICEOBJS = accept.o authutil.o connect.o error.o getauth.o \
+		iceauth.o listen.o listenwk.o locking.o misc.o \
+		ping.o process.o protosetup.o register.o replywait.o \
+		setauth.o shutdown.o transport.o watch.o
+#endif
+#if defined(SunArchitecture) && (OSMajorVersion == 4)
+    SUNOSOBJS = extutil.o globals.o
+#endif
+#endif
+      EXTOBJS = XSecurity.o XAppgroup.o $(SUNOSOBJS)
+         OBJS = $(ICEOBJS) $(EXTOBJS)
+
+NormalLibraryTarget(xplugin,$(OBJS))
+
+XCOMM This is only necessary until Sun and HP ship libICE.
+#if defined(HPArchitecture) || defined(SunArchitecture)
+#if defined(HPArchitecture) || \
+   (defined(SunArchitecture) && \
+    (OSMajorVersion == 4) || ((OSMajorVersion == 5) && (OSMinorVersion < 6)))
+accept.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+authutil.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+connect.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+error.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+getauth.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+iceauth.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+listen.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+listenwk.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+locking.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+misc.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+ping.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+process.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+protosetup.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+register.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+replywait.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+setauth.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+shutdown.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+transport.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+
+watch.o::
+	RemoveFile($@)
+	$(LN) $(ICESRC)/$@ .
+#endif
+#if defined(SunArchitecture) && (OSMajorVersion == 4)
+extutil.o::
+	RemoveFile($@)
+	$(LN) $(XEXTLIBSRC)/$@ .
+
+globals.o::
+	RemoveFile($@)
+	$(LN) $(XEXTLIBSRC)/$@ .
+#endif
+#endif
+
+XSecurity.o::
+	RemoveFile($@)
+	$(LN) $(XEXTLIBSRC)/$@ .
+
+XAppgroup.o::
+	RemoveFile($@)
+	$(LN) $(XEXTLIBSRC)/$@ .
+
+clean::
+	RemoveFiles($(OBJS))
+
+DependTarget()
+
+#endif

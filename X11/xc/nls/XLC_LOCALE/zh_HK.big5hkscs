@@ -1,0 +1,151 @@
+XCOMM
+XCOMM (c) 1996, X11R6 L10N for Taiwan and Big5 Encoding Project
+XCOMM
+XCOMM modified for X11R6.3 by Hung-Chi Chu <hcchu@r350.ee.ntu.edu.tw> 1998/01/10
+XCOMM modified for Big5HKSCS by Roger So <roger.so@sw-linux.com> 
+XCOMM
+XCOMM $XFree86: xc/nls/XLC_LOCALE/zh_HK.big5hkscs,v 1.2 2001/11/01 23:35:28 dawes Exp $
+XCOMM
+XCOMM	XLC_FONTSET category
+XCOMM
+XLC_FONTSET
+XCOMM fs0 class (7 bit ASCII)
+fs0	{
+	charset	{
+		name	ISO8859-1:GL
+	}
+	font	{
+		primary		ISO8859-1:GL
+		vertical_rotate	all
+        }
+}
+XCOMM fs1 class (standard Big5)
+fs1	{
+	charset	{
+		name	BIG5-0:GLGR;BIG5-1:GLGR;BIG5-2:GLGR
+	}
+	font    {
+		primary		BIG5-0:GLGR
+		substitute	BIG5-0:GLGR
+	}
+}
+XCOMM fs2 class (HKSCS extensions)
+fs2	{
+	charset	{
+		name	BIG5HKSCS-0:GLGR;BIG5HKSCS-1:GLGR;BIG5HKSCS-2:GLGR
+	}
+	font	{
+		primary		BIG5HKSCS-0:GLGR
+		substitute	BIG5HKSCS-0:GLGR
+	}
+}
+END XLC_FONTSET
+
+XCOMM
+XCOMM	XLC_XLOCALE category
+XCOMM
+XLC_XLOCALE
+
+encoding_name		zh_HK.Big5HKSCS
+mb_cur_max		2
+state_depend_encoding	False
+
+wc_encoding_mask	\x00008000
+wc_shift_bits		8
+
+use_stdc_env		True
+force_convert_to_mb	True
+
+cs0	{
+	side		GL:Default
+	length		1
+	wc_encoding	\x00000000
+	ct_encoding	ISO8859-1:GL
+}
+
+XCOMM standard Big5, A140-C5FE + C940-F8FE
+cs1	{
+	side		none
+	length		2
+	byte1		\xa1,\xc5;\xc9,\xf8
+	byte2		\x40,\x7e;\xa1,\xfe
+
+	wc_encoding	\x00008000
+	ct_encoding	BIG5-0:GLGR:\x1b\x25\x2f\x32\x80\x89\x42\x49\x47\x35\x2d\x30\x02
+
+	mb_conversion	[\x8140,\xfefe]->\x0140
+	ct_conversion	[\x0140,\x7efe]->\x8140
+}
+
+XCOMM standard Big5, C640-C67E
+cs2	{
+	side		none
+	length		2
+	byte1		\xc6
+	byte2		\x40,\x7e
+
+	wc_encoding	\x00008000
+	ct_encoding	BIG5-1:GLGR:\x1b\x25\x2f\x32\x80\x89\x42\x49\x47\x35\x2d\x31\x02
+
+	mb_conversion	[\x8140,\xfefe]->\x0140
+	ct_conversion	[\x0140,\x7efe]->\x8140
+}
+
+XCOMM standard Big5, F940-F9D5
+cs3	{
+	side		none
+	length		2
+	byte1		\xf9
+	byte2		\x40,\xd5
+
+	wc_encoding	\x00008000
+	ct_encoding	BIG5-2:GLGR:\x1b\x25\x2f\x32\x80\x89\x42\x49\x47\x35\x2d\x32\x02
+
+	mb_conversion	[\x8140,\xfefe]->\x0140
+	ct_conversion	[\x0140,\x7efe]->\x8140
+}
+
+
+XCOMM HKSCS extensions, 8540-A0FE + C740-C8FE + FA40-FEFE
+cs4     {
+	side		none
+	length		2
+	byte1		\x85,\xa0;\xc7,\xc8;\xfa,\xfe
+	byte2		\x40,\x7e;\xa1,\xfe
+
+	wc_encoding	\x00008000
+	ct_encoding	BIG5HKSCS-0:GLGR:\x1b\x25\x2f\x32\x80\x8c\x42\x49\x47\x35\x48\x4b\x53\x43\x53\x2d\x30\x02
+
+	mb_conversion	[\x8140,\xfefe]->\0x0140
+	ct_conversion	[\x0140,\x7efe]->\0x8140
+}
+
+XCOMM HKSCS extensions, C6A1-C6FE
+cs5     {
+	side		none
+	length		2
+	byte1		\xc6
+	byte2		\xa1,\xfe
+
+	wc_encoding	\x00008000
+	ct_encoding	BIG5HKSCS-1:GLGR:\x1b\x25\x2f\x32\x80\x8c\x42\x49\x47\x35\x48\x4b\x53\x43\x53\x2d\x31\x02
+
+	mb_conversion	[\x8140,\xfefe]->\0x0140
+	ct_conversion	[\x0140,\x7efe]->\0x8140
+}
+
+XCOMM HKSCS extensions, F9D6-F9FE
+cs6     {
+	side		none
+	length		2
+	byte1		\xf9
+	byte2		\xd6,\xfe
+
+	wc_encoding	\x00008000
+	ct_encoding	BIG5HKSCS-2:GLGR:\x1b\x25\x2f\x32\x80\x8c\x42\x49\x47\x35\x48\x4b\x53\x43\x53\x2d\x32\x02
+
+	mb_conversion	[\x8140,\xfefe]->\0x0140
+	ct_conversion	[\x0140,\x7efe]->\0x8140
+}
+
+END XLC_XLOCALE

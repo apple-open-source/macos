@@ -1,0 +1,40 @@
+dnl Id: configure.in,v 1.1 1998/01/14 21:45:26 mleisher Exp $
+dnl Process this file with autoconf to produce a configure script.
+
+AC_INIT(../../lib/freetype.h)
+
+AC_PROG_CC
+
+OLDLIBS=$LIBS
+LIBS="$LIBS -L../../lib/.libs"
+CPPFLAGS="$CPPFLAGS -I../../lib"
+AC_CHECK_LIB(ttf, TT_Init_FreeType, LIBS="$LIBS -lttf",[
+             AC_MSG_ERROR([Can't find ttf library! Compile FreeType first.])])
+AC_SUBST(LIBS)
+
+dnl get Compiler flags right.
+
+if test "x$CC" = xgcc; then
+	XX_CFLAGS="-Wall -pedantic"
+else
+	case "$host" in
+  		alpha-dec-osf*)
+        	XX_CFLAGS="-std1 -O2 -g3"
+       		;;
+  		*)
+          	XX_CFLAGS=
+       		;;
+	esac
+fi
+AC_SUBST(XX_CFLAGS)
+
+AC_CHECK_PROG(RM, rm, rm)
+
+dnl Checks for header files.
+AC_HEADER_STDC
+AC_CHECK_HEADERS(unistd.h)
+
+dnl Checks for library functions.
+AC_FUNC_MEMCMP
+
+AC_OUTPUT(Makefile)

@@ -116,6 +116,8 @@ public:
 
 protected:
 		
+	sComProxyData*  AllocToProxyStruct  ( sComData *inDataMsg );
+	sComData*		AllocFromProxyStruct( sComProxyData *inProxyDataMsg );
 	uInt32		DoTCPRecvFrom			( void *ioBuffer, const uInt32 inBufferSize );
 
 private:

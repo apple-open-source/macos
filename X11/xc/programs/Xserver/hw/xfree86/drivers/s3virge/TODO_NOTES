@@ -1,0 +1,326 @@
+S3 ViRGE 4.0 devel notes
+
+
+
+Status
+------
+1/26/2003
+Ver 1.8.6
+Pre-4.3.0 release.  320x240 doublescan support w/mouse adjust,
+power management printouts, DAC error printout fix, log XVideo status based
+on chipset, preliminary support for disabling XV when a mode doesn't
+support it.
+
+5/18/2002
+Ver 1.8.5
+320x240 mode support (doublescan).
+
+2/2/02
+Ver 1.8.4
+Make 320x240 mode work in depth 15 & 16.
+Testing, need to switch streams on/off based on dblscan_v flag and mode.
+Virge MX panel_on test (doesn't work.)
+
+1/10/02
+Ver 1.8.3
+DGA fix, buffer pointer used wrong value.  Submitted for 4.2.0 (late).
+
+Ver 1.8.2
+DPMS testing (display DPMS status, disable MX LCD panel), DGA testing.
+
+11/11/01 KJB
+Ver 1.8.1
+ViRGE MX (& GX2) fix to CR63 for problems with modes < 1024x768 from 
+max <sunmax@libero.it>. Submitted for 4.2.0.
+
+11/5/01 KJB
+Ver 1.8.0
+ViRGE MX & GX2 XVideo changes.  Fix overlap/color keying on MX, fix
+and enable GX2 XVideo.
+Submitted for 4.2.0.
+
+11/4/01 KJB
+Ver 1.7.0
+Bump version for 4.2.0.  Update man and README.
+
+11/3/01 KJB
+Ver 1.6.16
+Pre-4.2.0 patch.  cr3a fix, virge mx xvideo support, xvideo disable option
+(helps with high res modes on dx and screen noise), remove accel solid
+fill rect for trio3d, bring over some trio3d and mx fixes from 4.0.3 test
+drivers.  Includes VERBLEV bump to 5 to remove register dumps in log file.
+
+Ver 1.6.15
+Experimental - Scanline color expand - GX2
+
+9/21/01 KJB
+Ver 1.6.14
+ModeInit - cr3a for MX/GX2, don't clear reserved bit 0x40 (revert change).
+Back out previous cr3a patch for testing.
+
+9/18/01 KJB
+Ver 1.6.13
+Option "xvideo" added.  Add patch provided by Sven Menke
+<Menke@SLAC.Stanford.EDU> for XV support on MX (slight changes to logic).
+
+Ver 1.6.12
+Adam J. Richter's cr3a fix (possibly temporary).
+
+5/30/01 KJB
+Ver 1.6.10
+Disable MaxHValue & MaxVValue setting.
+
+1/03/01 KJB
+Ver 1.6.0
+Revert ViRGE to pre-Xv changes.  ViRGE DX still supports Xv, but changes
+added for Xv and ViRGE caused problems with normal display.
+
+11/27/00 KJB
+Ver 1.5.0
+Clean up, bump version for 4.0.2 submission.
+CR3A, bit 0x40 (reserved) cleared for MX/GX2.  Update man page.
+
+11/24/00 KJB
+Disable CPU to screen color expansion on GX2, causes lockups on GX2 with
+'locate html' in an xterm.  Add WaitCmd code to prevent accelerator and
+reg command path activity at the same time on GX2.
+XVideo fixes, left side clipping fixed for video windows extending off left
+side of screen.  Add horizontal filtering modes for 1-2x and >3x scaling.
+
+11/7/00 KJB
+Ver 1.4.0
+Enable MX fixes, testing with accel BLT_BUG set is worse on GX2, so left
+it out.  BLT_BUG wasn't being enabled on ViRGE & VX because of case usage,
+enabled now.  Re-enable silken mouse for GX2.  Add Render/fbPicture support.
+Fix a few compiler warnings.
+
+11/5/00 KJB
+Continued work on GX2, much stabler now, but I think there is a lockup case
+left if you enable pci_burst and pci_retry with accel.  I still see screen
+flashes with vertical bars once in a while, and the log reports a GEReset.
+Added fbPicture (render) support, untested.  XV code for GX2 is added,
+but not working yet.
+
+10/29/00 KJB
+Much work on GX2, now SWCursor locks up but HWCursor is stable, go figure.
+Loading Netscape a couple times with the mail window was enough to lock it
+up twice in a row.  Server was locked but not a box (PCI) lock.  Also, 
+vertical barring still occurred a couple times, so HW cursor wasn't causing
+that.  Try blt_bug flag again for lock up case.  And attach to debug server
+and bt...  Sleep now...
+
+10/21/00 KJB
+Ver 1.3.0
+Depth 16 Xv support added.  Testing on ViRGE DX.  1280x1024x24 is noisy, so
+needs FIFO tuning.
+
+9/27/00 KJB
+Initial Xv support in depth 24.
+
+9/10/00 KJB
+Convert to FB.  Add option "UseFB", default true.  Added
+VerticalRetraceWait timeout back as default.  #if0 out the line accel
+code in s3v_accel.c.  The Subsequent...Bresenham line code causes a lockup
+when used with fb.  We didn't have any hardware accel in there anyway...
+
+7/25/00 KJB
+Started Xv additions.
+
+6/26/00 KJB
+GX2 seems to have an accel bug.  I see the entire screen go solid color or
+a wide stripe pattern for about 1 second.  The S3VGEReset gets called twice,
+and then everything is okay.  Unless SilkenMouse is enabled...  That seems to
+get you a server lock instead.  Short term is to disable SilkenMouse for GX2
+only.  SilkenMouse isn't really the problem of course, it just happens that if
+we move the mouse during the 1 second engine lockup we appear more likely to
+never recover.
+
+6/23/00 KJB
+Ver 1.2.0 - Fix console corruption on GX2 caused by reserved bit use in CR3A.
+Fix GX2 noise on screen in hi-res depth 24 by increasing FIFO fill threshold. 
+
+6/12/00 KJB
+Ver 1.1.0 - Add Init for SilkenMouse, add xf86SetBackingStore call, move
+int10Symbols[] to remove warnings.
+
+3/3/00 KJB
+Ver 1.0.0 - S3VProbeDDC code for X -configure option added, add timeout to
+WAITIDLE macro in s3v_macros.h, change ImageWriteFlags adding NO_GXCOPY.
+Start of GX2 fixes, use CR regs for FIFO settings.  Update copyrights.
+
+2/11/00 KJB
+Ver 0.11.0 - Add cfb16/24BresS to module symbols to remove warnings.
+Fix viewport restore problem after EnterVT in 24 bpp.
+Clean up log output, removing register dumps from normal console log.
+
+6/26/99 KJB
+Make the memory settings for fifo_conservative the default, 'fifo_conservative'
+does nothing additional now.  Patch includes DGA2 additions below, non-working.
+Expected to be included in 3.9Pu.
+
+Changes in 3.9Pt by others include additions for newer RAC support.  Some reports
+say multi-head works now with ViRGE.
+
+6/17/99 KJB
+Ver 0.9.0 - Prelim DGA2 support modeled after MGA.
+
+5/28/99 KJB
+Ver 0.8.0 - Changes to 3.9Po - Cleaned up debug register printing function, minor
+changes to man page, remove S3V.sgml and add new s3virge.sgml in doc/sgml, also
+remove README.S3V from doc directory.
+
+
+4/5/99 KJB
+3.9Ph - Ver 0.7.0 - Virge man page added, HW Cursor fixed, rename chipsets removing
+slashes in the names.
+
+03/27/99 KJB
+Ver 0.6.0 - hwcursor additions, added s3v_hwcurs.c and Option "swcursor".
+Default is hwcursor, Option "swcursor" will disable it.
+
+Ver 0.5.0 - patch against 3.9Pf (seq 2615), fix depth 24 and Accel flags, sync pci_burst option to previous changes, remove s3v_comp.h and s3v_pio.c and merge as needed.
+
+03/21/99 KJB
+3.9Pf has Matt Grossman's Alpha changes.
+For next patch - remove s3v_pio.c and s3v_comp.h.  Include the EnableMMIO and
+DisableMMIO functions from s3v_pio.c in s3v_driver.c.
+
+03/02/99 KJB
+3.9Pc - depth 24 doesn't work on my ViRGE DX.  NoAccel doesn't start, accel does
+but has blocky noise.
+
+03/01/99 KJB
+Macro change done, VGAIN/VGAOUT for register access, INREG/OUTREG for s3v_accel.c.
+Added Mark Vojkovich's re-write of the accel code.  It may only be clean for ViRGE DX
+at the moment.  x11perf showed a couple artifacts in 'move window via parent'.
+In progress, attempt to call cfbScreenInit() functions after MapMem/EnterVT.  Not
+working yet.  Version stamped 0.4.0.
+
+02/22/99 KJB
+Macro change coming to add Mark's accel update.  VGAOUT for old stuff and MEMOUT
+for new stuff?  That way there's no confusion with the old INREG/OUTREG macros.
+Or maybe just stick with INREG/OUTREG for new stuff.
+
+01/30/99 KJB
+Version stamp 0.3.0.  Changed Chipset flags to use PCI IDs exclusively, also use
+common/xf86PciInfo.h for PCI IDs rather than coding them in regs3v.h.
+
+11/28/98 KJB
+Bumped version stamp to 0.2, expect code in 3.9No.  Cleaned up s3v.h and
+s3v_driver.c by removing unused definition & code sections.  Added
+options set_mclk (from 3.3.2) and set_lcdclk (3.3.3 MX).  Code support
+from 3.3.3 for ViRGE GX2 and MX+ is included.
+Disabled call to 32 bpp AccelInit to get -depth 24 -bpp 32 working again.
+
+11/27/98 KJB
+More 3.3.3 import.
+New registers saved, CR40,CR45,SR8,(for MX) SR29,SR45,SR55,SR56,SR57.
+Reviewed s3vdriver.h, rehs3v.h, newmmio.h, s3v_accel.c, s3v_driver.c.
+Added ViRGE MX, MX+ & GX2 support.  Re-synced parts of mode save and init
+with 3.3.3 versions.  Added timeout ability for WaitIdle() and friends.
+Added chipnames and numbers to Chipsets struct.
+
+11/26/98 KJB
+Import additions from 3.3.3, newmmio.h, regs3v.h,
+
+Trap fills disabled because they don't match cfb, pixmap cache & ImageWrite
+working, fixed depth 8 color loss on VT switches, INREG & OUTREG modified to
+use a single offset value instead of adding the base and offset together.
+
+11/18/98 KJB
+3.9Nn
+Acceleration working for Bitblt, ScreenToScreenCopy, Color 8x8 Rect fills,
+and Rect/Trap fills.
+Trap fills do not support transparency, so that needs to be exported to XAA.
+
+
+10/31/98 KJB
+Working depth 8, discolored dep 16 but runs, dep 24 screen goes black, 
+C-A-Bkspc restores text console.  At 3.9Nk tree level, module would not
+load in Loader server.  why?  Static server tested.
+
+10/29/98 KJB
+ModeInit() needs work, options are heavily #if'd to try and get 8bpp
+working.
+
+10/16/98 KJB
+General 4.0 architecture is setup.  Presently at 3.9Nc level, if moved
+to a newer tree you will need to add the resource handling functions from
+Egbert (I haven't tackled that yet).
+
+At the moment the ScreenInit() function is coded to return FALSE.  On my
+ViRGE DX card this version does not lock up, but it does destroy the
+video mode.  Make sure you have an external terminal or network connection
+if you run it (or blindly do a restart from your main terminal).  I make
+no guarantees that it won't hard lock other versions of ViRGE.
+
+I've left out the Alpha memory mapping, along with all option processing.
+Those will need to be done once the driver is minimally working.
+
+Note that everything in s3v_driver.c is MMIO only.  There are a pair of
+PIO functions in s3v_pio.c, but that is the only place.  See notes below
+about my ViRGE DX BIOS and why I needed to do this on my hardware.
+
+Other stuff...
+Some test stuff is assuming 8bpp, so 16 & 24 are broken.
+On my hardware, I am presently trying to get the Save/Restore sequence to
+recover the video mode.  At the moment, when I run this driver, I get:
+ScreenInit() runs to completion.
+It returns FALSE, so the Server aborts.
+LeaveVT() is called, and runs to completion.
+The Server exits gracefully, but my monitor goes powersaver and the video
+mode is not recovered.
+
+
+
+TODO items
+----------
+1/30/03 General option "videoram" is ignored by the virge driver.
+  (Meelis Roos)
+3/24/02 Xv reported to not work as secondary in Xinerama multihead.
+  (xav on irc)
+3/24/02 DPMS doesn't fully disable the screen.  Blue line across the
+  center in all modes. (xav on irc)
+3/25/02 Secondary reports primary BIOS during int10 detection. ie:
+
+(II) S3VIRGE(1): VESA BIOS detected
+(II) S3VIRGE(1): VESA VBE Version 2.0
+(II) S3VIRGE(1): VESA VBE Total Mem: 4194240 kB
+(II) S3VIRGE(1): VESA VBE OEM: ATI RAGE128
+(II) S3VIRGE(1): VESA VBE OEM Software Rev: 1.0
+(II) S3VIRGE(1): VESA VBE OEM Vendor: ATI Technologies Inc.
+(II) S3VIRGE(1): VESA VBE OEM Product: R128
+(II) S3VIRGE(1): VESA VBE OEM Product Rev: 01.00
+
+(xav on irc)
+
+
+Check CR65 usage, bit 2 set based on S3_EARLY_SC?  In my manual bit 2 is
+enable MMIO to RAMDAC registers.
+
+Notes:
+----------
+
+/config/cf/xfree86.cf
+
+have to add s3v to XF86CardDrivers for imake to make the 
+drivers/s3v Makefile.
+
+To remake makefiles, after editing Imakefile, go to dir above drivers/s3v
+and do a 'make Makefiles'.
+
+For debug, make CDEBUGFLAGS='-g -DDEBUG', adding -DMetroLink enables
+timeout for VerticalRetraceWait().
+
+
+
+S3 ViRGE DX stuff:
+
+Card seems to power up (or BIOS forces) with MMIO disabled.  All flavors are
+disabled, because CR53 comes up as 0.  This may preclude using this card
+as the second device in a multi-head situation although David D. says that
+the new config. management stuff may help here.
+
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3virge/TODO_NOTES,v 1.23 2003/02/13 03:21:33 dawes Exp $

@@ -1,0 +1,96 @@
+
+// based on
+// Northern Sami keyboards for Finland, Norway and Sweden
+//
+// Describes the differences between a very simple en_US
+// keyboard and a Norwegian Northern Sami keyboard (with
+// dead key support) according to the spec on
+// http://www.hum.uit.no/a/trond/se-lat9-no-keys.html
+// Written by Børre Gaup <boerre.gaup@pc.nu>
+//
+// $XFree86: xc/programs/xkbcomp/symbols/pc/sapmi,v 1.2 2002/11/22 04:03:28 dawes Exp $
+
+partial alphanumeric_keys
+xkb_symbols "basic" {
+    include "pc/latin"
+
+    name[Group1]= "Sámegiella";
+
+    key <AE01>	{ [         1,     exclam,    copyright,   exclamdown ]	};
+    key <AE02>	{ [         2,   quotedbl,           at,   registered ]	};
+    key <AE03>	{ [         3, numbersign,     sterling,         less ]	};
+    key <AE04>	{ [         4,     dollar,       dollar,      greater ]	};
+    key <AE05>	{ [         5,    percent,        U2022,        U2030 ]	};
+    key <AE06>	{ [         6,  ampersand,      section,    paragraph ]	};
+    key <AE07>	{ [         7,      slash,    braceleft,          bar ]	};
+    key <AE08>	{ [         8,  parenleft,  bracketleft,    braceleft ]	};
+    key <AE09>	{ [         9, parenright, bracketright,   braceright ]	};
+    key <AE10>	{ [         0,      equal,   braceright,     notequal ]	};
+    key <AE11>	{ [      plus,   question,     division, questiondown ]	};
+    key <AE12>	{ [ backslash,      grave,        acute,   asciitilde ]	};
+
+    key <AD01>	{ [    aacute,     Aacute,            q,            Q ]	};
+    key <AD02>	{ [    scaron,     Scaron,            w,            W ]	};
+    key <AD03>	{ [         e,          E,       eacute,       Eacute ]	};
+    key <AD04>	{ [         r,          R,   registered,    trademark ]	};
+    key <AD06>	{ [         y,          Y,       yacute,       Yacute ]	};
+    key <AD07>	{ [         u,          U,   udiaeresis,   Udiaeresis ]	};
+    key <AD08>	{ [         i,          I,   idiaeresis,   Idiaeresis ]	};
+    key <AD09>	{ [         o,          O,           oe,           OE ]	};
+    key <AD11>	{ [     aring,      Aring,  acircumflex,  Acircumflex ]	};
+    key <AD12>	{ [       eng,        ENG,     quotedbl,  asciicircum ]	};
+
+    key <AC01>	{ [         a,          A,       agrave,       Agrave ]	};
+    key <AC02>	{ [         s,          S,       ssharp,   apostrophe ]	};
+    key <AC04>	{ [         f,          F,  ordfeminine,  ordfeminine ]	};
+    key <AC05>	{ [         g,          G,       gcaron,       Gcaron ]	};
+    key <AC06>	{ [         h,          H,        U01E5,        U01E4 ]	};
+    key <AC07>	{ [         j,          J,      notsign,     multiply ]	};
+    key <AC08>	{ [         k,          K,        U01E9,        U01E8 ]	};
+    key <AC09>	{ [         l,          L,       degree,       hyphen ]	};
+    key <AC10>	{ [    oslash,   Ooblique,   odiaeresis,   Odiaeresis ]	};
+    key <AC11>	{ [        ae,         AE,   adiaeresis,   Adiaeresis ]	};
+    key <TLDE>	{ [       bar,    section,    brokenbar,    paragraph ]	};
+
+    key <BKSL>	{ [   dstroke,    Dstroke,   apostrophe,     asterisk ]	};
+    key <AB01>	{ [         z,          Z,        U0292,        U01B7 ]	};
+    key <AB02>	{ [    ccaron,     Ccaron,            x,            X ]	};
+    key <AB03>	{ [         c,          C,     ccedilla,     Ccedilla ]	};
+    key <AB04>	{ [         v,          V, lessthanequal, guillemotleft ] };
+    key <AB05>	{ [         b,          B, greaterthanequal, guillemotright ] };
+    key <AB06>	{ [         n,          N, leftsinglequotemark, leftdoublequotemark ] };
+    key <AB07>	{ [         m,          M, rightsinglequotemark, rightdoublequotemark ]	};
+    key <AB08>	{ [     comma,  semicolon, singlelowquotemark, doublelowquotemark ] };
+    key <AB09>	{ [    period,      colon,     ellipsis, periodcentered ] };
+    key <AB10>	{ [     minus, underscore,       endash,       emdash ]	};
+
+    key <LSGT>	{ type[Group1] = "FOUR_LEVEL",
+                  [    zcaron,     Zcaron,        U01EF,        U01EE ]	};
+
+    key <RALT>  { type[Group1]="TWO_LEVEL",
+                  [ ISO_Level3_Shift, Multi_key ]   };
+    modifier_map Mod5   { <RALT> };
+};
+
+ xkb_symbols "sefi" {
+
+    // Describes the differences between a Norwegian Northern Sami
+    // (keyboard with dead key support) and a Swedish/Finnish Sami
+    // keyboard according to the specs at:
+    // http://www.hum.uit.no/a/trond/se-lat9-sefi-keys.html
+
+    include "pc/sapmi(basic)"
+
+    key <AC10>	{ [odiaeresis, Odiaeresis,       oslash,     Ooblique ]	};
+    key <AC11>	{ [adiaeresis, Adiaeresis,           ae,           AE ]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "nodeadkeys" {
+
+    // Modifies the basic Norwegian layout to eliminate dead keys
+
+    include "pc/sapmi(basic)"
+
+    key <AE12>	{ [ backslash,      grave,        acute,       ogonek ]	};
+};

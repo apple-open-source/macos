@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -198,6 +195,12 @@ private:
     enum {
         kSMUSleepDelay          = 150	// milliseconds
     };
+	
+    enum {
+    kSMU_Open        = 1,
+    kSMU_I2C_Cmd     = 2,
+    kSMU_Close       = 3
+    };
 
     // redefine the types so it makes easyer to handle
     // new i2c if they have wider registers.
@@ -325,6 +328,9 @@ private:
     // This is a parameter used in memory cells and useless for
     // the mac-io. It's also the bus number in the PMU:
     UInt8 portSelect;
+	
+    // This is the bus# read from the "reg" property:
+    UInt8 portRegSelect;
 
     // This is the current state for the driver:
     PPCI2CState currentState;
@@ -581,9 +587,10 @@ public:
 
 protected:
     // send a I2C call to Apple SMU (uses callPlatformFunction)
+	// command = 1 for OpenI2C, 2 for sendI2CCommand, 3 for CloseI2C
     static IOReturn AppleSMUSendI2CCommand( IOService *smu,
                         IOByteCount sendLength, UInt8 * sendBuffer,
-                        IOByteCount * readLength, UInt8 * readBuffer);
+                        IOByteCount * readLength, UInt8 * readBuffer, UInt8 command );
                                                 
     // send a write I2c packet to SMU, includes status check at end
     // static? 

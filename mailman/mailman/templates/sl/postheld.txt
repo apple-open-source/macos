@@ -1,0 +1,16 @@
+Va¹e sporoèilo za '%(listname)s' z zadevo
+
+    %(subject)s
+
+èaka na odobritev moderatorja seznama.
+
+Razlog za èakanje:
+
+    %(reason)s
+
+Sporoèilo bo objavljeno na po¹tnem seznamu ali pa boste
+prejeli obvestilo o moderatorjevi odloèitvi. Èe ¾elite
+preklicati sporoèilo, obi¹èite spletno stran:
+
+    %(confirmurl)s
+

@@ -1,0 +1,599 @@
+<!doctype linuxdoc system>
+<article>
+
+<!-- Title information -->
+
+<!--
++<title>Mach64 X Server Release Notes
++<author>Kevin E. Martin (martin@cs.unc.edu)
++<date>23 October 1996
+-->
+<title>Mach64 X サーバ のリリースノート
+<author>Kevin E. Martin (martin@cs.unc.edu)
+<date>1996 年 10 月 23 日
+<trans> 岡本　一幸 Kazuyuki Okamoto &lt;ikko-@pacific.rim.or.jp&gt;
+
+<!-- Table of contents -->
+<toc>
+
+<!-- Begin the document -->
+<!-- ....1.........2.........3.........4.........5.........6...... -->
+
+<sect> サポートした カード, RAMDAC と ピクセル当りのビット数<p>
+Mach64 X サーバは 全ての Mach64 を基にしたカード上で 80MHz 以上の
+ドットクロックで 8bpp をサポートします。 殆どのカードではもっと高いドッ
+トクロックと他の深さが使用可能です（下の表を参照してください）。
+カード上の RAMDAC で何がサポートされているか分かります。
+<p>
+<verb>
+ RAMDAC  最大ドットクロック 深さ     最大解像度      要求ビデオメモリ
+-------- ------------------ ----     ----------      ----------------
+ATI68860         135MHz       8      1280x1024             2Mb
+ATI68860         135MHz      16      1280x1024             4Mb 
+ATI68860          80MHz      32       1024x768             4Mb
+
+ATI68875          80MHz      32       1024x768             4Mb
+
+CH8398           135MHz       8      1280x1024             2Mb
+CH8398            80MHz      16       1024x768             2Mb
+CH8398            40MHz      32        800x600             2Mb
+
+STG1702          135MHz       8      1280x1024             2Mb
+STG1702           80MHz      16       1024x768             2Mb
+STG1702           50MHz      32        800x600             2Mb
+
+STG1703          135MHz       8      1280x1024             2Mb
+STG1703           80MHz      16       1024x768             2Mb
+STG1703           50MHz      32        800x600             2Mb
+    
+AT&amp;T20C408       135MHz       8      1280x1024             2Mb
+AT&amp;T20C408        80MHz      16       1024x768             2Mb
+AT&amp;T20C408        40MHz      32        800x600             2Mb
+    
+Internal         135MHz       8      1280x1024             2Mb
+Internal          80MHz      16       1024x768             2Mb
+Internal          40MHz      32        800x600             2Mb
+
+IBM RGB514       220MHz       8      1600x1200             2Mb
+IBM RGB514       220MHz      16      1600x1200             4Mb
+IBM RGB514       135MHz      32       1024x768             4Mb
+
+その他[*]         80MHz       8      1280x1024             2Mb
+
+</verb>
+&lsqb*&rsqb - ドットクロックを 80MHz に制限し、bpp を 8 に制限します。
+<!--
+&dquot;<tt>-probeonly</tt>&dquot; のオプションを付けて Mach64 X サー
+バーを実行した時に RAMDAC を調べます。
+
+一般に ATI Graphics Pro Turbo と ATI WinTurbo カードには ATI68860 と 
+ATI68880 RAMDAC が搭載されています。一般に ATI Graphics Xpression カー
+ドには他の RAMDAC が搭載されています。
+
+-The RAMDAC is reported when you run the Mach64 X server with the
+-"<tt>-probeonly</tt>" command line option.    
+-
+-The ATI68860 and ATI68880 RAMDACs are usually found on ATI Graphics
+-Pro Turbo and ATI WinTurbo cards.  The other RAMDACs are usually found
+-on ATI Graphics Xpression cards.
++The table above specifies the maximum resolution and the video memory
++required to run this maximum resolution.  Smaller resolutions will
++require less video memory.
+-->
+上記の表は最大解像度とその最大解像度を使うのに必要なビデオメモリを
+示しています。より小さい解像度にはより少ないビデオメモリで大丈夫
+です。
+
+<!--
++The RAMDAC is reported when you run the Mach64 X server with the
++"<tt>-probeonly</tt>" command line option.  The RAMDAC reported should
++be correct for all Mach64 cards.  It can also be specified in the
++XF86Config file, but this is not recommended unless the RAMDAC
++reported in the probeonly output is incorrect.  Before specifying the
++RAMDAC in your XF86Config file visually verify which RAMDAC is on your
++Mach64 card.  If the RAMDAC reported in the probeonly output is
++definitely different than what you see on the card, then check to see
++if you have a RAMDAC specified in your XF86Config file.  If you do,
++comment this line out and re-run the Mach64 X server with the
++"<tt>-probeonly</tt>".  If it still reports the incorrect RAMDAC,
++please send in a bug report to XFree86@XFree86.Org.
++
++The ATI68860 RAMDACs are usually found on ATI Graphics Pro Turbo and
++ATI WinTurbo cards.  The IBM RGB514 RAMDAC is found on the ATI
++Graphics Pro Turbo 1600 card.  The other RAMDACs are usually found on
++ATI Graphics Xpression, ATI Video Xpression and ATI 3d Xpression
++cards.  Mach64 CT, ET, VT, GT (3D Rage) and 3D Rage II chips have an
++"Internal" RAMDAC (i.e., it is built into the Mach64 chip).
+-->
+"<tt>-probeonly</tt>" コマンド行オプションを付けて Mach64 X サーバを
+実行したとき RAMDAC が何かを調べます。全ての Mach64 カードでは RAMDAC
+は正しく調べられます。調べた結果を XF86Config に指定しましょう。しかし、
+probeonly の結果が正しくない場合は指定しないように。
+XF86Config に RAMDAC を指定する前に Mach64 カードを目で見てのどんな
+RAMDAC が搭載されているか確認してください。probeonly の出力結果の RAMDAC
+とボート上のチップとはっきりと違う場合、RAMDAC の行をコメントにして
+もう一度 "<tt>-probeonly</tt>" を付けて Mach64 X サーバを実行してくださ
+い。これでもまだ間違っている RAMDAC を報告する場合は XFree86@XFree86.Org
+にバグレポートを送ってください。
+
+一般に ATI Graphics Pro Turbo と ATI WinTurbo カードには ATI68860 と 
+ATI68880 RAMDAC が搭載されています。IBM RGB514 RAMDAC は ATI
+Graphics Pro Turbo 1600 カードに搭載されています。
+一般に ATI Graphics Xpression, ATI Video Xpression と ATI 3d Xpression
+カードには他の RAMDAC が搭載されています。Mach64 CT, ET, VT, GT (3D Rage)
+と 3D Rage II チップは "内蔵" RAMDAC (例えば Mach64 チップに組み込んで) 
+になっています。
+
+<!--
+-(packed pixel mode), but this is not currently supported in the Mach64
+-for various reasons.  The main one is that there is no current support
+-for 24bpp modes in the X Consortium's servers.  Adding this support
+-will require a great programming effort.
++(packed pixel mode), but this is not currently supported in the
++Mach64 X server.  This will be added in a future release.
+-->
+Mach64 グラフィックカードは特別な(パックドピクセル) 24bpp モード が使用
+可能と宣伝していますが、このモードは現在、Mach64 ではサ
+ポートしていません。これから出るバージョンでサポートするでしょう。
+
+<!--
+-12Mb of main memory will not work.
++12Mb of main memory will not work.  If you have a PCI based Mach64
++card or a VLB based Mach64 card, then the Mach64 X server will work
++with any amount of main memory.
+-->
+Mach64 X サーバが正確に機能するにはビデオメモリの隙間が必要です。これ
+は ISA Mach64 カード とシステムのメインメモリに 12M バイト以上のメモリ
+があると動作しないことを示します。PCI の Mach64 カードまたは VLB の
+Mach64 カードの場合に、 Mach64 X サーバはメインメモリの一部を使って
+動作するでしょう。
+
+<sect>Mach64 X サーバの表示速度の最適化<p>
+Mach64 X サーバの表示速度の最適化の為に、次の最高の解像度を使用するこ
+とをお勧めします。フォントとピクスマップキャッシュとハードウェアカーソ
+ルを使う余裕が出来ます。
+
+<verb>
+  最大解像度     深さ  ビデオメモリ
+--------------   ---   ---------
+  1280x1024       8       4Mb
+  1280x1024      16       4Mb
+   1024x767      32       4Mb
+
+  1280x1024       8       2Mb 
+   1024x767      16       2Mb
+    800x600[*]   32       2Mb
+
+   1024x767       8       1Mb 
+    800x600[*]   16       1Mb
+</verb>
+
+<!--
+&lsqb;*&rsqb; - 2M バイトのビデオカードでは、 640x480 モードにおいて
+	1024x480 の仮想解像度を使うためにはフォントとピクスマップの
+	キャッシュが唯一の方法です。キャッシュから得られる表示速度の効
+	果を得るには最大画面サイズを 800x600 にすることをお勧めします。
+-&lsqb;*&rsqb; - With a 2Mb video card, the only way to use the font and pixmap
+-      cache is to have a virtual resolution of 1024x480 with a 640x480
+-      mode.  I suggest using 800x600 to maximize your screen size at 
+-      the cost of the speed gained from the caches.
++&lsqb;*&rsqb; - With a 2MB video card, the only way to use the font
++and pixmap caches is to have a virtual resolution of 1024x480 with a
++640x480 mode.  I suggest using 800x600 to maximize your screen size at
++the cost of the speed gained from the caches.  The same argument can
++be made for 1MB video cards running in 16bpp mode.  Note that it is
++not possible to run in 32bpp mode with 1MB of video memory.
+-->
+&lsqb;*&rsqb; - 2M バイトのビデオカードでは、 640x480 モードにおいて
+1024x480 の仮想解像度を使うためにはフォントとピクスマップの
+キャッシュが唯一の方法です。キャッシュから得られる表示速度の効
+果を得るには最大画面サイズを 800x600 にすることをお勧めします。
+同じ理屈で 16bpp で 1M バイトのメモリのカードが動作するでしょう。
+1M バイトのビデオメモリでは 32bpp での動作は出来ないことに注意して
+ください。
+
+<!--
+上記の説明の技術的な説明は: Mach64 X サーバは画面の幅が 1024 の時にの
+みフォントとピクスマップキャッシュが有効になるからです。この制限は将来
+の X サーバのバージョンでは無くなるでしょう。ビデオカードの最大表示性
+能を引き出すには、(最低 1024x256 の)キャッシュ用の非表示領域を充分に確
+保出来る事を確認する必要があります。キャッシュについて付け加えれば、
+Mach64 は最終的にメモリの隙間 1024 バイトをメモリマップドレジスタに割り
+付けます。ビデオメモリから他の線を取り除きます。この時、最低 1024x257 
+のビデオメモリ領域が必要になります。
+-of 1024.  This restriction will be removed in a future version of the
+-X server.  To obtain the best performance from your video card, you
+-need to make sure that there is enough room off-screen for the caches
+-(at least 1024x256).  In addition to the cache, the Mach64 uses memory
+-mapped registers which are mapped to the last 1024 bytes of the memory
+-aperture.  This takes away another line from video memory.  Thus, you
+-need at least a video memory area of 1024x257.
++of 1024 or greater.  This restriction will be removed in a future
++version of the X server.  To obtain the best performance from your
++video card, you need to make sure that there is enough room off-screen
++for the caches (at least 1024x256).  In addition to the cache, the
++Mach64 uses memory mapped registers which are mapped to the last 1024
++bytes of the memory aperture.  This takes away another line from video
++memory.  Thus, you need at least a video memory area of 1024x257.
+-->
+上記の説明の技術的な説明は: Mach64 X サーバは画面の幅が 1024 以上の時
+にの
+みフォントとピクスマップキャッシュが有効になるからです。この制限は将来
+の X サーバのバージョンでは無くなるでしょう。ビデオカードの最大表示性
+能を引き出すには、(最低 1024x256 の)キャッシュ用の非表示領域を充分に確
+保出来る事を確認する必要があります。キャッシュについて付け加えれば、
+Mach64 は最後のメモリの隙間 1024 バイトをメモリマップドレジスタに割り
+付けます。ビデオメモリから他の線を取り除きます。この時、最低 1024x257 
+のビデオメモリ領域が必要になります。
+
+<sect>XF86Config オプション<p>
+Mach64 X サーバ用に &dquot;Device&dquot; 節でいくつかのオプションをサ
+<!--
+ポートしていています。Mach64 X サーバは BIOS からクロックを読み出しま
+す。XF86Config 内の &dquot;Clocks&dquot; 行は
+&dquot;no_bios_clocks&dquot; オプションが与えられない限り通常無視しま
+す。
+-server.  The Mach64 X server reads the Clocks from the BIOS.  The
+-"Clocks" lines in the XF86Config file are normally ignored by the
+-Mach64 X server unless the "no_bios_clocks" option is given.
++server.  By default, the Mach64 X server will determine the RAMDAC
++type from the BIOS.  If you wish to override the default RAMDAC type
++(not recommended unless the BIOS incorrectly reports your RAMDAC
++type), you can specify the RAMDAC type in the XF86Config file with the
++"Ramdac" entry.  The Mach64 X server will also program the clocks
++based on the clock chip read from the BIOS.  If you wish to override
++the default clock chip type (not recommended unless the BIOS
++incorrectly reports your clock chip type), you may specify the clock
++chip in the XF86Config file with the "ClockChip" entry.  If, however,
++you wish to use the preprogrammed clocks, you can turn off the clock
++programming with the "no_program_clocks" option.  In this case, the
++Mach64 X server reads the Clocks from the BIOS.  The "Clocks" lines in
++the XF86Config file are normally ignored by the Mach64 X server unless
++the "no_bios_clocks" option is given.
+-->
+ポートしていています。標準で Mach64 X サーバは BIOS から RAMDAC の
+型を認識します。標準の RAMDAC の型を上書きしたい場合は、(BIOS が間違っ
+た RAMDAC の報告をしない限りお勧めしませんが) XF86Config ファイルの
+"Ramdac" の項目に RAMDAC の型を指定することができます。Mach64 X 
+サーバが同様に BIOS からクロックチップのクロックを読み出すときの問題
+があるでしょう。標準のクロックチップの型を上書きしたい場合は、(BIOS 
+が間違ったクロックチップの報告をしない限りお勧めしませんが) XF86Config
+ファイルの "ClockChip" の項目にクロックチップの型を指定することができ
+ます。事前に組み込まれたクロックを使いたい場合は "no_program_clocks" 
+オプションを指定してクロック組み込みを止めてください。この場合、
+Mach64 X サーバは BIOS からクロックを読み込みます。通常、XF86Config
+ファイルの "Clocks" 行は "no_bios_clocks" オプションが与えられない
+限り無視します。
+
+<descrip>
+<tag>&dquot;sw_cursor&dquot; オプション</tag>
+		このオプションはハードウェアカーソルのかわりにソフト
+		ウェアカーソルを使用可能にします。
+<!--
+<tag>Option &dquot;hw_cursor&dquot;</tag>
+		This option turns on the hardware cursor.  This
+		should not be necessary since the hardware cursor
+		is used by default unless the "sw_cursor" option is
+		specified.
+-->
+<tag>&dquot;hw_cursor&dquot; オプション</tag>
+		このオプションはハードウェアカーソルを使用可能にしま
+		す。"sw_cursor" オプションが指定されている場合を除いて
+		ハードウェアカーソルを標準で使う時は必要ありません。
+<tag>&dquot;composite&dquot; オプション</tag>
+		このオプションはコンポジット同期対応のモニターの設定を
+		行います。
+<tag>&dquot;dac_8_bit&dquot; オプション</tag>
+<!--
+-		This option enables 8 bits per RGB value.  Note
+-		this option does not work with the Chrontel 8398
+-		RAMDAC.
++		This option enables 8 bits per RGB value.  Note that
++		this does not work with the Chrontel 8398 RAMDAC.
++		This options is not necessary since 8 bits per RGB
++		value is the default for the Mach64 X server for all
++		Mach64 cards except those with the Chrontel 8398
++		RAMDAC.
++<tag>Option &dquot;dac_6_bit&dquot;</tag>
++		This option enables 6 bits per RGB value.
+-->
+		このオプションは RGB 当り 8 ビットの値を可能にします。
+		Chrontel 8398 RAMDAC ではこのオプションは動作しない
+		ことに注意してください。
+		Chrontel 8398 RAMDAC を除く Mach64 X サーバの標準値
+		は RGB 当り 8 ビットなのでこのオプションは必要ありませ
+		ん。
+<tag>&dquot;dac_6_bit&dquot; オプション</tag>
+		このオプションは RGB 当り 6 ビットの値を可能にします。
+<tag>&dquot;override_bios&dquot; オプション</tag>
+		このオプションはビデオボードの BIOS では不正と考えられ
+		ている特別なビデオモードを可能にします。いくつかの BIOS
+		が間違った最大解像度かつ／またはドットクロックの上限を
+<!--
+-		this option with care.  It is possible to specify
+-		a video mode that can damage your card.
+-<tag>Option &dquot;no_block_write&dquot;</tag>
+-		This option allows you to turn off block
+-		write mode.  Block write mode only works on
+-		certain types of VRAM cards, and this option has
+-		no effect on DRAM based cards.  If you see noise
+-		on the screen that can be captured via xmag, then
+-		it is probably a problem with block write mode.
+-		This ``noise'' usually looks like bits of windows/menus
++		this option with extreme care.  It is possible to
++		specify a video mode that can damage your card or
++		monitor.
++<tag>Option &dquot;no_block_write&dquot;</tag>
++		This option allows you to turn off block write mode.
++		Block write mode only works on certain types of VRAM
++		cards.  This option has no effect on DRAM based cards.
++		If you see noise on the screen that can be captured
++		via xmag, then it is probably a problem with block
++		write mode being turned on when it should not.  This
++		``noise'' usually looks like bits of windows/menus
+-->
+		もっています。非常に注意してこのオプションを使用してくださ
+		い。特別なビデオモードはカードやモニターを痛める可能性があ
+		ります。
+<tag>&dquot;no_block_write&dquot; オプション</tag>
+		このオプションはブロック書き込みモードを無効にします。
+		ブロック書き込みモードは適切な VRAM のカードでのみ動作
+		し、このオプションは DRAM を基にしたカードで動作しま
+		す。xmag で切り取った画面にノイズが表示されたら、ブロッ
+		ク書き込みモードの問題が考えられます。この &dquot;ノイズ&dquot; 
+		は一般にウインドウやメニューを繰り返し画面に表示したと
+		き等に見られます。
+<tag>&dquot;block_write&dquot; オプション</tag>
+		このオプションは常にブロック書き込みモードを有効にしま
+		す。ブロック書き込みモードは適切な VRAM のカードでのみ
+		動作し、このオプションは DRAM を基にしたカードで動作し
+		ます。探査した初期値を上書きしたい場合は、このオプショ
+		ンを使うことが出来ます。
+<!--
++		Note that this may result in ``noise'' appearing on
++		the screen.
+-->
+		このオプションは画面に &dquot;ノイズ&dquot; を表示する
+		かもしれません。
+<tag>&dquot;power_saver&dquot; オプション</tag>
+		このオプションはスクリーンセーバーが有効になっている時
+		画面を暗くする代わりに適切に &dquot;green&dquot; モニ
+		ターの省電力機能をサーバに使用可能にします。このオプ
+		ションは未だ実験中です。
+		[訳注: &dquot;green&dquot; モニターとは環境に優しいモニ
+		ターでしょう:-)]
+<!--
++<tag>Option &dquot;no_program_clocks&dquot;</tag>
++		This option allows you to disable the clock
++		programming.  Normally the Mach64 server will program
++		the clocks based on the clock chip type unless this
++		option is given.  With this option, the clocks are
++		either read from the BIOS or, if the "no_bios_clocks"
++		option is set, set from the Clocks line.
+-->
+<tag>&dquot;no_program_clocks&dquot; オプション</tag>
+		このオプションは常時クロックプログラミングを無効にしま
+		す。通常 Mach64 サーバはこのオプションが与えられない場合
+		クロックチップのクロックからのクロックでプログラムする
+		方式をとっています。このオプションを付けるとクロックを
+		BIOS から読み出し、 "no_bios_clocks" を設定すると
+		クロック行から設定するようになります。
+<tag>&dquot;no_bios_clocks&dquot; オプション</tag>
+<!--
+-		from the video card's BIOS.  Normally the Mach64
+-		server will ignore the Clocks line, but with this
+-		option the clocks from the XF86Config file can
+-		override the BIOS's clocks.
++		from the video card's BIOS and use the clocks
++		specified in the Clocks line in your XF86Config file.
++		Normally the Mach64 server will ignore both the BIOS
++		clocks and the clocks specified in the Clocks line
++		unless the "no_program_clocks" options is set (see
++		above).
++<tag>Option &dquot;no_font_cache&dquot;</tag>
++		This option allows you to disable the font cache.  By
++		default the font cache is turned on if the horizontal
++		resolution is 1024 pixels or greater and there is
++		enough off-screen video memory to hold the cache.
++<tag>Option &dquot;no_pixmap_cache&dquot;</tag>
++		This option allows you to disable the pixmap cache.
++		By default the pixmap cache is turned on if the
++		horizontal resolution is 1024 pixels or greater and
++		there is enough off-screen video memory to hold the
++		cache.
+-->
+		このオプションはビデオカードの BIOS から読み出したク
+		ロックと XF86Config ファイルの Clocks 行の上書きを
+		有効にします。"no_program_clocks" オプションを
+		設定する場合を除いて通常 Mach64 サーバは BIOS のクロック
+		と Clocks 行を無視します(上記参照)。
+<tag>&dquot;no_font_cache&dquot; オプション</tag>
+		このオプションは常時フォントキャッシュを無効にします。
+		標準では水平解像度が 1024 ピクセルかそれ以上の場合と
+		キャッシュに使う表示されないビデオメモリが十分にある
+		場合に有効です。
+<tag>&dquot;no_pixmap_cache&dquot; オプション</tag>
+		このオプションは常時ピクスマップキャッシュを無効にしま
+		す。標準ではは水平解像度が 1024 ピクセルかそれ以上の場合と
+		キャッシュに使う表示されないビデオメモリが十分にある
+		場合に有効です。
+<tag>MemBase 基底アドレス</tag>
+<!--
+		この設定はメモリの隙間のアドレスの指定です。通常、隙間
+		のアドレスは自動的に認識されますが、VESA ローカルバスの
+		システムではアドレスの選択はうまくいきません。Mach64 X 
+		がセグメント例外で止まる場合は、隙間のアドレスを他の場
+		所に代えてみましょう。
+-		address.  Normally the aperture address is
+-		automatically determined, but on some VESA Local
+-		Bus systems the address chosen will not work.  If
+-		the Mach64 X server is dying with a seg. fault,
+-		then try setting the aperture address to another
+-		location.
++		address.  By default the aperture address is
++		automatically determined and this option should
++		not be necessary.  If the Mach64 X server is dying
++		with a seg. fault, then the memory aperture might
++		not be correctly determined.  To fix this try setting
++		the aperture address to another location.
+-->
+		この設定はメモリの隙間のアドレスの指定です。標準で、隙間
+		のアドレスは自動的に認識されるので必要ありませんが。
+		Mach64 X サーバ
+		がセグメント例外で止まる場合は、隙間のアドレスが正しく
+		認識出来ていません。この問題を解決するには隙間のアドレス
+		を他の場所に代えてみましょう。
+<!--
++<tag>ClockChip &dquot;<it>type</it>&dquot;</tag>
++		This entry specifies the clock chip type.  The
++		following values are valid for <it>type</it>:
++		<itemize>
++		<item> ati18818
++		<item> att20c408
++		<item> ch8398
++		<item> ibm_rgb514
++		<item> ics2595
++		<item> stg1703
++		</itemize>
+-->
+<tag>ClockChip の &dquot;<it>型</it>&dquot;</tag>
+		この項目ではクロックチップの型を指定します。
+		次の価は <it>型</it>に有効なものです :
+		<itemize>
+		<item> ati18818
+		<item> att20c408
+		<item> ch8398
+		<item> ibm_rgb514
+		<item> ics2595
+		<item> stg1703
+		</itemize>
+<!--
++<tag>Ramdac &dquot;<it>type</it>&dquot;</tag>
++		This entry specifies the RAMDAC type.  The following
++		values are valid for <it>type</it>:
++		<itemize>
++		<item> ati68860
++		<item> ati68860b
++		<item> ati68860c
++		<item> ati68875
++		<item> att20c408
++		<item> ch8398
++		<item> ibm_rgb514
++		<item> internal
++		<item> stg1702
++		<item> stg1703
++		<item> tlc34075
++		</itemize>
+-->
+<tag>Ramdac の &dquot;<it>型</it>&dquot;</tag>
+		この項目は Ramdac の型を指定します。
+		次の価は <it>型</it>に有効なものです :
+		<itemize>
+		<item> ati68860
+		<item> ati68860b
+		<item> ati68860c
+		<item> ati68875
+		<item> att20c408
+		<item> ch8398
+		<item> ibm_rgb514
+		<item> internal
+		<item> stg1702
+		<item> stg1703
+		<item> tlc34075
+		</itemize>
+</descrip>
+
+<!--
+<sect>Known Problems and Bug Reports<p>
+There are several known problems with the current version of the
+Mach64 X server.  They include:
+<itemize>
+<item> Screen blanking in 16bpp and 32bpp modes on certain Mach64 CT
+       cards does not work.
+<item> In doublescan modes, only the top half of the hardware cursor
+       is displayed.  The hardware cursor works fine in all other
+       modes.
+<item> 3D Rage II based Mach64 cards are not initialized properly.
+<item> Some RAMDACs are incorrectly reported by the BIOS.  This can be
+       handled by explicitly specifying the RAMDAC in the XF86Config
+       file.  This should no longer be a problem.
+<item> ISA cards with more than 12Mb of main memory cannot use the
+       server due to the requirement of a video memory aperture.  This
+       a major project.
+</itemize>
+-->
+
+<sect>既知の問題とバグ報告<p>
+現在の Mach64 X サーバではいくつかの既知の問題があります。それは:
+<itemize>
+<item> 一定の Mach64 CT カードで 16bpp と 32bpp モードでの画面の瞬き
+		は直っていません。
+<item> 二重スキャンモードでハードウェアカーソルの上半分しか表示しま
+		せん。他の全てのモードではうまく動作します。
+<item> 3D Rage II を基にした Mach64 カードは正しく初期化出来ません。
+<item> いくつかの RAMDAC は BIOS では間違って報告してしまいます。
+		XF86Config ファイルで RAMDAC を明示的に指定してやれば取り
+		扱えます。こうすれば問題はありません。
+<item> 12M バイト以上のメインメモリを搭載した ISA カードはビデオメモリ
+		の隙間がとれないのでサーバが動作しません。これは大仕事です。
+</itemize>
+
+<!--
+If you are experiencing problems, first check to make sure that you
+have the very latest available release (including beta releases).  ATI
+releases new cards throughout the year.  Each of these new cards
+require additional programming to support the new Mach64 chips,
+RAMDACs and clock chips that appear on them.  The most recent release
+is most likely to support your video card.
+
+Second, please check the RELNOTES and README files (as well as the
+other documentation available with the release).  Third, make sure you
+do not have any Ramdac, ClockChip or Clocks lines in your XF86Config
+file (all of these are automatically detected by the Mach64 X server).
+
+If you are still experiencing problems, please send e-mail to
+XFree86@XFree86.org or post to the comp.windows.x.i386unix newsgroup.
+
+Please do NOT send e-mail to me since the developers who answer e-mail
+sent to XFree86@XFree86.org are better able to answer most questions
+and I would like to spend my minimal free time working on new
+enhancements to the X server.  Thanks!
+-->
+問題に出会ったら、まず最初に(ベータ版も含んで)利用可能な最新版を使って
+いるか確認してください。年間を通じて ATI は新しいカードを発表していま
+す。新しいカードが搭載している新しい Mach64 チップ、RAMDAC やクロック
+チップをサポートするために、このそれぞれの新しいカードにはプログラム
+の追加が必要だからです。
+
+２番目に、RELNOTES と README ファイルを(そのバージョンで手にはいる他の
+文書も)を調べてください。３番目に XF86Config ファイルに Ramdac, 
+ClockChip または Clocks 行がないことを確認しましょう。これらは
+Mach64 サーバが自動的に探知します。
+
+まだ問題がある場合は、XFree86@XFree86.org まで電子メールを送るか
+comp.windows.x.i386unix というニュースグループに投稿してください。
+
+XFree86@XFree86.org に電子メールを送って殆どの問題の回答を開発者が答
+える方が良いのと、私(著者)がわずかな自由時間を X サーバに新しい機能
+拡張の作業に使いたいので、私(著者)に電子メールを送らないでくださ
+い。どうもありがとう。
+
+<p>
+
+<verb>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/Japanese/sgml/Mach64.sgml,v 3.2 1997/01/26 04:34:21 dawes Exp $
+</verb>
+<hrule>
+このファイルは xc/programs/Xserver/hw/xfree86/doc/sgml/Mach64.sgml,v 3.12 1996/10/24 12:30:19   を、岡本  一幸 
+( Kazuyuki Okamoto <url url="mailto:ikko-@pacific.rim.or.jp"
+name="&lt;ikko-@pacific.rim.or.jp&gt;"> ) が XFree86 3.2 を
+日本でインストールする人向けに和訳したものです。ここがおかしいとか、
+ここはこうしたほうがいいといったご意見がありましたら、電子メールで
+お知らせ下さい。
+原文の著作権は XFree86 プロジェクト社にあります。この和訳の著作権は 
+XFree86 プロジェクト社と岡本　一幸にありますが、この和訳の不具合は私
+に、電子メールで送って下さい。
+<hrule>
+&lsqb;EOF&rsqb;
+
+</article>

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -306,7 +303,7 @@ static ThresholdInfo	thermalThresholdInfoArray[kMaxMachineTypes][kMaxSensorIndex
                     },
             },
     },
-    {
+    {	// PowerBook6,3 values
             {	// Sensor 0
                     {	// Clamshell open
                             //	thresholdLow,			nextStateLow,		thresholdHigh,			nextStateHigh		// currentState
@@ -643,6 +640,7 @@ bool Portable2003_PlatformMonitor::start ( IOService * nub )
         //IOLog("Portable2003_PlatformMonitor::start - machine type %s\n", platform_name);
         if 	(!strcmp(platform_name, "PowerBook6,2")) machineType = kPB62MachineType;
         else if	(!strcmp(platform_name, "PowerBook5,2")) machineType = kPB52MachineType;
+        else if	(!strcmp(platform_name, "PowerBook6,3")) machineType = kPB63MachineType;
         else if	(!strcmp(platform_name, "PowerBook5,3")) machineType = kPB53MachineType;
 	
 	commandGateCaller = &iopmonCommandGateCaller;	// Inform superclass about our caller
@@ -1030,8 +1028,14 @@ IOReturn Portable2003_PlatformMonitor::monitorPower (OSDictionary *dict, IOServi
 		if (num = OSDynamicCast (OSNumber, dict->getObject (gIOPMonCurrentValueKey))) {
 			value = num->unsigned32BitValue();
 			value &= ~kIOPMForceLowSpeed;  		// Clear low speed bit
-                        // if we're a Q16 or Q41 with a 65W adapter plugged in (actually anything >= 65W), then don't enforce force-reduced-speed conditions....
-                        if (!(((machineType == kPB52MachineType) || (machineType == kPB53MachineType)) && ((((value & 0xFF000000) >> 24) > 0) && (((value & 0xFF000000) >> 24) >= 0x41)))) {
+                        
+                        // if we're a Q16 or Q41 with a 65W adapter plugged in (actually anything >= 65W), 
+                        // or an airline adapter plugged in,
+                        // then don't enforce force-reduced-speed conditions....
+                        if (!(((machineType == kPB52MachineType) || (machineType == kPB53MachineType)) && 
+                             (((((value & 0xFF000000) >> 24) > 0) && (((value & 0xFF000000) >> 24) >= 0x41)) ||
+                             ((((value & 0xFF000000) >> 24) == 0) && ((value & (kIOPMACInstalled | kIOPMACnoChargeCapability)) == (kIOPMACInstalled | kIOPMACnoChargeCapability)))))) 
+                        {
                             if ((value & (kIOPMACInstalled | kIOPMACnoChargeCapability)) == (kIOPMACInstalled | kIOPMACnoChargeCapability))
                                     value |= kIOPMForceLowSpeed;
                             else if ((value & (kIOPMRawLowBattery | kIOPMBatteryDepleted)) != 0)

@@ -67,6 +67,9 @@ your email address?"""))
         res.results.append(_("""\
 You were not invited to this mailing list.  The invitation has been discarded,
 and both list administrators have been alerted."""))
+    except Errors.MMBadPasswordError:
+        res.results.append(_("""\
+Bad approval password given.  Held message is still being held."""))
     else:
         if ((results[0] == Pending.SUBSCRIPTION and mlist.send_welcome_msg)
             or

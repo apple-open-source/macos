@@ -1,0 +1,70 @@
+XCOMM $XFree86: xc/lib/GL/mesa/src/X/Imakefile,v 1.13 2002/11/22 22:55:59 tsi Exp $
+
+#include <Threads.tmpl>
+
+/*
+ * Need both shared and unshared Mesa objects in the following cases:
+ *   GlxDriverUsesMesa
+ *   GlxBuiltInXMesa
+ *   BuildOSMesaLib
+ *
+ * In other cases, only the shared version is needed to link in to loadable
+ * driver modules.
+ */
+
+#if BuildOSMesaLib || (BuildXF86DRI && (GlxDriverUsesMesa || GlxBuiltInXMesa))
+#define DoNormalLib (NormalLibGlx || SharedLibGlxWithoutPIC)
+#define DoSharedLib (SharedLibGlx && !SharedLibGlxWithoutPIC)
+#define DoExtraLib SharedLibGlx
+#define DoDebugLib DebugLibGlx
+#define DoProfileLib ProfileLibGlx
+#else
+#define DoNormalLib SharedLibGlxWithoutPIC
+#define DoSharedLib !SharedLibGlxWithoutPIC
+#define DoExtraLib NO
+#define DoDebugLib NO
+#define DoProfileLib NO
+#endif
+
+
+#define MesaXBuildDir /**/
+#define NeedToLinkMesaSrc
+#include "Imakefile.inc"
+
+#if Malloc0ReturnsNull
+ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
+#endif
+
+#if BuildXF86DRI
+  DRI_DEFINES = GlxDefines
+ DRI_INCLUDES = -I../../../dri -I../../../glx -I../../dri -I.. \
+		-I$(INCLUDESRC)/GL -I$(XF86OSSRC) -I$(SERVERSRC)/GL/dri
+#endif
+
+MESA_INCLUDES = -I$(MESASRCDIR)/src \
+		-I$(MESASRCDIR)/src/X \
+		-I$(MESASRCDIR)/include \
+		-I../../../include -I$(XINCLUDESRC)
+
+     INCLUDES = $(MESA_INCLUDES) $(DRI_INCLUDES)
+
+#ifdef UseCompaqMathLibrary
+      MATHDEF = -DCCPML
+#endif
+
+#if BuildXF86DRI && GlxBuiltInXMesa
+  XMESA_DEFINES = -DGLX_BUILT_IN_XMESA
+#endif
+
+         SRCS = $(XMESA_SRCS)
+         OBJS = $(XMESA_OBJS)
+      DEFINES = $(ALLOC_DEFINES) $(DRI_DEFINES) $(MATHDEF) $(XMESA_DEFINES)
+
+#include <Library.tmpl>
+
+LibraryObjectRule()
+
+SubdirLibraryRule($(XMESA_OBJS))
+NormalLintTarget($(XMESA_SRCS))
+
+DependTarget()

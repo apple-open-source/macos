@@ -13,14 +13,19 @@
 Project		= mailman
 UserType	= Administrator
 ToolType	= Services
+
 Install_Prefix	= "$(SHAREDIR)/$(Project)"
-Extra_Configure_Flags = --localstatedir="$(VARDIR)/$(Project)" \
+
+Extra_Configure_Flags	= --localstatedir="$(VARDIR)/$(Project)" \
 	--with-var-prefix="$(VARDIR)/$(Project)" \
 	--with-mail-gid=mailman \
 	--with-cgi-gid=www \
-	--without-permcheck
+	--without-permcheck \
+	CFLAGS="$(CFLAGS)" \
+	OPT='-Os' \
+	INSTALL='/usr/bin/install -g mailman'
 
-GnuNoChown = YES
+GnuNoChown	= YES
 GnuAfterInstall	= install-strip install-extras install-readmes install-startup
 
 SILENT=$(_v)
@@ -48,6 +53,7 @@ DESTDIR="$(DSTROOT)"
 # These need to be overridden to match the project's use of DESTDIR.
 Environment	=
 Install_Flags	= DESTDIR="$(DSTROOT)"
+Install_Group	= mailman
 Install_Target	= install
 
 
@@ -69,16 +75,12 @@ install-extras:
 	$(MKDIR) "$(DSTROOT)/$(HTTPDIR)"
 	$(SILENT) $(CP) -p "$(DSTROOT)$(Install_Prefix)"/icons/* \
 		"$(DSTROOT)$(HTTPDIR)"
+	$(CHGRP) -R wheel "$(DSTROOT)$(HTTPDIR)"
 	$(MKDIR) "$(DSTROOT)$(SADIR)"
 	$(INSTALL_SCRIPT) SetupScript "$(DSTROOT)$(SADIR)/Mailman"
 	$(SILENT) $(ECHO) "MTA = 'Postfix'" \
 		>> "$(DSTROOT)$(Install_Prefix)/Mailman/mm_cfg.py.dist"
 	$(RM) "$(DSTROOT)$(Install_Prefix)/Mailman/mm_cfg.py"
-	$(FIND) "$(DSTROOT)$(Install_Prefix)" -type f -name '*.py' \
-		-exec $(CHMOD) g-w {} \;
-	$(FIND) "$(DSTROOT)$(Install_Prefix)" -perm +02000 \
-		-exec $(CHGRP) mailman {} \;
-	$(CHGRP) -R mailman "$(DSTROOT)$(VARDIR)/$(Project)"
 	$(SILENT) $(ECHO) "done."
 
 install-readmes:

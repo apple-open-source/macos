@@ -1,0 +1,325 @@
+# Id: XF86Config.indy,v 1.2 2000/08/14 17:07:37 agx Exp $
+#
+# Copyright (c) 1994-1998 by The XFree86 Project, Inc.
+#
+# modified for the SGI Indy by Guido Guenther <guido.guenther@gmx.net>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE XFREE86 PROJECT BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
+# OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+# 
+# Except as contained in this notice, the name of the XFree86 Project shall
+# not be used in advertising or otherwise to promote the sale, use or other
+# dealings in this Software without prior written authorization from the
+# XFree86 Project.
+#
+# $XFree86: xc/programs/Xserver/hw/xfree86/drivers/newport/XF86Config.indy,v 1.3 2003/02/20 04:05:15 dawes Exp $
+
+# **********************************************************************
+# This is a configuration file for the Indy's Newport Graphics and the
+# SGI GDM17E11 Monitor
+# **********************************************************************
+
+# The ordering of sections is not important in version 4.0 and later.
+
+# **********************************************************************
+# Files section.  This allows default font and rgb paths to be set
+# **********************************************************************
+
+Section "Files"
+
+# The location of the RGB database.  Note, this is the name of the
+# file minus the extension (like ".txt" or ".db").  There is normally
+# no need to change the default.
+
+    RgbPath	"/usr/X11R6/lib/X11/rgb"
+
+# Multiple FontPath entries are allowed (which are concatenated together),
+# as well as specifying multiple comma-separated entries in one FontPath
+# command (or a combination of both methods)
+
+    FontPath	"/usr/X11R6/lib/X11/fonts/local/"
+    FontPath	"/usr/X11R6/lib/X11/fonts/misc/"
+    FontPath	"/usr/X11R6/lib/X11/fonts/75dpi/:unscaled"
+    FontPath	"/usr/X11R6/lib/X11/fonts/100dpi/:unscaled"
+    FontPath	"/usr/X11R6/lib/X11/fonts/Type1/"
+    FontPath	"/usr/X11R6/lib/X11/fonts/CID/"
+    FontPath	"/usr/X11R6/lib/X11/fonts/Speedo/"
+    FontPath	"/usr/X11R6/lib/X11/fonts/75dpi/"
+    FontPath	"/usr/X11R6/lib/X11/fonts/100dpi/"
+
+# ModulePath can be used to set a search path for the X server modules.
+# The default path is shown here.
+
+#    ModulePath	"/usr/X11R6/lib/modules"
+
+EndSection
+
+# **********************************************************************
+# Module section -- this is an optional section which is used to specify
+# which run-time loadable modules to load when the X server starts up.
+# **********************************************************************
+
+Section "Module"
+
+# This loads the DBE extension module.
+
+    Load	"dbe"
+
+# This loads the miscellaneous extensions module, and disables
+# initialisation of the XFree86-DGA extension within that module.
+
+    SubSection	"extmod"
+	Option	"omit xfree86-dga"
+    EndSubSection
+
+# This loads the Type1 and FreeType font modules
+
+    Load	"type1"
+    Load	"freetype"
+
+EndSection
+
+
+# **********************************************************************
+# Server flags section.  This contains various server-wide Options.
+# **********************************************************************
+
+Section "ServerFlags"
+
+# Uncomment this to cause a core dump at the spot where a signal is 
+# received.  This may leave the console in an unusable state, but may
+# provide a better stack trace in the core dump to aid in debugging
+
+#    Option	"NoTrapSignals"
+
+# Uncomment this to disable the <Crtl><Alt><Fn> VT switch sequence
+# (where n is 1 through 12).  This allows clients to receive these key
+# events.
+
+#    Option	"DontVTSwitch"
+
+# Uncomment this to disable the <Crtl><Alt><BS> server abort sequence
+# This allows clients to receive this key event.
+
+#    Option	"DontZap"
+
+# Uncomment this to disable the <Crtl><Alt><KP_+>/<KP_-> mode switching
+# sequences.  This allows clients to receive these key events.
+
+#    Option	"DontZoom"
+
+# Uncomment this to disable tuning with the xvidtune client. With
+# it the client can still run and fetch card and monitor attributes,
+# but it will not be allowed to change them. If it tries it will
+# receive a protocol error.
+
+#    Option	"DisableVidModeExtension"
+
+# Uncomment this to enable the use of a non-local xvidtune client.
+
+#    Option	"AllowNonLocalXvidtune"
+
+# Uncomment this to disable dynamically modifying the input device
+# (mouse and keyboard) settings.
+
+#    Option	"DisableModInDev"
+
+# Uncomment this to enable the use of a non-local client to
+# change the keyboard or mouse settings (currently only xset).
+
+#    Option	"AllowNonLocalModInDev"
+
+# Set the basic blanking screen saver timeout.
+
+    Option	"blank time"	"10"	# 10 minutes
+
+# Set the DPMS timeouts.  These are set here because they are global
+# rather than screen-specific.  These settings alone don't enable DPMS.
+# It is enabled per-screen (or per-monitor), and even then only when
+# the driver supports it.
+
+    Option	"standby time"	"20"
+    Option	"suspend time"	"30"
+    Option	"off time"	"60"
+
+# On some platform the server needs to estimate the sizes of PCI
+# memory and pio ranges. This is done by assuming that PCI ranges
+# don't overlap. Some broken BIOSes tend to set ranges of inactive
+# devices wrong. Here one can adjust how aggressive the assumptions
+# should be. Default is 0.
+
+# Option   "EstimateSizesAggresively" "0"
+
+EndSection
+
+# **********************************************************************
+# Input devices
+# **********************************************************************
+
+# **********************************************************************
+# Core keyboard's InputDevice section
+# **********************************************************************
+
+Section "InputDevice"
+
+    Identifier	"Keyboard1"
+    Driver	"keyboard"
+
+# For most OSs the protocol can be omitted (it defaults to "Standard").
+# When using XQUEUE (only for SVR3 and SVR4, but not Solaris), comment
+# out the above line, and uncomment the following line.
+
+#    Option	"Protocol"	"Xqueue"
+
+# Set the keyboard auto repeat parameters.  Not all platforms implement
+# this.
+
+    Option	"AutoRepeat"	"500 5"
+
+# Specifiy which keyboard LEDs can be user-controlled (eg, with xset(1)).
+
+#    Option	"Xleds"	"1 2 3"
+
+# To disable the XKEYBOARD extension, uncomment XkbDisable.
+
+#    Option	"XkbDisable"
+
+# To customise the XKB settings to suit your keyboard, modify the
+# lines below (which are the defaults).  For example, for a European
+# keyboard, you will probably want to use one of:
+#
+#    Option	"XkbModel"	"pc102"
+#    Option	"XkbModel"	"pc105"
+#
+# If you have a Microsoft Natural keyboard, you can use:
+#
+#    Option	"XkbModel"	"microsoft"
+#
+# If you have a US "windows" keyboard you will want:
+#
+#    Option	"XkbModel"	"pc104"
+#
+# Then to change the language, change the Layout setting.
+# For example, a german layout can be obtained with:
+#
+#    Option	"XkbLayout"	"de"
+#
+# or:
+#
+#    Option	"XkbLayout"	"de"
+#    Option	"XkbVariant"	"nodeadkeys"
+#
+# If you'd like to switch the positions of your capslock and
+# control keys, use:
+#
+#    Option	"XkbOptions"	"ctrl:swapcaps"
+
+
+# These are the default XKB settings for XFree86
+#
+#    Option	"XkbRules"	"xfree86"
+#    Option	"XkbModel"	"pc101"
+#    Option	"XkbLayout"	"us"
+#    Option	"XkbVariant"	""
+#    Option	"XkbOptions"	""
+
+EndSection
+
+
+# **********************************************************************
+# Core Pointer's InputDevice section
+# **********************************************************************
+
+Section "InputDevice"
+
+# Identifier and driver
+
+    Identifier	"Mouse1"
+    Driver	"mouse"
+
+    Option	"Protocol"	"PS/2"
+    Option	"Device"	"/dev/psaux"
+#   Option     "SampleRate" "80"
+
+EndSection
+
+# **********************************************************************
+# Monitor section
+# **********************************************************************
+
+# Any number of monitor sections may be present
+
+Section "Monitor"
+
+# The identifier line must be present.
+
+    Identifier	"SGI GDM17e11"
+
+# This Information can be found at http://www.si87.com/
+
+    HorizSync	30-82  # multiple ranges of sync frequencies
+    VertRefresh	50-120  # typical for a single frequency fixed-sync monitor
+
+# A single modeline is sufficient, we don't use it at all:
+    ModeLine "1280x1024@70Hz" 130  1280 1320 1480 1728  1024 1029 1036 1077    
+
+EndSection
+
+# **********************************************************************
+# Graphics device section
+# **********************************************************************
+
+Section "Device"
+    Identifier	"Newport Graphics"
+    Driver	"newport"
+
+#    Option	"bitplanes" "24"
+EndSection
+
+# **********************************************************************
+# Screen sections.
+# **********************************************************************
+
+# Any number of screen sections may be present.  Each describes
+# the configuration of a single screen.  A single specific screen section
+# may be specified from the X server command line with the "-screen"
+# option.
+
+Section "Screen"
+    Identifier	"Screen 1"
+    Device	"Newport Graphics"
+    Monitor	"SGI GDM17e11"
+    DefaultDepth 8
+
+    SubSection "Display"
+	Depth		8
+        Modes		"1280x1024"
+    EndSubSection
+EndSection
+
+# **********************************************************************
+# ServerLayout sections.
+# **********************************************************************
+
+Section "ServerLayout"
+    Identifier	"simple layout"
+    Screen	"Screen 1"
+    InputDevice	"Mouse1" "CorePointer"
+    InputDevice "Keyboard1" "CoreKeyboard"
+EndSection
+

@@ -1,0 +1,35 @@
+ $XFree86: xc/programs/Xserver/hw/xfree86/doc/CODING,v 3.6 1996/12/23 06:44:38 dawes Exp $
+ GNU indent options:
+
+-bad -bap -c40 -cd0 -ncdb -ci4 -cli0 -cp0 -ncs -d0
+-di4 -i4 -ip4 -l78 -nlp -npcs -psl -sob -ss -br -ce -sc
+
+-bad  forces a blank line after every block of declarations.
+-bap  forces a blank line after every procedure body.
+-c40  put comments to the right of code in column 40
+-cd0  put comments immediately to the right of the declarations.
+-ncdb do not put comment delimiters on blank lines
+-ci4  continuation indent of 4 spaces.
+-cli0 case label indent of 0 spaces
+-cp0  put comments immediately to the right of `#else' and `#endif' statements
+-ncs  do not put a space after cast operators
+-d0   set indentation of comments not to the right of code to 0 spaces
+-di4  put variables in column 4
+-i4   set indentation level to 4 spaces
+-ip4  indent parameter types in old-style function definitions by 4 spaces
+-l78  set maximum line length to 78
+-nlp  don't line up continued lines at parentheses
+-npcs do not put space after the function in function calls
+-psl  put the type of a procedure on the line before its name
+-sob  swallow optional blank lines
+-ss   on one-line `for' and `while' statments, force a blank before the semicolo
+n
+-ce   cuddle else and preceeding `}'
+-sc   put the `*' character at the left of comments
+-br   formats braces like this:
+
+                 if (x > 0) {
+                        x--;
+                 }
+
+$XConsortium: CODING /main/2 1996/02/21 17:41:28 kaleb $

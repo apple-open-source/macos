@@ -49,7 +49,6 @@
 
 namespace Authorization {
 
-
 //
 // Errors to be thrown
 //

@@ -1,0 +1,33 @@
+XCOMM $XFree86: xc/lib/Xss/Imakefile,v 3.4 2003/01/16 16:09:06 eich Exp $
+#define DoNormalLib NormalLibXss
+#define DoSharedLib SharedLibXss
+#define DoExtraLib SharedLibXss
+#define DoDebugLib DebugLibXss
+#define DoProfileLib ProfileLibXss
+#define LibName Xss
+#define SoRev SOXSSREV
+#define LibHeaders NO
+
+#include <Threads.tmpl>
+
+#ifdef SharedXssReqs
+REQUIREDLIBS = SharedXssReqs
+#endif
+
+SCRNSAVSRC = XScrnSaver.c
+SCRNSAVOBJ = XScrnSaver.o
+
+#if Malloc0ReturnsNull
+ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
+#endif
+
+      DEFINES = $(ALLOC_DEFINES)
+         SRCS = $(SCRNSAVSRC)
+         OBJS = $(SCRNSAVOBJ)
+     LINTLIBS = $(LINTXLIB)
+
+#define IncludeSharedObjectInNormalLib
+
+#include <Library.tmpl>
+
+DependTarget()

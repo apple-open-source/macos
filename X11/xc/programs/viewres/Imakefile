@@ -1,0 +1,9 @@
+XCOMM $XConsortium: Imakefile,v 1.4 93/08/17 21:16:42 rws Exp $
+        DEPLIBS = XawClientDepLibs
+LOCAL_LIBRARIES = XawClientLibs
+  SYS_LIBRARIES = MathLibrary
+           SRCS = viewres.c 
+           OBJS = viewres.o 
+
+ComplexProgramTarget(viewres)
+InstallAppDefaults(Viewres)

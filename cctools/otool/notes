@@ -3,6 +3,10 @@ TODO:
 - HPPA, bring the private version of mach/hppa/thread_status.h in sync with
   the kernel header and change ofile_print.c to recognize new thread states.
 
+Changes for the 5.13,2 release (the cctools-495.3 release):
+- Updated print_mach_header() in ofile_print.c to print the new mach_header
+  flags MH_PREBINDABLE, MH_ALLMODSBOUND and MH_CANONICAL.  Radar bug #3176679.
+
 Changes for the 5.12 release (the cctools-489 release):
 - Added stub functions for the notify API in the new file notify.c and picked
   up notify.h to allow otool to build on Panther7B40.  Radar bug #3378781.

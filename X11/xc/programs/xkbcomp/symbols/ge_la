@@ -1,0 +1,71 @@
+// ge_la (Georgian "latin layout")
+
+//  From the comments of the xmodmap file:
+//
+//  Georgian keyboard map, in the so called "latin" layout.
+//  1999, Pablo Saratxaga <srtxg@chanae.alphanet.ch>
+//
+//  Georgian mode is toggled by Right_Ctrl key and shifted by AltGr key.
+//  uppercase in georgian mode gives the lower case ascii, this can be useful
+//  to type whithout switching mode.
+//
+//  the layout has been copied from
+//  http://members.tripod.com/~beso/html/L-K-COD.HTM
+//  with some few changes it is:
+//
+//  `~   1!1! 2@2@ 3 3  4$4$ 5% 6^6^ 7&7& 8*8* 9(9( 0)0) -_-_ =+=+ \|\| BackSp
+//  Tab     qQქq wWწჭ eEეe rRრr tTტღ yYყთ uUუu iIიi oOოo Ppპp [{[{ ]}]}
+//  CapsLock aAაa sSსშ dDდd fFფf gGგg hHჰh jJჯჟ kKკk lLლl ;:;: '"'"  Return
+//  Shift «»   zZზძ xXხx cCცჩ vVვv bBბb nNნn mMმm ,<,< .>.> /?/?  Shift
+//  Ctrl   Alt        Space Space Space NonBreakingSpace     ModeShift  ModeLock
+//
+//  the chars ჱჲჳჴჵჶ     are not mapped...
+//
+
+partial default alphanumeric_keys 
+xkb_symbols "basic" {
+
+    // Describes the differences between a very simple en_US
+    // keyboard and a very simple Georgian "latin layout" keyboard
+
+    name[Group2]= "Georgian";
+
+    key <AD01> {[],	[ 0x010010e5,	q	]	};
+    key <AD02> {[],	[ 0x010010ec,	0x010010ed	]	};
+    key <AD03> {[],	[ 0x010010d4,	e	]       };
+    key <AD04> {[],	[ 0x010010e0,	r	]	};
+    key <AD05> {[],	[ 0x010010e2,	0x010010e6	]       };
+    key <AD06> {[],	[ 0x010010e7,	0x010010d7	]       };
+    key <AD07> {[],	[ 0x010010e3,	u	]       };
+    key <AD08> {[],	[ 0x010010d8,	i	]       };
+    key <AD09> {[],	[ 0x010010dd,	o	]       };
+    key <AD10> {[],	[ 0x010010de,	p	]	};
+    key <AD11> {[],	[ bracketleft,	braceleft	]	};
+    key <AD12> {[],	[ bracketright,	braceright	]	};
+
+    key <AC01> {[],	[ 0x010010d0,	a		]	};
+    key <AC02> {[],	[ 0x010010e1,	0x010010e8	]       };
+    key <AC03> {[],	[ 0x010010d3,	d		]       };
+    key <AC04> {[],	[ 0x010010e4,	f		]	};
+    key <AC05> {[],	[ 0x010010d2,	g		]       };
+    key <AC06> {[],	[ 0x010010f0,	h		]       };
+    key <AC07> {[],	[ 0x010010ef,	0x010010df	]	};
+    key <AC08> {[],	[ 0x010010d9,	k		]	};
+    key <AC09> {[],	[ 0x010010da,	l	]       };
+    key <AC10> {[],	[ semicolon, colon	]       };
+    key <AC11> {[],	[ apostrophe, quotedbl	]	};
+    key <BKSL> {[],	[ backslash,    bar     ]   };
+
+    key <LSGT> {[],	[ guillemotleft,guillemotright	]       };
+    key <AB01> {[],	[ 0x010010d6,	0x010010eb	]       };
+    key <AB02> {[],	[ 0x010010ee,	x	]       };
+    key <AB03> {[],	[ 0x010010ea,	0x010010d9	]       };
+    key <AB04> {[],	[ 0x010010d5,	v		]       };
+    key <AB05> {[],	[ 0x010010d1,	b		]       };
+    key <AB06> {[],	[ 0x010010dc,	n		]	};
+    key <AB07> {[],	[ 0x010010db,	m		]	};
+    key <AB08> {[],	[ comma,		less		]	};
+    key <AB09> {[],	[ period,		greater	]	};
+    key <AB10> {[],	[ slash,		question	]	};
+
+};

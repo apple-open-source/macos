@@ -6,8 +6,9 @@ Mailman was featured as the Project of the Month in the
 <a href="http://www.linux-mag.com/2002-05/toc.html">May 2002 issue of
 Linux Magazine</a>.
 
-<p>Mailman was featured in a cover story article in the March 1999
-issue of SunWorld (apparently no longer on-line).  The article was
+<p>Mailman was featured in a cover story article in the
+<a href="http://www.postfix.org/sunworld-199903.html">March 1999
+issue of SunWorld</a>.  The article was
 written by Cameron Laird and Kathryn Soraiz.
 
 <p>Mailman was briefly mentioned in a ZDNet article on GNU/Linux.
@@ -18,28 +19,11 @@ appear to be dead now too.
 services using Mailman.  If you'd like to be included in this list,
 please <a href="mailto:mailman-cabal@python.org">let us know</a>.
 
-<p>The following sites provide mailing list hosting services using
-Mailman.  If you like Mailman but still don't want to install it on
-your own systems, you might consider having your list hosted at one of
-these sites.  Inclusion in this list does <em>not</em> construe an
-endorsement or recommendation by the Mailman development team, nor is
-there any relationship between them and us, beyond their use of our
-free software.  Some of these services may have restrictions or fees
-for use.
-
-<ul>
-    <li><a href="http://www.pair.com/pair/pairlist/">Pair List</a>
-    <!-- Sheryl Coe -->
-    <li><a href="http://www.reportica.net/">Reportica Service
-        Bureau</a>.  Reportica has put up a <a
-        href="http://www.reportica.net/services/lists/host/screen-index.html"
-        >demo of their service</a>.
-    <!-- CarlC -->
-    <li><a href="http://www.carlc.com/">CarlC Internet Services</a>
-    <!-- Blaine Fallis -->
-    <li><a href="http://portal.friendlyweb.net">FriendlyWeb.net</a>
-</ul>
-
+<p><b>Notice to Hosting Services:</b> If your site provides mailing
+list hosting services using Mailman, please be sure to add yourself to
+the <a
+href="http://www.python.org/cgi-bin/moinmoin/PythonHosting">Python-Friendly
+Web Hosting</a> page.
 
 <p>The following sites (in no particular order) are known to use
 Mailman or Mailman technology to run their mailing lists.
@@ -54,6 +38,9 @@ Mailman or Mailman technology to run their mailing lists.
     <!-- Marc Merlin -->
     <li><a href="http://valinux.com/">VA Linux</a>
     <li><a href="http://sourceforge.net/">SourceForge.net</a>
+    <!-- Rajiv Aaron Manglani -->
+    <li><a href="http://mit.edu/lists/mailman/">Massachusetts
+        Institute of Technology</a>
     <!-- Ricardo Kustner -->
     <li><a href="http://www.freshmeat.net/">FreshMeat</a>
     <!-- Jason R. Mastaler -->
@@ -68,6 +55,17 @@ Mailman or Mailman technology to run their mailing lists.
     <li><a href="http://lists.samba.org/">Samba</a>
     <!-- Chris Howells -->
     <li><a href="http://mail.kde.org/mailman/listinfo">KDE Project</a>
+    <!-- ??? -->
+    <li><a href="http://www.pair.com/pair/pairlist/">Pair List</a>
+    <!-- Sheryl Coe -->
+    <li><a href="http://www.reportica.net/">Reportica Service
+        Bureau</a>.  Reportica has put up a <a
+        href="http://www.reportica.net/services/lists/host/screen-index.html"
+        >demo of their service</a>.
+    <!-- CarlC -->
+    <li><a href="http://www.carlc.com/">CarlC Internet Services</a>
+    <!-- Blaine Fallis -->
+    <li><a href="http://portal.friendlyweb.net">FriendlyWeb.net</a>
     <!-- Barry Warsaw -->
     <li><a href="http://www.python.org/sigs/">Python.Org</a>
     <li><a href="http://lists.zope.org/">Zope.org</a>
@@ -503,4 +501,37 @@ Mailman or Mailman technology to run their mailing lists.
         <a href="http://gaia.org.pt/listas/">here</a>.
     <!-- Ansgar Schmidt -->
     <li><a href="http://auriga.wearlab.de">Free Mobile Software System</a>
+    <!-- Goncalo Luiz -->
+    <li>Instituto Superior Tecnico
+    <!-- Alberto Molpeceres -->
+    <li><a href="http://www.javahispano.org">JavaHispano</a> with
+        mailing lists at <a href="http://listas.javahispano.org"
+        >listas.javahispano.org</a>
+    <!-- Paulo Eduardo Eves -->
+    <li><a href="http://www.samba-choro.com.br">Agenda do Samba &
+        Choro</a> with mailing lists at <a
+        href="http://www.samba-choro.com.br/mailman/listinfo"
+        >www.samba-choro.com.br</a>.
+    <!-- Hatuka*nezumi -->
+    <li><a href="http://www.jca.apc.org/">JCA-NET Service</a> with
+        mailing lists at <a href="http://list.jca.apc.org/"
+        >http://list.jca.apc.org/</a>
+    <!-- Frederick Noronha -->
+    <li><a href="http://www.indialists.org">Indialists.org</a>
+    <!-- Chris Szilagyi -->
+    <li><a href="http://www.apex-internet.com">Apex Internet Solutions</a>
+    <!-- M Syafii -->
+    <li><a href="http://groups.or.id/mailman/listinfo">Indonesian mailing
+        lists</a>
+    <!-- Jeff Coleman -->
+    <li><a href="http://contribs.org">contribs.org</a>
+    <!-- Christophe -->
+    <li><a href="http://www.stalig.com">stalig.com</a> with mailing
+        lists at <a href="http://lists.stalig.com">lists.stalig.com</a>
+    <!-- Rob Stolk -->
+    <li><a href="http://www.veteransgroups.com/">Veteransgroups
+        Mailing lists for Allied War Veterans</a>
+    <!-- Sudhir Kumar -->
+    <li><a href="http://www.infogateindia.com">Infogate Technologies</a>
+
 </ul>

@@ -1,0 +1,228 @@
+<!doctype linuxdoc system>
+
+<article>
+
+<title> XFree86 3.2 リンクキットの Readme
+<author> XFree86 プロジェクト社
+<date> 1996 年 10 月 14 日
+<trans> 岡本　一幸 Kazuyuki Okamoto &lt;ikko-@pacific.rim.or.jp&gt;
+<sect> XFree86 3.2 リンクキットの Readme <p>
+<enum>
+<item> gcc-2 を使用しないシステムで、gcc-2 で作成されたバイナリ配付物
+	を使用する場合は libgcc.a を組み込む必要があります。
+
+<item> リンクキットで Xnest を組み込む場合は XFree86 3.2 の
+	<tt>/usr/X11R6</tt> の
+	下に組み込まれたライブラリを確認して下さい。現在、リンクキットは
+	他のサーバーでは内蔵しています。
+
+<item> どのサーバーを組み込みたいかと、どのドライバと機能拡張を含ま
+	せたいかを定義するために <tt/xf86site.def/ ファイルを編集して下
+	さい。
+
+    <itemize>
+    <item> 初期値が正しくない場合に、使用するコンパイラーに合わせて
+	<tt>HasGcc</tt> と <tt>HasGcc2</tt> を設定して下さい。
+    <item> リンクキットが gcc-2.x で作成されていて、それと異なるコン
+	パイラーを使用する場合、
+	libgcc.a と <tt>NeedLibGcc</tt> を <tt>YES</tt> に設定する必要が
+	あります。
+    <item>256 色サーバーを作成するには:
+	<tt>XF86SVGAServer</tt> を <tt>YES</tt> にします。
+    <item>16 色サーバーを作成するには:
+	<tt>XF86VGA16Server</tt> を <tt>YES</tt> にします。
+    <item>白黒サーバーを作成するには:
+	<tt>XF86MonoServer</tt> を <tt>YES</tt> にします。
+    <item>S3 サーバーを作成するには:
+	<tt>XF86S3Server</tt> を <tt>YES</tt> にします。
+    <item>Mach8 サーバーを作成するには:
+	<tt>XF86Mach8Server</tt> を <tt>YES</tt> にします。
+    <item>Mach32 サーバーを作成するには:
+	<tt>XF86Mach32Server</tt> を <tt>YES</tt> にします。
+    <item>Mach64 サーバーを作成するには:
+	<tt>XF86Mach64Server</tt> を <tt>YES</tt> にします。
+    <item>P9000 サーバーを作成するには:
+	<tt>XF86P9000Server</tt> を <tt>YES</tt> にします。
+    <item>AGX サーバーを作成するには:
+	<tt>XF86AGXServer</tt> を <tt>YES</tt> にします。
+    <item>ET4000/W32 サーバーを作成するには:
+	<tt>XF86W32Server</tt> を <tt>YES</tt> にします。
+    <item>IBM 8514/A サーバーを作成するには:
+	<tt>XF86I8514Server</tt> を <tt>YES</tt> にします。
+<!--
+    <item>To build the I128 server:
+	set <tt>XF86I128Server</tt> to <tt>YES</tt>.
+    <item>To build the TGA server:
+	set <tt>XF86TGAServer</tt> to <tt>YES</tt>.
+    <item>To build the GA-98NB/WAP server:
+	set <tt>XF98GANBServer</tt> to <tt>YES</tt>.
+    <item>To build the NEC480 server:
+	set <tt>XF98NEC480Server</tt> to <tt>YES</tt>.
+    <item>To build the NEC-CIRRUS/EPSON NKV/NKV2 server:
+	set <tt>XF98NKVNECServer</tt> to <tt>YES</tt>.
+    <item>To build the WAB-S server:
+	set <tt>XF98WABSServer</tt> to <tt>YES</tt>.
+    <item>To build the WAB-EP server:
+	set <tt>XF98WABEPServer</tt> to <tt>YES</tt>.
+    <item>To build the WSN-A2F server:
+	set <tt>XF98WSNAServer</tt> to <tt>YES</tt>.
+    <item>To build the Trident Cyber9320/9680 server:
+	set <tt>XF98TGUIServer</tt> to <tt>YES</tt>.
+    <item>To build the EGC server:
+	set <tt>XF98EGCServer</tt> to <tt>YES</tt>.
+    <item>To build the NEC S3 server:
+	set <tt>XF98NECS3Server</tt> to <tt>YES</tt>.
+    <item>To build the S3 PW/PCSKB server:
+	set <tt>XF98PWSKBServer</tt> to <tt>YES</tt>.
+    <item>To build the S3 PW/LB server:
+	set <tt>XF98PWLBServer</tt> to <tt>YES</tt>.
+    <item>To build the S3 GA-968 server:
+	set <tt>XF98GA968Server</tt> to <tt>YES</tt>.
+-->
+    <item>I128 サーバーを作成するには:
+	<tt>XF86I128Server</tt> を <tt>YES</tt> にします。
+    <item>TGA サーバーを作成するには:
+	<tt>XF86TGAServer</tt> を <tt>YES</tt> にします。
+    <item>GA-98NB/WAP サーバーを作成するには:
+	<tt>XF98GANBServer</tt> を <tt>YES</tt> にします。
+    <item>NEC480 サーバーを作成するには:
+	<tt>XF98NEC480Server</tt> を <tt>YES</tt> にします。
+    <item>NEC-CIRRUS/EPSON NKV/NKV2 server:
+	<tt>XF98NKVNECServer</tt> を <tt>YES</tt> にします。
+    <item>WAB-S サーバーを作成するには:
+	<tt>XF98WABSServer</tt> を <tt>YES</tt> にします。
+    <item>WAB-EP サーバーを作成するには:
+	<tt>XF98WABEPServer</tt> を <tt>YES</tt> にします。
+    <item>WSN-A2F サーバーを作成するには:
+	<tt>XF98WSNAServer</tt> を <tt>YES</tt> にします。
+    <item>Trident Cyber9320/9680 server:
+	<tt>XF98TGUIServer</tt> を <tt>YES</tt> にします。
+    <item>EGC サーバーを作成するには:
+	<tt>XF98EGCServer</tt> を <tt>YES</tt> にします。
+    <item>NEC S3 サーバーを作成するには:
+	<tt>XF98NECS3Server</tt> を <tt>YES</tt> にします。
+    <item>S3 PW/PCSKB サーバーを作成するには:
+	<tt>XF98PWSKBServer</tt> を <tt>YES</tt> にします。
+    <item>S3 PW/LB サーバーを作成するには:
+	<tt>XF98PWLBServer</tt> を <tt>YES</tt> にします。
+    <item>S3 GA-968 サーバーを作成するには:
+	<tt>XF98GA968Server</tt> を <tt>YES</tt> にします。
+
+    <item>Xnest サーバーを作成するには:
+	<tt>XnestServer</tt> を <tt>YES</tt> にします。
+
+    <item> <tt>XF86SvgaDrivers</tt>  を SVGA サーバーに含めたい
+			ドライバの一覧に設定して下さい。
+    <item> <tt>XF86Vga16Drivers</tt> を 16 色 サーバーに含めたい
+			ドライバの一覧に設定して下さい。
+    <item> <tt>XF86Vga2Drivers</tt> を白黒 vga サーバーに含めたい
+			ドライバの一覧に設定して下さい。
+    <item> <tt>XF86MonoDrivers</tt> を白黒又は VGA16 サーバー
+			(双頭のサーバーを作成するとき)を含めたい非 VGA 
+			ドライバの一覧に設定して下さい。
+    <item>注意: ドライバの順番はドライバの検出の順番を決定します。
+	`<tt>汎用</tt>'  (`<tt>generic</tt>') ドライバは常に検出に成功
+	するので Mono と VGA16 と SVGA サーバーに含ませるドライバの
+	最後に指定して下さい。
+<!--
+    <item>To use dynamically loadable modules(e.g. PEX, XIE):
+	set <tt>ExtensionsDynamicModules</tt> to <tt>YES</tt>.
+-->
+    <item>動的ロード可能モジュール(例えば PEX, XIE)を使用するには:
+	<tt>ExtensionsDynamicModules</tt> を <tt>YES</tt>　にします。
+    <item>PEX 機能拡張を組み込むには:
+	<tt>BuildPexExt</tt> を <tt>YES</tt> にします。
+    <item>X イメージ機能拡張を組み込むには:
+	<tt>BuildXIE</tt> を <tt>YES</tt> にします。
+<!--
+    <item>低帯域 X 機能拡張を組み込むには: 
+	<tt>BuildLBX</tt> を <tt>YES</tt> にします。
+    <item>スクリーンセーバー機能拡張を組み込むには:
+	<tt>BuildScreenSaverExt</tt> を <tt>YES</tt> にします。
+
+    <item>１つ以上の X サーバーを作成する場合は、<tt>ServerToInstall</tt>
+	行のコメントをはずして標準サーバー（つまり、``X''にシンボリックリンク
+	を張るサーバー）としたい X サーバーの名称を設定して下さい。
+-    <item>To include the Low Bandwidth X extension:
+-	set <tt>BuildLBX</tt> to <tt>YES</tt>.
+-    <item>To include the Screen Saver extension:
+-	set <tt>BuildScreenSaverExt</tt> to <tt>YES</tt>.
+-
+-    <item>If you are building more than one Xserver, uncomment the
+-        <tt>ServerToInstall</tt> line and set it to the name of the
+-        Xserver you want to be the default server (i.e., the one that
+-        the ``X'' sym-link points to).
++    <item>To exclude the Double Buffer Extension:
++	set <tt>BuildDBE</tt> to <tt>NO</tt>.
++    <item>To exclude the Record Extension:
++	set <tt>BuildRECORD</tt> to <tt>NO</tt>.
++    <item>To exclude the Screen Saver extension:
++	set <tt>BuildScreenSaverExt</tt> to <tt>NO</tt>.
++    <item>Although it is possible to disable other extensions through this
++	mechanism, doing so is not recommended because savings in server size
++	are not appreciable, or the resulting server might even be crippled in
++	some way.
+-->
+    <item>二重バッファ機能拡張をはずす時は:
+	<tt>BuildDBE</tt> を <tt>NO</tt> にします。
+    <item>記録機能拡張をはずす時は:
+	<tt>BuildRECORD</tt> を <tt>NO</tt> にします。
+    <item>スクリーンセーバー機能拡張をはずす時は:
+	<tt>BuildScreenSaverExt</tt> to <tt>NO</tt> にします。
+    <item>Although it is possible to disable other extensions through this
+	mechanism, doing so is not recommended because savings in server size
+	are not appreciable, or the resulting server might even be crippled in
+	some way.
+    <item>その他の機能拡張をこの機構を使ってはずすことは出来ますが、サーバ
+	の大きさが目に見えるほど節約出来ない、またはいくつかの点で不便になる
+	のでお勧めしません。
+
+    </itemize>
+
+<item> 標準配付物に含まれないドライバを組み込む場合は、<tt>drivers/vga256</tt> 
+   (白黒サーバーの VGA2 の場合は <tt>drivers/vga2</tt>、16 色サーバーの場合は
+   <tt>drivers/vga16</tt>、非 VGA の 白黒と 16 色サーバーの場合は 
+   <tt>drivers/mono</tt>) のディレクトリを作成して、そのディレクトリの下にソー
+   スファイルか .o ファイルのいずれかと適切な Imakefile をコピーしましょう。そ
+   のディレクトリの名称は該当するドライバの名称と一致させて下さい（より詳しくは 
+   <tt>VGADriverDoc</tt> ディレクトリの中にある文書を参照して下さい）。
+
+<item> Makefile を作成するには、次のコマンドを実行して下さい。
+<verb>
+  ./mkmf
+</verb>
+<item> `<tt>make</tt>' を実行すると構成定義したサーバーを結合します。
+
+<item> `<tt>make install</tt>' を実行すると新しいサーバーを組み込みます。
+
+<item> `<tt>make clean</tt>' を実行するとこの手順で作成したファイルを削除します。
+
+<item> <tt/xf86site.def/ ファイルを編集し、作成するサーバーかサーバーに含ませる
+   ドライバの選択を変更して、上記の手順を繰り返して下さい。<tt/xf86site.def/ 
+   ファイルにて X サーバー機能拡張の選択を変更した場合は、`<tt>./mkmf</tt>' の
+   かわりに `<tt>make Makefile</tt>' を実行すれば十分でしょう。
+
+<item> X サーバーに `<tt>-showconfig</tt>' オプションを付けて実行すれば X サー
+   バーに含まれているドライバを調べることが出来ます。どんな機能拡張が含まれてい
+   るかを確認するには、X サーバーを起動し、`<tt>xdpyinfo</tt>' を実行して下さ
+   い。
+</enum>
+
+<verb>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/Japanese/sgml/LinkKit.sgml,v 3.2 1997/01/26 04:34:19 dawes Exp $
+</verb>
+<hrule>
+
+このファイルは xc/programs/Xserver/hw/xfree86/doc/sgml/LinkKit.sgml,v 3.11 1996/10/16 14:41:12   を、岡本  一幸 
+( Kazuyuki Okamoto <url url="mailto:ikko-@pacific.rim.or.jp"
+name="&lt;ikko-@pacific.rim.or.jp&gt;"> ) が XFree86 3.2 を
+日本でインストールする人向けに和訳したものです。ここがおかしいとか、
+ここはこうしたほうがいいといったご意見がありましたら、電子メールで
+お知らせ下さい。
+原文の著作権は XFree86 プロジェクト社にあります。この和訳の著作権は 
+XFree86 プロジェクト社と岡本　一幸にありますが、この和訳の不具合は私に、
+電子メールで送って下さい。
+<hrule>
+&lsqb;EOF&rsqb;
+
+</article>

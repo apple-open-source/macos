@@ -1,0 +1,257 @@
+/* psdataops.psw
+ *
+ * (c) Copyright 1988-1994 Adobe Systems Incorporated.
+ * All rights reserved.
+ * 
+ * Permission to use, copy, modify, distribute, and sublicense this software
+ * and its documentation for any purpose and without fee is hereby granted,
+ * provided that the above copyright notices appear in all copies and that
+ * both those copyright notices and this permission notice appear in
+ * supporting documentation and that the name of Adobe Systems Incorporated
+ * not be used in advertising or publicity pertaining to distribution of the
+ * software without specific, written prior permission.  No trademark license
+ * to use the Adobe trademarks is hereby granted.  If the Adobe trademark
+ * "Display PostScript"(tm) is used to describe this software, its
+ * functionality or for any other purpose, such use shall be limited to a
+ * statement that this software works in conjunction with the Display
+ * PostScript system.  Proper trademark attribution to reflect Adobe's
+ * ownership of the trademark shall be given whenever any such reference to
+ * the Display PostScript system is made.
+ * 
+ * ADOBE MAKES NO REPRESENTATIONS ABOUT THE SUITABILITY OF THE SOFTWARE FOR
+ * ANY PURPOSE.  IT IS PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY.
+ * ADOBE DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+ * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NON- INFRINGEMENT OF THIRD PARTY RIGHTS.  IN NO EVENT SHALL ADOBE BE LIABLE
+ * TO YOU OR ANY OTHER PARTY FOR ANY SPECIAL, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE, STRICT LIABILITY OR ANY OTHER ACTION ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.  ADOBE WILL NOT
+ * PROVIDE ANY TRAINING OR OTHER SUPPORT FOR THE SOFTWARE.
+ * 
+ * Adobe, PostScript, and Display PostScript are trademarks of Adobe Systems
+ * Incorporated which may be registered in certain jurisdictions
+ * 
+ * Author:  Adobe Systems Incorporated
+ */
+
+defineps PSaload()
+	aload 
+endps
+
+defineps PSanchorsearch(| boolean *truth)
+	anchorsearch truth
+endps
+
+defineps PSarray(int len)
+	len array 
+endps
+
+defineps PSastore()
+	astore 
+endps
+
+defineps PSbegin()
+	begin 
+endps
+
+defineps PSclear()
+	clear 
+endps
+
+defineps PScleartomark()
+	cleartomark 
+endps
+
+defineps PScopy(int n)
+	n copy
+endps
+
+defineps PScount( | int *n)
+	count n 
+endps
+
+defineps PScounttomark( | int *n)
+	counttomark n 
+endps
+
+defineps PScvi()
+	cvi 
+endps
+
+defineps PScvlit()
+	cvlit 
+endps
+
+defineps PScvn()
+	cvn 
+endps
+
+defineps PScvr()
+	cvr 
+endps
+
+defineps PScvrs()
+	cvrs 
+endps
+
+defineps PScvs()
+	cvs 
+endps
+
+defineps PScvx()
+	cvx 
+endps
+
+defineps PSdef()
+	def 
+endps
+
+defineps PSdict(int len)
+	len dict 
+endps
+
+defineps PSdictstack()
+	dictstack 
+endps
+
+defineps PSdup()
+	dup 
+endps
+
+defineps PSend()
+	end 
+endps
+
+defineps PSexch()
+	exch 
+endps
+
+defineps PSexecstack()
+	execstack 
+endps
+
+defineps PSexecuteonly()
+	executeonly 
+endps
+
+defineps PSget()
+	get 
+endps
+
+defineps PSgetinterval()
+	getinterval 
+endps
+
+defineps PSindex(int i)
+	i index 
+endps
+
+defineps PSknown( | boolean *b)
+	known b 
+endps
+
+defineps PSlength( | int *len)
+	length len 
+endps
+
+defineps PSload()
+	load 
+endps
+
+defineps PSmark()
+	mark 
+endps
+
+defineps PSmatrix()
+	matrix 
+endps
+
+defineps PSmaxlength( | int *len)
+	maxlength len 
+endps
+
+defineps PSnoaccess()
+	noaccess 
+endps
+
+defineps PSnull()
+	null 
+endps
+
+defineps PSpackedarray()
+	packedarray 
+endps
+
+defineps PSpop()
+	pop 
+endps
+
+defineps PSput()
+	put 
+endps
+
+defineps PSputinterval()
+	putinterval 
+endps
+
+defineps PSrcheck( | boolean *b)
+	rcheck b 
+endps
+
+defineps PSreadonly()
+	readonly 
+endps
+
+defineps PSroll(int n, j)
+	n j roll 
+endps
+
+defineps PSscheck( | boolean *b)
+	scheck b 
+endps
+
+defineps PSsearch(| boolean *b)
+	search b
+endps
+
+defineps PSshareddict()
+	shareddict 
+endps
+
+defineps PSstatusdict()
+	statusdict 
+endps
+
+defineps PSstore()
+	store 
+endps
+
+defineps PSstring(int len)
+	len string 
+endps
+
+defineps PSstringwidth(char *s | float *xp, *yp)
+	(s) stringwidth yp xp 
+endps
+
+defineps PSsystemdict()
+	systemdict 
+endps
+
+defineps PSuserdict()
+	userdict 
+endps
+
+defineps PSwcheck( | boolean *b)
+	wcheck b 
+endps
+
+defineps PSwhere(| boolean *b)
+	where b
+endps
+
+defineps PSxcheck( | boolean *b)
+	xcheck b 
+endps
+

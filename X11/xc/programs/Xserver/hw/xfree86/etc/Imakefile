@@ -1,0 +1,204 @@
+XCOMM $XConsortium: Imakefile /main/24 1996/10/28 04:24:12 kaleb $
+
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/etc/Imakefile,v 3.49 2002/11/14 21:01:20 tsi Exp $
+#include <Server.tmpl>
+
+#if SystemV
+ CONFIGFILES = ldterm.sdevice ptem.sdevice ptm.sdevice pts.node \
+               pts.sdevice sp.node sp.sdevice
+    INSTPROG = install.sv3
+#ifdef i386ScoArchitecture
+   MISCFILES = dmmap.shar 
+#else
+   MISCFILES = mmapSVR3.shar
+#endif
+#endif
+
+#if SystemV4
+    INSTPROG = install.sv4
+     XDMCONF = XdmConf.svr4
+#ifdef SunArchitecture
+   MISCFILES = apSolaris.shar xcode.xfree86
+#else
+   MISCFILES = 2key.c xcode.xfree86
+#endif
+#endif
+
+#ifdef LynxOSArchitecture
+ CONFIGFILES = pty.cfg
+   MISCFILES = MTRR-Lynx.shar 
+#endif
+
+/* Are these really needed? */
+#if 0
+# ifdef FreeBSDArchitecture
+    INSTPROG = inst.freebsd
+# endif
+# ifdef NetBSDArchitecture
+    INSTPROG = inst.netbsd
+# endif
+#endif
+
+#if !BuildServersOnly && BuildClients
+#ifndef SunArchitecture
+   TERMFILES = sun.termcap sun.terminfo
+#endif
+#endif
+
+XINST = Xinstall.sh
+
+       FILES = $(CONFIGFILES) $(TERMFILES) \
+               $(PATCHFILES) $(XDMCONF) \
+               xmodmap.std $(MISCFILES) $(XINST)
+    INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) \
+	       -I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(XF86SRC)/scanpci \
+	       -I$(XF86SRC)/dummylib
+
+#ifdef ServerExtraSysLibs
+SERVEREXTRASYSLIBS = ServerExtraSysLibs
+#endif
+
+all:: $(FILES)
+
+#if defined(FreeBSDArchitecture) || defined(NetBSDArchitecture) || defined(OpenBSDArchitecture)
+       SRCS1 = kbd_mode.c
+     DEFINES = XFree86ConsoleDefines
+
+AllTarget(kbd_mode)
+
+SingleProgramTarget(kbd_mode,kbd_mode.o,NullParameter,NullParameter)
+
+InstallProgram(kbd_mode,$(BINDIR))
+InstallManPage(kbd_mode,$(MANDIR))
+#endif
+
+#if BuildScanpci
+       SRCS2 = scanpci.c
+
+#if defined(i386Architecture) && \
+    defined(OpenBSDArchitecture) || defined(NetBSDArchitecture) \
+    && ((OSMajorVersion == 1 && OSMinorVersion >= 1) || OSMajorVersion >= 2)
+DEFINES = -DUSE_I386_IOPL
+#endif
+
+AllTarget(ProgramTargetName(scanpci))
+
+NormalProgramTarget(scanpci,scanpci.o,$(XF86OSSRC)/libxf86_os.a ../scanpci/libscanpci.a ../dummylib/libdummy.a,-L../os-support -lxf86_os -L../scanpci -lscanpci -L../dummylib -ldummy $(SERVEREXTRASYSLIBS),NullParameter)
+InstallProgram(scanpci,$(BINDIR))
+InstallManPage(scanpci,$(MANDIR))
+#endif
+
+#if JoystickSupport
+       SRCS3 = joycal.c
+
+AllTarget(ProgramTargetName(joycal))
+
+NormalProgramTarget(joycal,joycal.o,NullParameter,NullParameter,NullParameter)
+InstallProgram(joycal,$(BINDIR))
+#endif
+
+        SRCS4 = pcitweak.c
+
+AllTarget(ProgramTargetName(pcitweak))
+NormalProgramTarget(pcitweak,pcitweak.o,$(XF86OSSRC)/libxf86_os.a ../dummylib/libdummy.a,-L../os-support -lxf86_os -L../dummylib -ldummy $(SERVEREXTRASYSLIBS),NullParameter)
+InstallProgram(pcitweak,$(BINDIR))
+InstallManPage(pcitweak,$(MANDIR))
+
+#if 0 /*BuildMatchagp*/
+       SRCS5 = matchagp.c
+
+# if defined(OpenBSDArchitecture) || defined(NetBSDArchitecture) \
+    && ((OSMajorVersion == 1 && OSMinorVersion >= 1) || OSMajorVersion >= 2)
+DEFINES = -DUSE_I386_IOPL
+SYS_LIBRARIES = -li386
+# endif
+
+AllTarget(ProgramTargetName(matchagp))
+
+NormalProgramTarget(matchagp,matchagp.o,$(XF86OSSRC)/libxf86_os.a ../dummylib/libdummy.a,-L../os-support -lxf86_os -L../scanpci -lscanpci -L../dummylib -ldummy $(SERVEREXTRASYSLIBS),NullParameter)
+InstallProgram(matchagp,$(BINDIR))
+#endif /* BuildMatchagp */
+
+       SRCS6 = mmapr.c
+
+AllTarget(ProgramTargetName(mmapr))
+NormalProgramTarget(mmapr,mmapr.o,NullParameter,NullParameter,NullParameter)
+InstallProgram(mmapr,$(BINDIR))
+
+       SRCS7 = mmapw.c
+
+AllTarget(ProgramTargetName(mmapw))
+NormalProgramTarget(mmapw,mmapw.o,NullParameter,NullParameter,NullParameter)
+InstallProgram(mmapw,$(BINDIR))
+
+#if defined(i386Architecture) || \
+    defined(AlphaArchitecture) || \
+    defined(ia64Architecture) || \
+    defined(x86_64Architecture)
+
+       SRCS8 = ioport.c
+
+AllTarget(ProgramTargetName(ioport))
+NormalProgramTarget(ioport,ioport.o,$(XF86OSSRC)/libxf86_os.a ../dummylib/libdummy.a,-L../os-support -lxf86_os -L../dummylib -ldummy $(SERVEREXTRASYSLIBS) MathLibrary,NullParameter)
+InstallProgram(ioport,$(BINDIR))
+
+IOPORT_NAMES = ProgramTargetName(inb) \
+	       ProgramTargetName(inw) \
+	       ProgramTargetName(inl) \
+	       ProgramTargetName(outb) \
+	       ProgramTargetName(outw) \
+	       ProgramTargetName(outl)
+
+all:: $(IOPORT_NAMES)
+
+$(IOPORT_NAMES): ProgramTargetName(ioport)
+	RemoveFile($@)
+	$(LN) $? $@
+
+clean::
+	RemoveFiles($(IOPORT_NAMES))
+
+install::
+	@for i in $(IOPORT_NAMES); do (set -x; \
+	$(RM) $(DESTDIR)$(BINDIR)/$$i; \
+	(cd $(DESTDIR)/$(BINDIR); $(LN) ioport $$i)); \
+	done
+
+#endif
+
+       SRCS9 = gtf.c
+
+AllTarget(ProgramTargetName(gtf))
+
+NormalProgramTarget(gtf,gtf.o,NullParameter,MathLibrary,NullParameter)
+InstallProgram(gtf,$(BINDIR))
+InstallManPage(gtf,$(MANDIR))
+
+        SRCS = $(SRCS1) $(SRCS2) $(SRCS3) $(SRCS4) $(SRCS5) $(SRCS6) $(SRCS7) \
+	       $(SRCS8) $(SRCS9)
+
+#if (SystemV && !defined(i386ScoArchitecture)) || SystemV4
+InstallNamedProg($(INSTPROG),xf86install,$(LIBDIR)/etc)
+#endif
+
+InstallMultipleDestFlags(install,$(FILES),$(LIBDIR)/etc,$(INSTDATFLAGS))
+
+#if SystemV
+InstallNamedProg(svr3_patch,svr3_patch,$(LIBDIR)/etc)
+InstallNamedProg(svr3_rem_pch,svr3_patch_rem,$(LIBDIR)/etc)
+#endif
+#if SystemV4 && !defined(SunArchitecture)
+InstallNamedProg(svr4_patch,svr4_patch,$(LIBDIR)/etc)
+InstallNamedProg(svr4_rem_pch,svr4_patch_rem,$(LIBDIR)/etc)
+#endif
+
+LinkFile(sun.termcap,sun.tcap)
+LinkFile(sun.terminfo,sun.tinfo)
+
+NormalLibraryObjectRule()
+DependTarget()
+

@@ -1,4 +1,4 @@
-error detected at relaxng.c:6709
-Expecting an element, got empty
-error detected at relaxng.c:6479
-Invalid sequence in interleave
+./test/relaxng/tutor8_2_5.xml:1: element head: Relax-NG validity error : Expecting an element title, got nothing
+./test/relaxng/tutor8_2_5.xml:1: element head: Relax-NG validity error : Invalid sequence in interleave
+./test/relaxng/tutor8_2_5.xml:1: element head: Relax-NG validity error : Element head failed to validate content
+./test/relaxng/tutor8_2_5.xml fails to validate

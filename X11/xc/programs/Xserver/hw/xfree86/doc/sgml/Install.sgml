@@ -1,0 +1,520 @@
+<!DOCTYPE linuxdoc PUBLIC "-//XFree86//DTD linuxdoc//EN" [
+<!ENTITY % defs SYSTEM "defs.ent"> %defs;
+]>
+
+<article>
+
+<title>Installation Details for XFree86&trade; &relvers;
+<author>The XFree86 Project, Inc
+<date>24 February 2003
+
+<ident>
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Install.sgml,v 1.17 2003/02/24 17:09:16 dawes Exp $
+</ident>
+
+<abstract>
+
+How to install XFree86.
+
+</abstract>
+
+<toc>
+
+<sect>Introduction
+<p>
+This document contains information about installing the XFree86 binaries
+as provided by The XFree86 Project.
+
+<p>
+The XFree86 binaries that we provide for UNIX-like OS's (Linux, the
+BSDs, Solaris, etc) are packaged in a platform-independent gzipped tar
+format (aka "tarballs" identified by the <tt>.tgz</tt> suffix).  Along
+with the binaries we provide a customized version of the GNU tar utility
+called "extract" and an installation script.  We recommend that these
+be used to install the binaries.  (The source for this customized version
+of GNU tar can be found in the XFree86 CVS repository's "utils" module,
+and from our <url name="ftp site"
+url="ftp://ftp.xfree86.org/pub/XFree86/misc/utils-&utilsvers;.tgz">.)
+
+<![ %snapshot [
+<p>
+Note: for snapshot releases like this one, binaries are only available for
+a small number of platforms.
+]]>
+
+
+<sect>Downloading the XFree86 &relvers; binaries
+<p>
+
+<![ %updaterel [
+XFree86 &relvers; is an update release.  The most recent full release
+(&fullrelvers;) needs to be installed before installing this update.
+Information about downloading and installing &fullrelvers; can be found
+in the installation document for that version, which can be found
+on the <url name="XFree86 web site"
+url="http://www.xfree86.org/&fullrelvers/Install.html">.
+]]>
+
+We provide XFree86 &relvers; <![ %updaterel [update ]]>binaries for a range
+of operating systems at our
+<![ %snapshot; [
+<url name="ftp site"
+url="ftp://ftp.xfree86.org/pub/XFree86/snapshots/&relvers/binaries/">
+]]>
+<![ %release; [
+<url name="ftp site"
+url="ftp://ftp.xfree86.org/pub/XFree86/&relvers/binaries/">
+]]>
+and our
+<![ %snapshot; [
+<url name="web site"
+url="http://ftp.xfree86.org/pub/XFree86/snapshots/&relvers/binaries/">.
+]]>
+<![ %release; [
+<url name="web site"
+url="http://ftp.xfree86.org/pub/XFree86/&relvers/binaries/">.
+]]>
+Often during releases our site is heavily loaded.  Instead of downloading
+directly from us we recommend that instead you use one of our mirror
+sites.
+
+<p>
+Our binaries are organized by sub-directories which correspond to each
+of the OS/platforms for which we provide binaries.  First go to the
+sub-directory  that represents your OS platform. In some cases (e.g.,
+Linux) there may be a number of choices depending on the architecture
+or libc version your platform uses.  In all case we recommend that you
+first download the <tt>Xinstall.sh</tt> script, and run it as in the
+following example to find out which binary distribution you should
+download.
+
+<tscreen><verb>
+sh Xinstall.sh -check
+</verb></tscreen>
+
+The output of this utility tells you which is the correct set of binaries
+for you to download.  If you are careful with this step you will save
+yourself a lot time and trouble from NOT downloading an incompatible
+distribution.
+
+<bf>NOTES</bf>:
+
+<itemize>
+  <item>The Xinstall.sh script must be downloaded in binary mode,
+	otherwise it won't run correctly.  If you get lots of "command
+	not found" messages when you try to run it, then it is most
+	likely because the script wasn't downloaded in binary mode.
+	Some web browsers won't do this for files of that name, so we
+	also have a copy of it called "<tt>Xinstall.bin</tt>", and most
+	browsers should download that correctly.  When downloading it
+	under this name, select "save as" on your browser, and save the
+	file under the name "<tt>Xinstall.sh</tt>".
+
+  <item>The Xinstall.sh script requires some system commands and
+	utilities to function correctly.  While most systems will have
+	these, some Linux installations may not.  If you find that the
+	script is failing because of some missing system command, you
+	will need to install it before you can continue.  If you don't
+	know how to do this, then we recommend that you obtain this
+	version of XFree86 from your Operating System distributor.
+
+  <item>Always use the version of the Xinstall.sh script that's provided
+	with the release you're installing.  Older versions of the script
+	may not install newer releases correctly.
+
+  <item>If the binary distribution reported by the Xinstall.sh script
+	isn't present on our site, then there are two possibilities.
+	The first is that it hasn't been prepared and uploaded yet.
+	This is likely if you are looking soon after the release date.
+	The second possibility is that we won't have it available at
+	all for this release.  This is likely if it's still not there
+	about two weeks after the release date.  Check <url name="here"
+	url="http://www.xfree86.org/&relvers;/UPDATES.html"> for
+	information about updates to our binary distributions, and <url
+	name="here" url="http://www.xfree86.org/&relvers;/ERRATA.html">
+	for errata related to this release.
+
+</itemize>
+
+Once you're run the <tt>Xinstall.sh</tt> script and found which binary
+<![ %updaterel; [update ]]>distribution is suitable for your system,
+download the necessary files.  The <![ %fullbinaries [twelve (12)]]><![
+%updaterel [four (4)]]> mandatory files for all installations are listed
+below.  If you have not downloaded all of the files, the installer script
+will complain.
+
+<![ %fullbinaries [
+<quote><verb>
+1.   Xinstall.sh    The installer script
+2.   extract        The utility for extracting tarballs
+3.   Xbin.tgz       X clients/utilities and run-time libraries
+4.   Xlib.tgz       Some data files required at run-time
+5.   Xman.tgz       Manual pages
+6.   Xdoc.tgz       XFree86 documentation
+7.   Xfnts.tgz      Base set of fonts
+8.   Xfenc.tgz      Base set of font encoding data
+9.   Xetc.tgz       Run-time configuration files
+10.  Xvar.tgz       Run-time data
+11.  Xxserv.tgz     XFree86 X server
+12.  Xmod.tgz       XFree86 X server modules
+</verb></quote>
+]]>
+
+<![ %updaterel [
+<quote><verb>
+1.   Xinstall.sh    The installer script
+2.   extract        The utility for extracting tarballs
+3.   Xupdate.tgz    Updated files except X server drivers
+4.   Xdrivers.tgz   Updated X server drivers
+</verb></quote>
+]]>
+
+NOTES:
+<itemize>
+  <item>Some web browsers have a problem downloading the <tt>extract</tt>
+	utility correctly.  If you encounter this problem, download the
+	version called <tt>extract.exe</tt> instead.  This should fix the
+	problem.  (This is not a DOS/Windows executable.)
+
+<![ %fullbinaries [
+  <item>A few distributions don't have or require the <tt>Xvar.tgz</tt>
+	tarball.  If it is present in the <tt>binaries</tt> sub-directory
+	for your platform, then it is required.
+]]>
+
+  <item>The Darwin/Mac OS X distribution doesn't have or require the
+	<![ %fullbinaries [<tt>Xmod.tgz</tt>]]><![ %updaterel
+	[<tt>Xdrivers.tgz</tt>]]> tarball.
+
+  <item>Some distributions may have additional mandatory tarballs.
+	While rare, the installer script will tell you if any are missing.
+
+</itemize>
+
+<![ %fullbinaries [
+The following eleven (11) tarballs are optional.  You should download
+the ones you want to install.
+
+<quote><verb>
+1.   Xfsrv.tgz      Font server
+2.   Xnest.tgz      Nested X server
+3.   Xprog.tgz      X header files, config files and compile-time libs
+4.   Xprt.tgz       X Print server
+5.   Xvfb.tgz       Virtual framebuffer X server
+6.   Xf100.tgz      100dpi fonts
+7.   Xfcyr.tgz      Cyrillic fonts
+8.   Xfscl.tgz      Scalable fonts (Speedo, Type1 and TrueType)
+9.   Xhtml.tgz      HTML version of the documentation
+10.  Xps.tgz        PostScript version of the documentation
+11.  Xjdoc.tgz      Documentation in Japanese
+</verb></quote>
+
+NOTES:
+<itemize>
+  <item>Some distributions may have some additional optional tarballs.
+
+</itemize>
+
+If you miss some and want to install them later, go to the
+<ref id="manual-install" name="Manual Installation"> section.
+]]>
+
+<sect>Installing XFree86 &relvers; using the <tt>Xinstall.sh</tt> script
+<p>
+We strongly recommend that our XFree86 &relvers; binaries be installed
+using the <tt>Xinstall.sh</tt> script that we provide.
+<![ %updaterel [It is also important that the previous full release
+(&fullrelvers;) is installed before installing this update release.
+Make sure that you use the &relvers; version of the <tt>Xinstall.sh</tt>
+script to install this update.  Older versions may not be able to do it
+correctly.]]>
+There are a lot of
+steps in the manual installation process, and those steps can vary
+according to the platform and hardware setup.  <![ %fullbinaries [There is a description of
+the manual installation process for the most common cases <ref
+id="manual-install" name="below">.]]>
+
+You must login as the super user (root) to run the installer script.
+Place all of the downloaded files into a single directory (choose a
+temporary location with enough space).  Use the cd command to change to
+that directory and then run the installer script as follows:
+
+<tscreen><verb>
+sh Xinstall.sh
+</verb></tscreen>
+
+Answer the prompts as they come up.  If you are missing something that
+is required, the installer may tell you to install it before trying
+again.  If the problem is that you did not download all of mandatory
+files aforementioned, then the installer will tell you which ones are
+missing and ask you to download them before proceeding.
+
+<sect1>Questions the installer may ask
+<p>
+The installer asks some questions that may not have obvious answers.  The
+information here should help you answer them.  In most cases, apart from
+the first question, the default answers should be OK.
+
+If you run the installer from within an X session (the installer checks
+if <tt>$DISPLAY</tt> is set), you will be warned that doing so is not
+a good idea.  Unless you have a good reason for knowing that this won't
+be a problem, you should exit your X session, including stopping xdm or
+equivalent if it is running, before continuing.  If you ignore this
+warning and run into problems, well, you were warned!
+
+<![ %fullbinaries [If you have an existing X installation, you]]>
+<![ %updaterel [You ]]>
+will be warned that proceeding
+with this installation will overwrite it.  Only those things that are
+part of our standard distribution will be overwritten.  Other X
+applications that you may have installed will not be removed.  Some
+configuration files may be overwritten though, but the installer should
+prompt you before doing so.  As the opening greeting says, it is
+<bf>strongly</bf> recommended that you backup any existing installation
+before proceeding.  If you want your old applications to still be there
+after you've installed, don't do the "backup" by simply renaming
+your old <tt>/usr/X11R6</tt> directory.  It is better to make a copy of
+it, and then install over the top of the original one.  If you run into
+problems and want to revert to the old installation, you can then
+delete the overwritten one and copy the saved version back.
+
+During the first part of the installation over an existing version, the
+script may remove some old files or directories that would get in the
+way of the new installation.  It will list which files/directories have
+been removed.  If none are listed, then none were removed.
+
+<![ %fullbinaries [
+The next step when installing over an existing version is to check for
+existing configuration files.  As of XFree86 version 3.9.18, the run-time
+configuration files are installed by default under <tt>/etc/X11</tt>
+instead of under <tt>/usr/X11R6/lib/X11</tt>.  The installer will move
+the existing ones for you and create the necessary symbolic links.  If
+you don't want to have these configuration files under <tt>/etc/X11</tt>,
+then you should answer "no" when asked about it.  Answering "no" here
+also means that the new configuration files will be installed in the
+old <tt>/usr/X11R6/lib/X11</tt> location.
+
+Note: for the rare systems that don't have symbolic links, this question
+will not be asked.  The default answer is "yes" because that is best
+for most situations.  It is our new default.  It makes it easier to
+share the <tt>/usr/X11R6</tt> directory between multiple hosts, and
+allows it to be mounted read-only.  If you don't need these features,
+then you can safely answer "no" if you don't want them moved.
+
+When installing over an existing version, you will be prompted before
+each set of configuration files is installed.  If you haven't made any
+Customisations to your existing configuration files, then you can safely
+answer "yes" for each of these.  If you have made customisations, you
+can try answering "no".  If you run into problems later, you may need
+to manually merge your customisations into the the new version of the
+configuration files.  The configuration files can all be found in the
+<tt>Xetc.tgz</tt> tarball.  See the <ref id="manual-install" name="section
+below"> about manual installation for information about extracting them
+separately.
+
+After the configuration files have been dealt with, the other mandatory
+components of the binary distribution will be installed.  This should
+proceed without any user intervention.
+
+If you downloaded any of the optional components, the installer will
+ask you about each one before it is installed.  The default answer is
+"yes".  If there are any that you've since decided that you don't want
+to install, answer "no" when prompted.
+
+After that is done, the main part of the installation is complete.  The
+next steps are to tidy up some aspects of the installation.  The first
+of these is to run "<tt>ldconfig</tt>" on systems that require it, so
+that the newly installed shared libraries are accessible.  Then
+the <tt>fonts.dir</tt> files in some directories are updated so that
+the fonts can be accessed correctly.  Next, the installer checks to
+see if your system has a termcap file or terminfo files.  If it finds
+the former, it tells you how you may update the entries in that file.
+If it finds the latter, it asks you if you want it to update them
+for you.
+
+You may be asked if you want to create links for the GL libraries and
+header files.  The OpenGL standard on some platforms (Linux in particular)
+says that these should be installed in the standard system locations
+(<tt>/usr/lib</tt> and <tt>/usr/include</tt>), so the installer offers
+to create the appropriate links.  If you're running Linux, you should
+probably answer yes.  For other platforms it is your choice.  If you
+already have another version of libGL in /usr/lib, answering "yes" will
+remove it and replace it with a link to the version we supply.  The
+installer will show you a listing of any existing versions before asking
+if they should be replaced.
+
+Finally, the installer asks you if you want a link created for the
+<tt>rstart</tt> utility.  On most modern systems the link isn't essential,
+so the default answer is "no".  Answer "yes" if you know that you need
+it.  If you find later that you need it, you can create it easily by
+running:
+
+<tscreen><verb>
+rm -f /usr/bin/rstartd
+ln -s /usr/X11R6/bin/rstartd /usr/bin/rstartd
+</verb></tscreen>
+
+]]>
+
+<sect1>After the installation is complete
+<p>
+The next step is to configure the X server.  That is covered in detail
+in an as-yet unwritten document :-(.  In the meantime, there are three
+ways to create a basic X server configuration file for XFree86 &relvers;.
+One is to run the <tt>xf86config</tt> utility.  Another is to run the
+<tt>xf86cfg</tt> utility.  The third option is to use the new
+<tt>-configure</tt> X server option:
+
+<tscreen><verb>
+XFree86 -configure
+</verb></tscreen>
+
+Note that if you are running Darwin/Mac OS X, there is no step 3 :-).
+You should skip this step, as configuration is not required or possible.
+The X server configuration file is not used on Darwin/Mac OS X.
+
+The X server config file (<tt>XF86Config</tt>) format has changed
+compared to 3.3.x.  Also, its default location is now <tt>/etc/X11</tt>.
+Finally, there is now only one X server for driving video hardware,
+and it is called "<tt>XFree86</tt>".  Once you're satisfied with the
+operation of the new X server, you can safely remove the old
+<tt>XF86_*</tt> and/or <tt>XF98_*</tt> X server binaries from
+<tt>/usr/X11R6/bin</tt>.
+
+After the X server configuration is done, it may be advisable to reboot,
+especially if you run xdm (or equivalent) or the font server (xfs).
+
+<![ %fullbinaries [
+<sect>Installing XFree86 &relvers; manually<label id="manual-install">
+<p>
+This section contains information about manually installing the XFree86
+&relvers; binary distributions.  You should only use this method if you
+know what you're doing.  The information here covers some common cases,
+but not every possible case.  It also may not be complete or up to date.
+Use at your own risk.
+
+Put all of the downloaded files into a single directory (choose some
+temporary location with enough space).  Become the super user (root).
+All of the following commands should be run as root, and they should be
+run from the directory that has all of the downloaded files.  The
+"<tt>extract</tt>" utility should be used to unpack the tarballs.  This
+is a customised version of GNU tar that has the gzip code built-in, and
+which has a different usage when run under the name "extract".  One
+important thing that <tt>extract</tt> does that most versions of tar do
+not do by default is that it unlinks existing files before writing new
+ones.  This is important when installing over an existing version of X.
+If you choose to use some other utility to extract the tarballs, you're
+on your own.
+
+<sect1>A new installation
+<p>
+The simplest case is when there is no existing X installation.  The
+installation procedure for this case is as follows:
+
+<tscreen><verb>
+chmod +x extract
+mkdir /usr/X11R6
+mkdir /etc/X11
+./extract -C /usr/X11R6 X[a-df-uw-z]*.tgz
+./extract -C /usr/X11R6 Xvfb.tgz    # If you are installing Xvfb
+./extract -C /etc/X11 Xetc.tgz
+./extract -C /var Xvar.tgz
+ln -s /etc/X11/app-defaults /usr/X11R6/lib/X11
+ln -s /etc/X11/fs /usr/X11R6/lib/X11
+ln -s /etc/X11/lbxproxy /usr/X11R6/lib/X11
+ln -s /etc/X11/proxymngr /usr/X11R6/lib/X11
+ln -s /etc/X11/rstart /usr/X11R6/lib/X11
+ln -s /etc/X11/twm /usr/X11R6/lib/X11
+ln -s /etc/X11/xdm /usr/X11R6/lib/X11
+ln -s /etc/X11/xinit /usr/X11R6/lib/X11
+ln -s /etc/X11/xsm /usr/X11R6/lib/X11
+ln -s /etc/X11/xserver /usr/X11R6/lib/X11
+chmod ug-w /usr/X11R6/lib           # Make sure the permissions are OK
+/sbin/ldconfig /usr/X11R6/lib       # For Linux
+/sbin/ldconfig -m /usr/X11R6/lib    # For FreeBSD, NetBSD, OpenBSD
+/usr/X11R6/bin/mkfontdir /usr/X11R6/lib/X11/fonts/misc
+</verb></tscreen>
+
+<sect1>Installing over an old installation
+<p>
+If you have an existing installation of X, you should make a backup copy
+of it before installing the new version over the top of it.
+
+Before doing anything else, make sure the <tt>extract</tt> command is
+executable, and also link it to the name "<tt>gnu-tar</tt>" so that it
+can be used as a regular <tt>tar</tt> command:
+
+<tscreen><verb>
+chmod +x extract
+rm -f gnu-tar
+ln extract gnu-tar
+</verb></tscreen>
+
+The first part of the procedure is to move the old run-time config files
+from <tt>/usr/X11R6/lib/X11</tt> to <tt>/etc/X11</tt>.  Create
+<tt>/etc/X11</tt> if it doesn't already exist.  For each of the following
+sub-directories (<tt>app-defaults</tt>, <tt>fs</tt>, <tt>lbxproxy</tt>,
+<tt>proxymngr</tt>, <tt>rstart</tt>, <tt>twm</tt>, <tt>xdm</tt>,
+<tt>xinit</tt>, <tt>xsm</tt>, <tt>xserver</tt>) that you want to move,
+check that there is a sub-directory of this name in
+<tt>/usr/X11R6/lib/X11</tt>.  Create a sub-directory of the same name
+under <tt>/etc/X11</tt>, then copy the files over by running:
+
+<tscreen><verb>
+./gnu-tar -C /usr/X11R6/lib/X11/subdir -c -f - . | \
+  ./gnu-tar -C /etc/X11/subdir -v -x -p -U -f -
+</verb></tscreen>
+
+For each subdirectory that is moved, remove the one under
+<tt>/usr/X11R6/lib/X11</tt> and create a symbolic link to the new
+location:
+
+<tscreen><verb>
+rm -fr /usr/X11R6/lib/X11/subdir
+ln -s /etc/X11/subdir /usr/X11R6/lib/X11
+</verb></tscreen>
+
+For those subdirectories that didn't already exist under
+<tt>/usr/X11R6/lib/X11</tt>, create one under <tt>/etc/X11</tt> and
+create the symbolic link to it:
+
+<tscreen><verb>
+mkdir /etc/X11/subdir
+ln -s /etc/X11/subdir /usr/X11R6/lib/X11
+</verb></tscreen>
+
+Once that is done, extract the config files from the <tt>Xetc.tgz</tt>
+tarball into a temporary directory:
+
+<tscreen><verb>
+mkdir tmpdir
+./extract -C tmpdir Xetc.tgz
+</verb></tscreen>
+
+and then copy each sub-directory over to the installed location:
+
+<tscreen><verb>
+./gnu-tar -C tmpdir/subdir -c -f - . | \
+  ./gnu-tar -C /usr/X11R6/lib/X11/subdir -v -x -p -U -f -
+</verb></tscreen>
+
+If you have customised any config files in your old installation, you
+may want to omit those sub-directories, or copy selected files over by
+hand.
+
+Once that's done, the main part of the installation can be done:
+
+<tscreen><verb>
+./extract -C /usr/X11R6 `pwd`/X[a-df-uw-z]*.tgz
+./extract -C /usr/X11R6 Xvfb.tgz    # If you are installing Xvfb
+./extract -C /var Xvar.tgz
+chmod ug-w /usr/X11R6/lib           # Make sure the permissions are OK
+/sbin/ldconfig /usr/X11R6/lib       # For Linux
+/sbin/ldconfig -m /usr/X11R6/lib    # For FreeBSD, NetBSD, OpenBSD
+/usr/X11R6/bin/mkfontdir /usr/X11R6/lib/X11/fonts/misc
+</verb></tscreen>
+
+]]>
+
+
+</article>

@@ -1,0 +1,98 @@
+'\"! eqn | mmdoc
+'\"macro stdmacro
+.ds Vn Version 1.2
+.ds Dt 6 March 1997
+.ds Re Release 1.2.0
+.ds Dp Feb 16 02:56
+.ds Dm  Feb 10 17:2
+.ds Xs 49166 6 xcopycontext.gl
+.TH GLXCOPYCONTEXT
+.SH NAME
+glXCopyContext
+\- copy state from one rendering context to another
+
+.SH C SPECIFICATION
+void \f3glXCopyContext\fP(
+Display \fI*dpy\fP,
+.nf
+.ta \w'\f3void \fPglXCopyContext( 'u
+	GLXContext \fIsrc\fP,
+	GLXContext \fIdst\fP,
+	unsigned long \fImask\fP )
+.fi
+
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+.TP \w'\fImask\fP\ \ 'u 
+\f2dpy\fP
+Specifies the connection to the X server.
+.TP
+\f2src\fP
+Specifies the source context.
+.TP
+\f2dst\fP
+Specifies the destination context.
+.TP
+\f2mask\fP
+Specifies which portions of \f2src\fP state are to be copied to \f2dst\fP.
+.SH DESCRIPTION
+\f3glXCopyContext\fP copies selected groups of state variables from \f2src\fP to \f2dst\fP.
+\f2mask\fP indicates which groups of state variables are to be copied.
+\f2mask\fP contains the bitwise OR of the same symbolic names that are
+passed to the GL command \f3glPushAttrib\fP.
+The single symbolic constant \f3GL_ALL_ATTRIB_BITS\fP can be used to
+copy the maximum possible portion of rendering state.
+.P
+The copy can be done only if the renderers named by \f2src\fP and \f2dst\fP
+share an address space.
+Two rendering contexts share an address space if both are nondirect
+using the same server,
+or if both are direct and owned by a single process.
+Note that in the nondirect case it is not necessary for the calling
+threads to share an address space,
+only for their related rendering contexts to share an address space.
+.P
+Not all values for GL state can be copied.
+For example,
+pixel pack and unpack state,
+render mode state,
+and select and feedback state are not copied.
+The state that can be copied is exactly the state that is manipulated
+by the GL command 
+.br
+\f3glPushAttrib\fP.
+.P
+An implicit \f3glFlush\fP is done by \f3glXCopyContext\fP if \f2src\fP is the current
+context for the calling thread.
+.SH NOTES
+.P
+A \f2process\fP is a single execution environment,
+implemented in a single address space,
+consisting of one or more threads.
+.P
+A \f2thread\fP is one of a set of subprocesses that share
+a single address space,
+but maintain separate program counters,
+stack spaces,
+and other related global data.
+A \f2thread\fP that is the only member of its subprocess group
+is equivalent to a \f2process\fP.
+.SH ERRORS
+\f3BadMatch\fP is generated if rendering contexts \f2src\fP and \f2dst\fP
+do not share an address space
+or were not created with respect to the same screen.
+.P
+\f3BadAccess\fP is generated if \f2dst\fP is current to any thread
+(including the calling thread) at the time \f3glXCopyContext\fP is called.
+.P
+\f3GLXBadCurrentWindow\fP is generated if \f2src\fP is the current
+context and the current drawable is a window that is no longer valid.
+.P
+\f3GLXBadContext\fP is generated if either \f2src\fP or \f2dst\fP is not
+a valid GLX context.
+.SH SEE ALSO
+\f3glPushAttrib\fP,
+\f3glXCreateContext\fP,
+\f3glXIsDirect\fP

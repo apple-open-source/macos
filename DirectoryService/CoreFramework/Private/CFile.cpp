@@ -35,7 +35,6 @@
 #include <sys/mount.h>			// for statfs() and structs
 #include <fcntl.h>				// for open() flags
 #include <errno.h>				// for errno
-#include <sys/stat.h>			// for fstat(), stat() and structs
 
 enum {
 	kiIOAbort					= -27
@@ -104,11 +103,10 @@ void CFile::open ( const char *inFilePath, const Boolean inCreate )	throw ( OSEr
 	register FILE	   *aFileRef		= kBadFileRef;
 	char			   *pTmpFilePath	= nil;
 	bool				bNewPath		= true;
-	struct	 stat		aStatStruct;
-
+	
 	if ( inCreate == true )
 	{
-		if ( ::stat( inFilePath, &aStatStruct) != -1 )
+		if ( ::stat( inFilePath, &fStatStruct) != -1 )
 		{
 			// file already exists, open it for read/write
 			if ( kBadFileRef != (aFileRef = ::fopen( inFilePath, "r+" )) )
@@ -549,6 +547,17 @@ sInt64 CFile::FileSize ( void ) throw ( OSErr )
 } // FileSize
 
 
+//--------------------------------------------------------------------------------------------------
+//	* ModDate
+//--------------------------------------------------------------------------------------------------
+
+void CFile::ModDate( struct	timespec *outModTime )
+{
+	if ( outModTime != NULL )
+		memcpy( outModTime, &(fStatStruct.st_mtimespec), sizeof(fStatStruct.st_mtimespec) );
+}
+
+	
 //--------------------------------------------------------------------------------------------------
 //	* seekg ()
 //

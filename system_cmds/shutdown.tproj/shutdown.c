@@ -61,6 +61,11 @@ static const char rcsid[] =
 #include <string.h>
 #include <unistd.h>
 
+#include <errno.h>
+#include <bsm/libbsm.h>
+#include <bsm/audit_uevents.h>
+
+
 #include "pathnames.h"
 
 #ifdef __APPLE__
@@ -110,6 +115,7 @@ void nolog(void);
 void timeout(int);
 void timewarn(int);
 void usage(const char *);
+int audit_shutdown(int);
 
 int
 main(argc, argv)
@@ -222,7 +228,9 @@ main(argc, argv)
 	if (!(whom = getlogin()))
 		whom = (pw = getpwuid(getuid())) ? pw->pw_name : "???";
 
+
 #ifdef DEBUG
+	audit_shutdown(0);
 	(void)putc('\n', stdout);
 #else
 	(void)setpriority(PRIO_PROCESS, 0, PRIO_MIN);
@@ -230,11 +238,15 @@ main(argc, argv)
 		int forkpid;
 
 		forkpid = fork();
-		if (forkpid == -1)
+		if (forkpid == -1) {
+			audit_shutdown(1);
 			err(1, "fork");
-		if (forkpid)
+		}
+		if (forkpid) {
 			errx(0, "[pid %d]", forkpid);
+		}
 	}
+	audit_shutdown(0);
 	setsid();
 #endif
 	openlog("shutdown", LOG_CONS, LOG_AUTH);
@@ -557,3 +569,50 @@ usage(cp)
 	    " time [warning-message ...]\n");
 	exit(1);
 }
+
+/*
+ * The following tokens are included in the audit record for shutdown
+ * header
+ * subject
+ * return
+ */  
+int audit_shutdown(int exitstatus)
+{
+	int aufd;
+	token_t *tok;
+	long au_cond;
+
+	/* If we are not auditing, don't cut an audit record; just return */
+	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
+		fprintf(stderr, "shutdown: Could not determine audit condition\n");
+		return 0;
+	}
+	if (au_cond == AUC_NOAUDIT)
+		return 0;
+
+	if((aufd = au_open()) == -1) {
+		fprintf(stderr, "shutdown: Audit Error: au_open() failed\n");
+		exit(1);      
+	}
+
+	/* The subject that performed the operation */
+	if((tok = au_to_me()) == NULL) {
+		fprintf(stderr, "shutdown: Audit Error: au_to_me() failed\n");
+		exit(1);
+	}
+	au_write(aufd, tok);
+
+	/* success and failure status */
+	if((tok = au_to_return32(exitstatus, errno)) == NULL) {
+		fprintf(stderr, "shutdown: Audit Error: au_to_return32() failed\n");
+		exit(1);
+	}
+	au_write(aufd, tok);
+
+	if(au_close(aufd, 1, AUE_shutdown) == -1) {
+		fprintf(stderr, "shutdown: Audit Error: au_close() failed\n");
+		exit(1);
+	}
+	return 1;
+}
+

@@ -1,0 +1,116 @@
+                          Information for SiS Users
+
+                   Juanjo Santamarta (<santamarta@ctv.es>)
+
+                                5 March 2000
+
+1.  Introduction
+
+This driver was primarily written for the SiS6326 and SiS530 by Alan Houri-
+hane.  It also works on 5597/5598 chips, and probably on older SiS862X5 fam-
+ily.
+
+The driver supports :
+
+   o Linear Addressing
+
+   o 8/15/16/24 bits per pixel
+
+   o Fully programmable clocks are supported
+
+   o H/W acceleration and cursor support
+
+   o XAA support (XFree86 Acceleration Architecture)
+
+2.  XF86Config Options
+
+The following options are of particular interest for the SiS driver. Each of
+them must be specified in the Device section of the XF86Config file for this
+card.
+
+      Option "SetMclk"
+            This option lets you to modify the memory clocking of your card.
+            (only for 5597 and 6326) Modifying the memory timings can destroy
+            the device, but usually the only ill effects of overclocking is
+            to have some noise an drawing errors, but BE CAREFUL. Usually a
+            little increment can improve the drawing speed, and allows also
+            higher dotclocks.  The server reports default memclock on start-
+            ing messages, so take it as a base. Units are in KHZ.
+
+      Option "DacSpeed"
+            This option lets you to modify the maximum allowed dotclock).
+
+      Option "sw_cursor", "hw_cursor"
+            The default is for using the hardware cursor.
+
+      Option "Turboqueue"
+            5597/8 and 6326 have the option to extend the engine command
+            queue on VRAM. With extended queue length, the driver only checks
+            queue status on some color-expansion commands. This gives some
+            performance improvement, but is possible to lose some commands,
+            corrupting screen output. As the size of extended command queue
+            is 16-32K, the probability is very low, but exists. The perfor-
+            mance gain observed is around 8-10%. Currently, using this option
+            will occasionally freeze the acceleration engine, causing weird
+            image display.
+
+      Option "FastVram"
+            Enables 1 cycle memory access. Try it. Increased memory bandwidth
+            reduces the possibility of glitches and noise on high resolution
+            modes.
+
+      Option "PciRetry"
+
+      Option "NoAccel"
+            Disables various hardware accelerations.
+
+      VideoRAM size
+            The SiS chips can only directly address 4096K bytes of video RAM.
+            Some video cards using these chips are shipped with additional
+            video RAM.  The videoRAM must be explicitly limited to 4096 for
+            those cards.  Attempting to use the additional RAM leads to a
+            variety of scrambled screen artifacts.
+
+3.  Modelines
+
+When constructing a modeline for use with the Sis driver you'll need to con-
+sider several points:
+
+   o H/W Acceleration.  The H/W cursor, and fill operations currently allo-
+     cate memory of the video ram for there own use.  If this is not avail-
+     able these functions will automatically be disabled. Also, Turboqueue
+     allocate 32k of Vram.
+
+   o Dot Clock. SiS documents the following video modes to work with 6326.
+     The max dot clock allowable for your 6326 based board depends also on
+     the memory installed on it. Option FastVram can be needed for high dot
+     clocks to work. Of course, the memory installed must allow 1 cycle R/W.
+
+     SiS recommended video modes for 6326:
+
+           640x480 :
+                 4, 8, 15, 16, 24 bpp at 85Hz Non-interlaced
+
+           800x600 :
+                 4, 8, 15, 16, 24 bpp at 85Hz Non-interlaced
+
+           1024x768 :
+                 4, 8, 15, 16, 24 bpp at 85Hz Non-interlaced
+
+           1280x1024 :
+                 4, 8, 15, 16, 24 bpp at 75Hz Non-interlaced
+
+           1600x1200 :
+                 4, 8  bpp at 65Hz Non-interlaced
+
+4.  Troubleshooting
+
+Some video modes with high dot-clocks don't work at all, resulting on black
+screen. Lowering dotclock in that case could solve the problem.
+
+Document based on 3.3 version written by Xavier Ducoin.
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/SiS.sgml,v 3.7 2000/03/06 22:59:24 dawes Exp $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.SiS,v 3.17 2001/06/01 18:28:41 dawes Exp $

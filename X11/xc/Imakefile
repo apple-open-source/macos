@@ -1,0 +1,197 @@
+XCOMM $Xorg: Imakefile,v 1.5 2000/08/17 19:41:44 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/Imakefile,v 3.29 2003/02/26 09:21:31 dawes Exp $
+
+#define IHaveSubdirs
+#define PassCDebugFlags CDEBUGFLAGS="$(CDEBUGFLAGS)"
+
+RELEASE = XOrgReleaseString
+
+#ifdef XFree86VersionString
+VERSTRING = " "version XFree86VersionString "("XFree86DateString")"
+#endif
+
+#ifndef OSName
+#define OSName Unknown Operating System!
+#endif
+
+#if !BuildServersOnly
+#if BuildFonts
+        FONTSDIR = fonts
+#endif
+#ifndef Win32Architecture
+#if BuildDocs
+        DOCSDIR = doc
+#endif
+        NLSSUBDIR = nls
+#endif
+#endif
+
+        SUBDIRS = include config lib $(NLSSUBDIR) \
+                  programs $(FONTSDIR) $(DOCSDIR)
+  LNINSTALLDIRS = lib
+
+#if HasParallelMake
+#ifdef ParallelDefines
+        TOPPARALLELMFLAGS = TopParallelDefines
+#endif
+#endif
+
+MakeSubdirs($(SUBDIRS))
+
+MakeLintSubdirs($(LNINSTALLDIRS),install.ln,install.ln)
+
+MakeLintSubdirs($(LNINSTALLDIRS),external.ln,lintlib)
+
+DependSubdirs($(SUBDIRS))
+
+#define IHaveSpecialMakefileTarget
+
+#ifndef Win32Architecture
+#ifdef XFree86VersionString
+VerifyOS::
+	@echo ""
+	@echo Building XFree86 version XFree86VersionString "("XFree86DateString")."
+#endif
+VerifyOS::
+	@echo ""
+	@echo Building on OSName "("OSMajorVersion"."OSMinorVersion"."OSTeenyVersion")."
+	@echo ""
+#ifdef LinuxArchitecture
+VerifyOS::
+	@echo Linux Distribution: LinuxDistName
+	@echo libc version: LinuxCLibMajorVersion"."LinuxCLibMinorVersion"."LinuxCLibTeenyVersion
+	@echo binutils version: `expr LinuxBinUtilsMajorVersion / 10`.`expr LinuxBinUtilsMajorVersion % 10`
+	@echo ""
+#endif
+#if defined(GccMajorVersion) && defined(GccMinorVersion)
+VerifyOS::
+	@echo GCC version: GccMajorVersion"."GccMinorVersion
+	@echo ""
+#endif
+
+#ifndef OS2Architecture
+version.def::
+	$(RM) $(IRULESRC)/version.def
+	$(RM) $(IRULESRC)/date.def
+	$(LN) ../../$(XF86SRC)/xf86Version.h $(IRULESRC)/version.def
+	$(LN) ../../$(XF86SRC)/xf86Date.h $(IRULESRC)/date.def
+#else /*OS2Architecture*/
+version.def::
+	$(RM) $(IRULESRC)/version.def
+	$(RM) $(IRULESRC)/date.def
+	$(CP) $(XF86SRC)/xf86Version.h $(IRULESRC)/version.def
+	$(CP) $(XF86SRC)/xf86Date.h $(IRULESRC)/date.def
+#endif
+
+includes::
+	MakeDir($(BUILDINCDIR))
+	MakeDir($(BUILDBINDIR))
+
+XCOMM
+XCOMM Watch out!!!  Make sure you do make includes after removing X11....
+XCOMM
+clean::
+	$(RM) -r $(BUILDINCDIR)
+	$(RM) -r $(BUILDLIBDIR)
+	$(RM) -r $(BUILDBINDIR)
+
+      MAKE_OPTS = -f xmakefile
+
+World::
+	$(MAKE) $(MFLAGS) $(MAKE_OPTS) $(TOPPARALLELMFLAGS) all
+
+Everything::
+	@echo ""
+	@echo Rebuilding XFree86$(VERSTRING).
+	@echo ""
+	@date
+	@echo ""
+	cd $(IMAKESRC) && if [ -f Makefile ]; then \
+	    $(MAKE) $(MFLAGS) BOOTSTRAPCFLAGS="$(BOOTSTRAPCFLAGS)"; \
+	else \
+	    $(MAKE) $(MFLAGS) -f Makefile.ini BOOTSTRAPCFLAGS="$(BOOTSTRAPCFLAGS)"; \
+	fi
+	-$(RM) xmakefile.bak; $(MV) xmakefile xmakefile.bak
+	$(MAKE) $(MFLAGS) xmakefile
+	$(MAKE) $(MFLAGS) $(MAKE_OPTS) Makefiles
+	$(MAKE) $(MFLAGS) $(MAKE_OPTS) includes
+	$(MAKE) $(MFLAGS) $(MAKE_OPTS) depend
+	$(MAKE) $(MFLAGS) $(MAKE_OPTS) $(WORLDOPTS)
+	@echo ""
+	@date
+	@echo ""
+	@echo Rebuild of XFree86$(VERSTRING) complete.
+	@echo ""
+
+XCOMM clean out link tree looking for stuff that should get checked in
+dangerous_strip_clean::
+	$(MAKE) -k distclean
+	find . -type l -exec rm {} \;
+	find . \( \! -type d \) -print
+
+#else /* not Win32Architecture else */
+VerifyOS::
+	@echo :
+	@echo Building on OSName.
+	@echo :
+
+includes::
+	MakeDir($(BUILDINCDIR:/=\))
+
+XCOMM
+XCOMM Watch out!!!  Make sure you do make includes after removing X11....
+XCOMM
+clean::
+	RmTreeCmd $(BUILDINCDIR:/=\)
+	RmTreeCmd $(BUILDLIBDIR:/=\)
+
+Everything::
+	@echo :
+	@echo Rebuilding XFree86$(VERSTRING).
+	@echo :
+	@echo :
+	cd $(IMAKESRC)
+	$(MAKE) $(MFLAGS) -f Makefile.ini imake.exe
+	cd ..\..
+	RMoveToBakFile(xmakefile)
+	$(MAKE) $(MFLAGS) xmakefile
+	$(MAKE) $(MFLAGS) $(MAKE_OPTS) Makefiles
+	$(MAKE) $(MFLAGS) $(MAKE_OPTS) includes
+	$(MAKE) $(MFLAGS) $(MAKE_OPTS) depend
+	$(MAKE) $(MFLAGS) $(MAKE_OPTS) $(WORLDOPTS)
+	@echo :
+	@echo :
+	@echo Rebuild of XFree86$(VERSTRING) complete.
+	@echo :
+
+#ifdef ProjectRoot
+install::
+	MakeDir($(PROJECTROOT:/=\))
+#endif
+
+install::
+	MakeDir($(INCROOT:/=\))
+	MakeDir($(USRLIBDIR:/=\))
+	MakeDir($(LIBDIR:/=\))
+
+#endif /* not Win32Architecture else */
+
+XCOMM special target to determine if the xmakefile exists. 
+XCOMM Works on both Unix and NMAKE.EXE
+xmakefile-exists::
+
+#ifndef MakeManKeywords
+#define MakeManKeywords YES	/* install.man rebuilds "man -k" database? */
+#endif
+
+#ifndef MakeHtmlManIndex
+#define MakeHtmlManIndex YES	/* install.man generates HTML man page index */
+#endif
+
+#undef BootstrapCleanSubdirs
+#define BootstrapCleanSubdirs BOOTSTRAPSUBDIRS="$(BOOTSTRAPSUBDIRS)"
+BOOTSTRAPSUBDIRS = imake makedepend

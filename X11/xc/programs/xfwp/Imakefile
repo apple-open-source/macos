@@ -1,0 +1,17 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:23 cpqbld Exp $
+
+         DEPLIBS = $(DEPICELIB)
+ LOCAL_LIBRARIES = $(ICELIB)
+
+#if HasBSD44Sockets
+    SOCK_DEFINES = -DBSD44SOCKETS
+#endif
+
+
+           SRCS = xfwp.c misc.c pm.c transport.c io.c
+           OBJS = xfwp.o misc.o pm.o transport.o io.o
+
+SpecialCObjectRule(transport,$(ICONFIGFILES),$(SOCK_DEFINES))
+
+ComplexProgramTarget(xfwp)
+

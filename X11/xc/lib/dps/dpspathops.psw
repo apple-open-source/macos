@@ -1,0 +1,169 @@
+/* dpspathops.psw
+ *
+ * (c) Copyright 1988-1994 Adobe Systems Incorporated.
+ * All rights reserved.
+ * 
+ * Permission to use, copy, modify, distribute, and sublicense this software
+ * and its documentation for any purpose and without fee is hereby granted,
+ * provided that the above copyright notices appear in all copies and that
+ * both those copyright notices and this permission notice appear in
+ * supporting documentation and that the name of Adobe Systems Incorporated
+ * not be used in advertising or publicity pertaining to distribution of the
+ * software without specific, written prior permission.  No trademark license
+ * to use the Adobe trademarks is hereby granted.  If the Adobe trademark
+ * "Display PostScript"(tm) is used to describe this software, its
+ * functionality or for any other purpose, such use shall be limited to a
+ * statement that this software works in conjunction with the Display
+ * PostScript system.  Proper trademark attribution to reflect Adobe's
+ * ownership of the trademark shall be given whenever any such reference to
+ * the Display PostScript system is made.
+ * 
+ * ADOBE MAKES NO REPRESENTATIONS ABOUT THE SUITABILITY OF THE SOFTWARE FOR
+ * ANY PURPOSE.  IT IS PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY.
+ * ADOBE DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL
+ * IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NON- INFRINGEMENT OF THIRD PARTY RIGHTS.  IN NO EVENT SHALL ADOBE BE LIABLE
+ * TO YOU OR ANY OTHER PARTY FOR ANY SPECIAL, INDIRECT, OR CONSEQUENTIAL
+ * DAMAGES OR ANY DAMAGES WHATSOEVER WHETHER IN AN ACTION OF CONTRACT,
+ * NEGLIGENCE, STRICT LIABILITY OR ANY OTHER ACTION ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.  ADOBE WILL NOT
+ * PROVIDE ANY TRAINING OR OTHER SUPPORT FOR THE SOFTWARE.
+ * 
+ * Adobe, PostScript, and Display PostScript are trademarks of Adobe Systems
+ * Incorporated which may be registered in certain jurisdictions
+ * 
+ * Author:  Adobe Systems Incorporated
+ */
+
+defineps DPSarc(DPSContext ctxt; float x, y, r, angle1, angle2)
+	x y r angle1 angle2 arc 
+endps
+
+defineps DPSarcn(DPSContext ctxt; float x, y, r, angle1, angle2)
+	x y r angle1 angle2 arcn 
+endps
+
+defineps DPSarct(DPSContext ctxt; float x1, y1, x2, y2, r)
+	x1 y1 x2 y2 r arct 
+endps
+
+defineps DPSarcto(DPSContext ctxt; float x1, y1, x2, y2, r | float *xt1, *yt1, *xt2, *yt2)
+	x1 y1 x2 y2 r arcto yt2 xt2 yt1 xt1 
+endps
+
+defineps DPScharpath(DPSContext ctxt; char *s; boolean b)
+	(s) b charpath 
+endps
+
+defineps DPSclip(DPSContext ctxt)
+	clip 
+endps
+
+defineps DPSclippath(DPSContext ctxt)
+	clippath 
+endps
+
+defineps DPSclosepath(DPSContext ctxt)
+	closepath 
+endps
+
+defineps DPScurveto(DPSContext ctxt; float x1, y1, x2, y2, x3, y3)
+	x1 y1 x2 y2 x3 y3 curveto 
+endps
+
+defineps DPSeoclip(DPSContext ctxt)
+	eoclip 
+endps
+
+defineps DPSeoviewclip(DPSContext ctxt)
+	eoviewclip 
+endps
+
+defineps DPSflattenpath(DPSContext ctxt)
+	flattenpath 
+endps
+
+defineps DPSinitclip(DPSContext ctxt)
+	initclip 
+endps
+
+defineps DPSinitviewclip(DPSContext ctxt)
+	initviewclip 
+endps
+
+defineps DPSlineto(DPSContext ctxt; float x, y)
+	x y lineto 
+endps
+
+defineps DPSmoveto(DPSContext ctxt; float x, y)
+	x y moveto 
+endps
+
+defineps DPSnewpath(DPSContext ctxt)
+	newpath 
+endps
+
+defineps DPSpathbbox(DPSContext ctxt | float *llx, *lly, *urx, *ury)
+	pathbbox ury urx lly llx 
+endps
+
+defineps DPSpathforall(DPSContext ctxt)
+	pathforall 
+endps
+
+defineps DPSrcurveto(DPSContext ctxt; float x1, y1, x2, y2, x3, y3)
+	x1 y1 x2 y2 x3 y3 rcurveto 
+endps
+
+defineps DPSrectclip(DPSContext ctxt; float x, y, w, h)
+	x y w h rectclip 
+endps
+
+defineps DPSrectviewclip(DPSContext ctxt; float x, y, w, h)
+	x y w h rectviewclip 
+endps
+
+defineps DPSreversepath(DPSContext ctxt)
+	reversepath 
+endps
+
+defineps DPSrlineto(DPSContext ctxt; float x, y)
+	x y rlineto 
+endps
+
+defineps DPSrmoveto(DPSContext ctxt; float x, y)
+	x y rmoveto 
+endps
+
+defineps DPSsetbbox(DPSContext ctxt; float llx, lly, urx, ury)
+	llx lly urx ury setbbox 
+endps
+
+defineps DPSsetucacheparams(DPSContext ctxt)
+	setucacheparams 
+endps
+
+defineps DPSuappend(DPSContext ctxt; char nums[n]; int n; char ops[l]; int l)
+	[(nums) (ops)] uappend
+endps
+
+defineps DPSucache(DPSContext ctxt)
+	ucache 
+endps
+
+defineps DPSucachestatus(DPSContext ctxt)
+	ucachestatus 
+endps
+
+defineps DPSupath(DPSContext ctxt; boolean b)
+	b upath 
+endps
+
+defineps DPSviewclip(DPSContext ctxt)
+	viewclip 
+endps
+
+defineps DPSviewclippath(DPSContext ctxt)
+	viewclippath 
+endps
+

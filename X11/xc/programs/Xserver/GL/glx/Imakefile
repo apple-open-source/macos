@@ -1,0 +1,45 @@
+XCOMM $XFree86: xc/programs/Xserver/GL/glx/Imakefile,v 1.9 2001/04/28 13:55:36 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+         SRCS = global.c glxbuf.c glxcmds.c glxcmdsswap.c glxext.c \
+                glxfb.c glximports.c glxmem.c glxpix.c glxscreens.c \
+                glxutil.c render2.c render2swap.c renderpix.c \
+                renderpixswap.c rensize.c rensizetab.c single2.c \
+                single2swap.c singlepix.c singlepixswap.c \
+                singlesize.c xfont.c g_disptab.c g_disptab_EXT.c \
+                g_render.c g_renderswap.c g_single.c g_singleswap.c \
+                $(MSRCS)
+
+         OBJS = global.o glxbuf.o glxcmds.o glxcmdsswap.o glxext.o \
+                glxfb.o glximports.o glxmem.o glxpix.o glxscreens.o \
+                glxutil.o render2.o render2swap.o renderpix.o \
+                renderpixswap.o rensize.o rensizetab.o single2.o \
+                single2swap.o singlepix.o singlepixswap.o \
+                singlesize.o xfont.o g_disptab.o g_disptab_EXT.o \
+                g_render.o g_renderswap.o g_single.o g_singleswap.o \
+                $(MOBJS)
+
+     INCLUDES = -I. -I../include -I$(SERVERSRC)/include -I$(INCLUDESRC) \
+                -I$(XINCLUDESRC) -I$(SERVERSRC)/mi \
+                -I$(EXTINCSRC) -I$(FONTINCSRC) -I$(LIBSRC)/GL/include \
+                -I$(XF86SRC)
+
+XCOMM If you add "-DDEBUG" in DEFINES, then make sure you also
+XCOMM add DEBUG to the define in ../mesa/src/X/xf86glx.c
+      DEFINES = $(GLX_DEFINES)
+
+
+#if DoLoadableServer
+ModuleObjectRule()
+#else
+NormalLibraryObjectRule()
+#endif
+SubdirLibraryRule($(OBJS))
+LibraryModuleTarget(glx,$(OBJS))
+
+LintLibraryTarget(glx,$(SRCS))
+NormalLintTarget($(SRCS))
+
+DependTarget()

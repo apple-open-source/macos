@@ -1,0 +1,28 @@
+XCOMM $XFree86: xc/doc/man/Xv/Imakefile,v 1.2 1998/07/25 06:09:30 dawes Exp $
+
+MANDIR = $(LIBMANDIR)
+MANSUFFIX = $(LIBMANSUFFIX)
+
+all::
+
+InstallManPage(Xv,$(MANDIR))
+InstallManPage(XvFreeAdaptorInfo,$(MANDIR))
+InstallManPage(XvFreeEncodingInfo,$(MANDIR))
+InstallManPage(XvGetPortAttribute,$(MANDIR))
+InstallManPage(XvGetStill,$(MANDIR))
+InstallManPage(XvGetVideo,$(MANDIR))
+InstallManPage(XvGrabPort,$(MANDIR))
+InstallManPage(XvPortNotify,$(MANDIR))
+InstallManPage(XvPutStill,$(MANDIR))
+InstallManPage(XvPutVideo,$(MANDIR))
+InstallManPage(XvQueryAdaptors,$(MANDIR))
+InstallManPage(XvQueryBestSize,$(MANDIR))
+InstallManPage(XvQueryEncodings,$(MANDIR))
+InstallManPage(XvQueryExtension,$(MANDIR))
+InstallManPage(XvSelectPortNotify,$(MANDIR))
+InstallManPage(XvSelectVideoNotify,$(MANDIR))
+InstallManPage(XvSetPortAttribute,$(MANDIR))
+InstallManPage(XvStopVideo,$(MANDIR))
+InstallManPage(XvUngrabPort,$(MANDIR))
+InstallManPage(XvVideoNotify,$(MANDIR))
+

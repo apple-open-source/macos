@@ -1,0 +1,35 @@
+# $Xorg: openwindows2,v 1.3 2000/08/17 19:54:04 cpqbld Exp $
+#
+
+# Copyright (c) 1993 Quarterdeck Office Systems
+#
+# Permission to use, copy, modify, distribute, and sell this software
+# and software and its documentation for any purpose is hereby granted
+# without fee, provided that the above copyright notice appear in all
+# copies and that both that copyright notice and this permission
+# notice appear in supporting documentation, and that the name
+# Quarterdeck Office Systems, Inc. not be used in advertising or
+# publicity pertaining to distribution of this software without
+# specific, written prior permission.
+#
+# THIS SOFTWARE IS PROVIDED `AS-IS'.  QUARTERDECK OFFICE SYSTEMS,
+# INC., DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+# INCLUDING WITHOUT LIMITATION ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR
+# NONINFRINGEMENT.  IN NO EVENT SHALL QUARTERDECK OFFICE SYSTEMS,
+# INC., BE LIABLE FOR ANY DAMAGES WHATSOEVER, INCLUDING SPECIAL,
+# INCIDENTAL OR CONSEQUENTIAL DAMAGES, INCLUDING LOSS OF USE, DATA, OR
+# PROFITS, EVEN IF ADVISED OF THE POSSIBILITY THEREOF, AND REGARDLESS
+# OF WHETHER IN AN ACTION IN CONTRACT, TORT OR NEGLIGENCE, ARISING OUT
+# OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+MISC SUN OPENWINHOME=/usr/openwin.2
+MISC SUN LD_LIBRARY_PATH=/usr/openwin.2/lib
+MISC SUN FONTPATH=/usr/openwin.2/lib/fonts
+MISC SUN HELPPATH=/usr/openwin.2/lib/help
+MISC SUN MANPATH=/usr/openwin.2/share/man:/usr/man
+# But note that OW2 appears to come with an empty app-defaults!
+MISC SUN XAPPLRESDIR=/usr/openwin.2/lib/app-defaults
+MISC POSIX PATH=:/usr/openwin.2/bin:/usr/openwin.2/demo:/usr/openwin.2/bin/xview:/usr/ucb:/usr/bin
+INTERNAL-AUTH-PROGRAM X11 xauth xauth
+INTERNAL-AUTH-INPUT X11 add\040$1\040$2\040$3

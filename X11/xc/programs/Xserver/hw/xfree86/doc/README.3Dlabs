@@ -1,0 +1,99 @@
+                    Information for 3DLabs Chipset Users
+
+                          The XFree86 Project Inc.
+
+                                25 June 1999
+
+1.  Supported hardware
+
+This server supports the following 3DLabs chipsets:
+
+   o GLINT 500TX with IBM RGB526 RAMDAC
+
+   o GLINT MX plus Delta with IBM RGB526 and IBM RGB640 RAMDAC
+
+   o GLINT MX plus Gamma with IBM RGB526 and IBM RGB640 RAMDAC
+
+   o Permedia with IBM RGB526 RAMDAC
+
+   o Permedia 2 (classic, 2a, 2v)
+
+2.  Features
+
+   o accelerated
+
+   o hardware cursor
+
+   o DPMS support
+
+   o supported color depths
+
+        o GLINT MX/500TX: 8/16/32 bpp
+
+        o Permedia: 8/16/32 bpp
+
+        o Permedia 2: 8/16/24/32 bpp
+
+3.  XF86Config Option
+
+      Option "sw_cursor"
+            disable the hardware cursor.
+
+      Option "no_pixmap_cache"
+            disables use of the pixmap cache. Might be useful if drawing
+            errors occur.
+
+      Option "no_accel"
+            completely disables acceleration. Usually not recommended.
+
+      Option "pci_retry"
+            stall the PCI bus while the graphics engine is busy. While this
+            might give slightly higher performance, you run the risk of dis-
+            turbing other devices that are waiting to be serviced by the pro-
+            cessor. This option may cause problems with SCSI cards, serial
+            connections, sound cards, etc.
+
+      Option "firegl_3000"
+            needed for the Diamond Fire GL 3000 in order to use the primary
+            output on that card. The second screen is currently not sup-
+            ported.
+
+      Option "overclock_mem"
+            Run the memory at a higher clock. Useful on some cards with dis-
+            play glitches at higher resolutions. But adds the risk to damage
+            the hardware. Use with caution.
+
+4.  Bugs and Limitations
+
+   o The 500TX and MX chipsets cannot switch modes, therefore only the first
+     mode on the modes line is available.
+
+   o In some color depths without acceleration there are color problems.
+
+   o While the server is accelerated, there is room for improvement. As our
+     development is focusing on XFree86-4.0 we are not planning to change
+     that in the 3.3.x branch. XFree86-4.0 will include a significantly
+     faster server.
+
+5.  Authors
+
+   o Alan Hourihane <alanh@fairlite.demon.co.uk>
+
+   o Dirk Hohndel <hohndel@XFree86.org>
+
+   o Stefan Dirsch <sndirsch@suse.de>
+
+   o Helmut Fahrion <hf@suse.de>
+
+   o Special thanks to Elsa AG, Aachen for making it possible for us to
+     develop this server and furnishing us with plenty of boards and informa-
+     tion to help us on the way
+
+   o Very special thanks to SuSE GmbH, Nuernberg for allowing some of us to
+     work on this server on paid time, thereby financing development of this
+     server.
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/3Dlabs.sgml,v 1.2 1999/08/24 02:01:07 dawes Exp $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.3Dlabs,v 1.4 2000/03/01 01:48:04 dawes Exp $

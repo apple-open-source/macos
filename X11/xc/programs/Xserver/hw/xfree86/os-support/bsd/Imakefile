@@ -1,0 +1,240 @@
+XCOMM $XConsortium: Imakefile /main/12 1996/10/27 11:06:35 kaleb $
+
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bsd/Imakefile,v 3.57 2003/02/17 16:37:19 dawes Exp $
+
+#include <Server.tmpl>
+
+#if defined(FreeBSDArchitecture) || defined(NetBSDArchitecture) || defined(OpenBSDArchitecture)
+#if BuildXInputExt
+# if JoystickSupport
+ JOYSTICK_SRC = bsd_jstk.c
+# endif
+# if DoLoadableServer
+SHARED_CFLAGS = PositionIndependentCFlags
+# else
+#  if JoystickSupport
+ JOYSTICK_OBJ = bsd_jstk.o
+#  endif
+# endif
+#endif
+#endif
+
+#if defined(NetBSDArchitecture) \
+    && ((OSMajorVersion == 1 && OSMinorVersion >= 1) || OSMajorVersion >= 2)
+# if defined(AlphaArchitecture)
+  IOPERMDEFINES = -DUSE_ALPHA_PIO
+# elif defined(ArcArchitecture)
+  IOPERMDEFINES = -DUSE_ARC_MMAP
+# elif defined(Arm32Architecture)
+  IOPERMDEFINES = -DUSE_ARM32_MMAP
+# elif defined(PpcArchitecture) || \
+	defined(Sparc64Architecture)
+  IOPERM_SRC = ioperm_noop.c
+  IOPERM_OBJ = ioperm_noop.o
+# else
+  IOPERMDEFINES = -DUSE_I386_IOPL
+# endif
+#elif defined(OpenBSDArchitecture) 
+# if defined(i386Architecture) 
+  IOPERMDEFINES = -DUSE_I386_IOPL
+# elif defined(PpcArchitecture) || defined(Sparc64Architecture) 
+  IOPERM_SRC = ioperm_noop.c
+  IOPERM_OBJ = ioperm_noop.o
+# endif
+#elif defined(FreeBSDArchitecture) && !defined(AlphaBsdArchitecture)
+  IOPERMDEFINES = -DUSE_DEV_IO
+#else
+# if defined(AlphaBsdArchitecture)
+  IOPERMDEFINES = -DUSE_ALPHA_PORTS
+# else
+  IOPERM_SRC = ioperm_noop.c
+  IOPERM_OBJ = ioperm_noop.o
+# endif
+#endif
+
+#if BuildXF86DRI
+DRI_SRC = sigio.c
+DRI_OBJ = sigio.o
+#endif
+
+MOUSESRC = bsd_mouse.c
+MOUSEOBJ = bsd_mouse.o
+
+KBDSRC = bsd_kbd.c bsd_KbdMap.c at_scancode.c
+KBDOBJ = bsd_kbd.o bsd_KbdMap.o at_scancode.o
+
+#if HasMTRRSupport
+MTRRDEFINES = -DHAS_MTRR_SUPPORT
+#endif
+
+#if defined(NetBSDArchitecture) && defined(HasMTRRBuiltin)
+MTRRDEFINES = -DHAS_MTRR_BUILTIN
+#endif
+
+#if defined(FreeBSDArchitecture)
+SYSVIPCDEFINES = -DHAVE_SYSV_IPC
+#endif
+
+#if UsbMouseSupport
+USBMOUSEDEFINES1 = -DUSBMOUSE_SUPPORT
+#if !HasLibUsb
+LIBUSBINCLUDES = -Ilibusb
+#define IHaveSubdirs
+SUBDIRS = libusb
+#else
+#if HasLibUsbHid
+USBMOUSEDEFINES2 = -DHAS_LIB_USB_HID
+#endif
+#endif
+#endif
+USBMOUSEDEFINES = $(USBMOUSEDEFINES1) $(USBMOUSEDEFINES2)
+
+#if (defined(OpenBSDArchitecture) || defined(NetBSDArchitecture)) && defined(i386Architecture)
+# if !defined(HasApmKqueue) || !HasApmKqueue
+APMSRC = bsd_apm.c
+APMOBJ = bsd_apm.o
+# else
+APMSRC = bsd_kqueue_apm.c
+APMOBJ = bsd_kqueue_apm.o
+# endif
+#else
+APMSRC = pm_noop.c
+APMOBJ = pm_noop.o
+#endif
+
+#if defined(FreeBSDArchitecture) && (OSMajorVersion > 2)
+KMODSRC = bsd_kmod.c
+KMODOBJ = bsd_kmod.o
+#else
+KMODSRC = kmod_noop.c
+KMODOBJ = kmod_noop.o
+#endif
+
+#if defined(i386Architecture) || defined(ia64Architecture)
+RES_SRC=stdResource.c
+RES_OBJ=stdResource.o
+#else
+RES_SRC=bsdResource.c
+RES_OBJ=bsdResource.o
+#endif
+
+#if defined(AlphaArchitecture)
+AXP_SRC=bsd_ev56.c xf86Axp.c bsd_axp.c
+AXP_OBJ=bsd_ev56.o xf86Axp.o bsd_axp.o
+#endif
+
+#if (defined(FreeBSDArchitecture) || defined(NetBSDArchitecture)) && HasAgpGart
+AGP_SRC=lnx_agp.c
+AGP_OBJ=lnx_agp.o
+#else
+AGP_SRC=agp_noop.c
+AGP_OBJ=agp_noop.o
+#endif
+
+#if defined(i386Architecture)
+VIDEO_SRC = i386_video.c
+VIDEO_OBJ = i386_video.o
+#elif defined(AlphaArchitecture)
+VIDEO_SRC = alpha_video.c
+VIDEO_OBJ = alpha_video.o
+#elif defined(PpcArchitecture)
+VIDEO_SRC = ppc_video.c
+VIDEO_OBJ = ppc_video.o
+#elif defined(Arm32Architecture)
+VIDEO_SRC = arm_video.c
+VIDEO_OBJ = arm_video.o
+#elif defined(Sparc64Architecture)
+VIDEO_SRC = sparc64_video.c
+VIDEO_OBJ = sparc64_video.o
+#else
+#error Unknown architecture !
+#endif
+
+SRCS = bsd_init.c $(VIDEO_SRC) bsd_io.c bsd_VTsw.c \
+       libc_wrapper.c $(IOPERM_SRC) std_kbdEv.c posix_tty.c $(MOUSESRC) \
+       $(RES_SRC) stdPci.c vidmem.c $(JOYSTICK_SRC) sigio.c $(APMSRC) \
+       $(AXP_SRC) $(KMODSRC) $(AGP_SRC) $(KBDSRC)
+
+OBJS = bsd_init.o $(VIDEO_OBJ) bsd_io.o bsd_VTsw.o \
+       libc_wrapper.o $(IOPERM_OBJ) std_kbdEv.o posix_tty.o $(MOUSEOBJ) \
+       $(RES_OBJ) stdPci.o vidmem.o $(JOYSTICK_OBJ) sigio.o $(APMOBJ) \
+       $(AXP_OBJ) $(KMODOBJ) $(AGP_OBJ) $(KBDOBJ)
+
+INCLUDES = -I$(XF86COMSRC) -I$(XF86OSSRC) -I. -I$(SERVERSRC)/include \
+           -I$(XINCLUDESRC) -I$(EXTINCSRC) -I$(SERVERSRC)/mi $(APINCLUDES) \
+	    $(LIBUSBINCLUDES) -I$(XF86OSSRC)/shared
+
+CONSDEFINES = XFree86ConsoleDefines
+RESDEFINES = -DUSESTDRES
+
+#if defined(HasNetBSDApertureDriver) && HasNetBSDApertureDriver
+APDEFINES = -DHAS_APERTURE_DRV
+#endif
+
+DEFINES = $(CONSDEFINES) $(APDEFINES) $(IOPERMDEFINES) $(RESDEFINES) \
+	  $(MTRRDEFINES) $(USBMOUSEDEFINES) $(SYSVIPCDEFINES)
+
+#if defined(AlphaArchitecture)
+SpecialObjectRule(bsd_ev56.o, bsd_ev56.c, -mcpu=ev56)
+#endif
+
+SubdirLibraryRule($(OBJS))
+NormalLibraryObjectRule()
+
+#if BuildXF86DRI
+#define IHaveSubdirs
+SUBDIRS = drm
+
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif
+
+#if BuildXInputExt
+# if DoLoadableServer
+#  if JoystickSupport
+AllTarget(bsd_jstk.o)
+#if 0
+InstallDynamicModule(bsd_jstk.o,$(MODULEDIR),input)
+#endif
+#  endif
+# endif
+#endif
+
+#if !defined(NetBSDArchitecture) && !defined(OpenBSDArchitecture) || \
+	!defined(i386Architecture)
+LinkSourceFile(pm_noop.c,../shared)
+#endif
+LinkSourceFile(ioperm_noop.c,../shared)
+LinkSourceFile(std_kbdEv.c,../shared)
+LinkSourceFile(at_scancode.c,../shared)
+LinkSourceFile(posix_tty.c,../shared)
+LinkSourceFile(libc_wrapper.c,../shared)
+LinkSourceFile(stdResource.c,../shared)
+LinkSourceFile(stdPci.c,../shared)
+LinkSourceFile(vidmem.c,../shared)
+LinkSourceFile(sigio.c,../shared)
+LinkSourceFile(kmod_noop.c,../shared)
+#if (defined(FreeBSDArchitecture) || defined(NetBSDArchitecture)) && HasAgpGart
+LinkSourceFile(lnx_agp.c,../linux)
+#else
+LinkSourceFile(agp_noop.c,../shared)
+#endif
+#if defined(AlphaArchitecture)
+LinkSourceFile(xf86Axp.c,../shared)
+#endif
+
+DependTarget()
+
+#if UsbMouseSupport && !HasLibUsb
+MakeSubdirs($(SUBDIRS))
+
+DependSubdirs($(SUBDIRS))
+#endif
+
+#if 0
+InstallDriverSDKDynamicModule(bsd_jstk.o,$(DRIVERSDKMODULEDIR))
+#endif

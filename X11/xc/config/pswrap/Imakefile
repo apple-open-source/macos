@@ -1,0 +1,25 @@
+XCOMM $XFree86: xc/config/pswrap/Imakefile,v 1.8 2002/05/31 16:31:21 dawes Exp $
+
+     FRIENDSDEF = -DFRIENDSFILE='"<DPS/dpsfriends.h>"'
+        DEFINES = -DXENVIRONMENT
+        DEPLIBS =
+         YFLAGS = -d
+EXTRA_LIBRARIES = LexLib
+
+SRCS = main.c pswdict.c pswfile.c \
+	systemnames.c psw.c pswstring.c pswsemantics.c
+
+OBJS = main.o pswparser.o lexer.o pswdict.o pswfile.o \
+	systemnames.o psw.o pswstring.o pswsemantics.o
+
+#if CrossCompiling
+ComplexHostProgramTarget(pswrap)
+#else
+ComplexProgramTarget(pswrap)
+#endif
+
+SpecialObjectRule(pswfile.o,pswfile.c,$(FRIENDSDEF))
+
+LexFile(lexer)
+
+YaccFile(pswparser,$(YFLAGS))

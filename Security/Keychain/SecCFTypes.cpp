@@ -58,13 +58,27 @@ SecCFTypes::SecCFTypes() :
 	Policy("SecPolicy"),
 	PolicyCursor("SecPolicySearch"),
 	Trust("SecTrust"),
-	TrustedApplication("SecTrustedApplication")
+	TrustedApplication("SecTrustedApplication"),
+	allocator(CFAllocatorCreate(NULL, &CFClass::allocatorContext))
 {
 }
 
 //
 // CFClass
 //
+CFAllocatorContext CFClass::allocatorContext =
+{
+    0,
+    NULL,
+    NULL, /* retain */
+    NULL, /* release */
+    NULL, /* copyDescription */
+    allocatorAllocate, /* allocate */
+    allocatorReallocate, /* reallocate */
+    allocatorDeallocate, /* deallocate */
+    allocatorPreferredSize /* preferredSize */
+};
+
 CFClass::CFClass(const char *name)
 {
 	// initialize the CFRuntimeClass structure
@@ -72,7 +86,7 @@ CFClass::CFClass(const char *name)
 	className = name;
 	init = NULL;
 	copy = NULL;
-	finalize = finalizeType;
+	finalize = NULL;
 	equal = equalType;
 	hash = hashType;
 	copyFormattingDesc = copyFormattingDescType;
@@ -83,21 +97,6 @@ CFClass::CFClass(const char *name)
 	assert(typeID != _kCFRuntimeNotATypeID);
 }
     
-void
-CFClass::finalizeType(CFTypeRef cf)
-{
-    /*
-     * Called on a CFRelease of any Sec object: single thread through
-     * same lock held by public API calls. This is a recursive lock
-     * so it's safe to do this for CF objects allocated and released
-     * within the Sec layer. 
-     */
-    StLock<Mutex> _(globals().apiLock);
-	SecCFObject *obj = SecCFObject::optional(cf);
-	if (!obj->isNew())
-		obj->~SecCFObject();
-}
-
 Boolean
 CFClass::equalType(CFTypeRef cf1, CFTypeRef cf2)
 {
@@ -121,4 +120,57 @@ CFStringRef
 CFClass::copyDebugDescType(CFTypeRef cf)
 {
 	return SecCFObject::optional(cf)->copyDebugDesc();
+}
+
+//
+// CFAllocatorContext callbacks.
+//
+void *
+CFClass::allocatorAllocate(CFIndex allocSize, CFOptionFlags hint, void *info)
+{
+	return malloc(allocSize);
+}
+
+void *
+CFClass::allocatorReallocate(void *ptr, CFIndex newsize, CFOptionFlags hint, void *info)
+{
+	return realloc(ptr, newsize);
+}
+
+void
+CFClass::allocatorDeallocate(void *ptr, void *info)
+{
+    /*
+     * Called on a CFRelease of any Sec object: single thread through
+     * same lock held by public API calls. This is a recursive lock
+     * so it's safe to do this for CF objects allocated and released
+     * within the Sec layer. 
+     */
+    StLock<Mutex> _(globals().apiLock);
+	CFTypeRef cf = reinterpret_cast<CFTypeRef>(reinterpret_cast<intptr_t>(ptr) + sizeof(CFAllocatorRef));
+	CFIndex rc = CFGetRetainCount(cf);
+	if (rc == 1)
+	{
+		SecCFObject *obj = SecCFObject::optional(cf);
+		if (!obj->isNew())
+			obj->~SecCFObject();
+		free(ptr);
+	}
+	else if (rc > 1)
+	{
+		// Since CFRelease did nothing other than call CFAllocatorDeallocate() followed
+		// by a CFRelease() of the allocator we need to counter that here.
+		CFRetain(CFGetAllocator(cf));
+		CFRelease(cf);
+	}
+	else
+	{
+		// Something bad happened we're screwed
+	}
+}
+
+CFIndex
+CFClass::allocatorPreferredSize(CFIndex size, CFOptionFlags hint, void *info)
+{
+	return size;
 }

@@ -33,7 +33,7 @@
 
 #include <qguardedptr.h>
 
-class HTMLElement;
+class DOM::HTMLElement;
 
 namespace KJS {
 

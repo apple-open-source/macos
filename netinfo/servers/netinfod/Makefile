@@ -36,7 +36,7 @@ MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
 MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/sbin
-LIBS = -lcrypto -lsasl2.2.0.1
+LIBS = -lcrypto -lsasl2.2.0.1 -lbsm
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

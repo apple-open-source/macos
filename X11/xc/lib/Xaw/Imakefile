@@ -1,0 +1,205 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:45:33 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/lib/Xaw/Imakefile,v 1.10 2001/01/17 19:42:27 dawes Exp $
+
+#define DoNormalLib NormalLibXaw
+#define DoSharedLib SharedLibXaw
+#define DoExtraLib SharedLibXaw
+#define DoDebugLib DebugLibXaw 
+#define DoProfileLib ProfileLibXaw 
+#define HasSharedData YES
+#define LibName Xaw
+#define SoRev SOXAWREV
+#define IncSubdir X11
+#define IncSubSubdir Xaw
+
+#ifdef SharedXawReqs
+REQUIREDLIBS = SharedXawReqs
+#endif
+
+DEFINES = XawI18nDefines -DPROJECT_ROOT=\"ProjectRoot\"
+
+       LINTLIBS = $(LINTXLIB) $(LINTXTOOL)
+
+HEADERS = \
+	AllWidgets.h \
+	AsciiSink.h \
+	AsciiSinkP.h \
+	AsciiSrc.h \
+	AsciiSrcP.h \
+	AsciiText.h \
+	AsciiTextP.h \
+	Box.h \
+	BoxP.h \
+	Cardinals.h \
+	Command.h \
+	CommandP.h \
+	Dialog.h \
+	DialogP.h \
+	Form.h \
+	FormP.h \
+	Grip.h \
+	GripP.h \
+	Label.h \
+	LabelP.h \
+	List.h \
+	ListP.h \
+	MenuButton.h \
+	MenuButtoP.h \
+	MultiSrc.h \
+	MultiSrcP.h \
+	MultiSink.h \
+	MultiSinkP.h \
+	Paned.h \
+	PanedP.h \
+	Panner.h \
+	PannerP.h \
+	Porthole.h \
+	PortholeP.h \
+	Repeater.h \
+	RepeaterP.h \
+	Reports.h \
+	Scrollbar.h \
+	ScrollbarP.h \
+	Simple.h \
+	SimpleP.h \
+	SimpleMenu.h \
+	SimpleMenP.h \
+	Sme.h \
+	SmeP.h \
+	SmeBSB.h \
+	SmeBSBP.h \
+	SmeLine.h \
+	SmeLineP.h \
+	StripChart.h \
+	StripCharP.h \
+	Template.c \
+	Template.h \
+	TemplateP.h \
+	Text.h \
+	TextP.h \
+	TextSink.h \
+	TextSinkP.h \
+	TextSrc.h \
+	TextSrcP.h \
+	Tip.h \
+	TipP.h \
+	Toggle.h \
+	ToggleP.h \
+	Tree.h \
+	TreeP.h \
+	VendorEP.h \
+	Viewport.h \
+	ViewportP.h \
+	XawImP.h \
+	XawInit.h
+
+SRCS = \
+	Actions.c \
+	AllWidgets.c \
+	AsciiSink.c \
+	AsciiSrc.c \
+	AsciiText.c \
+	Box.c \
+	Command.c \
+	Converters.c \
+	Dialog.c \
+	DisplayList.c \
+	Form.c \
+	Grip.c \
+	Label.c \
+	List.c \
+	MenuButton.c \
+	MultiSrc.c \
+	MultiSink.c \
+	OS.c \
+	Paned.c \
+	Panner.c \
+	Pixmap.c \
+	Porthole.c \
+	Repeater.c \
+	Scrollbar.c \
+	Simple.c \
+	SimpleMenu.c \
+	Sme.c \
+	SmeBSB.c \
+	SmeLine.c \
+	StripChart.c \
+	Text.c \
+	TextSink.c \
+	TextSrc.c \
+	TextAction.c \
+	TextPop.c \
+	TextTr.c \
+	Tip.c \
+	Toggle.c \
+	Tree.c \
+	Vendor.c \
+	Viewport.c \
+	XawIm.c \
+	XawInit.c \
+	XawI18n.c \
+	sharedlib.c
+
+#if SharedDataSeparation
+UNSHAREDOBJS = AllWidgets.o sharedlib.o
+#endif
+
+OBJS = \
+	Actions.o \
+	AllWidgets.o \
+	AsciiSink.o \
+	AsciiSrc.o \
+	AsciiText.o \
+	Box.o \
+	Command.o \
+	Converters.o \
+	Dialog.o \
+	DisplayList.o \
+	Form.o \
+	Grip.o \
+	Label.o \
+	List.o \
+	MenuButton.o \
+	MultiSrc.o \
+	MultiSink.o \
+	OS.o \
+	Paned.o \
+	Panner.o \
+	Pixmap.o \
+	Porthole.o \
+	Repeater.o \
+	Scrollbar.o \
+	Simple.o \
+	SimpleMenu.o \
+	Sme.o \
+	SmeBSB.o \
+	SmeLine.o \
+	StripChart.o \
+	Text.o \
+	TextSink.o \
+	TextSrc.o \
+	TextAction.o \
+	TextPop.o \
+	TextTr.o \
+	Tip.o \
+	Toggle.o \
+	Tree.o \
+	Vendor.o \
+	Viewport.o \
+	XawIm.o \
+	XawI18n.o \
+	XawInit.o
+
+#include <Library.tmpl>
+
+#if DoSharedLib && SharedDataSeparation
+SpecialCObjectRule(sharedlib,NullParameter,$(SHLIBDEF))
+#endif
+
+MANSUFFIX = $(LIBMANSUFFIX)
+InstallManPage(Xaw,$(LIBMANDIR))
+DependTarget()

@@ -1,0 +1,10 @@
+/*
+ * Host.def for building Darwin/ix86 bindists
+ *
+ * $XFree86: xc/programs/Xserver/hw/xfree86/etc/bindist/Darwin-ix86/host.def,v 1.2 2001/05/31 18:47:07 dawes Exp $
+ */
+
+#define InstallEmptyHostDef
+#define BuildBindist
+
+#define DarwinQuartzSupport     NO

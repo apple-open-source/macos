@@ -1,0 +1,6 @@
+Package: iofirewirefamily
+Maintainer: Darwin Developers <darwin-development@lists.apple.com>
+Vendor: Apple Computer, Inc.
+Version: 37
+Build-Depends: cctools, libsystem, gcc, zsh, files, file-cmds, system-cmds, text-cmds, grep, shell-cmds, jam, xnu, iokituser, corefoundation, architecture, libc, carbonheaders, csu
+Description: IOKit FireWire Family Framework

@@ -1,9 +1,9 @@
-Listi %(real_name)s@%(host_name)s juures on ootel %(count)d taotlus(t),
-millega saab tutvuda aadressil:
+Listil %(real_name)s@%(host_name)s on ootel %(count)d taotlus(t).
+Taotlustega saab tutvuda aadressil:
 
 	%(adminDB)s
 
-Palun tegele sellega niipea, kui võimalik. 
+Palun tegele nendega esimesel sobival võimalusel
 
 Seda teadet ootelolevate taotluste kohta - kui neid on - 
-saadetakse automaatselt iga päev.
+korrataks iga päev.

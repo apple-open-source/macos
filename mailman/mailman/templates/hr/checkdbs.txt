@@ -1,0 +1,7 @@
+%(real_name)s@%(host_name)s mailing lista ima %(count)d zahtjeva 
+koji cekaju Vase razmatranje na:
+
+	%(adminDB)s
+	
+Molim, obratite paznju na to sto je prije moguce. Ova obavijest 
+o zahtjevima na cekanju, ako takvi postoje, slat ce vam se jednom dnevno.

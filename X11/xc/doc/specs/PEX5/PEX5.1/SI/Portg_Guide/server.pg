@@ -1,0 +1,522 @@
+.\"
+.\" $Xorg: server.pg,v 1.3 2000/08/17 19:42:17 cpqbld Exp $
+.\"
+.\" 
+$XMCOPY
+.\" Copyright (c) 1990, 1991 by Sun Microsystems, Inc. and the X Consortium.
+.\" 
+.\"                         All Rights Reserved
+.\" 
+.\" Permission to use, copy, modify, and distribute this software and its 
+.\" documentation for any purpose and without fee is hereby granted, 
+.\" provided that the above copyright notice appear in all copies and that
+.\" both that copyright notice and this permission notice appear in 
+.\" supporting documentation, and that the names of Sun Microsystems,
+.\" and the X Consortium not be used in advertising or publicity 
+.\" pertaining to distribution of the software without specific, written 
+.\" prior permission.  
+.\" 
+.\" SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+.\" INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\" EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\" CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+.\" USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+.\" OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+.H C "Porting the PEX-ME"
+.H 2 "General Porting Concerns"
+.H 3 "Device-Independent Code"
+.LP
+The \s-1PEX-SI\s+1 Server has been designed with three assumptions:
+.NP
+All resources that are passed between di\s-1PEX\s+1 and dd\s-1PEX\s+1 are passed
+as pointers to structures.  Part of those structures di\s-1PEX\s+1 knows about and uses.
+These are called \fIvisible\fR structures and should not be changed.  The other
+structures are dd\s-1PEX\s+1 structures.  These structures can be changed, and 
+were in fact designed to be changed during porting.
+.NP
+di\s-1PEX\s+1 is the device-independent portion of the \s-1PEX-ME\s+1 
+and is not expected to be changed.
+.NP
+Any dd\s-1PEX\s+1 procedure that is called by di\s-1PEX\s+1 has a defined interface, 
+and that interface should not change.  These procedures also have a defined functional
+specification that they must always adhere to.  
+.LP
+Data structures that are shared by di\s-1PEX\s+1 and dd\s-1PEX\s+1 are defined in the
+directory \fL\s-1mit/extensions/server/PEX/include\fR\s+1 in the files \fL\s-1ddpex.h\fR\s+1,
+\fL\s-1ddpex3.h\fR\s+1, and \fL\s-1ddpex4.h\fR\s+1.  These files should not
+change.  Structures that are defined and used only by dd\s-1PEX\s+1 are defined
+in the \fL\s-1mit/extensions/server/PEX/ddpex/mi/include\fR\s+1 directory, and can be changed.
+.LP
+\s-1PEX-ME\s+1 supports two single precision floating point-formats, \s-1IEEE\s+1
+and \s-1DEC\s+1.
+The conversion to the server-native format is done in \fL\s-1mit/extensions/server/PEX/dipex/swap\fR\s+1
+If you want to add a new floating point type to the server, you must provide the
+conversion code.
+The issues of double precision floating-point formats are not addressed in \s-1PEX-ME\s+1,
+and have greater \s-1PEX\s+1 protocol implications.
+.H 3 "diPEX/ddPEX Communication"
+.LP  
+Some dd\s-1PEX\s+1 Inquiry routines take a parameter of type
+\fIddBufferPtr\fR.  This is used for communicating variable length 
+replies from dd\s-1PEX\s+1 to di\s-1PEX\s+1. The structure is defined in
+the file \fL\s-1mit/extensions/server/PEX/include/ddpex.h\fR\s+1.
+You will not need to change this structure, but you will see it used often
+in the existing code.  \fIddBufferPtr\fR is defined as:
+.RS
+.nf
+.ta 0.5i 2.0i
+typedef struct {
+	ddULONG	bufSize;
+	ddULONG	dataSize;
+	ddPointer	pBuf;
+	ddPointer	pHead;
+}  ddBuffer, *ddbufferPtr;
+.fi
+.LP
+The beginning of the buffer is pointed to by \fIpHead\fR. There is a 
+second pointer, \fIpBuf\fR, that points to the place inside the buffer 
+at which dd\s-1PEX\s+1 should begin writing data.
+This is done so that di\s-1PEX\s+1 can format the fixed-size part of the reply
+into memory contiguous with the data returned from dd\s-1PEX\s+1.
+.LP
+There are also two sizes:
+\fIbufSize\fR \- the total number of bytes in the buffer, and
+\fIdataSize\fR \- the number of bytes of actual data returned by dd\s-1PEX\s+1.
+.LP
+A utility routine (for reallocating this buffer) is defined in the
+file \fL\s-1mit/extensions/server/PEX/dipex/dispatch/pexUtils.c\fR\s+1.
+di\s-1PEX\s+1.
+.RS
+.nf
+.ta 0.5i 2.0i
+int puBuffRealloc (pBuffer, newsize)
+	ddBufferPtr	pBuffer;
+	ddULONG	newsize;
+.fi
+.RE
+.LP
+dd\s-1PEX\s+1 calls \fIpuBuffRealloc\fR when it needs to make the buffer larger.
+.H 3 "Operating System Independent Code"
+.LP
+The compiler symbol \fISYSV\fR is used to support System V compilations.
+Check the configuration file (\fL\s-1*.cf\fR\s+1) for your system in the \s-1X\s+1
+directory \fL\s-1config\s+1\fR.
+.LP
+In addition, \s-1SYSV\s+1 machines and other non-\s-1BSD\s+1 targets
+for server porting will want require replacement of the functions
+in the file \fL\s-1mit/extensions/server/PEX/ospex/osPexFont.c\fR\s+1
+.LP
+All of the functions in the file \fL\s-1osPexFont.c\fR\s+1 
+were written to isolate the \s-1PEX\s+1 font manipulation routines
+from operating system dependent functions, for example input/output routines. 
+.KS
+.LP
+The following procedure is used to determine the font path to use to find \s-1PEX\s+1 fonts.
+If the environment variable \s-1PEX_FONTPATH\s+1 is defined, the server will look there.
+Otherwise it will use the constant \s-1PEX_DEFAULT_FONTPATH\s+1 
+which can be customized.
+.LP
+.IX "osPEX Functions" "pex_get_font_directory_path"
+.IX "Functions" "pex_get_font_directory_path"
+.nf
+static char *
+pex_get_font_directory_path()
+.fi
+.KE
+.KS
+.LP
+The following functions are slightly modified versions of procedures that
+can be found in the \s-1X\s+1 directory \fL\s-1fonts/mkfontdir/fontdir.c\fR\s+1. 
+.LP
+.IX "osPEX Functions" "pex_setup_wild_match"
+.IX "Functions" "pex_setup_wild_match"
+.nf
+.ta 0.5i 2.0i 4.0i
+static void
+pex_setup_wild_match(pat, phead, ptail, plen)
+	char	*pat;	/* in */
+	int	*phead, *ptail, *plen;	/* out */
+.fi
+.KE
+.KS
+.LP
+.IX "osPEX Functions" "pex_is_matching"
+.IX "Functions" "pex_is_matching"
+.nf
+.ta 0.5i 2.0i 4.0i
+static int 
+pex_is_matching(string, pat, head, tail, plen)
+	register char	*string;	/* in */
+	register char	*pat;	/* in */
+	int	head, tail, plen;	/* in */
+.fi
+.KE
+.KS
+.LP
+.IX "osPEX Functions" "pex_get_mathching_names"
+.IX "Functions" "pex_get_mathching_names"
+.nf
+.ta 0.5i 2.0i 4.0i
+int
+pex_get_matching_names(patLen, pPattern, maxNames, numNames, names)
+	ddUSHORT	patLen;	/* in */
+	ddUCHAR	*pPattern	;/* in */
+	ddUSHORT	maxNames;	/* in */
+	ddULONG	*numNames;	/* out - number of names found */
+	char	***names;	/* out - pointer to list of strings */
+.fi
+.KE
+.KS
+.LP
+The following procedure extracts the definition of a stroke character
+from the font file.  It is called by LoadPEXFontFile.
+.LP
+.IX "osPEX Functions" "get_stroke"
+.IX "Functions" "get_stroke"
+.nf
+.ta 0.5i 2.0i 4.0i
+static int
+get_stroke(stroke, fp)
+	Ch_stroke_data	*stroke;
+	FILE	*fp;
+.fi
+.KE
+.KS
+.LP
+The following procedure is used to read in the font file for loading
+into the server.  It is called by the routine LoadPEXFont in miFont.c
+.LP
+.IX "osPEX Functions" "LoadPEXFontFile"
+.IX "Functions" "LoadPEXFontFile"
+.nf
+.ta 0.5i 2.0i 4.0i
+ErrorCode
+LoadPEXFontFile(length, fontname, pFont)
+	unsigned	length;
+	char	*fontname;
+	diFontHandle	pFont;
+.fi
+.KE
+.KS
+.LP
+The following procedure is a wrapper around the function fclose, so that
+the font code can isolate this operating system dependent function.  If
+you are porting to a non 4.2BSD system, you will want to replace this
+routine with your own version (called by the same name).
+.LP
+.IX "osPEX Functions" "ClosePEXFontFile"
+.IX "Functions" "ClosePEXFontFile"
+.nf
+.ta 0.5i 2.0i 4.0i
+void
+ClosePEXFontFile(fp)
+	FILE	*fp;
+.fi
+.KE
+.KS
+.LP
+The following procedure is a wrapper around the function fseek.  It sets
+the file pointer at the specified number of bytes from the beginning of the 
+file.  If you are porting to a non 4.2BSD syste, you will want to replace this
+routien with your own version (called by the same name).
+.LP
+.IX "osPEX Functions" "SetPEXFontFilePtr"
+.IX "Functions" "SetPEXFontFilePtr"
+.nf
+.ta 0.5i 2.0i 4.0i
+void
+SetPEXFontFilePtr(fp,where)
+	FILE	*fp;
+	long	where;
+.fi
+.KE
+.LP
+In addition to replacing the above routines,
+you may also wish to alter the value of ABSOLUTE_MAX_NAMES as
+defined in ...ospex/4.2bsd/osPexFont.c
+.H 2 "Customizing"
+.H 3 "Creating Your Own Fonts" font_create
+.IX "PEX" "font creation"
+.IX "fonts"
+.LP
+The \s-1PEX-SI\s+1 supports only one type of scalable font,
+a stroke precision polyline definition of \s-1PCS_ASCII\s+1, 
+the \s-1ISO\s+1- 646 characters. 
+This fulfills the minimal support requirements for \s-1PHIGS/PHIGS PLUS\s+1 
+stated in the \s-1PEX\s+1 protocol (\fIPEX Protocol Specification\fP, version 5.0p),
+The \s-1PEX-SI\s+1 does not support \s-1X11\s+1 fonts for text primitives.
+.LP
+The \s-1PEX-SI\s+1 provides the source for two predefined stroke fonts, 
+\fIRoman\fR and \fIRoman_M\fR, and the source necessary to create 
+the font compiler, \fIto_wfont\fR.  
+The font source files contain a font header, font properties (optional), and
+stroke definitions.  The font compiler reads all of the information, 
+then translates the font property information into separate data structures, 
+and the stroke information into dispatch tables.  The font compiler writes this
+binary data to a file with the extension \fL\s-1.phont\fR\s+1.  This file is read by 
+the \s-1PEX-SI\s+1 font procedures.
+.br
+.H 4 "Font Source Files"
+.LP
+Two font source files are provided with the \s-1PEX-SI\s+1,
+\fL\s-1Roman_M.src\fR\s+1 and \fL\s-1Roman.src\fR\s+1.
+The font \fIRoman_M\fR is used as the default font for all primitives.
+These files are found in the directory \fL\s-1mit/fonts/PEX\fR\s+1.
+.LP
+The font source files may optionally include font properties.
+The \fL\s-1Roman_M.src\fR\s+1 and \fL\s-1Roman.src\fR\s+1 files 
+contain three \s-1X\s+1 defined font properties, \s-1CHARSET_REGISTRY, 
+CHARSET_ENCODING\s+1, and \s-1SPACING\s+1.
+.LP
+Figure
+.XR @NumberOf(grammar)
+shows the specification for the source files.
+.BS
+.LS 1
+	FONTNAME	<name>
+	TOP		<max y value of ALL characters>
+	BOTTOM		<min y value of ALL characters>
+	NUM_CH		<number of characters defined>
+
+	PROPERTIES	<number of properties>
+	(<property name>	<property value)
+	(    "       "               "      "  )
+	...
+
+INDEX <ascii code> STROKE <# strokes> RIGHT <max x value for char> 
+	OPEN	<# vertices>  (x y) (x y) ...		# stroke 1
+	OPEN	<# vertices>  (x y) (x y) ... 		# stroke 2
+	...
+	...						# stroke n
+INDEX <ascii code> ...
+\&...
+\&...
+BEARING <ascii code> L_SPACE <left margin> R_SPACE <right margin>
+BEARING <ascii code> L_SPACE <left margin> R_SPACE <right margin>
+\&...
+\&...
+.LE
+.BE
+.FN "Default Specification for PEX-SI Font Source Files" grammar 
+.LP
+Note that this grammar is very similar to the
+National Institute of Standards and Technology's Hershey grammar.
+.LP
+A \fIname\fR is a string representing the font name.  The \fIascii code\fR
+is the encoding for the \s-1ASCII\s+1 character being defined.
+The \s-1PROPERTIES\s+1 and \s-1BEARING\s+1 information are optional,
+the lines may be omitted if desired.
+.LP
+All \fIx\fR, \fIy\fR, and \fImargin\fR values are real numbers expressed 
+in the coordinate space within which characters must be defined.
+Figure
+.XR @NumberOf(pic_phont_coords)
+shows this coordinate space.
+The range (0,\ 0) \(-> (\s-1RIGHT\s0,\ 100) defines the inner box of the 
+character, where \s-1RIGHT\s+1 is as shown in the figure.
+The coordinates 0 and 100 in the \fIy\fR direction
+also determine the base and cap lines of the character, respectively.
+In order to get descenders (as in the letter \fIg\fR ) and ascenders
+(as in some representations of `{' and `}'),
+the \fIy\fR component of stroke vertices may be less than 0.0 or
+greater than 100.0, provided that the minimum and maximum of these values are
+within the range given by the \s-1TOP\s+1 and \s-1BOTTOM\s+1
+fields following the \s-1FONTNAME\s+1 field at the beginning of a font source file.
+.LP
+If bearings are specified, they determine the left and right margins 
+of a given character.
+.KS
+.PS
+scale = 6
+a = 24
+b = 3
+BoxA: box height a width a
+BoxB: box invis height a width b with .nw at BoxA.nw
+line dashed from BoxB.ne to BoxB.se
+BoxC: box invis height a width b with .ne at BoxA.ne
+line dashed from BoxC.nw to BoxC.sw
+BoxD: box invis height b width a with .nw at BoxA.nw
+line dashed from BoxD.sw to BoxD.se
+BoxE: box invis height b width a with .sw at BoxA.sw
+line dashed from BoxE.nw to BoxE.ne
+# invisible box used to place text
+BoxF: box invis height b width b with .nw at BoxA.nw
+BoxG: box invis height b width b with .ne at BoxA.ne
+BoxH: box invis height b width b with .sw at BoxA.sw
+BoxI: box invis height b width b with .se at BoxA.se
+# height labels
+# BoxJ helps to center the diagram.
+BoxJ: box invis height a width 3*b with .nw at BoxA.ne
+"\ \ character top line" ljust at BoxG.ne
+"\ \ character cap line" ljust at BoxG.se
+"\ \ character base line" ljust at BoxI.ne
+"\ \ character bottom line" ljust at BoxI.se
+# bearing labels
+Line01: line from BoxC.c right 2
+"\ \ right bearing" ljust at Line01.end
+Line02: line from BoxB.c left 2
+"left bearing\ \ " rjust at Line02.end
+# outer box labels
+line invis from BoxF.ne up 3 "(0.0, TOP)" ljust
+line invis from BoxG.nw up 3 "(RIGHT, TOP)" rjust
+line invis from BoxH.se down 3 "(0.0, BOTTOM)" ljust
+line invis from BoxI.sw down 3 "(RIGHT, BOTTOM)" rjust
+# x and y axis labels
+Line03: line invis from BoxB.c left 8
+"\fB\s+5y\s-5\fR" rjust at Line03.end
+Line04: line invis from BoxA.s down 3 
+"\s+5\fBx\fR\s-5" at Line04.end
+# inner box labels
+line invis from BoxF.se down 3 "\ \ (0.0, 100.0)" ljust
+line invis from BoxG.sw down 3 "(RIGHT, 100.0)\ \ " rjust
+line invis from BoxH.ne up 3 "\ \ (0.0, 0.0)" ljust
+line invis from BoxI.nw up 3 "(RIGHT, 0.0)\ \ " rjust
+.PE
+.FN "Coordinate Space for Character Definition" pic_phont_coords
+.KE
+.LP
+Figure
+.XR @NumberOf(simplex)
+shows a font specification that defines characters A, B, C, D, E, F, and G
+in the Simplex Roman Hershey font.
+.FN "Example of the Simplex Roman Hershey Font" simplex 
+.BS
+.LS no 1
+	FONTNAME	Simplex Roman
+	TOP		119.0476
+	BOTTOM		-33.3333
+	NUM_CH		128
+
+	PROPERTIES	3
+	(CHARSET_REGISTRY	ISO8859)
+	(CHARSET_ENCODING	ISO_LATIN_1)
+	(SPACING		PROPORTIONAL) 
+
+INDEX 65 STROKE  3 RIGHT 76.1905			# 'A'
+	OPEN     2 (38.0952 100.0000) (0.0000 0.0000)
+	OPEN     2 (38.0952 100.0000) (76.1905 0.0000)
+	OPEN     2 (14.2857 33.3333) (61.9048 33.3333)
+INDEX 66 STROKE  3 RIGHT 66.6667			# 'B'
+	OPEN     2 (0.0000 100.0000) (0.0000 0.0000)
+	OPEN     9 (0.0000 100.0000) (42.8571 100.0000) (57.1429 95.2381)
+	(61.9048 90.4762) (66.6667 80.9524) (66.6667 71.4286)
+	       	(61.9048 61.9048) (57.1429 57.1429) (42.8571 52.3810)
+	OPEN    10 (0.0000 52.3810) (42.8571 52.3810) (57.1429 47.6190)
+	(61.9048 42.8571) (66.6667 33.3333) (66.6667 19.0476)
+	       	(61.9048 9.5238)  (57.1429 4.7619) (42.8571 0.0000)
+	       	(0.0000 0.0000)
+INDEX 67 STROKE  1 RIGHT 71.4286			# 'C'
+	OPEN    18 (71.4286 76.1905) (66.6667 85.7143) (57.1429 95.2381)
+	(47.6190 100.0000) (28.5714 100.0000) (19.0476 95.2381)
+	       	(9.5238 85.7143) (4.7619 76.1905) (0.0000 61.9048)
+	       	(0.0000 38.0952) (4.7619 23.8095) (9.5238 14.2857)
+	       	(19.0476 4.7619) (28.5714 0.0000) (47.6190 0.0000)
+	(57.1429 4.7619) (66.6667 14.2857) (71.4286 23.8095)
+INDEX 68 STROKE  2 RIGHT 66.6667			# 'D'
+	OPEN     2 (0.0000 100.0000) (0.0000 0.0000)
+	OPEN    12 (0.0000 100.0000) (33.3333 100.0000) (47.6190 95.2381)
+	(57.1429 85.7143) (61.9048 76.1905) (66.6667 61.9048)
+	       	(66.6667 38.0952) (61.9048 23.8095) (57.1429 14.2857)
+	       	(47.6190 4.7619) (33.3333 0.0000) (0.0000 0.0000)
+INDEX 69 STROKE  4 RIGHT 61.9048			# 'E'
+	OPEN     2 (0.0000 100.0000) (0.0000 0.0000)
+	OPEN     2 (0.0000 100.0000) (61.9048 100.0000)
+	OPEN     2 (0.0000 52.3810) (38.0952 52.3810)
+	OPEN     2 (0.0000 0.0000) (61.9048 0.0000)
+INDEX 70 STROKE  3 RIGHT 61.9048			# 'F'
+	OPEN     2 (0.0000 100.0000) (0.0000 0.0000)
+	OPEN     2 (0.0000 100.0000) (61.9048 100.0000)
+	OPEN     2 (0.0000 52.3810) (38.0952 52.3810)
+INDEX 71 STROKE  2 RIGHT 71.4286			# 'G'
+	OPEN    19 (71.4286 76.1905) (66.6667 85.7143) (57.1429 95.2381)
+	(47.6190 100.0000) (28.5714 100.0000) (19.0476 95.2381)
+		       (9.5238 85.7143) (4.7619 76.1905) (0.0000 61.9048)
+		       (0.0000 38.0952) (4.7619 23.8095) (9.5238 14.2857)
+		       (19.0476 4.7619) (28.5714 0.0000) (47.6190 0.0000)
+	(57.1429 4.7619) (66.6667 14.2857) (71.4286 23.8095)
+	       	(71.4286 38.0952)
+	OPEN     2 (47.6190 38.0952) (71.4286 38.0952)
+
+
+#  These lines specify the left and right bearings to apply to each
+#  character.
+#  Note that they are strictly optional.
+
+BEARING 65	 L_SPACE 2.5	 R_SPACE 1.8	
+BEARING 66	 L_SPACE 11.42	 R_SPACE 5.54	
+BEARING 67	 L_SPACE 6.66	 R_SPACE 6.4	
+BEARING 68	 L_SPACE 11.96	 R_SPACE 6.66	
+BEARING 69	 L_SPACE 11.42	 R_SPACE 4.86	
+BEARING 70	 L_SPACE 11.42	 R_SPACE 5.42	
+BEARING 71	 L_SPACE 7.06	 R_SPACE 11.28	
+.LE
+.BE
+.LP
+.H 4 "Creating the Font Compiler to_wfont"
+.LP
+The program \fIto_wfont\fR converts the font source files 
+(with the suffix \fL\s-1.src\fR\s+1) into the format required by the \s-1PEX-SI\s+1,
+(files with the suffix \fL\s-1.phont\fR\s+1).
+The formatted file is a binary file containing the vector 
+data that defines a \s-1PEX-SI\s+1 stroke font.
+All files used to create the \fIto_wfont\fR program are found
+in \fL\s-1mit/fonts/PEX\fR\s+1.
+.LP
+The \fIto_wfont\fR program is built from \fIyacc\fR, \fIlex\fR, and a C
+compiler.  The C source must be built with yacc and lex in
+in the environment in which it is to be used.  Since yacc and lex are not
+entirely portable, examples of the files generated with them are provided with the 
+\s-1PEX-SI\s+1 release.
+These files were generated on a Sun \s-1SPARC\s+1\(tm system.
+You may have to make modifications to the Imakefile for yacc and lex to 
+generate files that will work in your environment.
+.LP
+Three files are needed to produce the \fIto_wfont\fR program:
+\fL\s-1lex.l\fR\s+1, \fL\s-1to_wfont.y\fR\s+1, and \fL\s-1to_wfont.h\fR\s+1.
+The steps taken to generate and compile the C source for the program
+are shown in Table 
+.XR @NumberOf(make_to_wfont).
+Five temporary files are created as by-products of these steps.
+.TN "Actions Necessary to Compile the to_wfont Program" make_to_wfont
+.TS  
+center box tab(@);
+c | c | c | c
+n | l | l | l.
+No.@Command@Include File@Output File(s)
+_
+1.@\s-1yacc -d to_wfont.y@wfont.h@y.tab.h, y.tab.c\s+1
+2.@\s-1cc y.tab.c@wfont.h@to_wfont.o\s+1
+3.@\s-1lex -t lex.l@y.tab.h@lex.c\s+1
+4.@\s-1cc lex.c @y.tab.h@lex.o\s+1
+5.@\s-1cc to_wfont.o lex.o@@to_wfont*\s+1
+6.@\s-1rm -f y.tab.c\s+1 
+.TE
+.LP
+If for some reason you wish to change the grammar of the \s-1PEX\s+1 font compiler,
+you must edit the \fL\s-1to_wfont.y\fR\s+1 and \fL\s-1lex.l\fR\s+1 files, and rebuild 
+the \fIto_wfont\fR program.  You must take care that 
+the correct routines are still called so that the binary data can be built.
+.H 4 "Using the Font Compiler"
+.LP
+Once you have produced the font compiler, you must convert the font source
+files into your native machine format.
+The following is the \fIto_wfont\fR program usage:
+.BS
+.LS 1
+to_wfont [-o outfile] infile
+.LE
+.BE
+.LP
+The \fL\s-1-o\fR\s+1 flag is optional.  If specified, the output of the conversion
+is saved into a file named \fL\s-1outfile\fR\s+1; otherwise, it is saved into a file named
+\fIname\fL\s-1.phont\fR\s+1, where \fIname\fR is the name specified in the
+source file.  \fIinfile\fR is the name of the source file. 
+For example, 
+.BS
+.LS 1
+host%  to_wfont Roman.src
+.LE
+.BE
+The \fIto_wfont\fR program will generate a file called \fL\s-1Roman.phont\fR\s+1 using 
+the \fIinfile\fR \fL\s-1Roman.src\fR\s+1.

@@ -1,0 +1,79 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/18 04:05:43 coskrey Exp $
+
+
+
+
+XCOMM $XFree86: xc/include/Imakefile,v 3.29 2001/08/27 17:40:56 dawes Exp $
+#define IHaveSubdirs
+#define PassCDebugFlags /**/
+
+#if BuildGlxExt || BuildGLXLibrary
+GLXDIR = GL
+#endif
+
+#if BuildDPSLibrary
+DPSDIR = DPS
+#endif
+
+SUBDIRS = bitmaps extensions fonts $(GLXDIR) $(DPSDIR)
+
+#ifdef Win32Architecture
+EXTRA_HEADERS = Xw32defs.h Xwinsock.h
+#endif
+
+HEADERS = DECkeysym.h \
+	HPkeysym.h \
+	Sunkeysym.h \
+	X.h \
+	XF86keysym.h \
+	XWDFile.h \
+	Xalloca.h \
+	Xarch.h \
+	Xatom.h \
+	Xdefs.h \
+	Xfuncproto.h \
+	Xfuncs.h \
+	Xmd.h \
+	Xos.h \
+	Xos_r.h \
+	Xosdefs.h \
+	Xpoll.h \
+	Xproto.h \
+	Xprotostr.h \
+	Xthreads.h \
+	ap_keysym.h \
+	keysym.h \
+	keysymdef.h \
+	$(EXTRA_HEADERS)
+
+all::
+
+BuildIncludes($(HEADERS),X11,..)
+
+#if BuildLibraries
+InstallMultipleFlags($(HEADERS),$(INCDIR)/X11,$(INSTINCFLAGS))
+#endif
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+
+InstallDriverSDKNonExecFile(X.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(Xalloca.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(Xarch.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(Xdefs.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(Xdefs.h,$(DRIVERSDKINCLUDEDIR)/X11)
+InstallDriverSDKNonExecFile(Xfuncproto.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(Xfuncs.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(Xmd.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(Xosdefs.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(Xproto.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(Xprotostr.h,$(DRIVERSDKINCLUDEDIR))
+
+XCOMM For the Linux/OpenGL base standard
+#if LinkGLToUsrInclude && AlternateIncRoot
+install::
+	MakeDir($(DESTDIR)$(SYSTEMUSRINCDIR))
+	-$(RM) $(DESTDIR)$(SYSTEMUSRINCDIR)/GL
+	@if [ ! -d $(DESTDIR)$(SYSTEMUSRINCDIR)/GL ]; then \
+		set -x; $(LN) $(INCDIR)/GL $(DESTDIR)$(SYSTEMUSRINCDIR)/GL; \
+	fi
+#endif

@@ -123,7 +123,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 164.1;
+				DYLIB_CURRENT_VERSION = 176;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/BSafe.framework/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/BSafe.framework/Headers\" \"$(SRCROOT)/AppleCSP\" \"$(SRCROOT)/AppleCSP/open_ssl\"";
 				LIBRARY_STYLE = STATIC;
@@ -419,7 +419,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 164.1;
+				DYLIB_CURRENT_VERSION = 176;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "-DVDADER_RULES";
@@ -497,7 +497,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 164.1;
+				DYLIB_CURRENT_VERSION = 176;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -557,7 +557,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 164.1;
+				DYLIB_CURRENT_VERSION = 176;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
@@ -650,7 +650,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 164.1;
+				DYLIB_CURRENT_VERSION = 176;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
@@ -2698,6 +2698,7 @@
 		};
 		01FA8039FFF2B54C11CD283A = {
 			children = (
+				B6F3F06205E5C8DD003E48D8,
 				014259A8001645E911CD296C,
 				01FA804DFFF2B54C11CD283A,
 				01FA804EFFF2B54C11CD283A,
@@ -6428,13 +6429,13 @@
 				01FA8900FFF2BC5611CD283A,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 164.1;
+				CURRENT_PROJECT_VERSION = 176;
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/derived_src\"";
 				INSTALL_PATH = "$(SYSTEM_CORE_SERVICES_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "-DDatabase=XDatabase";
-				OTHER_LDFLAGS = "-twolevel_namespace -lSecurityAgentClient";
+				OTHER_LDFLAGS = "-twolevel_namespace -lSecurityAgentClient -lbsm";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = SecurityServer;
 				REZ_EXECUTABLE = YES;
@@ -6481,6 +6482,7 @@
 				40ACEF4D0462F6EC0035B857,
 				40ACEF510462F6FF0035B857,
 				C2C11915047187E800CA2E77,
+				B6F3F06605E5C926003E48D8,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6513,6 +6515,7 @@
 				40ACEF4C0462F6EC0035B857,
 				40ACEF500462F6FF0035B857,
 				C2C11914047187E800CA2E77,
+				B6F3F06505E5C926003E48D8,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6554,7 +6557,7 @@
 				01FA890AFFF2BCA811CD283A,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 164.1;
+				CURRENT_PROJECT_VERSION = 176;
 				INSTALL_PATH = "$(SYSTEM_CORE_SERVICES_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
@@ -6927,7 +6930,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 164.1;
+				DYLIB_CURRENT_VERSION = 176;
 				INSTALL_PATH = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
@@ -8856,9 +8859,9 @@
 				F5DDE3AE00B3358F01CD283A,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 164.1;
+				CURRENT_PROJECT_VERSION = 176;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 164.1;
+				DYLIB_CURRENT_VERSION = 176;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				FRAMEWORK_VERSION = A;
 				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\" \"$(BUILT_PRODUCTS_DIR)/derived_src\"";
@@ -8906,11 +8909,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2</string>
+	<string>2.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>164.1</string>
+	<string>176</string>
 </dict>
 </plist>
 ";
@@ -9983,7 +9986,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 164.1;
+				DYLIB_CURRENT_VERSION = 176;
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/include\"";
 				INSTALL_PATH = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
@@ -11842,7 +11845,7 @@
 				325EAA2800D6B08805CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 164.1;
+				CURRENT_PROJECT_VERSION = 176;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -11882,11 +11885,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2</string>
+	<string>2.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>164.1</string>
+	<string>176</string>
 </dict>
 </plist>
 ";
@@ -12420,7 +12423,7 @@
 				3290382100D6BA5905CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 164.1;
+				CURRENT_PROJECT_VERSION = 176;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -12461,11 +12464,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2</string>
+	<string>2.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>164.1</string>
+	<string>176</string>
 </dict>
 </plist>
 ";
@@ -12529,7 +12532,7 @@
 				3290382700D6BA5905CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 164.1;
+				CURRENT_PROJECT_VERSION = 176;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -12570,11 +12573,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2</string>
+	<string>2.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>164.1</string>
+	<string>176</string>
 </dict>
 </plist>
 ";
@@ -12626,7 +12629,7 @@
 				3290382D00D6BA5905CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 164.1;
+				CURRENT_PROJECT_VERSION = 176;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_CFLAGS = "";
@@ -12667,11 +12670,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2</string>
+	<string>2.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>164.1</string>
+	<string>176</string>
 </dict>
 </plist>
 ";
@@ -12723,7 +12726,7 @@
 				3290383300D6BA5905CD296C,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 164.1;
+				CURRENT_PROJECT_VERSION = 176;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-Os -DNDEBUG";
 				OTHER_LDFLAGS = "-bundle -undefined error";
@@ -12762,11 +12765,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.2</string>
+	<string>2.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>164.1</string>
+	<string>176</string>
 </dict>
 </plist>
 ";
@@ -14967,7 +14970,7 @@
 			);
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 164.1;
+				DYLIB_CURRENT_VERSION = 176;
 				INSTALL_PATH = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
 				OTHER_CFLAGS = "";
@@ -16199,6 +16202,49 @@
 //9D2
 //9D3
 //9D4
+//B60
+//B61
+//B62
+//B63
+//B64
+		B6F3F06205E5C8DD003E48D8 = {
+			children = (
+				B6F3F06305E5C926003E48D8,
+				B6F3F06405E5C926003E48D8,
+			);
+			isa = PBXGroup;
+			name = "Common Criteria";
+			refType = 4;
+		};
+		B6F3F06305E5C926003E48D8 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ccaudit.cpp;
+			refType = 4;
+		};
+		B6F3F06405E5C926003E48D8 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ccaudit.h;
+			refType = 4;
+		};
+		B6F3F06505E5C926003E48D8 = {
+			fileRef = B6F3F06305E5C926003E48D8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B6F3F06605E5C926003E48D8 = {
+			fileRef = B6F3F06405E5C926003E48D8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//B60
+//B61
+//B62
+//B63
+//B64
 //BD0
 //BD1
 //BD2

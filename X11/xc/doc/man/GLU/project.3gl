@@ -1,0 +1,86 @@
+'\" e
+'\"! eqn | mmdoc
+'\"macro stdmacro
+.ds Vn Version 1.2
+.ds Dt 6 March 1997
+.ds Re Release 1.2.0
+.ds Dp May 02 11:53
+.ds Dm 37 project.g
+.ds Xs 21974 4 project.gl
+.TH GLUPROJECT 3G
+.SH NAME
+.B "gluProject
+\- map object coordinates to window coordinates
+
+.SH C SPECIFICATION
+GLint \f3gluProject\fP(
+GLdouble \fIobjX\fP,
+.nf
+.ta \w'\f3GLint \fPgluProject( 'u
+	GLdouble \fIobjY\fP,
+	GLdouble \fIobjZ\fP,
+	const GLdouble \fI*model\fP,
+	const GLdouble \fI*proj\fP,
+	const GLint \fI*view\fP,
+	GLdouble* \fIwinX\fP,
+	GLdouble* \fIwinY\fP,
+	GLdouble* \fIwinZ\fP )
+.fi
+
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+.TP \w'\f2objX\fP\ \f2objY\fP\ \f2objZ\fP\ \ 'u 
+\f2objX\fP, \f2objY\fP, \f2objZ\fP
+Specify the object coordinates.
+.TP
+\f2model\fP
+Specifies the current modelview matrix (as from a \f3glGetDoublev\fP call).
+.TP
+\f2proj\fP
+Specifies the current projection matrix (as from a \f3glGetDoublev\fP call).
+.TP
+\f2view\fP
+Specifies the current viewport (as from a \f3glGetIntegerv\fP call).
+.TP
+\f2winX\fP, \f2winY\fP, \f2winZ\fP
+Return the computed window coordinates.
+.SH DESCRIPTION
+\%\f3gluProject\fP transforms the specified object coordinates into window coordinates
+using \f2model\fP, \f2proj\fP, and \f2view\fP. The result is stored 
+in \f2winX\fP, \f2winY\fP, and \f2winZ\fP. A return value of 
+\%\f3GL_TRUE\fP indicates success, a return value of \%\f3GL_FALSE\fP
+indicates failure.
+.P
+To compute the coordinates,
+let $v ~=~ ("objX", "objY", "objZ", 1.0)$
+represented as a matrix with 4 rows and 1 column.
+Then \%\f3gluProject\fP computes $v sup prime$
+as follows: 
+.sp
+.EQ
+v sup prime ~=~ P ~times~ M ~times~ v
+.EN
+.sp
+where $P$ is the current projection matrix \f2proj\fP, $M$ is the current
+modelview matrix \f2model\fP (both represented as
+$4 times 4$ matrices in column-major order) and '$times$' represents
+matrix multiplication. 
+.P 
+The window coordinates are then computed as follows: 
+.sp
+.EQ
+"winX" ~=~ "view" (0) ~+~ "view" (2) ~*~ (v sup prime (0) ~+~ 1)~/~2 
+.EN
+.sp
+.EQ
+"winY" ~=~ "view" (1) ~+~ "view" (3)~*~(v sup prime (1) ~+~ 1)~/~2 .EN
+.sp
+.EQ
+"winZ" ~=~ (v sup prime (2)  ~+~ 1)~/~ 2
+.EN
+.sp
+.SH SEE ALSO
+\f3glGet(3G)\fP, \%\f3gluUnProject(3G)\fP
+

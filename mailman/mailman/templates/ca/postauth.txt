@@ -1,0 +1,13 @@
+Com a administrador de llista, es necessita la seva autorització
+per el següent enviament de llista de correu:
+
+    List:    %(listname)s@%(hostname)s
+    From:    %(sender)s
+    Subject: %(subject)s
+    Reason:  %(reason)s
+
+Visiti la següent pàgina si ho creu convenient:
+
+    %(admindb_url)s
+        
+per tal d'aprobar o de denegar la petició.

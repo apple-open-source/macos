@@ -1,0 +1,37 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/nto/Imakefile,v 1.8 2002/10/17 02:22:47 dawes Exp $
+XCOMM
+
+#include <Server.tmpl>
+
+
+SRCS = nto_io.c nto_init.c nto_kbdEv.c nto_ioperm.c nto_video.c \
+       VTsw_noop.c posix_tty.c kmod_noop.c agp_noop.c stdResource.c \
+       stdPci.c libc_wrapper.c sigiostubs.c pm_noop.c nto_mouse.c
+
+OBJS = nto_io.o nto_init.o nto_kbdEv.o nto_ioperm.o nto_video.o \
+       VTsw_noop.o posix_tty.o kmod_noop.o agp_noop.o stdResource.o \
+       stdPci.o libc_wrapper.o sigiostubs.o pm_noop.o nto_mouse.o
+
+INCLUDES = -I$(XF86COMSRC) -I$(XF86OSSRC) -I. -I$(SERVERSRC)/include \
+           -I$(XINCLUDESRC)
+
+RESDEFINES = -DUSESTDRES
+
+DEFINES = $(RESDEFINES)
+
+SubdirLibraryRule($(OBJS))
+NormalLibraryObjectRule()
+
+
+LinkSourceFile(libc_wrapper.c,../shared)
+LinkSourceFile(sigiostubs.c,../shared)
+LinkSourceFile(pm_noop.c,../shared)
+LinkSourceFile(stdResource.c,../shared)
+LinkSourceFile(stdPci.c,../shared)
+
+LinkSourceFile(VTsw_noop.c,../shared)
+LinkSourceFile(posix_tty.c,../shared)
+LinkSourceFile(kmod_noop.c,../shared)
+LinkSourceFile(agp_noop.c,../shared)
+
+DependTarget()

@@ -1,0 +1,760 @@
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/doc/Japanese/man/XFree86.man,v 1.2 1997/11/16 06:32:48 dawes Exp $ 
+.\"
+.\" Japanese Version Copyright (c) 1996 Kazuyuki Okamoto
+.\"         all rights reserved.
+.\" Translated Tue Dec 11 21:59:36 JST 1996
+.\"         by Kazuyuki Okamoto <ikko-@pacific.rim.or.jp>
+.\"         Doc Version 3.47
+.\"
+.TH XFree86 1 "Version 3.2"  "XFree86"
+.\" .SH NAME
+.SH 名前
+.\" XFree86 - X11R6 for UNIX on x86 platforms
+XFree86 - x86 マシンで動作する UNIX 用の X11R6
+.\" .SH DESCRIPTION
+.SH 説明
+.\" XFree86 is a collection of X servers for UNIX-like OSs on Intel x86 platforms.
+XFree86 はインテル x86 マシンで動作する UNIX に似た OS用の X サーバを収集したものです。
+.\" This work is derived from
+XFree86 は
+.I "X386\ 1.2"
+から派生し、
+.\" which was contributed to X11R5 by Snitily Graphics Consulting Service.
+Snitily Graphics Consulting Service によって X11R5 に寄贈されました。
+.\" .SH CONFIGURATIONS
+.SH 構成
+.PP
+.I XFree86
+.\" operates under the following operating systems:
+は次のオペレーティングシステムで使用可能です。:
+.RS .5i
+.na
+.PP
+-- SVR3.2: SCO 3.2.2, 3.2.4, ISC 3.x, 4.x
+.br
+-- SVR4.0: ESIX, Microport, Dell, UHC, Consensys, MST, ISC, AT&T, NCR
+.br
+-- SVR4.2: Consensys, Univel (UnixWare)
+.br
+-- Solaris (x86) 2.1, 2.4
+.br
+.\" -- FreeBSD 1.1.5, 2.0, 2.0.5, NetBSD 1.0 (i386 port only)
+-- FreeBSD 1.1.5, 2.0, 2.0.5, NetBSD 1.0 (i386 にのみ移植されています)
+.br
+.\" -- BSD/386 version 1.1 and BSD/OS 2.0
+-- BSD/386 version 1.1 と BSD/OS 2.0
+.br
+.\" -- Mach (from CMU)
+-- Mach (CMU から)
+.br
+-- Linux
+.br
+-- Amoeba version 5.1
+.br
+-- Minix-386vm version 1.6.25.1
+.br
+-- LynxOS AT versions 2.2.1, 2.3.0 and 2.4.0, LynxOS microSPARC 2.4.0
+.ad
+.RE
+.PP
+.\" .SH "NETWORK CONNECTIONS"
+.SH "ネットワーク 接続"
+.\" \fIXFree86\fP supports connections made using the following reliable
+.\" byte-streams:
+\fIXFree86\fP は以下の確実なバイト-ストリームによる接続をサポートして
+います。:
+.TP 4
+.I "Local"
+.\" \fIXFree86\fP supports local connections via Streams pipe via various mechanisms,
+.\" using the following paths (\fIn\fP represents the display number):
+\fIXFree86\fP は以下のパスの種々の仕掛けの Streams パイプ経由の local 接続
+をサポートしています。(ここで \fIn\fP はディスプレイ番号です):
+.sp .5v
+.in 8
+.nf
+.\" /dev/X/server.\fBn\fR (SVR3 and SVR4)
+/dev/X/server.\fBn\fR (SVR3 と SVR4)
+/dev/X/Nserver.\fBn\fR (SVR4)
+.ig
+/tmp/.X11-unix/X\fBn\fR (ISC SVR3)
+..
+/dev/X\fBn\fRS and /dev/X\fBn\fRR (SCO SVR3)
+.fi
+.in
+.sp .5v
+.\" On SVR4.0.4, if the \fIAdvanced Compatibility Package\fP 
+.\" is installed, and in SVR4.2, \fIXFree86\fP supports local connections 
+.\" from clients for SCO XSight/ODT, and (with modifications to the binary) 
+.\" clients for ISC SVR3.
+SVR4.0.4 では、\fIAdvanced Compatibility Package\fP がインストールされて
+いる場合と SVR4.2 の場合は、 \fIXFree86\fP は SCO XSight/ODT 用のクライ
+アントからと（バイナリパッケージに変更を加えた）ISC SVR3 用のクライアント
+からの local 接続をサポートしています。
+.TP 4
+.I "Unix Domain"
+.\" \fIXFree86\fP uses \fI/tmp/.X11-unix/X\fBn\fR as the filename for the socket,
+.\" where \fIn\fP is the display number.
+\fIXFree86\fP は \fI/tmp/.X11-unix/X\fBn\fR というファイルをソケット用に使用
+します。ここで \fIn\fP はディスプレイ番号です。
+.TP 4
+.I TCP\/IP
+.\" \fIXFree86\fP listens on port htons(6000+\fIn\fP), where \fIn\fP is the display
+.\" number.
+\fIXFree86\fP は htons(6000+\fIn\fP) ポートから聞き (listen) ます。ここで 
+\fIn\fP はディスプレイ番号です。
+.TP 4
+.I "Amoeba RPC"
+.\" This is the default communication medium used under native Amoeba.
+.\" Note that under Amoeba, the server should be started
+.\" with a ``\fIhostname\fP:\fIdisplaynumber\fP'' argument.
+Amoeba では標準の通信手段です。Amoeba での注意事項として、サーバを
+``\fIホスト名\fP:\fIディスプレイ番号\fP'' を引き数に加えて起動しなければ
+いけません。
+.\" .SH "ENVIRONMENT VARIABLES"
+.SH "環境設定"
+.\" For operating systems that support local connections other than Unix Domain
+.\" sockets (SVR3 and SVR4), there is a compiled-in list specifying the order 
+.\" in which local connections should be attempted.  This list can be overridden by
+.\" the \fIXLOCAL\fP environment variable described below.  If the display name 
+.\" indicates a best-choice connection should be made (e.g. \fI:0.0\fP), each 
+.\" connection mechanism is tried until a connection succeeds or no more 
+.\" mechanisms are available.  Note: for these OSs, the Unix Domain socket
+.\" connection is treated differently from the other local connection types.
+.\" To use it the connection must be made to \fIunix:0.0\fP.
+Unix Domain ソケット (SVR3 と SVR4) 以外のローカル接続をサポートしている
+オペレーティングシステムのために、接続を試みる順番が組み込まれたリストがあります
+このリストは後述の \fIXLOCAL\fP 環境変数によって上書き可能です。ディスプレイ名称
+が最適な接続が出来るように (例えば \fI:0.0\fP) なっている場合は、それぞれの
+接続機構は接続が完了するまでか、又は使用出来る機構が無くなるまで試行します。
+注意事項: これらの OS では Unix Domain ソケット接続はその他のローカル接続の型とは
+異なる取り扱いです。Unix Domain ソケット接続を使用するにはディスプレイ名称に
+\fIunix:0.0\fP と指定しなければいけません。
+.PP
+.\" The \fIXLOCAL\fP environment variable should contain a list of one more
+.\" more of the following:
+\fIXLOCAL\fP 環境変数には以下のリストが含まれています:
+.sp .5v
+.in 8
+.nf
+NAMED
+PTS
+SCO
+ISC
+.fi
+.in
+.sp .5v
+.\" which represent SVR4 Named Streams pipe, Old-style USL
+.\" Streams pipe, SCO XSight Streams pipe, and ISC Streams pipe, respectively.
+.\" You can select a single mechanism (e.g. \fIXLOCAL=NAMED\fP), or an ordered
+.\" list (e.g. \fIXLOCAL="NAMED:PTS:SCO"\fP).  This variable overrides the
+.\" compiled-in defaults.  For SVR4 it is recommended that \fINAMED\fP be
+.\" the first preference connection.  The default setting is
+.\" \fIPTS:NAMED:ISC:SCO\fP.
+それぞれは、SVR4 Named Streams pipe, Old-style USL Streams pipe, 
+SCO XSight Streams pipe と ISC Streams pipe を表わしています。
+この内、一つの機構を選択します (例えば \fIXLOCAL=NAMED\fP)、 若しくは
+順序付けしたリストを選択します(例えば \fIXLOCAL="NAMED:PTS:SCO"\fP)。
+この環境変数は組み込まれている標準値を上書きします。SVR4 では最初に優先的な
+接続に \fINAMED\fP を推奨しています。標準値は \fIPTS:NAMED:ISC:SCO\fP です。
+.PP
+.\" To globally override the compiled-in defaults, you should define (and
+.\" export if using \fIsh\fP or \fIksh\fP) \fIXLOCAL\fP globally.  If you
+.\" use \fIstartx/xinit\fP, the definition should be at the top of
+.\" your \fI.xinitrc\fP file.  If you use \fIxdm\fP, the definitions should be
+.\" early on in the \fI<XRoot>/lib/X11/xdm/Xsession\fP script.
+組込みの標準値を全体的に置き換えるならば、 \fIXLOCAL\fP を全体的に定義(define)
+(そして、\fIsh\fP または \fIksh\fP を使っているならば export) しましょう。
+\fIstartx/xinit\fP を使うならば、\fI.xinitrc\fP ファイルの先頭に
+定義しましょう。\fIxdm\fP を使うならば \fI<XRoot>/lib/X11/xdm/Xsession\fP 
+スクリプトの前の方に定義しましょう。
+.\" .SH OPTIONS
+.SH オプション
+.\" In addition to the normal server options described in the \fIXserver(1)\fP
+.\" manual page, \fIXFree86\fP accepts the following command line switches:
+\fIXserver(1)\fP というオンラインマニュアルに通常のサーバへのオプション
+について説明があること、\fIXFree86\fP は以下のコマンドラインオプションを
+受け付ける事を追記します:
+.TP 8
+.B vt\fIXX\fP
+.\" \fIXX\fP specifies the Virtual Terminal device number which 
+.\" \fIXFree86\fP will use.  Without this option, \fIXFree86\fP will pick the first
+.\" available Virtual Terminal that it can locate.  This option applies only
+.\" to SVR3, SVR4, Linux, and BSD OSs with the `syscons' or `pcvt' driver.
+\fIXX\fP は \fIXFree86\fP が使用する仮想端末(Virtual Terminal) のデバイス番号
+です。このオプションを付けないと、 \fIXFree86\fP は最初に使用可能な仮想端末を
+割当てます。このオプションは `syscons' または `pcvt' ドライバがある
+SVR3, SVR4, Linux と BSD OS だけに有効です。
+.TP 8
+.B -crt /dev/tty\fIXX\fP
+.\" SCO only.  This is the same as the \fBvt\fP option, and is provided for
+.\" compatibility with the native SCO X server.
+SCO のみサポートしています。 \fBvt\fP オプションと同等で、SCO 上の
+X サーバとの互換性の為に提供します。
+.TP 8
+.B \-probeonly
+.\" Causes the server to exit after the device probing stage.  The XF86Config file
+.\" is still used when this option is given, so information that can be
+.\" auto-detected should be commented out.
+機器情報の探査後にサーバを終了させます。XF86Config ファイルはこのオプション
+を付けたときでも使用されるので、自動探査してもよい情報はコメントにしておきま
+しょう。
+.TP 8
+.B \-quiet
+.\" Suppress most informational messages at startup.
+起動時のほとんどのメッセージを抑止します。
+.TP 8
+.B \-bpp \fIn\fP
+.\" Set number of bits per pixel.  The default is 8.  Legal values are
+.\" 8, 15, 16, 24, 32.  Not all servers support all values.
+ピクセル毎のビット数を設定します。標準値は 8 です。使用可能な値は
+8, 15, 16, 24, 32 です。すべての値がすべてのサーバで使えるわけでは
+ありません。
+.TP 8
+.B \-weight \fInnn\fP
+.\" Set RGB weighting at 16 bpp.  The default is 565.  This applies
+.\" only to those servers which support 16 bpp.
+16 bpp での RGB 重み付けを設定します。標準値は 565 です。これは
+16 bpp をサポートしているサーバでしか適応出来ません。
+.TP 8
+.B \-flipPixels
+.\" Swap the default values for the black and white pixels.
+白と黒のピクセルの標準値を入れ替えます。
+.TP 8
+.B \-disableVidMode
+.\" Disable the the parts of the VidMode extension used by the xvidtune client
+.\" that can be used to change the video modes.
+ビデオモードを変更する xvidtune クライアントで使用している VidMode 機能拡張
+の一部を無効にします。
+.TP 8
+.B \-allowNonLocalXvidtune
+.\" Allow the xvidtune client to connect from another host.  By default non-local
+.\" connections are not allowed.
+他のホストから接続して xvidtune クライアントの実行を許可する。標準では
+ローカル接続以外は禁止しています。
+.TP 8
+.B \-gamma \fIvalue\fP
+.\" Set the gamma correction.  \fIvalue\fP must be between 0.1 and 10.  The
+.\" default is 1.0
+.\" This value is applied equally to the R, G and B values.  Not all servers
+.\" support this.
+ガンマ補正を設定します。\fIvalue\fP は 0.1 と 10 のあいだの値でなければ
+いけません。標準値は 1.0 です。この値は R, G と B に公平に適応されます。
+これは全てのサーバで使えるわけではありません。
+.TP 8
+.B \-rgamma \fIvalue\fP
+.\" Set the red gamma correction.  \fIvalue\fP must be between 0.1 and 10.  The
+.\" default is 1.0
+.\" Not all servers support this.
+赤のガンマ補正を設定します。\fIvalue\fP は 0.1 と 10 のあいだの値でなければ
+いけません。標準値は 1.0 です。
+これは全てのサーバで使えるわけではありません。
+.TP 8
+.B \-ggamma \fIvalue\fP
+.\" Set the green gamma correction.  \fIvalue\fP must be between 0.1 and 10.  The
+.\" default is 1.0
+.\" Not all servers support this.
+緑のガンマ補正を設定します。\fIvalue\fP は 0.1 と 10 のあいだの値でなければ
+いけません。標準値は 1.0 です。
+これは全てのサーバで使えるわけではありません。
+.TP 8
+.B \-bgamma \fIvalue\fP
+.\" Set the blue gamma correction.  \fIvalue\fP must be between 0.1 and 10.  The
+.\" default is 1.0
+.\" Not all servers support this.
+青のガンマ補正を設定します。\fIvalue\fP は 0.1 と 10 のあいだの値でなければ
+いけません。標準値は 1.0 です。
+これは全てのサーバで使えるわけではありません。
+.TP 8
+.B \-showconfig
+.\" Print out the server version, patchlevel, and a list of screen drivers
+.\" configured in the server.
+サーバに設定されているスクリーンドライバの一覧を表示します。
+.TP 8
+.B \-verbose
+.\" Multiple occurrences of this flag increase the amount of information printed on
+.\" stderr (more than the default).
+起動時に表示される情報を最大化します(標準より増えます)。
+.TP 8
+.B \-version
+.\" Same as \fB\-showconfig\fP.
+\fB\-showconfig\fP と同じです。
+.TP 8
+.B \-xf86config \fIfile\fP
+.\" Read the server configuration from \fIfile\fP.  This option is only available
+.\" when the server is run as root (i.e, with real-uid 0).
+\fIfile\fP からサーバの構成情報を読み込みます。このオプションは 
+root (例えば、内部 uid 番号 が 0) で起動したサーバのときにのみ有効です。
+.TP 8
+.B \-keeptty
+.\" Prevent the server from detaching its initial controlling terminal.  This
+.\" option is only useful when debugging the server.
+最初に起動した制御用の端末をサーバが切り離さないようにします。
+このオプションはサーバのデバッグ時にのみ有用です。
+.\" .SH "KEYBOARD"
+.SH "キーボード"
+.\" Multiple key presses recognized directly by \fIXFree86\fP are:
+\fIXFree86\fP が直接認識する同時に複数のキー入力は以下のとおりです:
+.TP 8
+.B Ctrl+Alt+Backspace
+.\" Immediately kills the server -- no questions asked.  (Can be disabled by
+.\" specifying "DontZap" in the \fBServerFlags\fP section of the XF86Config file.)
+速やかにサーバを停止します -- 何も応答はありません。(XF86Config ファイルの 
+\fBServerFlags\fP 節に "DontZap" と指定する事により無効に出来ます。)
+.TP 8
+.B Ctrl+Alt+Keypad-Plus
+.\" Change video mode to next one specified in the configuration file,
+.\" (increasing video resolution order).
+構成情報ファイルに指定してある次行のビデオモード(ビデオの解像度が増大する方向に)
+に変更します。
+.TP 8
+.B Ctrl+Alt+Keypad-Minus
+.\" Change video mode to previous one specified in the configuration file,
+.\" (decreasing video resolution order).
+構成情報ファイルに指定してある前行のビデオモード(ビデオの解像度が減少する方向に)
+に変更します。
+.TP 8
+.B Ctrl+Alt+F1...F12
+.\" For BSD systems using the syscons driver and Linux, these keystroke
+.\" combinations are used to switch to Virtual 
+.\" Console 1 through 12.
+syscons ドライバを使用している BSD システムと Linux では、この入力の組合わせは
+仮想コンソール１番から１２番までに切り替えるのに使っています。
+.\" .SH SETUP
+.SH 設定
+.I XFree86
+.\" uses a configuration file called \fBXF86Config\fP for its initial setup.  
+.\" Refer to the
+は初期状態では \fBXF86Config\fP と呼ばれる構成情報ファイルを使用しています。
+より詳しくは
+.I XF86Config(4/5)
+.\" manual page for more information.
+のオンラインマニュアルを参照してください。
+.\" .SH FILES
+.SH ファイル
+.TP 30
+<XRoot>/bin/XF86_SVGA
+.\" The color SVGA X server
+カラーの SVGA X サーバです。
+.TP 30
+<XRoot>/bin/XF86_Mono
+.\" The monochrome X server for VGA and other mono cards
+VGA と他の白黒のビデオカード用の白黒の X サーバです。
+.TP 30
+<XRoot>/bin/XF86_S3
+.\" The accelerated S3 X server
+S3 用のアクセラレータ X サーバです。
+.TP 30
+<XRoot>/bin/XF86_Mach8
+.\" The accelerated Mach8 X server
+Mach8 用のアクセラレータ X サーバです。
+.TP 30
+<XRoot>/bin/XF86_Mach32
+.\" The accelerated Mach32 X server
+Mach32 用のアクセラレータ X サーバです。
+.TP 30
+<XRoot>/bin/XF86_Mach64
+.\" The accelerated Mach64 X server
+Mach64 用のアクセラレータ X サーバです。
+.TP 30
+<XRoot>/bin/XF86_P9000
+.\" The accelerated P9000 X server
+P9000 用のアクセラレータ X サーバです。
+.TP 30
+<XRoot>/bin/XF86_AGX
+.\" The accelerated AGX X server
+AGX 用のアクセラレータ X サーバです。
+.TP 30
+<XRoot>/bin/XF86_W32
+.\" The accelerated ET4000/W32 and ET6000 X server
+ET4000/W32 用のアクセラレータ X サーバです。
+.TP 30
+<XRoot>/bin/XF86_8514
+.\" The accelerated 8514/A X server
+8514/A 用のアクセラレータ X サーバです。
+.TP 30
+/etc/XF86Config
+.\" Server configuration file
+サーバ構成情報ファイルです。
+.TP 30
+<XRoot>/lib/X11/XF86Config.\fIhostname\fP
+.\" Server configuration file
+サーバ構成情報ファイルです。
+.TP 30
+<XRoot>/lib/X11/XF86Config
+.\" Server configuration file
+サーバ構成情報ファイルです。
+.TP 30
+<XRoot>/bin/\(**
+.\" Client binaries
+クライアント用アプリケーションです。
+.TP 30
+<XRoot>/include/\(**
+.\" Header files
+ヘッダーファイルです。
+.TP 30
+<XRoot>/lib/\(**
+.\" Libraries
+ライブラリです。
+.TP 30
+<XRoot>/lib/X11/fonts/\(**
+.\" Fonts
+フォントです。
+.TP 30
+<XRoot>/lib/X11/rgb.txt
+.\" Color names to RGB mapping
+カラー名称の RGB への割り当てです。
+.TP 30
+<XRoot>/lib/X11/XErrorDB
+.\" Client error message database
+クライアントのエラーメッセージデータベースです。
+.TP 30
+<XRoot>/lib/X11/app-defaults/\(**
+.\" Client resource specifications
+クライアントのリソースの仕様です。
+.TP 30
+<XRoot>/man/man?/\(**
+.\" Manual pages
+オンラインマニュアルです。
+.TP 30
+/etc/X\fIn\fP.hosts
+.\" Initial access control list for display \fIn\fP
+ディスプレイ番号 \fIn\fP に対するアクセス制御の初期状態です。
+.LP
+.\" Note: <XRoot> refers to the root of the X11 install tree.
+注意: <XRoot> は X11 の導入ディレクトリのルートを参照してください。
+.\" .SH "SEE ALSO"
+.SH "関連項目"
+X(1), Xserver(1), xdm(1), xinit(1), XF86Config(4/5), xf86config(1),
+XF86_SVGA(1), XF86_VGA16(1), XF86_Mono(1), XF86_Accel(1), xvidtune(1)
+.\" .SH AUTHORS
+.SH 著者
+.PP
+.\" For X11R5, \fIXF86 1.2\fP was provided by:
+X11R5 対応は \fIXF86 1.2\fP でなされ提供は:
+.TP 8
+Thomas Roell,      \fIroell@informatik.tu-muenchen.de\fP
+.\" TU-Muenchen:  Server and SVR4 stuff
+TU-Muenchen:  サーバと SVR4 スタッフ
+.TP 8
+Mark W. Snitily,   \fImark@sgcs.com\fP
+.\" SGCS:  SVR3 support, X Consortium Sponsor
+SGCS:  SVR3 サポート, X Consortium スポンサー
+.PP
+.\"  ... and many more people out there on the net who helped with ideas and
+.\" bug-fixes.
+ ... そして構想と修正を助けてくれたインターネット上の多くの皆様。
+.PP
+.\" XFree86 was integrated into X11R6 by the following team:
+以下のチームで XFree86 を X11R6 に統合しました:
+.PP
+.nf
+Stuart Anderson    \fIanderson@metrolink.com\fP
+Doug Anson         \fIdanson@lgc.com\fP
+Gertjan Akkerman   \fIakkerman@dutiba.twi.tudelft.nl\fP
+Mike Bernson       \fImike@mbsun.mlb.org\fP
+Robin Cutshaw      \fIrobin@XFree86.org\fP
+David Dawes        \fIdawes@XFree86.org\fP
+Marc Evans         \fImarc@XFree86.org\fP
+Pascal Haible      \fIhaible@izfm.uni-stuttgart.de\fP
+Matthieu Herrb     \fIMatthieu.Herrb@laas.fr\fP
+Dirk Hohndel       \fIhohndel@XFree86.org\fP
+David Holland      \fIdavidh@use.com\fP
+Alan Hourihane     \fIalanh@fairlite.demon.co.uk\fP
+Jeffrey Hsu        \fIhsu@soda.berkeley.edu\fP
+Glenn Lai          \fIglenn@cs.utexas.edu\fP
+Ted Lemon          \fImellon@ncd.com\fP
+Rich Murphey       \fIrich@XFree86.org\fP
+Hans Nasten        \fInasten@everyware.se\fP
+Mark Snitily       \fImark@sgcs.com\fP
+Randy Terbush      \fIrandyt@cse.unl.edu\fP
+Jon Tombs          \fItombs@XFree86.org\fP
+Kees Verstoep      \fIversto@cs.vu.nl\fP
+Paul Vixie         \fIpaul@vix.com\fP
+Mark Weaver        \fIMark_Weaver@brown.edu\fP
+David Wexelblat    \fIdwex@XFree86.org\fP
+Philip Wheatley    \fIPhilip.Wheatley@ColumbiaSC.NCR.COM\fP
+Thomas Wolfram     \fIwolf@prz.tu-berlin.de\fP
+Orest Zborowski    \fIorestz@eskimo.com\fP
+.fi
+.PP
+.\" The \fIXFree86\fP enhancement package was provided by:
+\fIXFree86\fP 機能拡張パッケージの提供は以下のとおり:
+.TP 8
+David Dawes,       \fIdawes@XFree86.org\fP
+.\" Release coordination, administration of FTP repository and mailing lists.
+.\" Source tree management
+.\" and integration, accelerated server integration, fixing, and coding.
+公開作業の取り纏め、FTP サーバとメーリングリストの管理。
+ソースファイル管理と統合、アクセラレータサーバの統合、修正と
+プログラミング。
+.TP 8
+Glenn Lai,         \fIglenn@cs.utexas.edu\fP
+.\" The SpeedUp code for ET4000 based SVGA cards, and ET4000/W32 accelerated
+.\" server.
+ET4000 を基にした SVGA カード対応のプログラムの性能向上と ET4000/W32 の
+アクセラレータサーバ。
+.TP 8
+Jim Tsillas,       \fIjtsilla@ccs.neu.edu\fP
+.\" Many server speedups from the fX386 series of enhancements.
+一連の fX386 の改善による多くのサーバの性能向上。
+.TP 8
+David Wexelblat,   \fIdwex@XFree86.org\fP
+.\" Integration of the fX386 code into the default server, 
+.\" many driver fixes, and driver documentation, assembly of the VGA 
+.\" card/monitor database, development of the generic video mode listing.
+.\" Accelerated server integration, fixing, and coding.
+標準サーバへの fX386 の統合、多くのドライバの修正とドライバの資料作成、
+VGA カードとモニターのデータベースの収集、汎用ビデオモード一覧の作成。
+アクセラレータサーバの統合、修正とプログラミング。
+.TP 8
+Dirk Hohndel,      \fIhohndel@XFree86.org\fP
+.\" Linux shared libraries and release coordination.  Accelerated server
+.\" integration and fixing.  Generic administrivia and documentation.
+Linux 共有ライブラリと公開作業の取り纏め。アクセラレータサーバの統合と修正。
+一般管理業務と資料作成。
+.PP
+.TP 8
+Amancio Hasty Jr., \fIhasty@netcom.com\fP
+.\" Porting to \fB386BSD\fP version 0.1 and XS3 development.
+\fB386BSD\fP version 0.1 への移植と XS3 の開発。
+.TP 8
+Rich Murphey,      \fIrich@XFree86.org\fP
+.\" Ported to \fB386BSD\fP version 0.1 based on the original port by Pace Willison.
+.\" Support for \fB386BSD\fP, \fBFreeBSD\fP, and \fBNetBSD\fP.
+Pace Willison 氏 が始めた移植版を基にした \fB386BSD\fP version 0.1 への移植。
+\fB386BSD\fP, \fBFreeBSD\fP と \fBNetBSD\fP の保守。
+.TP 8
+Robert Baron,      \fIRobert.Baron@ernst.mach.cs.cmu.edu\fP
+.\" Ported to \fBMach\fP.
+\fBMach\fP への移植。
+.TP 8
+Orest Zborowski,   \fIorestz@eskimo.com\fP
+.\" Ported to \fBLinux\fP.
+\fBLinux\fP への移植。
+.TP 8
+Doug Anson,        \fIdanson@lgc.com\fP
+.\" Ported to \fBSolaris x86\fP.
+\fBSolaris x86\fP への移植。
+.TP 8
+David Holland,     \fIdavidh@use.com\fP
+.\" Ported to \fBSolaris x86\fP.
+\fBSolaris x86\fP への移植。
+.TP 8
+David McCullough,  \fIdavidm@stallion.oz.au\fP
+.\" Ported to \fBSCO SVR3\fP.
+\fBSCO SVR3\fP への移植。
+.TP 8
+Michael Rohleder,  \fImichael.rohleder@stadt-frankfurt.de\fP
+.\" Ported to \fBISC SVR3\fP.
+\fBISC SVR3\fP への移植。
+.TP 8
+Kees Verstoep,     \fIversto@cs.vu.nl\fP
+.\" Ported to \fBAmoeba\fP based on Leendert van Doorn's original Amoeba port of
+.\" X11R5.
+Leendert van Doorn が始めた X11R5 の Amoeba への移植版を基にした \fBAmoeba\fP 
+への移植。
+.TP 8
+Marc Evans,        \fIMarc@XFree86.org\fP
+Port.\" ed to \fBOSF/1\fP.
+\fBOSF/1\fP への移植。
+.TP 8
+Philip Homburg,    \fIphilip@cs.vu.nl\fP
+.\" Ported to \fBMinix-386vm\fP.
+\fBMinix-386vm\fP への移植。
+.TP 8
+Thomas Mueller,    \fItm@systrix.de\fP
+.\" Ported to \fBLynxOS\fP.
+\fBLynxOS\fP への移植。
+.TP 8
+Jon Tombs,         \fItombs@XFree86.org\fP
+.\" S3 server and accelerated server coordination.
+S3 サーバとアクセラレータサーバの取り纏め。
+.TP 8
+Harald Koenig,     \fIkoenig@tat.physik.uni-tuebingen.de\fP
+.\" S3 server development.
+S3 サーバの開発。
+.TP 8
+Bernhard Bender,   \fIbr@elsa.mhs.compuserve.com\fP
+.\" S3 server development.
+S3 サーバの開発。
+.TP 8
+Kevin Martin,      \fImartin@cs.unc.edu\fP
+.\" Overall work on the base accelerated servers (ATI and 8514/A), and Mach64
+.\" server.
+基礎になったアクセラレータサーバ群 (ATI と 8514/A) の全作業と Mach64
+サーバ。
+.TP 8
+Rik Faith,         \fIfaith@cs.unc.edu\fP
+.\" Overall work on the base accelerated servers (ATI and 8514/A).
+基礎になったアクセラレータサーバ群 (ATI と 8514/A) の全作業。
+.TP 8
+Tiago Gons,        \fItiago@comosjn.hobby.nl\fP
+.\" Mach8 and 8514/A server development
+Mach8 と 8514/A サーバの開発。
+.TP 8
+Hans Nasten,       \fInasten@everyware.se\fP
+.\" Mach8, 8514/A, and S3 server development and BSD/386 support
+Mach8, 8514/A と S3 サーバの開発と BSD/386 版の保守。
+.TP 8
+Mike Bernson,      \fImike@mbsun.mlb.org\fP
+.\" Mach32 server development.
+Mach32 サーバの開発。
+.TP 8
+Mark Weaver,       \fIMark_Weaver@brown.edu\fP
+.\" Mach32 server development.
+Mach32 サーバの開発。
+.TP 8
+Craig Groeschel,   \fIcraig@metrolink.com\fP
+.\" Mach32 server development.
+Mach32 サーバの開発。
+.TP 8
+Henry Worth,       \fIHenry.Worth@amail.amdahl.com\fP
+.\" AGX server.
+AGX サーバ。
+.TP 8
+Erik Nygren,       \fInygren@mit.edu\fP
+.\" P9000 server.
+P9000 サーバ。
+.TP 8
+Harry Langenbacher \fIharry@brain.jpl.nasa.gov\fP
+.\" P9000 server.
+P9000 サーバ。
+.TP 8
+Chris Mason,       \fImason@mail.csh.rit.edu\fP
+.\" P9000 server.
+P9000 サーバ。
+.TP 8
+Henrik Harmsen     \fIharmsen@eritel.se\fP
+.\" P9000 server.
+P9000 サーバ。
+.TP 8
+Simon Cooper,      \fIscooper@vizlab.rutgers.edu\fP
+.\" Cirrus accelerated code (based on work by Bill Reynolds).
+Cirrus アクセラレータのプログラミング(Bill Reynolds の成果を基にしています)。
+.TP 8
+Harm Hanemaayer,   \fIhhanemaa@cs.ruu.nl\fP
+.\" Cirrus accelerated code, and ARK driver.
+Cirrus アクセラレータのプログラミングと ARK ドライバ。
+.TP 8
+Thomas Zerucha,    \fIzerucha@shell.portal.com\fP
+.\" Support for Cirrus CL-GD7543.
+Cirrus CL-GD7543 の保守。
+.TP 8
+Leon Bottou,       \fIbottou@laforia.ibp.fr\fP
+.\" ARK driver.
+ARK ドライバ。
+.TP 8
+Mike Tierney,      \fIfloyd@eng.umd.edu\fP
+.\" WD accelerated code.
+WD アクセラレータのプログラミング。
+.TP 8
+Bill Conn,         \fIconn@bnr.ca\fP
+.\" WD accelerated code.
+WD アクセラレータのプログラミング。
+.TP 8
+Brad Bosch,        \fIbrad@lachman.com\fP
+.\" WD 90C24A support.
+WD 90C24A の保守。
+.TP 8
+Alan Hourihane,    \fIalanh@fairlite.demon.co.uk\fP
+.\" Trident SVGA driver, SiS SVGA driver and DEC 21030 server.
+Trident SVGA ドライバ、SiS SVGA ドライバと DEC 21030 サーバ。
+.TP 8
+Marc La France,    \fIMarc.La-France@ualberta.ca\fP
+.\" ATI vgawonder SVGA driver
+ATI vgawonder SVGA ドライバ。
+.TP 8
+Steve Goldman,     \fIsgoldman@encore.com\fP
+.\" Oak 067/077 SVGA driver.
+Oak 067/077 SVGA ドライバ。
+.TP 8
+Jorge Delgado,     \fIernar@dit.upm.es\fP
+.\" Oak SVGA driver, and 087 accelerated code.
+Oak SVGA ドライバと 087 アクセラレータのプログラミング。
+.TP 8
+Bill Conn,         \fIconn@bnr.ca\fP
+.\" WD accelerated code.
+WD アクセラレータのプログラミング。
+.TP 8
+Paolo Severini,    \fIlendl@dist.dist.unige.it\fP
+.\" AL2101 SVGA driver
+AL2101 SVGA ドライバ。
+.TP 8
+Ching-Tai Chiu,    \fIcchiu@netcom.com\fP
+.\" Avance Logic ALI SVGA driver
+Avance Logic ALI SVGA ドライバ。
+.TP 8
+Manfred Brands,    \fImb@oceonics.nl\fP
+.\" Cirrus 64xx SVGA driver
+Cirrus 64xx SVGA ドライバ。
+.TP 8
+Randy Hendry,      \fIrandy@sgi.com\fP
+.\" Cirrus 6440 support in the cl64xx SVGA driver
+cl64xx SVGA ドライバ内の Cirrus 6440 の保守。
+.TP 8
+Frank Dikker,      \fIdikker@cs.utwente.nl\fP
+.\" MX SVGA driver
+MX SVGA ドライバ。
+.TP 8
+Regis Cridlig,     \fIcridlig@dmi.ens.fr\fP
+.\" Chips & Technologies driver
+Chips & Technology ドライバ。
+.TP 8
+Jon Block,         \fIblock@frc.com\fP
+.\" Chips & Technologies driver
+Chips & Technology ドライバ。
+.TP 8
+Mike Hollick,      \fIhollick@graphics.cis.upenn.edu\fP
+.\" Chips & Technologies driver
+Chips & Technology ドライバ。
+.TP 8
+Nozomi Ytow
+.\" Chips & Technologies driver
+Chips & Technology ドライバ。
+.TP 8
+Egbert Eich,       \fIEgbert.Eich@Physik.TH-Darmstadt.DE\fP
+.\" Chips & Technologies driver
+Chips & Technology ドライバ。
+.TP 8
+David Bateman,     \fIdbateman@ee.uts.edu.au\fP
+.\" Chips & Technologies driver
+Chips & Technology ドライバ。
+.TP 8
+Xavier Ducoin,     \fIxavier@rd.lectra.fr\fP
+.\" Chips & Technologies driver
+Chips & Technology ドライバ。
+.TP 8
+Peter Trattler,    \fIpeter@sbox.tu-graz.ac.at\fP
+.\" RealTek SVGA driver
+RealTek SVGA ドライバ。
+.TP 8
+Craig Struble,     \fIcstruble@acm.vt.edu\fP
+.\" Video7 SVGA driver
+Video7 SVGA ドライバ。
+.TP 8
+Gertjan Akkerman,  \fIakkerman@dutiba.twi.tudelft.nl\fP
+.\" 16 colour VGA server, and XF86Config parser.
+16 色 VGA サーバと XF86Config 構文解析プログラム。
+.TP 8
+Davor Matic,       \fIdmatic@Athena.MIT.EDU\fP
+.\" Hercules driver.
+Hercules ドライバ。
+.TP 8
+Pascal Haible,     \fIhaible@izfm.uni-stuttgart.de\fP
+.\" Banked monochrome VGA support, Hercules support, and mono frame buffer
+.\" support for dumb monochrome devices
+バンク切り替え付き白黒 VGA の保守、Hercules の保守、普通の白黒デバイス用の
+白黒フレームバッファの保守。
+.PP
+.\"  ... and many more people out there on the net who helped with beta-testing
+.\" this enhancement.
+ ... そしてこの機能拡張のベータテストで助けていただいたインターネット上の
+ より多くの皆様。
+.PP
+.\" \fIXFree86\fP source is available from the FTP server
+.\" \fIftp.XFree86.org\fP, among others.  Send email to
+.\" \fIXFree86@XFree86.org\fP for details.
+\fIXFree86\fP のソースは \fIftp.XFree86.org\fP の FTP サーバ、その他に
+あります。詳細については \fIXFree86@XFree86.org\fP へ電子メールを下さい。
+.\" $XConsortium: XFree86.man /main/16 1996/01/31 10:56:20 kaleb $
+

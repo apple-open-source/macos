@@ -1,0 +1,87 @@
+This is the source code from the FreeType/2 OS/2 font driver.
+Copyright (C) 1997-1998 Michal Necasek (mike@mendelu.cz).
+
+Here's a description of the files in this package :
+
+  readme.1st     This file
+
+  readme.txt     The FreeType/2 Readme
+
+  FAQ            The FreeType/2 user faq
+
+  DEVELFAQ       The FreeType/2 developer faq. Read it before trying to
+                 compile this program
+
+  install.cmd    The FreeType/2 installation script
+  uninstall.cmd  The FreeType/2 uninstallation script
+  query.cmd      A script used to query the name of the current font driver
+
+  limit.cmd      The driver controls the number of font files it keeps
+                 opened at the same time, in order to save system resources
+                 and memory (of course, this _doesn't_ limit the number of
+                 opened fonts in PM, it just saves a _lot_ of memory when
+                 many fonts are installed on your system).
+
+                 This script let you change this limit. It can be useful
+                 if you use font-intensive applications (like DTP) and
+                 want better performance (to the sake of memory).
+
+  update.cmd     The FreeType/2 update script
+  ifi/           Source code of the FreeType/2 font driver proper
+
+
+  lib/           files that must be added to the standard FreeType 1.1
+                 release. They take the place of the files located in
+                 the corresponding "lib" file.
+
+      lib/ttmemory.c         replacement for the FreeType memory
+                             manager component. This one uses the GRE
+                             shared memory segment allocater, and is
+                             required.
+
+      lib/arch/makefile.icc  Makefile to compile the FreeType library for
+                             FreeType/2 with Visual Age. You'll need nmake.
+
+      lib/arch/makefile.wat  Makefile to compile with Watcom. NOTE that
+                             you'll ALSO need nmake (wmake won't work !!)
+
+
+Here's how to compile the font driver.
+
+0. Read the DEVELFAQ ! Now ! Then make a WPS backup !
+
+1. Get the FreeType library, and copy the "lib" hierarchy into it to
+   replace the related files (i.e. ttmemory.c and makefiles).
+
+2. Compile FreeType with the new files, simply go to "freetype/lib"
+   and type :
+
+     nmake -f arch\os2\makefile.icc          for VisualAge
+     nmake -f arch\os2\makefile.wat          for Watcom
+
+3. Adjust the makefiles in "ifi" to reflect the location of the
+   library file "libttf.lib" that was generated previously.
+
+5. Compile the font driver. Go to the "ft_os2/ifi" directory, then type
+
+     nmake -f freetype.icc       for VisualAge
+     nmake -f freetype.wat       for Watcom
+
+   You should have created a file called "FreeType.dll". Copy it to
+   your "ft_os2" directory..
+
+6. Run the "install.cmd" script, then reboot after closing all
+   applications.
+
+7. When your desktop is back, go to the font palette and try to
+   install some new TrueType fonts. Enjoy the difference :-)
+
+8. You can also compile a small memory usage dumper called "ftmem.c"
+   to know how much memory the driver is using. Simply do
+
+     nmake -f ftmem.icc       for VisualAge
+     nmake -f ftmem.wat       for Watcom
+
+   Then launch it. A small window will appear with the current amount
+   of memory allocated by the driver.
+

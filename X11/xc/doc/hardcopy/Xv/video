@@ -1,0 +1,300 @@
+
+Addendum to the Xv Client library documentation
+===============================================
+
+  The following features are new to version 2.2
+
+1) In addition to XvInputMask and XvOutputMask masks in the type field
+   of the XvAdaptorInfo there are 3 new bits defined - XvVideoMask,
+   XvStillMask and XvImageMask indicating that the adaptor is capable
+   of video, still or image primitives respectively.
+
+2) A new function and structure is defined to allow querying
+   port attributes.
+
+typedef struct {
+  int flags;    
+  int min_value;
+  int max_value;
+  char *name;
+} XvAttribute;
+
+  flags  -   May be XvGettable or XvSettable or both OR'd together
+	     indicating the particular attribute is readable, writeable
+	     or readable and writeable.
+
+  min_value, max_value -  Indicate the minimun and maximum attribute
+	     values which are valid for the driver.
+
+  name -  A string describing the name of the attribute that may be used
+	     to retrieve the Atom for the particular attribute.
+
+
+extern XvAttribute* XvQueryPortAttributes(
+  Display*                /* display */,
+  XvPortID                /* port */,
+  int*                    /* number */
+);
+
+   XvQueryPortAttributes returns the number of attributes and an
+   array of XvAttributes valid for the given port.  The array may
+   be freed with XFree().
+
+
+3)  The X Video Extension (Xv) is extended to support client images in
+alternate colorspaces (XvImages) in the following way.
+
+  Xv Adaptors which are capable of displaying XvImages will have
+  the XvImageMask field set in the type field of the XvAdaptorInfo.
+
+  XvImage formats supported by the port may be queried with 
+  XvListImageFormats().
+
+  XvImages may be created with the help of XvCreateImage() or
+  XvShmCreateImage();
+
+  XvImages may be displayed with XvPutImage() or XvShmPutImage().
+
+  The Port attributes of the port specified in the Xv(Shm)PutImage
+  command will be valid for the image operation when applicable.
+
+  There will be a port encoding with the name "XV_IMAGE".  The
+  width and height of that encoding will indicate the maximum
+  source image size.
+
+typedef struct {
+  int id;                      /* Unique descriptor for the format */
+  int type;                    /* XvRGB, XvYUV */
+  int byte_order;              /* LSBFirst, MSBFirst */
+  char guid[16];               /* Globally Unique IDentifier */
+  int bits_per_pixel;
+  int format;                  /* XvPacked, XvPlanar */
+  int num_planes;
+
+  /* for RGB formats */
+  int depth;
+  unsigned int red_mask;       
+  unsigned int green_mask;   
+  unsigned int blue_mask;   
+
+  /* for YUV formats */
+  unsigned int y_sample_bits;
+  unsigned int u_sample_bits;
+  unsigned int v_sample_bits;   
+  unsigned int horz_y_period;
+  unsigned int horz_u_period;
+  unsigned int horz_v_period;
+  unsigned int vert_y_period;
+  unsigned int vert_u_period;
+  unsigned int vert_v_period;
+  char component_order[32];    /* eg. UYVY */
+  int scanline_order;          /* XvTopToBottom, XvBottomToTop */
+} XvImageFormatValues; 
+
+
+   id -  A unique descriptor for the format.  This is often the FOURCC
+	 for the format, when applicable.  This id is used to describe
+	 the format during XvImage creation.
+
+   type - XvRGB or XvYUV.
+
+   byte_order -  The byte order of the image.  It is either LSBFirst
+	         or MSBFirst.
+	
+   guid -  The Globally Unique IDentifier (also known as Universally Unique
+	   IDentifier).  When not applicable, all characters are NULL.  
+
+   bits_per_pixel - The bits taken up (but not necessarily used) by each
+                    pixel.  Note that for some planar formats which have
+                    fractional bits per pixel (such as IF09) this number
+                    may be rounded _down_.
+
+   format - XvPacked or XvPlanar.
+
+   num_planes - The number of planes in planar formats.
+
+   depth - Significant bits per pixel.
+
+   red_mask, green_mask, blue_mask -  The red, green and blue bitmasks
+				      (RGB formats only).
+
+
+   ?_sample_bits -  The size of each sample in bits (YUV formats only).
+
+   horz_?_period, vert_?_period -  The period (in pixels) on which samples
+                                   occur in the horizontal and vertical 
+                                   directions (YUV formats only).
+
+   component_order -  Upper case ascii characters representing the order
+                      that samples are stored within packed formats.
+                      For planar formats this represents the ordering of
+                      the planes.
+
+   scanline_order - XvTopToBottom or XvBottomToTop.
+
+Note:  Since some formats (particularly some planar YUV formats) may not
+       be completely defined by the parameters above, the guid, when
+       available, should provide the most accurate description of the 
+       format.
+
+
+
+XvImageFormatValues * XvListImageFormats (
+   Display 	*display,
+   XvPortID 	port_id,
+   int 		*count_return
+);
+
+   Returns the XvImageFormatValues supported by the specified port. 
+This list should be freed with XFree().
+   
+
+typedef struct {
+   int id;
+   int width, height;
+   int data_size;
+   int num_planes;
+   int *pitches;
+   int *offsets;
+   char *data;          
+   XPointer obdata;     
+} XvImage;
+
+   id - XvImageFormatValues id.
+   
+   width, height - The width and height of the image in pixels.
+
+   int data_size - The size of the data buffer in bytes.
+
+   num_planes -  The number of image planes.
+
+   pitches -  An array of size num_planes indicating the scanline pitch
+              in bytes.  Each plane may have a different pitch.
+
+   offsets -  An array of size num_planes indicating the byte offset
+              from "data" to the start of each plane.
+
+   data -  A pointer to the start of the data buffer.
+
+   obdata -  A private field for holding SHM info.  This field will be
+             set up by the client libraries so the programmer will 
+             generally need not be concerned with this field.
+
+XvImage * XvCreateImage (
+   Display *display,
+   XvPortID port,
+   int id,
+   char *data,
+   int width, 
+   int height 
+);
+
+   display - Specifies the connection to the Xserver.
+   port    - Specifies the port the XvImage will be used with.
+   id      - Specifies the format of the image to be created by
+	     the XvImageFormatValues id.
+   data    - Specifies the image data.
+   width
+   height  - Specifies the desired width and height of the image.
+
+   This function is similar to XCreateImage.  The library will
+allocate the XvImage structure and fill out all fields except for
+"data".  Width and height may be enlarged in some YUV formats.
+The size of the data buffer that needs to be allocated will be
+give in the "data_size" field in the XvImage.  Image data is 
+not allocated by this function.  The client may pass a pointer
+to the preallocated memory as "data" or may allocate the memory
+and fill in the XvImage structure's data field after the 
+"data_size" field has been filled out by the server.  The XvImage
+structure may be freed by XFree();
+
+
+XvImage * XvShmCreateImage (
+   Display *display,
+   XvPortID port,
+   int id,
+   char* data,
+   int width, 
+   int height,
+   XShmSegmentInfo *shminfo
+);
+
+   This function is similar to XShmCreateImage.  The library will
+allocate the XvImage structure and fill out all fields except for
+"data".  Width and height may be enlarged in some YUV formats.
+The size of the data buffer that needs to be allocated will be
+give in the "data_size" field in the XvImage.  Image data is 
+not allocated by this function.  The client may pass a pointer
+to the preallocated memory as "data" or may allocate the memory
+and fill in the XvImage structure's data field after the 
+"data_size" field has been filled out by the server.  The XvImage
+structure may be freed by XFree();
+
+
+XvPutImage (
+   Display *display,
+   XvPortID id,
+   Drawable d,
+   GC gc,
+   XvImage *image,
+   int src_x,
+   int src_y,
+   unsigned int src_w,
+   unsigned int src_h,
+   int dest_x, 
+   int dest_y,
+   unsigned int dest_w,
+   unsigned int dest_h,
+);
+
+XvShmPutImage (
+   Display *display,
+   XvPortID id,
+   Drawable d,
+   GC gc,
+   XvImage *image,
+   int src_x,
+   int src_y,
+   unsigned int src_w,
+   unsigned int src_h,
+   int dest_x, 
+   int dest_y,
+   unsigned int dest_w,
+   unsigned int dest_h,
+   Bool send_event
+);
+
+   display - The connection to the X-Server.
+
+   id -  The port id of a port on an XvImage capable adaptor.
+
+   d - The target drawable.
+   
+   gc - the graphics context specifying the clip mask to use, if any.
+
+   image - A pointer to the XvImage to be displayed.
+
+   src_? - The portion of the XvImage to be displayed.
+ 
+   dest_? - The portion of the destination drawable to be filled by the image.
+
+   send_event - Indicates whether or not an XShmCompletionEvent should be
+                sent.  If sent, the event's major_code and minor_code
+                fields will indicate the Xv extension's major code and
+                XvShmPutImage's minor code.
+
+Shared memory segments are attached/detached with XShmAttach/Detach.
+
+
+Some of the possible Errors:
+
+   BadDrawable   - The specified drawable does not exist.
+   BadContext    - The specified GC does not exist.
+   BadMatch      - Incompatible arguments such as a port that isn't capable
+                   of displaying XvImages.
+   XvBadPort     - The specified port does not exist.
+   BadAlloc      - The server was unable to allocate resources required 
+                   to complete the operation.
+   BadValue      - Some numeric value falls outside the range of the 
+                   values accepted by the request.
+   BadShmSegCode - An invalid shared memory segment.

@@ -1,0 +1,48 @@
+XCOMM
+XCOMM This is an Imakefile for the fbdev driver.  
+XCOMM
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/fbdev/Imakefile,v 1.10 2001/04/06 18:16:30 dawes Exp $
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS = fbdev.c
+OBJS = fbdev.o
+
+#if defined(XF86DriverSDK)
+INCLUDES = -I. -I../../include
+#else
+INCLUDES = -I. -I$(XF86COMSRC) -I$(XF86OSSRC) \
+           -I$(SERVERSRC)/mfb -I$(SERVERSRC)/mi \
+           -I$(SERVERSRC)/afb \
+           -I$(SERVERSRC)/fb -I$(XF86SRC)/xaa \
+           -I$(XF86SRC)/fbdevhw -I$(XF86SRC)/ramdac \
+           -I$(XF86SRC)/ddc -I$(XF86SRC)/i2c \
+           -I$(XF86SRC)/rac \
+           -I$(SERVERSRC)/Xext -I$(XF86SRC)/xf24_32bpp\
+           -I$(FONTINCSRC) -I$(SERVERSRC)/include -I$(XINCLUDESRC) \
+	   -I$(SERVERSRC)/miext/shadow -I$(EXTINCSRC) -I$(SERVERSRC)/render
+#endif
+
+DEFINES = FbdevDefines
+
+#if MakeHasPosixVariableSubstitutions
+SubdirLibraryRule($(OBJS))
+#endif
+
+ModuleObjectRule()
+
+ObjectModuleTarget(fbdev,$(OBJS))
+
+InstallObjectModule(fbdev,$(MODULEDIR),drivers)
+
+#if !defined(XF86DriverSDK)
+InstallModuleManPage(fbdev)
+#endif
+
+DependTarget()
+
+InstallDriverSDKNonExecFile(Imakefile,$(DRIVERSDKDIR)/drivers/fbdev)
+InstallDriverSDKNonExecFile(fbdev.c,$(DRIVERSDKDIR)/drivers/fbdev)
+
+InstallDriverSDKObjectModule(fbdev,$(DRIVERSDKMODULEDIR),drivers)

@@ -206,6 +206,10 @@ void HTMLElementImpl::parseAttribute(AttributeImpl *attr)
         setHTMLEventListener(EventImpl::KEYUP_EVENT,
 	    getDocument()->createHTMLEventListener(attr->value().string()));
         break;
+    case ATTR_ONSCROLL:
+        setHTMLEventListener(EventImpl::SCROLL_EVENT,
+            getDocument()->createHTMLEventListener(attr->value().string()));
+        break;
 // other misc attributes
     default:
 #ifdef UNSUPPORTED_ATTR
@@ -372,9 +376,12 @@ DOMString HTMLElementImpl::innerText() const
 {
     DOMString text;
 
-    const NodeImpl *n = this;
+    const NodeImpl *n = firstChild();
     // find the next text/image after the anchor, to get a position
     while(n) {
+        if(n->isTextNode() ) {
+            text += static_cast<const TextImpl *>(n)->data();
+        }
         if(n->firstChild())
             n = n->firstChild();
         else if(n->nextSibling())
@@ -387,9 +394,6 @@ DOMString HTMLElementImpl::innerText() const
                 next = n->nextSibling();
             }
             n = next;
-        }
-        if(n->isTextNode() ) {
-            text += static_cast<const TextImpl *>(n)->data();
         }
     }
  end:

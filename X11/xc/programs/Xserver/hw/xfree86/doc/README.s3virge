@@ -1,0 +1,67 @@
+                        Information for S3 ViRGE Users
+
+                          The XFree86 Project Inc.
+
+                                 19 Dec 2001
+
+1.  Supported hardware
+
+The s3virge driver in XFree86 4.3.0 supports the S3 ViRGE, ViRGE DX, GX, GX2,
+MX, MX+, and VX chipsets.  It also supports Trio3D and Trio3D/2x chips.  A
+majority of testing is done on ViRGE DX chips, making them the most stable to
+date.  This release has added support for doublescan modes on DX.
+
+This driver is moderately stable, however please use caution with any new
+install.  Please report any problems to <XFree86@XFree86.org> using the
+appropriate bug report sheet.
+
+2.  Features:
+
+   o Fully accelerated support for S3 ViRGE family video adapters
+
+   o uses linear frame buffer
+
+   o supports resolutions up to 2048x2048
+
+   o supports color depths of 8, 15, 16 and 24
+
+   o full use of video card memory for acceleration caching when visible
+     framebuffer leaves extra memory
+
+   o XVideo on DX, GX, GX2, MX, MX+ and Trio3D/2X at depth 16 and 24
+
+   o Doublescan modes on DX, possibly others (untested)
+
+3.  Configuration:
+
+The driver auto-detects RAM size, RAMDAC and ClockChip. Do not bother putting
+these in your "Device" section.
+
+4.  Documentation:
+
+The driver has several supported options which are documented in the s3virge
+man page.  Please refer to it for additional details about XF86Config
+options.
+
+5.  Support:
+
+For support with XFree86 video drivers please refer to our web site at
+XFree86 <URL:http://www.XFree86.org>.  For problems not addressed in the web
+page please contact our support email address  <XFree86@XFree86.org>
+
+6.  Authors
+
+   o Mark Vojkovich <mvojkovich@nvidia.com>
+
+   o Sebastien Marineau
+
+   o Harald Koenig <koenig@tat.physik.uni-tuebingen.de>
+
+   o Matt Grossman <mattg@oz.net>
+
+   o Kevin Brosius <cobra@compuserve.com>
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/s3virge.sgml,v 1.6 2003/02/13 03:21:33 dawes Exp $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.s3virge,v 1.15 2003/02/24 04:03:24 dawes Exp $

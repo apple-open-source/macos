@@ -28,6 +28,12 @@ from Mailman.i18n import _
 from Mailman.SafeDict import SafeDict
 from Mailman.Logging.Syslog import syslog
 
+try:
+    True, False
+except:
+    True = 1
+    False = 0
+
 
 
 def process(mlist, msg, msgdata):
@@ -71,12 +77,12 @@ def process(mlist, msg, msgdata):
     # safely add the header/footer to a plain text message since all
     # charsets Mailman supports are strict supersets of us-ascii --
     # no, UTF-16 emails are not supported yet.
-    mcset = msg.get_param('charset', 'us-ascii').lower()
+    mcset = msg.get_content_charset('us-ascii')
     lcset = Utils.GetCharSet(mlist.preferred_language)
-    msgtype = msg.get_type('text/plain')
+    msgtype = msg.get_content_type()
     # BAW: If the charsets don't match, should we add the header and footer by
     # MIME multipart chroming the message?
-    wrap = 1
+    wrap = True
     if not msg.is_multipart() and msgtype == 'text/plain' and \
            msg.get('content-transfer-encoding', '').lower() <> 'base64' and \
            (lcset == 'us-ascii' or mcset == lcset):
@@ -88,7 +94,7 @@ def process(mlist, msg, msgdata):
             endsep = '\n'
         payload = header + frontsep + oldpayload + endsep + footer
         msg.set_payload(payload)
-        wrap = 0
+        wrap = False
     elif msg.get_type() == 'multipart/mixed':
         # The next easiest thing to do is just prepend the header and append
         # the footer as additional subparts
@@ -104,7 +110,7 @@ def process(mlist, msg, msgdata):
             mimehdr['Content-Disposition'] = 'inline'
             payload.insert(0, mimehdr)
         msg.set_payload(payload)
-        wrap = 0
+        wrap = False
     # If we couldn't add the header or footer in a less intrusive way, we can
     # at least do it by MIME encapsulation.  We want to keep as much of the
     # outer chrome as possible.

@@ -1,0 +1,150 @@
+XCOMM $XFree86: xc/lib/Xft1/Imakefile,v 1.11 2002/11/14 21:01:18 tsi Exp $
+
+XCOMM Allow for builds against old installed bits
+#ifdef UseInstalled
+
+#ifndef SharedLibXft1
+#define SharedLibXft1		YES
+#endif
+
+#ifndef NormalLibXft1
+#define NormalLibXft1 (!SharedLibXft1 | ForceNormalLib)
+#endif
+
+#ifndef DebugLibXft1
+#define DebugLibXft1		NO
+#endif
+
+#ifndef ProfileLibXft1
+#define ProfileLibXft1		NO
+#endif
+
+#ifndef FontconfigClientDepLibs
+#define FontconfigClientDepLibs $(DEPFONTCONFIGLIB)
+#endif
+#ifndef FontconfigClientLibs
+#define FontconfigClientLibs $(FONTCONFIGLIB)
+#endif
+
+#if SharedLibFontconfig
+#define SharedFontconfigRev 1.0
+
+SharedLibReferences(FONTCONFIG,fontconfig,$(FONTCONFIGSRC),SOXLIBREV,SharedFontconfigRev)
+#else
+
+ProjectUnsharedLibReferences(FONTCONFIG,fontconfig,$(FONTCONFIGSRC),BuildLibDir)
+#endif
+
+#if SharedLibXft1
+#define SharedXft1Rev 1.2
+SharedLibReferences(XFT1,Xft,$(XFT1SRC),SOXFT1REV,SharedXft1Rev)
+#else
+ProjectUnsharedLibReferences(XFT1,Xft,$(XFT1SRC),BuildLibDir)
+#endif
+
+#undef LinkBuildLibrary
+#define LinkBuildLibrary(lib) MakeDir($(BUILDLIBDIR))			@@\
+	RemoveFile($(BUILDLIBDIR)/lib)					@@\
+	cd $(BUILDLIBDIR) && $(LN) $(BUILDLIBTOP)/$(CURRENT_DIR)/lib .
+#undef _LinkBuildLibrary
+#define _LinkBuildLibrary(lib) LinkBuildLibrary(lib)
+
+#undef LinkBuildLibraryMaybe
+#define LinkBuildLibraryMaybe(lib,doit) MakeDir($(BUILDLIBDIR))		@@\
+	@if doit; then (set -x; \					@@\
+	  RemoveFile($(BUILDLIBDIR)/lib); \				@@\
+	  cd $(BUILDLIBDIR) && $(LN) $(BUILDLIBTOP)/$(CURRENT_DIR)/lib .); fi
+
+#ifdef LdPreLibs
+# undef LdPreLibs
+#endif
+#define LdPreLibs -L$(BUILDLIBDIR) LdPreLib XLdPreLibs
+
+LDPRELIBS=LdPreLibs
+#endif
+
+
+#define DoNormalLib NO
+#define DoSharedLib SharedLibXft1
+#define DoExtraLib NO
+#define DoDebugLib NO
+#define DoProfileLib NO
+#define HasSharedData YES
+#define LibName Xft
+#define SoRev SOXFT1REV
+#define LibHeaders NO
+#define NoSoSymlink
+
+#include <Threads.tmpl>
+
+YFLAGS = -d
+
+#ifndef XftLibDir
+#define XftLibDir $(LIBDIR)
+#endif
+
+XFTLIBDIR=XftLibDir
+
+INCLUDES=$(FREETYPE2INCLUDES)
+DEFINES=$(FREETYPE2DEFINES) $(RENDERDEFINES)
+
+#if UseFreetype2
+FREETYPE2REQLIB = $(FREETYPE2LIB)
+#endif
+
+REQUIREDLIBS=$(LDPRELIBS) $(XRENDERLIB) $(XLIB) $(FONTCONFIGLIB) $(EXPATLIB) $(FREETYPE2REQLIB)
+
+#if UseFreetype2
+FT_OLD = xftcache.c
+FT_HEADERS = XftFreetype.h
+   FT_SRCS = xftfreetype.c xftglyphs.c xftrender.c xftdir.c
+   FT_OBJS = xftfreetype.o xftglyphs.o xftrender.o xftdir.o 
+#endif
+
+HEADERS = Xft.h $(FT_HEADERS)
+
+OLD = xftgram.c xftlex.c 
+
+   SRCS = xftcfg.c xftcolor.c xftcore.c xftdbg.c xftdpy.c \
+          xftdraw.c xftextent.c xftfont.c xftfs.c\
+          xftinit.c xftlist.c xftmatch.c xftmatrix.c \
+          xftname.c xftpat.c xftstr.c xftxlfd.c $(FT_SRCS)
+
+   OBJS = xftcfg.o xftcolor.o xftcore.o xftdbg.o xftdpy.o \
+          xftdraw.o  xftextent.o xftfont.o xftfs.o \
+          xftinit.o xftlist.o xftmatch.o xftmatrix.o \
+          xftname.o xftpat.o xftstr.o xftxlfd.o $(FT_OBJS)
+
+#include <Library.tmpl>
+
+#if DoSharedLib && SharedDataSeparation
+SpecialCObjectRule(sharedlib,NullParameter,$(SHLIBDEF))
+#endif
+
+/*
+ * InstallNamedTargetRelated - like InstallNamedTarget, but only
+ * installs if a related file already exists.  Useful for
+ * annotating older systems with information on the relationship
+ * with the new system.
+ */
+ 
+#ifndef InstallNamedTargetRelated
+#define InstallNamedTargetRelated(step,srcname,flags,dest,dstname,dstrel)@@\
+step:: srcname								@@\
+	MakeDir($(DESTDIR)dest)						@@\
+	@if [ -f $(DESTDIR)dest/dstrel ]; then \			@@\
+	 set -x; \							@@\
+	 $(INSTALL) $(INSTALLFLAGS) flags srcname $(DESTDIR)dest/dstname; fi
+#endif
+
+#ifndef InstallNonExecFileRelated
+#define InstallNonExecFileRelated(file,dest,rel)			@@\
+InstallNamedTargetRelated(install,file,$(INSTDATFLAGS),dest,file,rel)
+#endif /* InstallNonExecFileBackup */
+
+InstallNonExecFileRelated(XftConfig-OBSOLETE,$(XFTLIBDIR),XftConfig)
+InstallNonExecFileRelated(XftConfig-OBSOLETE,$(CONFDIR),XftConfig)
+
+MANSUFFIX = $(LIBMANSUFFIX)
+InstallManPage(Xft,$(LIBMANDIR))
+DependTarget()

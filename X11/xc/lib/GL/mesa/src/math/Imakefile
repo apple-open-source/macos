@@ -1,0 +1,91 @@
+XCOMM $XFree86: xc/lib/GL/mesa/src/math/Imakefile,v 1.9 2002/11/25 14:04:52 eich Exp $
+
+#include <Threads.tmpl>
+
+/*
+ * Need both shared and unshared Mesa objects in the following cases:
+ *   GlxDriverUsesMesa
+ *   GlxBuiltInXMesa
+ *   BuildOSMesaLib
+ *
+ * In other cases, only the shared version is needed to link in to loadable
+ * driver modules.
+ */
+
+#if BuildOSMesaLib || (BuildXF86DRI && (GlxDriverUsesMesa || GlxBuiltInXMesa))
+#define DoNormalLib (NormalLibGlx || SharedLibGlxWithoutPIC)
+#define DoSharedLib (SharedLibGlx && !SharedLibGlxWithoutPIC)
+#define DoExtraLib SharedLibGlx
+#define DoDebugLib DebugLibGlx
+#define DoProfileLib ProfileLibGlx
+#else
+#define DoNormalLib SharedLibGlxWithoutPIC
+#define DoSharedLib !SharedLibGlxWithoutPIC
+#define DoExtraLib NO
+#define DoDebugLib NO
+#define DoProfileLib NO
+#endif
+
+
+#define MesaMathBuildDir /**/
+#define NeedToLinkMesaSrc
+#include "Imakefile.inc"
+
+
+#if Malloc0ReturnsNull
+ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
+#endif
+
+#if BuildXF86DRI
+  DRI_DEFINES = GlxDefines
+ DRI_INCLUDES = -I../../../dri -I../../../glx -I../../dri -I.. \
+		-I$(INCLUDESRC)/GL -I$(XF86OSSRC) -I$(SERVERSRC)/GL/dri
+#endif
+
+#if defined(i386Architecture) && MesaUseX86Asm
+      ASM_DIR = X86
+     ASM_SRCS =
+     ASM_OBJS =
+#if MesaUseMMX
+     MMX_DEFS = -DUSE_MMX_ASM
+#endif
+#if MesaUse3DNow
+   3DNOW_DEFS = -DUSE_3DNOW_ASM
+#endif
+#if MesaUseSSE
+     SSE_DEFS = -DUSE_SSE_ASM
+#endif
+     ASM_DEFS = -DUSE_X86_ASM $(MMX_DEFS) $(3DNOW_DEFS) $(SSE_DEFS)
+#endif
+
+#ifdef SparcArchitecture
+      ASM_DIR = SPARC
+     ASM_SRCS =
+     ASM_OBJS =
+     ASM_DEFS = -DUSE_SPARC_ASM
+#endif
+
+#ifdef UseCompaqMathLibrary
+      MATHDEF = -DCCPML
+#endif
+
+MESA_INCLUDES = -I$(MESASRCDIR)/src \
+		-I$(MESASRCDIR)/src/math \
+		-I$(MESASRCDIR)/src/$(ASM_DIR) \
+		-I$(MESASRCDIR)/include \
+		-I../../../include -I$(XINCLUDESRC)
+
+      DEFINES = $(ALLOC_DEFINES) $(DRI_DEFINES) $(ASM_DEFS) $(MATHDEF)
+     INCLUDES = $(MESA_INCLUDES) $(DRI_INCLUDES)
+         SRCS = $(MESA_MATH_SRCS)
+         OBJS = $(MESA_MATH_OBJS)
+
+
+#include <Library.tmpl>
+
+LibraryObjectRule()
+
+SubdirLibraryRule($(OBJS))
+NormalLintTarget($(SRCS))
+
+DependTarget()

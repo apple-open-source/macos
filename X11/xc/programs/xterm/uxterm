@@ -1,0 +1,44 @@
+#!/bin/sh
+# $XFree86: xc/programs/xterm/uxterm,v 1.5 2002/01/05 22:05:03 dickey Exp $
+# wrapper script to setup xterm with UTF-8 locale
+
+program=xterm
+found=no
+
+# Check environment variables that xterm does, in the same order:
+for name in LC_ALL LC_CTYPE LANG
+do
+	eval 'value=$'$name
+	if test -n "$value" ; then
+		case $value in
+		*.UTF-8)
+			found=yes
+			;;
+		C|POSIX)
+			# Yes, I know this is not the same - but why are you
+			# here then?
+			value=en_US
+			;;
+		esac
+		break
+	fi
+done
+
+# If we didn't find one that used UTF-8, modify the safest one.  Not everyone
+# has a UTF-8 locale installed (and there appears to be no trivial/portable way
+# to determine whether it is, from a shell script).  We could check if the
+# user's shell does not reset unknown locale specifiers, but not all shells do.
+if test $found != yes ; then
+	if test -n "$value" ; then
+		eval ${name}=`echo ${value} |sed -e 's/\..*//'`.UTF-8
+		eval export ${name}
+	else
+		LC_CTYPE=en_US.UTF-8
+		export LC_CTYPE
+	fi
+fi
+
+# for testing:
+#test -f ./xterm && program=./xterm
+
+exec $program -class UXTerm -title 'uxterm' -u8 "$@"

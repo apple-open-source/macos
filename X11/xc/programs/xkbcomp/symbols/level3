@@ -1,0 +1,58 @@
+// using the level(switch) map, the right Control key temporarily
+// chooses the third group level (until it is released).
+//
+// $XFree86: xc/programs/xkbcomp/symbols/level3,v 1.2 2002/12/17 19:55:15 dawes Exp $
+//
+
+partial modifier_keys
+xkb_symbols "switch" {
+  key <RCTL> {
+    symbols[Group1] = [ ISO_Level3_Shift ]
+    };
+  modifier_map Mod5   { ISO_Level3_Shift };
+};
+
+// using the level(menu_switch) map, the Menu key temporarily
+// chooses the third group level (until it is released).
+partial modifier_keys
+xkb_symbols "menu_switch" {
+  key <MENU> {
+    symbols[Group1] = [ ISO_Level3_Shift ]
+    };
+  modifier_map Mod5   { ISO_Level3_Shift };
+};
+
+// using the level(win_switch) map, the both Windows' logo keys
+// temporarily choose the third group level.  If you use this map, you
+// would define you keyboard as pc101 or pc102 instead of pc104 or
+// pc105.
+partial modifier_keys
+xkb_symbols "win_switch" {
+  include "level3(lwin_switch)"
+  include "level3(rwin_switch)"
+};
+
+// using the level(lwin_switch) map, the left Windows' logo key
+// temporarily chooses the third group level.  If you use this map,
+// you would define you keyboard as pc101 or pc102 instead of pc104
+// or pc105.
+partial modifier_keys
+xkb_symbols "lwin_switch" {
+  key <LWIN> {
+    symbols[Group1] = [ ISO_Level3_Shift ]
+    };
+  modifier_map Mod5   { ISO_Level3_Shift };
+};
+
+// using the level(rwin_switch) map, the right Windows' logo key
+// temporarily chooses the third group level.  If you use this map,
+// you would define you keyboard as pc101 or pc102 instead of pc104
+// or pc105.
+partial modifier_keys
+xkb_symbols "rwin_switch" {
+  key <RWIN> {
+    symbols[Group1] = [ ISO_Level3_Shift ]
+    };
+  modifier_map Mod5   { ISO_Level3_Shift };
+};
+

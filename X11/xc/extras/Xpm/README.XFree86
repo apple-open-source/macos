@@ -1,0 +1,4 @@
+When importing version A.Bc of Xpm, use:
+
+  cvs import -m "Xpm version A.Bc" xc/extras/Xpm XPM XPM-A_Bc
+

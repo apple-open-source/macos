@@ -1,0 +1,63 @@
+XCOMM $XFree86: xc/lib/font/FreeType/module/Imakefile,v 1.11 2002/10/16 14:16:25 tsi Exp $
+
+FT2SOURCEDIR = $(TOP)/extras/freetype2/src
+FT2INCDIR = $(TOP)/extras/freetype2/include
+
+#define IHaveModules
+#include <Server.tmpl>
+
+DEFINES = -DFONTMODULE
+
+INCLUDES = -I.. -I$(FONTINCSRC) -I../../include -I$(XINCLUDESRC) \
+           -I$(SERVERSRC)/include \
+	   -I$(FT2INCDIR) \
+           -I$(FT2SOURCEDIR)/base \
+           -I$(FT2SOURCEDIR)/raster \
+           -I$(FT2SOURCEDIR)/sfnt \
+           -I$(FT2SOURCEDIR)/truetype \
+           -I$(FT2SOURCEDIR)/cff \
+           -I$(FT2SOURCEDIR)/type1 \
+           -I$(FT2SOURCEDIR)/psaux \
+           -I$(FT2SOURCEDIR)/psnames \
+           -I$(FT2SOURCEDIR)/pshinter \
+           -I$(FT2SOURCEDIR)/autohint \
+           -I$(INCLUDESRC)
+
+FT2SRCS = ftbase.c ftinit.c ftglyph.c ftsystem.c fttype1.c ftxf86.c \
+          raster.c sfnt.c truetype.c cff.c type1.c \
+          psaux.c psnames.c pshinter.c  autohint.c
+FT2OBJS = ftbase.o ftinit.o ftglyph.o ftsystem.o fttype1.o ftxf86.o \
+          raster.o sfnt.o truetype.o cff.o type1.o \
+          psaux.o psnames.o pshinter.o autohint.o
+
+SRCS = ftfuncs.c ftenc.c fttools.c $(FT2SRCS) ftmodule.c
+OBJS = ftfuncs.o ftenc.o fttools.o $(FT2OBJS) ftmodule.o
+
+LinkSourceFile(ftenc.c,..)
+LinkSourceFile(ftfuncs.c,..)
+LinkSourceFile(fttools.c,..)
+
+LinkSourceFile(ftbase.c,$(FT2SOURCEDIR)/base)
+LinkSourceFile(ftinit.c,$(FT2SOURCEDIR)/base)
+LinkSourceFile(ftglyph.c,$(FT2SOURCEDIR)/base)
+LinkSourceFile(ftsystem.c,..)
+LinkSourceFile(ftutil.c,$(FT2SOURCEDIR)/base)
+LinkSourceFile(fttype1.c,$(FT2SOURCEDIR)/base)
+LinkSourceFile(ftxf86.c,$(FT2SOURCEDIR)/base)
+LinkSourceFile(raster.c,$(FT2SOURCEDIR)/raster)
+LinkSourceFile(sfnt.c,$(FT2SOURCEDIR)/sfnt)
+LinkSourceFile(truetype.c,$(FT2SOURCEDIR)/truetype)
+LinkSourceFile(cff.c,$(FT2SOURCEDIR)/cff)
+LinkSourceFile(type1.c,$(FT2SOURCEDIR)/type1)
+LinkSourceFile(psaux.c,$(FT2SOURCEDIR)/psaux)
+LinkSourceFile(psnames.c,$(FT2SOURCEDIR)/psnames)
+LinkSourceFile(pshinter.c,$(FT2SOURCEDIR)/pshinter)
+LinkSourceFile(autohint.c,$(FT2SOURCEDIR)/autohint)
+
+ModuleObjectRule()
+LibraryModuleTarget(freetype,$(OBJS))
+InstallLibraryModule(freetype,$(MODULEDIR),fonts)
+
+DependTarget()
+
+InstallDriverSDKLibraryModule(freetype,$(DRIVERSDKMODULEDIR),fonts)

@@ -41,6 +41,8 @@ apple_port:
 	strip -S ${SYMROOT}/LDAP -o ${DSTROOT}/System/Library/Frameworks/LDAP.framework/Versions/A/LDAP
 	cp ${DSTROOT}/usr/include/ldap.h ${DSTROOT}/System/Library/Frameworks/LDAP.framework/Versions/A/Headers
 	cp ${DSTROOT}/usr/include/lber.h ${DSTROOT}/System/Library/Frameworks/LDAP.framework/Versions/A/Headers
+	cp ${OBJROOT}/servers/slapd/slapd ${SYMROOT}/slapd
+	cp ${OBJROOT}/servers/slurpd/slurpd ${SYMROOT}/slurpd
 	mkdir -p ${DSTROOT}/System/Library/StartupItems/LDAP/Resources/English.lproj
 	cp ${SRCROOT}/AppleExtras/StartupItem/LDAP ${DSTROOT}/System/Library/StartupItems/LDAP
 	chmod 555 ${DSTROOT}/System/Library/StartupItems/LDAP/LDAP

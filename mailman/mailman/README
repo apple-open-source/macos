@@ -1,5 +1,5 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 INTRODUCTION
@@ -25,11 +25,11 @@ INTRODUCTION
 
     The Mailman home page is
 
-        http://www.gnu.org/software/mailman
+        http://www.list.org
 
     with mirrors at
 
-        http://www.list.org
+        http://www.gnu.org/software/mailman
         http://mailman.sf.net
 
     Mailman 2.1 requires Python 2.1.3 or greater, which can be
@@ -37,9 +37,11 @@ INTRODUCTION
 
         http://www.python.org
 
-    It is recommended that you use Python 2.1.3 or Python 2.2.1, the
-    latest releases as of this writing.  Mailman 2.1 is not compatible
-    with Python 2.0 or any earlier version.
+    It is recommended that you use Python 2.3.3, the latest release as
+    of this writing (31-Dec-2003).  Mailman will work with Python
+    2.2.3 as well, which is the latest release on the Python 2.2 branch.
+    Mailman 2.1 is not compatible with Python 2.0 or any earlier
+    version.
 
     You will also need an ANSI C compiler to build both Python and
     Mailman; gcc (the GNU C compiler) works just fine.  Mailman
@@ -161,7 +163,7 @@ CREATE YOUR FIRST LIST
         http://my.dom.ain/mailman/admin/mysitelist
 
       Type in the list's password and click on "Let me in..."
-    
+
     - Click on "Membership Management" and then on "Mass Subscription".
 
     - Enter your email address in the big text field, and click on

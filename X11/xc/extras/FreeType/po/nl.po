@@ -1,0 +1,758 @@
+# Dutch messages for FreeType.
+# Copyright (C) 1998-1999 Gertjan de Back
+# Gertjan de Back <gertjan.de.back@planet.nl>, 1999.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: FreeType 1.0\n"
+"POT-Creation-Date: 1999-09-07 12:49+0000\n"
+"PO-Revision-Date: 1999-09-07\n"
+"Last-Translator: Gertjan de Back <gertjan.de.back@planet.nl>\n"
+"Language-Team: Dutch\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=8859-1\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: lib/extend/ftxerr18.c:47
+msgid "Successful function call, no error."
+msgstr "Functieaanroep succesvol."
+
+#: lib/extend/ftxerr18.c:50
+msgid "Invalid face handle."
+msgstr "Ongeldige Face handle."
+
+#: lib/extend/ftxerr18.c:52
+msgid "Invalid instance handle."
+msgstr "Ongeldige Instance handle."
+
+#: lib/extend/ftxerr18.c:54
+msgid "Invalid glyph handle."
+msgstr "Ongeldige Glyph handle."
+
+#: lib/extend/ftxerr18.c:56
+msgid "Invalid charmap handle."
+msgstr "Ongeldige Charmap handle."
+
+#: lib/extend/ftxerr18.c:58
+msgid "Invalid result address."
+msgstr "Ongeldig resultaat adres."
+
+#: lib/extend/ftxerr18.c:60
+msgid "Invalid glyph index."
+msgstr "Ongeldige Glyph index."
+
+#: lib/extend/ftxerr18.c:62
+msgid "Invalid argument."
+msgstr "Ongeldig argument."
+
+#: lib/extend/ftxerr18.c:64
+msgid "Could not open file."
+msgstr "Bestand kon niet geopend worden."
+
+#: lib/extend/ftxerr18.c:66
+msgid "File is not a TrueType collection."
+msgstr "Bestand is geen TrueType collectie."
+
+#: lib/extend/ftxerr18.c:69
+msgid "Mandatory table missing."
+msgstr "Vereiste tabel ontbreekt."
+
+#: lib/extend/ftxerr18.c:71
+msgid "Invalid horizontal metrics (hmtx table broken)."
+msgstr "Ongeldige horizontale metriek (hmtx tabel defect)."
+
+#: lib/extend/ftxerr18.c:73
+msgid "Invalid charmap format."
+msgstr "Ongeldige Charmap opmaak."
+
+#: lib/extend/ftxerr18.c:75
+msgid "Invalid ppem value."
+msgstr "Ongeldige ppem waarde."
+
+#: lib/extend/ftxerr18.c:77
+msgid "Invalid vertical metrics (vmtx table broken)."
+msgstr "Ongeldige vertikale metriek (vmtx tabel defect)."
+
+#: lib/extend/ftxerr18.c:80
+msgid "Invalid file format."
+msgstr "Ongeldige bestandsopmaak."
+
+#: lib/extend/ftxerr18.c:83
+msgid "Invalid engine."
+msgstr "Ongeldige engine."
+
+#: lib/extend/ftxerr18.c:85
+msgid "Too many extensions."
+msgstr "Te veel uitbreidingen."
+
+#: lib/extend/ftxerr18.c:87
+msgid "Extensions unsupported."
+msgstr "Uitbreidingen niet ondersteund."
+
+#: lib/extend/ftxerr18.c:89
+msgid "Invalid extension id."
+msgstr "Ongeldige uitbreiding id."
+
+#: lib/extend/ftxerr18.c:92
+msgid "No vertical data in font."
+msgstr "Geen vertikale informatie in lettertype."
+
+#: lib/extend/ftxerr18.c:95
+msgid "Maximum Profile (maxp) table missing."
+msgstr "`Maximum Profile (maxp)' tabel ontbreekt."
+
+#: lib/extend/ftxerr18.c:97
+msgid "Font Header (head) table missing."
+msgstr "`Font Header (head)' tabel ontbreekt."
+
+#: lib/extend/ftxerr18.c:99
+msgid "Horizontal Header (hhea) table missing."
+msgstr "`Horizontal Header (hhea)' tabel ontbreekt."
+
+#: lib/extend/ftxerr18.c:101
+msgid "Index to Location (loca) table missing."
+msgstr "`Index to Location (loca)' tabel ontbreekt."
+
+#: lib/extend/ftxerr18.c:103
+msgid "Naming (name) table missing."
+msgstr "`Naming (name)' tabel ontbreekt."
+
+#: lib/extend/ftxerr18.c:105
+msgid "Character to Glyph Index Mapping (cmap) tables missing."
+msgstr "`Character to Glyph Index Mapping (cmap)' tabel ontbreekt."
+
+#: lib/extend/ftxerr18.c:107
+msgid "Horizontal Metrics (hmtx) table missing."
+msgstr "`Horizontal Metrics (hmtx)' tabel ontbreekt."
+
+#: lib/extend/ftxerr18.c:109
+msgid "OS/2 table missing."
+msgstr "OS/2 tabel ontbreekt."
+
+#: lib/extend/ftxerr18.c:111
+msgid "PostScript (post) table missing."
+msgstr "`PostScript (post)' tabel ontbreekt."
+
+#: lib/extend/ftxerr18.c:113
+msgid "Glyph (glyf) table missing."
+msgstr "`Naming (glyf)' tabel ontbreekt."
+
+#: lib/extend/ftxerr18.c:118
+msgid "Out of memory."
+msgstr "Onvoldoende geheugen."
+
+#: lib/extend/ftxerr18.c:123
+msgid "Invalid file offset."
+msgstr "Bestand positie ongeldig."
+
+#: lib/extend/ftxerr18.c:125
+msgid "Invalid file read."
+msgstr "Lezen van bestand ongeldig."
+
+#: lib/extend/ftxerr18.c:127
+msgid "Invalid frame access."
+msgstr "Toegang tot frame ongeldig."
+
+#: lib/extend/ftxerr18.c:132
+msgid "Too many points."
+msgstr "Te veel punten."
+
+#: lib/extend/ftxerr18.c:134
+msgid "Too many contours."
+msgstr "Te veel contouren."
+
+#: lib/extend/ftxerr18.c:136
+msgid "Invalid composite glyph."
+msgstr "Samengestelde Glyph ongeldig."
+
+#: lib/extend/ftxerr18.c:138
+msgid "Too many instructions."
+msgstr "Te veel instructies."
+
+#: lib/extend/ftxerr18.c:143
+msgid "Invalid opcode."
+msgstr "Ongeldige opcode."
+
+#: lib/extend/ftxerr18.c:145
+msgid "Too few arguments."
+msgstr "Te weinig argumenten."
+
+#: lib/extend/ftxerr18.c:147
+msgid "Stack overflow."
+msgstr "Stack overloop."
+
+#: lib/extend/ftxerr18.c:149
+msgid "Code overflow."
+msgstr "Code overloop."
+
+#: lib/extend/ftxerr18.c:151
+msgid "Bad argument."
+msgstr "Foutief argument."
+
+#: lib/extend/ftxerr18.c:153
+msgid "Divide by zero."
+msgstr "Deling door nul."
+
+#: lib/extend/ftxerr18.c:155
+msgid "Storage overflow."
+msgstr "Opslag overloop."
+
+#: lib/extend/ftxerr18.c:157
+msgid "Control Value (cvt) table overflow."
+msgstr "`Control Value (cvt)' tabel overloop."
+
+#: lib/extend/ftxerr18.c:159
+msgid "Invalid reference."
+msgstr "Ongeldige referentie."
+
+#: lib/extend/ftxerr18.c:161
+msgid "Invalid distance."
+msgstr "Ongeldige afstand."
+
+#: lib/extend/ftxerr18.c:163
+msgid "Interpolate twilight points."
+msgstr "Interpolatie van schemer (twilight) punten."
+
+#: lib/extend/ftxerr18.c:165
+msgid "`DEBUG' opcode found."
+msgstr "`DEBUG'-opcode gevonden."
+
+#: lib/extend/ftxerr18.c:167
+msgid "`ENDF' in byte-code stream."
+msgstr "`ENDF' in bytecode-stroom."
+
+#: lib/extend/ftxerr18.c:169
+msgid "Out of code ranges."
+msgstr "Onvoldoende codegebieden."
+
+#: lib/extend/ftxerr18.c:171
+msgid "Nested function definitions."
+msgstr "Functiedefinities genest."
+
+#: lib/extend/ftxerr18.c:173
+msgid "Invalid code range."
+msgstr "Ongeldig codegebied."
+
+#: lib/extend/ftxerr18.c:175
+msgid "Invalid displacement."
+msgstr "Ongeldige verplaatsing."
+
+#: lib/extend/ftxerr18.c:177
+msgid "Endless loop encountered while executing instructions."
+msgstr "Oneindige loop aangetrofffen tijdens het uitvoeren van instructies."
+
+#: lib/extend/ftxerr18.c:182
+msgid "Nested frame access."
+msgstr "Frame toegang genest."
+
+#: lib/extend/ftxerr18.c:184
+msgid "Invalid cache list."
+msgstr "Ongeldige cachelijst."
+
+#: lib/extend/ftxerr18.c:186
+msgid "Could not find context."
+msgstr "Context niet gevonden."
+
+#: lib/extend/ftxerr18.c:188
+msgid "Unlisted object."
+msgstr "Object niet aanwezig."
+
+#: lib/extend/ftxerr18.c:193
+msgid "Raster pool overflow."
+msgstr "Overloop van Raster pool."
+
+#: lib/extend/ftxerr18.c:195
+msgid "Raster: negative height encountered."
+msgstr "Raster: negatieve hoogte aangetroffen."
+
+#: lib/extend/ftxerr18.c:197
+msgid "Raster: invalid value."
+msgstr "Raster: ongeldige waarde."
+
+#: lib/extend/ftxerr18.c:199
+msgid "Raster not initialized."
+msgstr "Raster niet geinitialiseerd."
+
+#: lib/extend/ftxerr18.c:204
+msgid "Invalid kerning (kern) table format."
+msgstr "Ongeldige `Kerning (kern)' tabel opmaak."
+
+#: lib/extend/ftxerr18.c:206
+msgid "Invalid kerning (kern) table."
+msgstr "Ongeldige `Kerning (kern)' tabel."
+
+#: lib/extend/ftxerr18.c:208
+msgid "Invalid PostScript (post) table format."
+msgstr "Ongeldige `PostScript (post)' tabel opmaak."
+
+#: lib/extend/ftxerr18.c:210
+msgid "Invalid PostScript (post) table."
+msgstr "Ongeldige `PostScript (post)' tabel."
+
+#: lib/extend/ftxerr18.c:216
+msgid "Invalid TrueType Open subtable format."
+msgstr "Ongeldige opmaak van TrueType Open subtabel."
+
+#: lib/extend/ftxerr18.c:218
+msgid "Invalid TrueType Open subtable."
+msgstr "Ongeldige TrueType Open subtabel."
+
+#: lib/extend/ftxerr18.c:220
+msgid "Glyph(s) not covered by lookup."
+msgstr "Glyph(s) niet door opgenomen in Lookup."
+
+#: lib/extend/ftxerr18.c:222
+msgid "Too many nested context substitutions."
+msgstr "Te veel geneste context vervangingen."
+
+#: lib/extend/ftxerr18.c:224
+msgid "Invalid glyph substitution (GSUB) table format."
+msgstr "Ongeldige Glyph vervanging (GSUB) tabel opmaak."
+
+#: lib/extend/ftxerr18.c:226
+msgid "Invalid glyph substitution (GSUB) table."
+msgstr "Ongeldige Glyph vervanging (GSUB) tabel."
+
+#: lib/extend/ftxerr18.c:228
+msgid "Invalid glyph positioning (GPOS) table format."
+msgstr "Ongeldige Glyph plaatsing (GPOS) tabel opmaak."
+
+#: lib/extend/ftxerr18.c:230
+msgid "Invalid glyph positioning (GPOS) table."
+msgstr "Ongeldige Glyph plaatsing (GPOS) tabel."
+
+#: lib/extend/ftxerr18.c:237
+msgid "Invalid Error Number."
+msgstr "Ongeldig foutnummer."
+
+#: test/fterror.c:60
+msgid "Start of fterror.\n"
+msgstr "Begin van fterror.\n"
+
+#: test/fterror.c:68
+msgid "End of fterror.\n"
+msgstr "Einde van fterror.\n"
+
+#: test/ftdump.c:168 test/ftlint.c:207 test/ftmetric.c:292
+msgid "Could not create glyph container.\n"
+msgstr "Aanmaken Glyph container mislukt.\n"
+
+#: test/ftdump.c:178 test/ftlint.c:215 test/ftmetric.c:301 test/ftsbit.c:213
+msgid "Could not create instance.\n"
+msgstr "Aanmaken Instance mislukt.\n"
+
+#: test/ftdump.c:187
+msgid "Could not create second instance.\n"
+msgstr "Aanmaken tweede Instance mislukt.\n"
+
+#: test/ftdump.c:193
+msgid "Memory footprint statistics:\n"
+msgstr "Statistieken geheugengebruik:\n"
+
+#: test/ftdump.c:201
+msgid "face object"
+msgstr "Face object"
+
+#: test/ftdump.c:202
+msgid "glyph object"
+msgstr "Glyph object"
+
+#: test/ftdump.c:203
+msgid "instance object"
+msgstr "Instance object"
+
+#: test/ftdump.c:207
+msgid "exec. context object"
+msgstr "uitv. context object"
+
+#: test/ftdump.c:214
+msgid "total memory usage"
+msgstr "totaal geheugengebruik"
+
+#: test/ftdump.c:222 test/ftdump.c:574 test/ftdump.c:784 test/ftdump.c:921
+#: test/ftlint.c:274 test/ftlint.c:287 test/ftmetric.c:387 test/ftsbit.c:284
+#, c-format
+msgid "FreeType error message: %s\n"
+msgstr "FreeType foutmelding: %s\n"
+
+#: test/ftdump.c:299
+msgid "font name table entries\n"
+msgstr "lettertypen in namentabel\n"
+
+#: test/ftdump.c:309
+#, c-format
+msgid ""
+"PostScript name: %s\n"
+"\n"
+msgstr ""
+"PostScript naam: %s\n"
+"\n"
+
+#: test/ftdump.c:332
+msgid "character map encodings\n"
+msgstr "tekencodering tabellen\n"
+
+#: test/ftdump.c:339 test/ftdump.c:483
+msgid "The file doesn't seem to have any encoding table.\n"
+msgstr "Het bestand schijnt geen codering tabellen te bevatten.\n"
+
+#: test/ftdump.c:343 test/ftdump.c:487
+#, c-format
+msgid ""
+"There are %hu encodings:\n"
+"\n"
+msgstr ""
+"Er zijn %hu coderingen:\n"
+"\n"
+
+#: test/ftdump.c:348
+#, c-format
+msgid "encoding %2u: "
+msgstr "codering %2u: "
+
+#: test/ftdump.c:375 test/ftdump.c:384 test/ftdump.c:447
+#, c-format
+msgid "Unknown value %hu"
+msgstr "Waarde %hu onbekend"
+
+#: test/ftdump.c:454
+msgid "Unknown"
+msgstr "Onbekend"
+
+#: test/ftdump.c:476
+msgid "ftxcmap test\n"
+msgstr "ftxcmap test\n"
+
+#: test/ftdump.c:493
+#, c-format
+msgid "encoding %2u:\n"
+msgstr "codering %2u:\n"
+
+#: test/ftdump.c:498
+#, c-format
+msgid "first: glyph index %hu, character code 0x%lx\n"
+msgstr "eerste:   Glyph index %hu, karakter code 0x%lx\n"
+
+#: test/ftdump.c:502
+#, c-format
+msgid "next:  glyph index %hu, character code 0x%lx\n"
+msgstr "volgende: Glyph index %hu, karakter code 0x%lx\n"
+
+#: test/ftdump.c:506
+#, c-format
+msgid "last:  glyph index %hu, character code 0x%lx\n"
+msgstr "laatste:  Glyph index %hu, karakter code 0x%lx\n"
+
+#: test/ftdump.c:528 test/ftmetric.c:282
+msgid "Error while retrieving embedded bitmaps table.\n"
+msgstr "Fout bij het ophalen van ingebedde bitmap tabel.\n"
+
+#: test/ftdump.c:532
+msgid "embedded bitmap table\n"
+msgstr "ingebedde bitmap tabel\n"
+
+#: test/ftdump.c:535
+#, c-format
+msgid " version of embedded bitmap table:  0x%lx\n"
+msgstr " versie van ingebedde bitmap tabel: 0x%lx\n"
+
+#: test/ftdump.c:537
+#, c-format
+msgid " number of embedded bitmap strikes: %lu\n"
+msgstr " aantal ingebedde bitmap treffers:  %lu\n"
+
+#: test/ftdump.c:547
+#, c-format
+msgid "  bitmap strike %hu/%lu: "
+msgstr " bitmap treffer %hu/%lu: "
+
+#: test/ftdump.c:550
+#, c-format
+msgid "%hux%hu pixels, %hu-bit depth, glyphs [%hu..%hu]\n"
+msgstr "%hux%hu pixels, %hu-bit diepte, Glyphs [%hu..%hu]\n"
+
+#: test/ftdump.c:559
+#, c-format
+msgid "      range format (%hu:%hu) glyphs %hu..%hu\n"
+msgstr "      bereik formaat (%hu:%hu) Glyphs %hu..%hu\n"
+
+#: test/ftdump.c:610
+msgid "Error while loading GSUB table.\n"
+msgstr "Fout bij het laden van GSUB tabel.\n"
+
+#: test/ftdump.c:614
+msgid "GSUB table\n"
+msgstr "GSUB tabel\n"
+
+#: test/ftdump.c:621
+msgid "Error while querying GSUB script list.\n"
+msgstr "Fout bij het opvragen van GSUB script lijst.\n"
+
+#: test/ftdump.c:634
+#, c-format
+msgid "Error while selecting GSUB script `%4.4s'.\n"
+msgstr "Fout bij het selecteren van GSUB script `%4.4s'.\n"
+
+#: test/ftdump.c:639
+#, c-format
+msgid "  script `%4.4s' (index %hu):\n"
+msgstr "  script `%4.4s' (index %hu):\n"
+
+#: test/ftdump.c:647
+#, c-format
+msgid "Error while querying GSUB default language system for script `%4.4s'.\n"
+msgstr ""
+"Fout bij het opvragen van GSUB standaard taal systeem voor script `%4.4s'.\n"
+
+#: test/ftdump.c:652
+msgid "    default language system:\n"
+msgstr "    standaard taal systeem:\n"
+
+#: test/ftdump.c:665
+#, c-format
+msgid ""
+"Error while selecting GSUB feature `%4.4s'\n"
+"for default language system of script `%4.4s'.\n"
+msgstr ""
+"Fout bij het selecteren van GSUB kenmerk `%4.4s'\n"
+"voor standaard taal systeem van script `%4.4s'.\n"
+
+#: test/ftdump.c:671 test/ftdump.c:752
+#, c-format
+msgid "      feature `%4.4s' (index %hu; lookup "
+msgstr "      kenmerk `%4.4s' (index %hu; lookup "
+
+#: test/ftdump.c:687
+#, c-format
+msgid "Error while querying GSUB language list for script `%4.4s'.\n"
+msgstr "Fout bij het opvragen van GSUB taal lijst voor script `%4.4s'.\n"
+
+#: test/ftdump.c:704
+#, c-format
+msgid "Error while selecting GSUB language `%4.4s' for script `%4.4s'.\n"
+msgstr "Fout bij het selecteren van GSUB taal `%4.4s' voor script `%4.4s'.\n"
+
+#: test/ftdump.c:709
+#, c-format
+msgid "    language `%4.4s' (index %hu):\n"
+msgstr "    taal `%4.4s' (index %hu):\n"
+
+#: test/ftdump.c:714
+#, c-format
+msgid "      required feature index %hu (lookup "
+msgstr "      benodigde kenmerk index %hu (lookup "
+
+#: test/ftdump.c:729
+#, c-format
+msgid ""
+"Error while querying GSUB feature list\n"
+"for script `%4.4s', language `%4.4s'.\n"
+msgstr ""
+"Fout bij het opvragen van GSUB kenmerken lijst\n"
+"voor script `%4.4s', taal `%4.4s'.\n"
+
+#: test/ftdump.c:746
+#, c-format
+msgid ""
+"Error while selecting GSUB feature `%4.4s'\n"
+"for script `%4.4s', language `%4.4s'.\n"
+msgstr ""
+"Fout bij het selecteren van GSUB kenmerk `%4.4s'\n"
+"voor script `%4.4s', taal `%4.4s'.\n"
+
+#: test/ftdump.c:771
+msgid ""
+"Lookups:\n"
+"\n"
+msgstr ""
+"Lookups:\n"
+"\n"
+
+#: test/ftdump.c:774
+#, c-format
+msgid "  %hu: type %hu, flag 0x%x\n"
+msgstr "   %hu: type %hu, vlag 0x%x\n"
+
+#: test/ftdump.c:809
+msgid "ftdump: Simple TrueType Dumper -- part of the FreeType project"
+msgstr ""
+"ftdump: eenvoudige TrueType dumper -- onderdeel van het FreeType project"
+
+#: test/ftdump.c:813
+#, c-format
+msgid ""
+"Usage: %s fontname[.ttf|.ttc]\n"
+"\n"
+msgstr ""
+"Gebruik: %s lettertype[.ttf|.ttc]\n"
+"\n"
+
+#: test/ftdump.c:845 test/ftlint.c:134 test/ftmetric.c:226 test/ftsbit.c:126
+msgid "Error while initializing engine.\n"
+msgstr "Fout bij het starten van de FreeType engine.\n"
+
+#: test/ftdump.c:852 test/ftmetric.c:234 test/ftsbit.c:133
+msgid "Error while initializing embedded bitmap extension.\n"
+msgstr "Fout bij het starten de ingebedde bitmap toevoeging.\n"
+
+#: test/ftdump.c:859
+msgid "Error while initializing GSUB extension.\n"
+msgstr "Fout bij het starten van de GSUB toevoeging.\n"
+
+#: test/ftdump.c:875 test/ftlint.c:187 test/ftmetric.c:249 test/ftsbit.c:181
+#, c-format
+msgid "Could not find or open %s.\n"
+msgstr "Kan %s niet vinden of openen.\n"
+
+#: test/ftdump.c:878 test/ftlint.c:193 test/ftmetric.c:252 test/ftsbit.c:187
+#, c-format
+msgid "Error while opening %s.\n"
+msgstr "Fout bij het openen van %s.\n"
+
+#: test/ftlint.c:94
+msgid ""
+"ftlint: Simple TrueType instruction tester -- part of the FreeType project"
+msgstr ""
+"ftlint: TrueType instructie tester -- onderdeel van het FreeType project"
+
+#: test/ftlint.c:99
+#, c-format
+msgid ""
+"Usage: %s ppem fontname[.ttf|.ttc] [fontname2..]\n"
+"\n"
+msgstr ""
+"Gebruik: %s ppem lettertype[.ttf|.ttc] [lettertype2..]\n"
+"\n"
+
+#: test/ftlint.c:226 test/ftsbit.c:224
+#, c-format
+msgid "Could not set point size to %d.\n"
+msgstr "Instellen van puntgrootte %d mislukt.\n"
+
+#: test/ftlint.c:239
+msgid ""
+"Error with\n"
+"  "
+msgstr ""
+"Fout met\n"
+"  "
+
+#: test/ftlint.c:240
+#, c-format
+msgid "glyph %4u: %s\n"
+msgstr "Glyph %4u: %s\n"
+
+#: test/ftlint.c:253
+msgid "1 fail.\n"
+msgstr "1 misser.\n"
+
+#: test/ftlint.c:255
+#, c-format
+msgid "%d fails.\n"
+msgstr "%d missers.\n"
+
+#: test/ftmetric.c:68
+msgid ""
+"ftmetric: Simple TTF metrics/glyph dumper -- part of the FreeType project"
+msgstr ""
+"ftmetric: TTF metriek/Glyph dumper -- onderdeel van het FreeType project"
+
+#: test/ftmetric.c:72
+#, c-format
+msgid ""
+"Usage: %s [options below] point fontname[.ttf|.ttc]\n"
+"\n"
+"  -B        show sbit's metrics (default: none)\n"
+"  -c C      use C'th font index of TrueType collection  (default: 0)\n"
+"  -i index  glyph index (default: 0)\n"
+"  -r R      use resolution R dpi (default: 72)\n"
+"\n"
+msgstr ""
+"Gebruik: %s [opties hieronder] punt lettertype[.ttf|.ttc]\n"
+"\n"
+"  -B        toon sbit's metriek (standaard: geen)\n"
+"  -c C      gebruik 'C'e lettertype index van TrueType collectie (standaard: "
+"0)\n"
+"  -i index  Glyph index (standaard: 0)\n"
+"  -r R      gebruik resolutie van R dpi (standaard: 72)\n"
+"\n"
+
+#: test/ftmetric.c:259
+#, c-format
+msgid "There are %d fonts in this collection.\n"
+msgstr "Er zijn %d lettertypen in deze collectie.\n"
+
+#: test/ftmetric.c:264
+#, c-format
+msgid "There is no collection with index %d in this font file.\n"
+msgstr "Er is geen collectie met index %d in dit lettertype.\n"
+
+#: test/ftmetric.c:278
+msgid "There is no embedded bitmap data in the font.\n"
+msgstr "Er is geen ingebedde bitmap informatie in het lettertype.\n"
+
+#: test/ftmetric.c:308
+msgid "Could not set device resolutions.\n"
+msgstr "Instellen van resolutie is mislukt.\n"
+
+#: test/ftmetric.c:315
+msgid "Could not reset instance.\n"
+msgstr "Her-instellen van Instance mislukt.\n"
+
+#: test/ftmetric.c:321
+#, c-format
+msgid "Instance metrics: ppemX %d, ppemY %d\n"
+msgstr "Instance metriek: ppemX %d, ppemY %d\n"
+
+#: test/ftmetric.c:331 test/ftsbit.c:233
+msgid "Could not allocate glyph bitmap container.\n"
+msgstr "Toewijzen van Glyph bitmap container mislukt.\n"
+
+#: test/ftmetric.c:339 test/ftsbit.c:257
+#, c-format
+msgid "Can't load bitmap for glyph %d.\n"
+msgstr "Laden van bitmap voor Glyph %d mislukt.\n"
+
+#: test/ftmetric.c:366
+msgid "Outline's metrics"
+msgstr "Omtrek metriek"
+
+#: test/ftmetric.c:368
+msgid "Outline glyph\n"
+msgstr "Omtrek Glyph\n"
+
+#: test/ftsbit.c:89
+msgid "ftsbit: Simple TrueType `sbit' dumper -- part of the FreeType project"
+msgstr "ftsbit: TrueType `sbit' dumper -- onderdeel van het FreeType project"
+
+#: test/ftsbit.c:94
+#, c-format
+msgid ""
+"Usage: %s ppem fontname[.ttf|.ttc] glyph_index [glyph_index2..]\n"
+"\n"
+msgstr ""
+"Gebruik: %s ppem lettertype[.ttf|.ttc] glyph_index [glyph_index2..]\n"
+"\n"
+
+#: test/ftsbit.c:199
+msgid "Could not find embedded bitmaps in this font.\n"
+msgstr "Ingebedde bitmaps niet gevonden in dit lettertype.\n"
+
+#: test/ftsbit.c:205
+msgid "Error while loading embedded bitmaps.\n"
+msgstr "Fout bij het laden van ingebedde bitmaps.\n"
+
+#: test/ftsbit.c:251
+#, c-format
+msgid "  no bitmap for glyph %d.\n"
+msgstr " geen bitmap voor Glyph %d.\n"
+
+#: test/ftsbit.c:263
+#, c-format
+msgid "glyph index %d = %dx%d pixels, "
+msgstr "Glyph index %d = %dx%d pixels, "
+
+#: test/ftsbit.c:266
+#, c-format
+msgid "advance = %ld, minBearing = [%ld,%ld]\n"
+msgstr "advance = %ld, minBearing = [%ld,%ld]\n"

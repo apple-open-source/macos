@@ -348,9 +348,10 @@ IOSCSIParallelInterfaceProtocolTransport::SendSCSICommand (
 	}
 	
 	STATUS_LOG ( ( "Setting the auto-sense pointers\n" ) );
+	
 	// Set the auto request-sense buffer for the command
 	cmd->setPointers ( 	clientData->senseBuffer,
-						clientData->senseBuffer->getLength ( ),
+						min ( clientData->senseBuffer->getLength ( ), GetAutosenseRequestedDataTransferCount ( request ) ),
 						false,
 						true );
 	

@@ -90,6 +90,7 @@ A:link, A:visited, A:active { text-decoration: underline }
 <td valign="top" bgcolor="#8b7765"><table border="0" cellspacing="0" cellpadding="1" width="100%"><tr><td><table border="0" cellspacing="0" cellpadding="1" width="100%" bgcolor="#000000"><tr><td><table border="0" cellpadding="3" cellspacing="1" width="100%"><tr><td bgcolor="#fffacd">
 <?php
     // We handle only the first argument so far
+    $query = $_GET['query'];
     $query = ltrim ($query);
     if (! $query) {
         echo "<h1 align='center'>Search the documentation on XMLSoft.org</h1>";
@@ -257,9 +258,9 @@ A:link, A:visited, A:active { text-decoration: underline }
 				$results[$name] = array(($r + $relevance) * 2,
 							$t,$m,$d,$w,$u);
 			    } else {
-				$id = strtoupper($name);
+				$id = $name;
 				$m = strtolower($module);
-				$url = "html/libxml-$m.html#$id";
+				$url = "html/libxml-$module.html#$id";
 				$results[$name] = array($relevance,$type,
 						$module, $desc, $name, $url);
 			    }
@@ -282,9 +283,9 @@ A:link, A:visited, A:active { text-decoration: underline }
 				$results[$name] = array(($r + $relevance) * 2,
 							$t,$m,$d,$w,$u);
 			    } else {
-				$id = strtoupper($name);
+				$id = $name;
 				$m = strtolower($module);
-				$url = "XSLT/html/libxslt-$m.html#$id";
+				$url = "XSLT/html/libxslt-$module.html#$id";
 				$results[$name] = array($relevance,$type,
 						$module, $desc, $name, $url);
 			    }
@@ -349,7 +350,7 @@ A:link, A:visited, A:active { text-decoration: underline }
 				$results[$name] = array(($r + $relevance) * 2,
 							$t,$m,$d,$w,$u);
 			    } else {
-				$id = strtoupper($name);
+				$id = $name;
 				$m = strtolower($module);
 				$u = str_replace(
 			"http://mail.gnome.org/archives/xml/", "", $url);
@@ -375,7 +376,7 @@ A:link, A:visited, A:active { text-decoration: underline }
 				$results[$name] = array(($r + $relevance) * 2,
 							$t,$m,$d,$w,$u);
 			    } else {
-				$id = strtoupper($name);
+				$id = $name;
 				$m = strtolower($module);
 				$u = str_replace(
 			"http://mail.gnome.org/archives/xslt/", "", $url);
@@ -385,9 +386,6 @@ A:link, A:visited, A:active { text-decoration: underline }
 			}
 			mysql_free_result($result);
 		    }
-		}
-		if (($j <= 0) && ($k <= 0)) {
-		    echo "<p> No result found for $word\n";
 		}
 	    }
 	    mysql_close($link);

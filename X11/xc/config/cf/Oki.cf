@@ -1,0 +1,30 @@
+XCOMM platform:  $Xorg: Oki.cf,v 1.3 2000/08/17 19:41:46 cpqbld Exp $
+
+#ifndef OSName
+#define OSName			Unix System V/860 Release 4.0 Version 3
+#endif
+XCOMM operating system:  OSName
+#ifndef OSMajorVersion
+#define OSMajorVersion		4
+#endif
+#ifndef OSMinorVersion
+#define OSMinorVersion		0
+#endif
+#ifndef OSTeenyVersion
+#define OSTeenyVersion		3
+#endif
+
+#define BootstrapCFlags		-DOki
+#define SystemV4		YES
+#define HasLdRunPath		YES
+#define ConnectionFlags		-DTCPCONN -DUNIXCONN -DLOCALCONN
+#define SetTtyGroup		YES
+#define HasPutenv		YES
+#define HasPoll                 YES
+#define PatheticCpp		YES
+#define CcCmd			/usr/bin/cc
+#define StandardDefines -DSVR4 -Di860
+#define DefaultCCOptions	-Xa
+#define BuildServer             NO
+#define ToolkitStringsABIOptions -intelabi
+#include <sv4Lib.rules>

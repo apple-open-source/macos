@@ -49,7 +49,7 @@ static void inline sslIoTrace(
 	UInt32 moved,
 	OSStatus stat)
 {
-	sslLogRecordIo("===%s: req %4lu moved %4lu status %ld\n", 
+	sslLogRecordIo("===%s: req %4lu moved %4lu status %ld", 
 		op, req, moved, stat);
 }
 #else
@@ -72,6 +72,7 @@ SSLWrite(
     SSLRecord       rec;
     UInt32          dataLen, processed;
     
+	sslLogRecordIo("SSLWrite top");
     if((ctx == NULL) || (bytesWritten == NULL)) {
     	return paramErr;
     }
@@ -159,12 +160,14 @@ SSLRead	(
     UInt32          bufSize, remaining, count;
     SSLRecord       rec;
     
+	sslLogRecordIo("SSLRead top");
     if((ctx == NULL) || (processed == NULL)) {
     	return paramErr;
     }
     bufSize = dataLength;
     *processed = 0;        /* Initialize in case we return with errSSLWouldBlock */
 
+readRetry:
 	/* first handle cases in which we know we're finished */
 	switch(ctx->state) {
 		case SSL_HdskStateGracefulClose:
@@ -276,6 +279,11 @@ SSLRead	(
     err = noErr;
     
 exit:
+	/* test for renegotiate: loop until something happens */
+	if((err == noErr) && (*processed == 0)) {
+		sslLogNegotiateDebug("SSLRead recursion");
+		goto readRetry;
+	}
 	/* shut down on serious errors */
 	switch(err) {
 		case noErr:
@@ -496,6 +504,7 @@ SSLClose(SSLContext *ctx)
 {   
 	OSStatus      err = noErr;	
     
+	sslHdskStateDebug("SSLClose");
 	if(ctx == NULL) {
 		return paramErr;
 	}

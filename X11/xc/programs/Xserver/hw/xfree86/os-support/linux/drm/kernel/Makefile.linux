@@ -1,0 +1,308 @@
+# Makefile -- For the Direct Rendering Manager module (drm)
+# Created: Mon Jan  4 09:26:53 1999 by faith@precisioninsight.com
+#
+# Copyright 1999 Precision Insight, Inc., Cedar Park, Texas.
+# Copyright 2000 VA Linux Systems, Inc., Sunnyvale, California.
+# All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice (including the next
+# paragraph) shall be included in all copies or substantial portions of the
+# Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# PRECISION INSIGHT AND/OR ITS SUPPLIERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+# DEALINGS IN THE SOFTWARE.
+#
+#
+# ***** NOTE NOTE NOTE NOTE NOTE *****
+# To override the automatic Linux source tree determination, pass the
+# pathname for the kernel that you want to compile on the command line,
+# like this:
+# 	make TREE=/usr/my-kernel-tree/include
+#
+
+SHELL=/bin/sh
+
+.SUFFIXES:
+
+# *** Setup
+
+# **** End of SMP/MODVERSIONS detection
+
+MODS =		gamma.o tdfx.o r128.o radeon.o
+LIBS =
+
+DRMTEMPLATES =	drm_auth.h drm_bufs.h drm_context.h drm_dma.h drm_drawable.h \
+		drm_drv.h drm_fops.h drm_init.h drm_ioctl.h drm_lists.h \
+		drm_lock.h drm_memory.h drm_proc.h drm_stub.h drm_vm.h
+DRMSHARED =	drm_sarea.h
+DRMHEADERS =	drm.h drmP.h $(DRMSHARED)
+
+GAMMAOBJS =	gamma_drv.o gamma_dma.o
+GAMMAHEADERS =	gamma_drv.h $(DRMHEADERS) $(DRMTEMPLATES)
+
+TDFXOBJS =	tdfx_drv.o
+TDFXHEADERS =	tdfx.h $(DRMHEADERS) $(DRMTEMPLATES)
+
+R128OBJS =	r128_drv.o r128_cce.o r128_state.o r128_irq.o
+R128HEADERS =	r128.h r128_drv.h r128_drm.h $(DRMHEADERS) $(DRMTEMPLATES)
+R128SHARED =	r128.h r128_drv.h r128_drm.h r128_cce.c r128_state.c r128_irq.c
+
+RADEONOBJS =	radeon_drv.o radeon_cp.o radeon_state.o radeon_mem.o \
+		radeon_irq.o
+RADEONHEADERS =	radeon.h radeon_drv.h radeon_drm.h $(DRMHEADERS) \
+		$(DRMTEMPLATES)
+RADEONSHARED =	radeon.h radeon_drv.h radeon_drm.h radeon_cp.c radeon_irq.c \
+		radeon_mem.c radeon_state.c
+
+INC =		/usr/include
+
+CFLAGS =	-O2 $(WARNINGS)
+WARNINGS =	-Wall -Wwrite-strings -Wpointer-arith -Wcast-align \
+		-Wstrict-prototypes -Wnested-externs \
+		-Wpointer-arith
+# -Wshadow -Winline -- make output too noisy
+MODCFLAGS =	$(CFLAGS) -D__KERNEL__ -DMODULE -fomit-frame-pointer -fno-strict-aliasing
+PRGCFLAGS =	$(CFLAGS) -g -ansi -pedantic -DPOSIX_C_SOURCE=199309L \
+		-D_POSIX_SOURCE -D_XOPEN_SOURCE -D_BSD_SOURCE -D_SVID_SOURCE \
+		-I../../../../../../include -I../../../../../../../../include \
+		-I../../../../../../../../programs/Xserver/hw/xfree86/common \
+		-I. -I../../.. -I../../../../../../../../lib/X11
+PRGLIBS =
+
+# **** Start of SMP/MODVERSIONS detection
+
+# First, locate correct tree for this kernel version.  If we find a
+# matching tree, we assume that we can rely on that tree's autoconf.h.
+# This may not be correct, but it is the best assumption we can make.
+
+VERSION := $(shell uname -r)
+# For Red Hat...
+RHVERS := $(shell uname -r)custom
+
+A := /lib/modules/$(VERSION)/build/include
+B := /usr/src/linux-$(VERSION)/include
+C := /usr/src/linux/include
+D := /usr/include
+
+V := $(shell gcc -E -nostdinc -I$A picker.c 2>/dev/null \
+      | grep -s 'RELEASE = ' | cut -d' ' -f3)
+ifeq ($(V),"$(VERSION)")
+TREE := $A
+else
+ifeq ($(V),"$(RHVERS)")
+  TREE := $A
+else
+  V := $(shell gcc -E -nostdinc -I$B picker.c 2>/dev/null \
+        | grep -s 'RELEASE = ' | cut -d' ' -f3)
+ifeq ($(V),"$(VERSION)")
+    TREE := $B
+else
+ifeq ($(V),"$(RHVERS)")
+      TREE := $B
+else
+      V := $(shell gcc -E -nostdinc -I$C picker.c 2>/dev/null \
+          | grep -s 'RELEASE = ' | cut -d' ' -f3)
+ifeq ($(V),"$(VERSION)")
+        TREE := $C
+else
+        V := $(shell gcc -E -nostdinc -I$D picker.c 2>/dev/null \
+          | grep -s 'RELEASE = ' | cut -d' ' -f3)
+ifeq ($(V),"$(VERSION)")
+          TREE := $D
+else
+          TREE := 0
+endif
+endif
+endif
+endif
+endif
+endif
+
+ifeq ($(TREE),0)
+all:; @echo Error: Could not locate kernel tree in $A $B $C $D
+else
+SMP := $(shell gcc -E -nostdinc -I$(TREE) picker.c 2>/dev/null \
+	| grep -s 'SMP = ' | cut -d' ' -f3)
+MODULES := $(shell gcc -E -nostdinc -I$(TREE) picker.c 2>/dev/null \
+	| grep -s 'MODULES = ' | cut -d' ' -f3)
+MODVERSIONS := $(shell gcc -E -nostdinc -I$(TREE) picker.c 2>/dev/null \
+	| grep -s 'MODVERSIONS = ' | cut -d' ' -f3)
+AGP := $(shell gcc -E -nostdinc -I$(TREE) picker.c 2>/dev/null \
+	| grep -s 'AGP = ' | cut -d' ' -f3)
+MACHINE := $(shell echo `uname -m`)
+# Red Hat's kernels have 4 args to do_munmap()
+DOMUNMAP := $(shell grep do_munmap $(TREE)/linux/mm.h | grep -c acct)
+ifeq ($(AGP),0)
+AGP := $(shell gcc -E -nostdinc -I$(TREE) picker.c 2>/dev/null \
+	| grep -s 'AGP_MODULE = ' | cut -d' ' -f3)
+endif
+
+ifeq ($(DOMUNMAP),1)
+MODCFLAGS += -DDO_MUNMAP_4_ARGS
+endif
+ifeq ($(AGP),1)
+MODCFLAGS += -DCONFIG_AGP -DCONFIG_AGP_MODULE
+DRMTEMPLATES += drm_agpsupport.h
+MODS += mga.o
+ifeq ($(MACHINE),i386)
+MODS += i810.o
+MODS += i830.o
+endif
+ifeq ($(MACHINE),i686)
+MODS += i810.o
+MODS += i830.o
+endif
+
+MGAOBJS =	mga_drv.o mga_dma.o mga_state.o mga_warp.o mga_irq.o
+MGAHEADERS =	mga.h mga_drv.h mga_drm.h $(DRMHEADERS) $(DRMTEMPLATES)
+MGASHARED =	mga.h mga_dma.c mga_drm.h mga_drv.h mga_state.c \
+		mga_ucode.h mga_warp.c
+
+I810OBJS =	i810_drv.o i810_dma.o
+I810HEADERS =	i810.h i810_drv.h i810_drm.h $(DRMHEADERS) $(DRMTEMPLATES)
+
+I830OBJS =	i830_drv.o i830_dma.o i830_irq.o
+I830HEADERS =	i830.h i830_drv.h i830_drm.h $(DRMHEADERS) $(DRMTEMPLATES)
+
+endif
+
+ifeq ($(MACHINE),alpha)
+MODCFLAGS+=      -ffixed-8 -mno-fp-regs -mcpu=ev56 -Wa,-mev6 
+endif
+ifeq ($(MACHINE),x86_64)
+MODCFLAGS+=      -mcmodel=kernel
+endif
+
+
+MODS += sis.o
+
+SISOBJS=	sis_drv.o sis_mm.o sis_ds.o 
+SISHEADERS=	sis_drv.h sis_drm.h $(DRMHEADERS)
+MODCFLAGS += -DCONFIG_DRM_SIS
+
+all::;@echo === KERNEL HEADERS IN $(TREE)
+all::;@echo === SMP=${SMP} MODULES=${MODULES} MODVERSIONS=${MODVERSIONS} AGP=${AGP}
+all::;@echo === Compiling for machine $(MACHINE)
+all::;@echo === WARNING
+all::;@echo === WARNING Use 2.4.x kernels ONLY !
+all::;@echo === WARNING
+
+ifeq ($(MODULES),0)
+all::;@echo
+all::;@echo "*** Kernel modules must be configured.  Build aborted."
+all::;@echo
+else
+all:: $(LIBS) $(MODS) $(PROGS)
+endif
+
+endif
+
+# **** End of SMP/MODVERSIONS detection
+
+# **** Handle SMP/MODVERSIONS
+ifeq ($(SMP),1)
+MODCFLAGS += -D__SMP__
+endif
+ifeq ($(MODVERSIONS),1)
+MODCFLAGS += -DMODVERSIONS -include $(TREE)/linux/modversions.h
+endif
+
+# **** End of configuration
+
+# Link in shared headers if needed
+
+SHAREDSRC = $(DRMSHARED) $(MGASHARED) $(R128SHARED) $(RADEONSHARED)
+SHAREDDIR = ../../../shared/drm/kernel
+
+$(SHAREDSRC):
+	@if [ ! -r $@ ]; then (rm -f $@; set -x; ln -s $(SHAREDDIR)/$@ .); fi
+
+
+dristat: dristat.c
+	$(CC) $(PRGCFLAGS) $< -o $@
+
+DRIsetup: DRIsetup.c
+	$(CC) $(PRGCFLAGS) $< -o $@ -L/usr/X11R6/lib -lGL -lm ../../../../parser/libxf86config.a ../libdrm.a
+
+gamma_drv.o: gamma_drv.c
+	$(CC) $(MODCFLAGS) -DEXPORT_SYMTAB -I$(TREE) -c $< -o $@
+gamma.o: $(GAMMAOBJS)
+	$(LD) -r $^ -o $@
+
+tdfx_drv.o: tdfx_drv.c
+	$(CC) $(MODCFLAGS) -DEXPORT_SYMTAB -I$(TREE) -c $< -o $@
+tdfx.o: $(TDFXOBJS) $(LIBS)
+	$(LD) -r $^ -o $@
+
+sis.o: $(SISOBJS) $(LIBS)
+	$(LD) -r $^ -o $@
+
+r128_drv.o: r128_drv.c
+	$(CC) $(MODCFLAGS) -DEXPORT_SYMTAB -I$(TREE) -c $< -o $@
+r128.o: $(R128OBJS) $(LIBS)
+	$(LD) -r $^ -o $@
+
+radeon_drv.o: radeon_drv.c
+	$(CC) $(MODCFLAGS) -DEXPORT_SYMTAB -I$(TREE) -c $< -o $@
+radeon.o: $(RADEONOBJS) $(LIBS)
+	$(LD) -r $^ -o $@
+
+ifeq ($(AGP),1)
+mga_drv.o: mga_drv.c
+	$(CC) $(MODCFLAGS) -DEXPORT_SYMTAB -I$(TREE) -c $< -o $@
+mga.o: $(MGAOBJS)
+	$(LD) -r $^ -o $@
+
+i810_drv.o: i810_drv.c
+	$(CC) $(MODCFLAGS) -DEXPORT_SYMTAB -I$(TREE) -c $< -o $@
+i810.o: $(I810OBJS) $(LIBS)
+	$(LD) -r $^ -o $@
+
+i830_drv.o: i830_drv.c
+	$(CC) $(MODCFLAGS) -DEXPORT_SYMTAB -I$(TREE) -c $< -o $@
+i830.o: $(I830OBJS) $(LIBS)
+	$(LD) -r $^ -o $@
+
+endif
+
+.PHONY: ChangeLog
+ChangeLog:
+	@rm -f Changelog
+	@rcs2log -i 2 -r -l \
+		| sed 's,@.*light,,' \
+		| sed 's,/cvsroot/.*/drm/kernel/,,g' \
+		> ChangeLog
+
+
+# .o files are used for modules
+%.o: %.c
+	$(CC) $(MODCFLAGS) -I$(TREE) -c $< -o $@
+
+$(GAMMAOBJS): $(GAMMAHEADERS)
+$(TDFXOBJS): $(TDFXHEADERS)
+$(R128OBJS): $(R128HEADERS)
+$(RADEONOBJS): $(RADEONHEADERS)
+ifeq ($(AGP),1)
+$(MGAOBJS): $(MGAHEADERS)
+$(I810OBJS): $(I810HEADERS)
+$(I830OBJS): $(I830HEADERS)
+endif
+
+clean cleandir::
+	rm -f *.o *.a *~ core
+	@for i in $(SHAREDSRC); do \
+		if [ -L $$i ]; then (set -x; rm -f $$i); fi; \
+	done
+

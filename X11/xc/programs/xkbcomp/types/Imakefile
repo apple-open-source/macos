@@ -1,0 +1,15 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:48 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/xkbcomp/types/Imakefile,v 3.7 2003/02/15 22:22:45 dawes Exp $
+
+
+     DATAFILES = README basic caps complete default mousekeys iso9995 pc extra
+
+all::
+
+MakeXkbDir($(LIBDIR)/xkb,types)
+InstallMultiple($(DATAFILES),$(LIBDIR)/xkb/types)
+DependTarget()

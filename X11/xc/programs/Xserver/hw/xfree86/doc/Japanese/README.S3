@@ -1,0 +1,670 @@
+  S3 チップセット使用者のための情報
+  XFree86 プロジェクト社著
+  岡本 一幸 Kazuyuki Okamoto <ikko-@pacific.rim.or.jp> 訳
+  1996 年 1 月 15 日
+  ____________________________________________________________
+
+  Table of Contents:
+
+  1.      サポートしているハードウェア
+
+  2.      16bpp と 32bpp
+
+  3.      サポートしているチップセットの一覧
+
+  4.      追加注意事項
+
+  5.      IBM RGB 5xx  RAMDAC のクロック値を参照するには
+
+  6.      グラフィック画面操作時、``雪が降る'' 現象の回避策
+  ______________________________________________________________________
+
+  1.  サポートしているハードウェア
+
+  現行の S3 サーバは 911, 924, 801/805, 928, 732 (Trio32), 764 (Trio64),
+  864, 868, 964 と 968 の入手可能な S3 のチップセットをサポートしていま
+  す。S3 サーバは 866 も認識しますが、このチップセットは未だテストしてま
+  せん。これらのチップセットで何か問題があったとか、うまく動作したとか
+  を、我々に報告して下さい。
+
+  しかし、それらのチップセットを搭載している全てのビデオボードを十分サポ
+  ートしていません。動作確認をしたビデオボードのいくつかを次の一覧に示し
+  ます。自分のカードに似たカードが一覧の中にある場合は、そのカードも動作
+  する可能性があります。訳注：bpp (bit per pixel) は１ピクセル(画素) を
+  表現するビット数
+
+     S3 801/805, AT&T 20C490 (または そっくりさん) RAMDAC
+
+     o  Orchid Fahrenheit 1280+ VLB
+
+     o  Actix GE32
+
+        8 と 15/16 bpp が利用可能です。次のように設定してください。
+
+        注意: 本物の AT&T20C490 RAMDAC はサーバで自動認識出来ます。その
+        互換チップセットの場合は XF86Config に `Ramdac "att20c490"'と明
+        記してください。
+
+        本物の AT&T 20C490 と 20C491 RAMDAC は "dac_8_bit" というオプ
+        ションを付けて動作します。（Winbond 82C490 のような）いくつかの
+        そっくりさんにはオプションを付けないでください。
+
+        Orchid Fahrenheit 1280+ VLB には `Option "nolinear"' が必要で
+        す。
+
+     S3 805 VLB, S3 GENDAC (RAMDAC + クロックシンセサイザー)
+
+     o  MIRO 10SD (VLB と PCI 用が利用可能) 全ての10SD が S3 GENDAC を搭
+        載しているかどうかはわかりません。
+
+        8 と 15/16 bpp が利用可能です。次のように設定してください。
+
+            ClockChip "s3gendac"
+            RamDac    "s3gendac"
+
+     S3 801/805, AT&T 20C490 RAMDAC, ICD2061A クロックチップ
+
+     o  STB PowerGraph X.24 S3 (ISA)
+
+        8 と 15/16 bpp が利用可能です。次のように設定してください。
+
+        注意: 本物の AT&T20C490 RAMDAC はサーバで自動認識出来ます。その
+        互換チップセットの場合は XF86Config に`Ramdac "att20c490"'と明記
+        してください。
+
+            ClockChip "icd2061a"
+            RamDac    "att20c490"
+            Option    "dac_8_bit
+
+     S3 805, Diamond SS2410 RAMDAC, ICD2061A クロックチップ
+
+     o  Diamond Stealth 24 VLB
+
+        8 と 15bpp(*) のみが利用可能です。次のように設定してください。
+
+        `Option "nolinear"' というオプションが必要です。
+
+        (*) SS2410 RAMDAC は AT&T20C490 と15 bpp モードでは互換性がある
+        ことが報告されています。そのチップを AT&T20C490 とみなしてサーバ
+        を生成した場合、XF86Config に `Ramdac "att20c490"' と書く必要が
+        あります。
+
+     S3 801/805, Chrontel 8391 クロックチップ/Ramdac
+
+     o  JAX 8241
+
+     o  SPEA Mirage
+
+        8 と 15/16 bpp が利用可能です。次のように設定してください。
+
+        8391 は AT&T 20C490 RAMDAC と互換性があります。
+
+            ClockChip "ch8391"
+            Ramdac    "ch8391"
+            Option    "dac_8_bit"
+
+     S3 928, AT&T 20C490 RAMDAC
+
+     o  Actix Ultra
+
+        8 と 15/16 bpp が利用可能です。次のように設定してください。
+
+        注意: 本物の AT&T20C490 RAMDAC はサーバで自動認識出来ます。その
+        互換チップセットの場合は XF86Config に `Ramdac "att20c490"'と明
+        記してください。また、サーバの RAMDAC 探査報告が伝えるところによ
+        れば幾つかのボードで問題が生じ、RamDac の設定が探査から無視され
+        ます。
+
+        本物の AT&T 20C490 と 20C491 RAMDAC は "dac_8_bit" というオプ
+        ションを付けて動作します。（Winbond 82C490 のような）いくつかの
+        そっくりさんにはオプションを付けないでください。
+
+     S3 928, Sierra SC15025 RAMDAC, ICD2061A クロックチップ
+
+     o  ELSA Winner 1000 ISA/EISA (``TwinBus'' は Winner1000ISA ではあり
+        ません!!)
+
+     o  ELSA Winner 1000 VL
+
+        8, 15/16 と 24(32) bpp が利用可能です。次のように設定してくださ
+        い。
+
+        8bpp では 8ビット/ピクセル RGB をサポートし、15/16 と 24bpp モー
+        ドではガンマ補正をサポートします。
+
+        クロックが 30 MHz の限界近くである場合に、 24 bpp では ``雪が
+        降ったように'' なるかもしれません。これが危険であると考えてはい
+        ませんが、 24bpp の使用できる上限だと思います。
+
+        D-段階 (又は以降の) チップは 1152 ドットの画面幅を使うことは出来
+        ないので、 1 MB のボードでのもっとも有効なモードは 1088x800x8 で
+        す(これは 2 MB の時の 1088x800x16 と同様です）。
+
+            ClockChip "icd2061a"
+
+     S3 928, Bt9485 RAMDAC, ICD2061A クロックチップ
+
+     o  STB Pegasus VL
+
+        8, 15/16 と 24(32) bpp が利用可能です。次のように設定してくださ
+        い。
+
+        "sync_on_green" オプションを付けて、かつ BNC コネクタに出力する
+        ようにボード上のジャンパスイッチを設定した場合に、緑信号同期を使
+        用した RBG 出力をサポートします。
+
+        VLB リニア アドレッシングはアドレス 0x7FCxxxxx で アクセスします
+        ので、 64MB かそれ以上のメインメモリがあればリニアフレームバッ
+        ファを失う事なしにサポート出来ます。
+
+            ClockChip "icd2061a"
+            Option    "stb_pegasus"
+
+     S3 928, Bt485 RAMDAC, SC11412 クロックチップ
+
+     o  SPEA Mercury 2MB VL
+
+        8, 15/16 と 24(32) bpp が利用可能です。次のように設定してくださ
+        い。
+
+            ClockChip "SC11412"
+            Option    "SPEA_Mercury"
+
+     S3 928, Bt485 RAMDAC, ICD2061A クロックチップ
+
+     o  #9 GXE Level 10, 11, 12
+
+        8, 15/16 と 24(32) bpp が利用可能です。次のように設定してくださ
+        い。
+
+            ClockChip "icd2061a"
+            Option    "number_nine"
+
+     S3 928, Ti3020 RAMDAC, ICD2061A クロックチップ
+
+     o  #9 GXE Level 14, 16
+
+        8, 15/16 と 24(32) bpp が利用可能です。次のように設定してくださ
+        い。
+
+        緑信号同期を使用した RBG 出力をサポートします。
+
+            ClockChip "icd2061a"
+            Option    "number_nine"
+
+     S3 864, AT&T20C498, ICS2494 クロックチップ
+
+     o  MIRO 20SD (BIOS 1.xx)
+
+        ICS2494 は固定周波数のクロックチップで、（XF86Config ファイルに
+        Clocks 行を書かずに）X -probeonly を実行すると正しいクロックが得
+        られます。
+
+        8, 15/16 と 24(32) bpp が利用可能です。
+
+     S3 864, AT&T20C498 または STG1700 RAMDAC, ICD2061A または ICS9161
+        クロックチップ
+
+     o  Elsa Winner1000PRO VLB
+
+     o  Elsa Winner1000PRO PCI
+
+     o  MIRO 20SD (BIOS 2.xx)
+
+     o  Actix GraphicsENGINE 64 VLB/2MB
+
+        8, 15/16 と 24(32) bpp が利用可能です。次のように設定してくださ
+        い。
+
+            ClockChip "icd2061a"
+
+     S3 864, 20C498 or 21C498 RAMDAC, ICS2595 チップセット
+
+     o  SPEA MirageP64 2MB DRAM  (BIOS 3.xx)
+
+        8, 15/16 と 24(32) bpp が利用可能です。次のように設定してくださ
+        い。
+
+        このクロックチップは未だ断片的なサポートで、かつ幾つかのマシン上
+        では XF86_S3 起動時の初期画面、または仮想端末(VT) から戻った直後
+        の画面に問題がありますが、 CTRL+ALT+``KP+'' で次のモードに切り替
+        えたり、戻ったりする場合の問題は解決済みと思われます。
+
+        インターレースモードは正しく動作しません。
+
+        Mirage P64 with BIOS 4.xx は S3 SDAC を使用しています。
+
+            ClockChip "ics2595"
+
+     S3 864, S3 86C716 SDAC RAMDAC とクロックチップ
+
+     o  Elsa Winner1000PRO
+
+     o  MIRO 20SD (BIOS 3.xx)
+
+     o  SPEA MirageP64 2MB DRAM  (BIOS 4.xx)
+
+     o  Diamond Stealth 64 DRAM
+
+        8, 15/16 と 24 bpp が利用可能です。
+
+     S3 864, ICS5342 RAMDAC と クロックチップ
+
+     o  Diamond Stealth 64 DRAM (同じカードのみ)
+
+        8, 15/16 と 24 bpp が利用可能です。次のように設定してください。
+
+            ClockChip "ics5342"
+            Ramdac    "ics5342"
+
+     S3 864, AT&T21C498-13 RAMDAC, ICD2061A クロックチップ
+
+     o  #9 GXE64 - PCI
+
+        8, 15/16, 24(32) bpp が利用可能です。次のように設定してくださ
+        い。
+
+            ClockChip "icd2061a"
+            Option    "number_nine"
+
+     S3 964, AT&T 20C505 RAMDAC, ICD2061A クロックチップ
+
+     o  Miro Crystal 20SV
+
+        8, 15/16, 24(32) bpp が利用可能です。次のように設定してくださ
+        い。
+
+            ClockChip "icd2061a"
+            Ramdac    "att20c505"
+
+     S3 964, Bt485 RAMDAC, ICD2061A クロックチップ
+
+     o  Diamond Stealth 64
+
+        8, 15/16, 24(32) bpp が利用可能です。次のように設定してくださ
+        い。
+
+            ClockChip "icd2061a"
+
+     S3 964, Bt9485 or AT&T 20C505 RAMDAC, ICS9161a クロックチップ
+
+     o  SPEA Mercury 64
+
+        8, 15/16, 24(32) bpp が利用可能です。次のように設定してくださ
+        い。
+
+            ClockChip "ics9161a"
+            Option    "SPEA_Mercury"
+
+     S3 964, Ti3020 RAMDAC, ICD2061A クロックチップ
+
+     o  Elsa Winner2000PRO PCI
+
+        8, 15/16, 24(32) bpp が利用可能です。次のように設定してくださ
+        い。
+
+            ClockChip "icd2061a"
+
+     S3 964, Ti3025 RAMDAC, Ti3025 クロックチップ
+
+     o  Miro Crystal 40SV
+
+     o  #9 GXE64 Pro VLB
+
+     o  #9 GXE64 Pro PCI
+
+        8 bpp, 15, 16 と 24(32) bpp が利用可能です。次のように設定してく
+        ださい。
+
+        GXE64 Pro で 15/16/24 bpp の場合に画像が偏ったり/回り込んだりす
+        る等、幾つかの問題点がわかっています。
+
+        既に #9 が 1600x1200 を GXE64 Pro でサポートしていない事を知って
+        います。けれども他のボードで 135MHz で ある RAMDAC を 220MHz の
+        RAMDAC に置き換えた GXE64Pro-1600 と呼ばれる新しい（そしてより高
+        価な）ボードを開発しています。
+
+     S3 764 (Trio64)
+
+     o  SPEA Mirage P64 (BIOS 5.xx)
+
+     o  Diamond Stealth 64 DRAM
+
+     o  #9 GXE64 Trio64
+
+        8/15/16/24 bpp が利用可能です。
+
+        注意: Trio64 は RAMDAC と クロックチップを内蔵しているので、サー
+        バは全ての Trio64 で動作するでしょう。だから XF86Config ファイル
+        に RAMDAC と クロックチップは指定する必要はありません。
+
+     S3 732 (Trio32)
+
+     o  Diamond Stealth 64 DRAM SE
+
+        8/15/16/24 bpp が利用可能です。次のように設定してください。
+
+        注意: Trio32 は RAMDAC と クロックチップを内蔵しているので、サー
+        バは全ての Trio32 で動作するでしょう。だから XF86Config ファイル
+        に RAMDAC と クロックチップは指定する必要はありません。
+
+     S3 868, S3 86C716 SDAC RAMDAC と クロックチップ
+
+     o  ELSA Winner 1000AVI
+
+     o  Diamond Stealth Video DRAM
+
+        8/15/16/24 bpp が利用可能です。
+
+     S3 868, AT&T 20C409 RAMDAC と クロックチップ
+
+     o  ELSA Winner 1000AVI
+
+        8/15/16/24 bpp が利用可能です。
+
+        注意: ピクセル多重化は未だサポートしていません。従って 8bpp での
+        最大ドットクロックは制限されています。最大ドットクロックは現在、
+        67.5MHz ですが、pixmux の修正が公開よりも優先されないと、変更し
+        たところで 100MHz 迄でしょう。
+
+     S3 968, Ti3026 RAMDAC, Ti3026 クロックチップ
+
+     o  Elsa Winner 2000PRO/X-2 と /X-4 (改変 F 以上)
+
+     o  Elsa Winner 2000AVI-2 と -4
+
+     o  Diamond Stealth 64 VIDEO VRAM
+
+        8/15/16/24 bpp が利用可能です。
+
+     S3 968, Ti3026 RAMDAC, ICS9161A クロックチップ
+
+     o  Elsa Winner 2000PRO/X-2 と /X-4 (改変 G)
+
+        8/15/16/24 bpp が利用可能です。
+
+        注意: 倍クロック機能は未だ動作しませんが、最高ドットクロックの上
+        限は 120MHz 程度まで使用出来ます。
+
+     S3 964, IBM RGB 514/524/525/528 RAMDAC & クロックチップ
+
+     o  Hercules Graphics Terminator 64
+
+        8/15/16/24 bpp が利用可能です。次のように設定してください。
+
+            s3RefClk   50
+            DACspeed  170
+            Option  "slow_vram"
+
+     S3 968, IBM RGB 514/524/525/528 RAMDAC & クロックチップ
+
+     o  Genoa Genoa VideoBlitz III AV
+
+            s3RefClk   50
+            DACspeed  170
+
+     o  Hercules Graphics Terminator Pro 64
+
+            s3RefClk   16
+            DACspeed  220
+
+        このカードには次の行を明記する必要があります。:
+
+                   Invert_VCLK "*" 0
+
+        これを各々の Display サブセクションに明記してください。
+
+     o  STB Velocity 64
+
+            s3RefClk   24
+            DACspeed  220
+
+     o  Number Nine FX Motion 771
+
+            s3RefClk   16
+            DACspeed  220
+
+        このカードには次の行を明記する必要があります。:
+
+                   Invert_VCLK "*" 0
+
+        これを各々の Display サブセクションに明記してください。
+
+        8/15/16/24 bpp が利用可能です。次のように設定してください。
+
+  2.  16bpp と 32bpp
+
+  （Farenheit 1280+ VLB のような） 801/805 と AT&T490 のカードでは 15 と
+  16bpp をサポートしています。この系列のチップセットでは 32bpp を使用で
+  きません。（MS Windows では 24 ビットモードを使っていますが、これは
+  32bpp の色数を少なくした (sparse) モードではなく、本当に 3 バイト/ピク
+  セルを用いたモードです。このモードを XFree86 で実装するのは容易ではあ
+  りません。）
+
+  3.  サポートしているチップセットの一覧
+
+        ICD2061A                                ==> ClockChip "icd2061a"
+        ICS9161A (ICD2061A 互換)                ==> ClockChip "ics9161a"
+        DCS2824-0 (Diamond, ICD2061A 互換)      ==> ClockChip "dcs2824"
+
+        S3 86c708 GENDAC                        ==> ClockChip "s3gendac"
+        ICS5300 GENDAC (86c708 互換)            ==> ClockChip "ics5300"
+
+        S3 86c716 SDAC                          ==> ClockChip "s3_sdac"
+        ICS5342 GENDAC                          ==> ClockChip "ics5342"
+        STG 1703                                ==> ClockChip "stg1703"
+
+        Sierra SC11412                          ==> ClockChip "sc11412"
+        ICS2595                                 ==> ClockChip "ics2595"
+        TI3025                                  ==> ClockChip "ti3025"
+        TI3026                                  ==> ClockChip "ti3026"
+        IBM RGB 5xx                             ==> ClockChip "ibm_rgb5xx"
+
+        Chrontel 8391                           ==> ClockChip "ch8391"
+
+        AT&T 20C409                             ==> ClockChip "att20c409"
+        AT&T 20C499 (未テスト)          ==> ClockChip "att20c499"
+
+  4.  追加注意事項
+
+  この一覧に記載されていない RAMDAC を持っている場合は、XF86_S3 を使用す
+  る際 RAMDAC の周波数を上げ過ぎないように十分注意して下さい。XF86_S3 が
+  ボードを痛めないように、先ず XFree86 チームに確認の連絡を取ったほうが
+  良いでしょう。
+
+  冒険しようと思うなら、コンピューターの蓋を開けて RAMDAC を覗いてみて下
+  さい。 RAMDAC は普通ビデオボード上で大きいチップ（２番目か３番目に大き
+  いチップは EPROM ではありません）です。通常、そこには次のように書かれ
+  ています。
+
+          <会社のロゴ>
+
+              <会社の識別子><部品番号>-<周波数の省略形>
+              <製造週><製造年>
+              <ロット番号><その他の意味不明な数字>
+
+  例えば:
+
+                  @@
+                  @@ AT&T
+
+                ATT20C490-11
+                 9339S ES
+                  9869874
+
+  これは動作周波数 110 MHz の AT&T 20C490 です。この事は XF86Config ファ
+  イルに `DacSpeed 110' と記入することを指しています。幾つかの RAMDAC は
+  それぞれのモードによって異なる周波数の上限を持っている事を良く考えて下
+  さい。製造会社はいつもそのチップの持てる最高性能の周波数を名前に付ける
+  ので、十分注意して下さい。S3 サーバは正しく指定された DacSpeed の値を
+  用いて殆どの RAMDAC の周波数の上限をどのように扱えば良いかを知っていま
+  す。
+
+  chips labeled -80 or -8  should use `DacSpeed 80' in the device
+  section チップに -80 または -8 とか付いていたら、デバイス節に
+  `DacSpeed 80' と明記するべきでしょう。
+
+        S3 86C716-ME SDAC  ==>  DacSpeed 110
+        SC15025-8          ==>  DacSpeed  80
+        ATT20C490-80       ==>  DacSpeed  80
+
+        IBM 8190429        ==>  DacSpeed 170
+        IBM 03H5428        ==>  DacSpeed 170
+        IBM 03H6447        ==>  DacSpeed 170
+        IBM 03H6448        ==>  DacSpeed 220
+        IBM 03H5319        ==>  DacSpeed 220
+        IBM 63G9902        ==>  DacSpeed 250
+
+        IBM 37RGB514CF17   ==>  DacSpeed 170
+        IBM 37RGB524CF22   ==>  DacSpeed 220
+                      ^^
+
+  （Ti3025 のような）幾つかの RAMDAC はハードウェアカーソルが正しく動作
+  するように幾つかのモードの調整に配慮が必要です。Ti3025 は最低 80 ピク
+  セル分の余裕が必要です。設定が良くなかったときの症状は画面の右端に近い
+  ところへハードウェアカーソルを近付けると消えるようになることです。
+
+  5.  IBM RGB 5xx  RAMDAC のクロック値を参照するには
+
+  IBM RGB5xx RAMDAC を搭載しているカードは、テキストモードのクロックの情
+  報を除いて探査することが出来ないクロックシンセサイザーにいくつか異なる
+  周波数を与えて動作します（標準でないテキストモードを使っている場合に間
+  違った仮定をするかもしれません）。次に入力周波数を探す手順を示しま
+  す。:
+
+  先ず次を実行してください。
+
+            X -probeonly >& outfile
+
+  そしてクロックチップの探査結果の outfile に次のようになっている事を確
+  認してください。:
+
+        (--) S3: Using IBM RGB52x programmable clock (MCLK 66.000 MHz)
+        (--) S3: with refclock 16.000 MHz (probed 15.952 & 16.041)
+                               ^^^^^^      ^^^^^^^^^^^^^^^^^^^^^^
+
+  使用する周波数と括弧の中の二つの探査した周波数は 25MHz と 28MHz のテキ
+  ストモードのクロックを基準とした "良い予想の" 値でしょう。普通の 80x25
+  または 80x28 のテキストモードで実行した場合のみ、この探査は動作可能で
+  す！。
+
+  参照周波数の値は大体次のようになります:
+
+          STB Velocity 64         24 Mhz
+          Genoa VideoBlitz II AV  50 MHz
+          Hercules S3 964         50 MHz
+          Hercules S3 968         16 MHz
+          #9 Motion 771           16 MHz
+
+  これらの値はカードの水晶発振子と多分 Genoa カードに搭載されている
+  （14.3 MHz の）追加クロックチップ等の様な他の機能に依存します。
+
+  16MHz のカードが 50MHz を実際に使う事になるのは、全てのピクセルクロッ
+  クはカードの周波数の三倍になるからで 25MHz の 640x480 モードでは 75MHz
+  のピクセルクロックになりますので十分注意してください。
+
+  正しい参照周波数が見つかったら、設定ファイル（の device 節に）に入れま
+  しょう。例えば次のように入れてください。
+
+                s3RefClk  16
+
+  または
+
+                s3RefClk  50
+
+  この値について、他のテキストモードを使っていて探査に失敗しているとき
+  は、この限りではありません！。
+
+  6.  グラフィック画面操作時、``雪が降る'' 現象の回避策
+
+  S3 Vision864 チップ搭載のカードでは、ピクセルクロックと S3 チップを操
+  作するメモリクロック MCLK に依存した自動訂正機能があります。殆どのク
+  ロックチップではクロックの読み出しは出来ません（昔から S3 SDAC だけは
+  メモリクロックの値を読み出せました）ので、この値は推定するかユーザーが
+  指定していました（初期値は 60 [MHz]）。
+
+  XF86Config ファイルへ新しい `s3MCLK' の設定をするなら、次の例のように
+  しましょう。 With the new `s3MCLK' entry for your XF86Config file now
+  you can specify e.g.
+
+         s3MCLK 55
+
+  55 MHz にメモリクロックを設定すると雪の量が減るでしょう。より小さいメ
+  モリクロックは性能を若干落としますので、低すぎる値は使用しないで下さい
+  （殆どの場合 55 か 50 程度の値が良いと思います）。
+
+  次はメモリクロックの概算値（約 +/- 1 から 2 MHz の誤差があります）を決
+  めるのに有効な小さなシェルスクリプトです。このスクリプトを実行する前に
+  次の行
+
+         s3MNadjust -31 255
+
+  を XF86Config ファイルのデバイス節に追加し X ウィンドウを再始動する必
+  要があります。この（テストとデバッグ専用の）オプションで悲惨な表示のち
+  らつきと降雪を沢山見るでしょうが、以降のテストスクリプトを実行すれば直
+  ちに再び取り除くことが出来ます。
+
+  このスクリプトは xbench かつ/又は x11perf を実行してメモリクロック を
+  MHz 単位で表示し決定する検査を行います。4 つ以上のテストを実行した
+  ら、4 つ以上の推定値（最初の推定値が一番正確でしょう）を見ることが出来
+  ます。
+
+  ______________________________________________________________________
+  #!/bin/sh
+
+  exec 2> /dev/null
+
+  scale=2
+
+  calc() {
+    m=`awk 'BEGIN{printf "%.'$scale'f\n",'"( $1 + $2 ) / $3; exit}" `
+    [ -z "$m" ] && m=` echo "scale=$scale; ( $1 + $2 ) / $3" | bc `
+    [ -z "$m" ] && m=` echo "$scale $1 $2 + $3 / pq" | dc `
+    echo $m
+  }
+
+  run_xbench() {
+    r=` ( echo 1; echo 2; echo 3; echo 4 ) | xbench -only $1 | grep rate `
+    [ -z "$r" ] && return
+    cp="$2 $3"
+    set $r
+    calc $3 $cp
+  }
+
+  run_x11perf() {
+    r=` x11perf $1 | grep trep | tr '(/)' '   ' `
+    [ -z "$r" ] && return
+    cp="$2 $3"
+    set $r
+    calc `calc 1000 0 $4` $cp
+  }
+
+  run_x11perf "-rect500 -rop GXxor"     3.86  5.53  #  0 1  #    4.11    5.52  #
+  run_xbench invrects500                4.63  5.48  #  0 1  #    4.69    5.48  #
+
+  run_x11perf "-rect500 -rop GXcopy"  -16.42 13.90  #  0 1  #  -14.99   13.88  #
+  run_xbench fillrects500              -7.81 13.57  #  0 1  #   -8.53   13.58  #
+
+  exit
+  ______________________________________________________________________
+
+  $XConsortium: S3.sgml,v 1.6 95/01/27 16:14:30 kaleb Exp $
+  XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/S3.sgml,v 3.25 1995/07/24 11:17:14 dawes Exp
+
+  ______________________________________________________________________
+
+  このファイルは xc/programs/Xserver/hw/xfree86/ doc/sgml/S3.sgml,v 3.26
+  1995/07/30 04:15:58 を、岡本  一幸 ( Kazuyuki Okamoto
+  <ikko-@pacific.rim.or.jp> <mailto:ikko-@pacific.rim.or.jp> ) が
+  XFree86 3.1.2 を日本でインストールする人向けに和訳したものです。ここが
+  おかしいとか、ここはこうしたほうがいいといったご意見がありましたら、電
+  子メールでお知らせ下さい。原文の著作権は XFree86 プロジェクト社にあり
+  ます。この和訳の著作権は XFree86 プロジェクト社と岡本 一幸にあります
+  が、この和訳の不具合は私に、電子メールで送って下さい。
+
+  XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Japanese/S3.sgml,v 3.4 1995/09/16 08:31:55 dawes Exp
+
+  ______________________________________________________________________
+
+  [EOF]
+

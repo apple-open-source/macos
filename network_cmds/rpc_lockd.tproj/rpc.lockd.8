@@ -43,6 +43,7 @@
 .Nm
 .Op Fl d Ar debug_level
 .Op Fl g Ar grace period
+.Op Fl x Ar statd cache period
 .Sh DESCRIPTION
 The
 .Nm
@@ -93,6 +94,16 @@ locking daemon(s).  This may be used on NFS clients to defer starting the
 NFS locking daemons until it is known that they will be needed.  (Note:
 .Xr rpc.statd 8
 will also be started if it isn't already running)
+.It Fl x
+The
+.Fl x
+option tells rpc.lockd how long to cache state records for contacting
+client
+.Xr rpc.statd 8
+implementations.  Setting it to zero will disable the cache which will
+make lock and unlock requests from a single client more expensive because
+of additional interaction with the client's statd.  The default cache time
+is 60 seconds.
 .El
 .Pp
 Error conditions are logged to syslog, irrespective of the debug level,

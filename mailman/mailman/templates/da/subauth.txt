@@ -1,0 +1,12 @@
+Følgende forespørgsel om at blive medlem af listen skal vurderes
+af dig:
+
+
+    For:   %(username)s
+    Liste: %(listname)s@%(hostname)s
+
+Når du får tid, gå ind på:
+
+    %(admindb_url)s
+
+for at godkende eller afvise forespørgslen.

@@ -27,7 +27,7 @@ struct val {
 
 	union {
 		char           *s;
-		int             i;
+		int64_t             i;
 	} u;
 };
 
@@ -35,10 +35,10 @@ enum token	token;
 struct val     *tokval;
 char          **av;
 
-struct val *make_int __P((int));
+struct val *make_int __P((int64_t));
 struct val *make_str __P((char *));
 void free_value __P((struct val *));
-int is_integer __P((struct val *, int *));
+int is_integer __P((struct val *, int64_t *));
 int to_integer __P((struct val *));
 void to_string __P((struct val *));
 int is_zero_or_null __P((struct val *));
@@ -56,7 +56,7 @@ int main __P((int, char **));
 
 struct val *
 make_int(i)
-	int             i;
+	int64_t             i;
 {
 	struct val     *vp;
 
@@ -99,11 +99,11 @@ free_value(vp)
 int
 is_integer(vp, r)
 	struct val     *vp;
-	int	       *r;
+	int64_t	       *r;
 {
 	char           *s;
 	int             neg;
-	int             i;
+	int64_t             i;
 
 	if (vp->type == integer) {
 		*r = vp->u.i;
@@ -144,7 +144,7 @@ int
 to_integer(vp)
 	struct val     *vp;
 {
-	int             r;
+	int64_t             r;
 
 	if (vp->type == integer)
 		return 1;
@@ -170,11 +170,11 @@ to_string(vp)
 	if (vp->type == string)
 		return;
 
-	tmp = malloc(25);
+	tmp = malloc(100);
 	if (tmp == NULL) {
 		err(2, "%s", "");
 	}
-	(void)snprintf(tmp, 25, "%d", vp->u.i);
+	(void)snprintf(tmp, 100, "%lld", vp->u.i);
 	vp->type = string;
 	vp->u.s = tmp;
 }
@@ -384,7 +384,7 @@ eval2()
 	struct val     *l, *r;
 	enum token	op;
 	int             v = 0;	/* pacify gcc */
-	int		li, ri;
+	int64_t		li, ri;
 
 	l = eval3();
 	while ((op = token) == EQ || op == NE || op == LT || op == GT || op == LE || op == GE) {
@@ -539,7 +539,7 @@ main(argc, argv)
 		error();
 
 	if (vp->type == integer)
-		(void)printf("%d\n", vp->u.i);
+		(void)printf("%lld\n", vp->u.i);
 	else
 		(void)printf("%s\n", vp->u.s);
 

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -99,6 +96,7 @@ bool AppleK2::start(IOService *provider)
 	keyLargo_getHostKeyLargo = OSSymbol::withCString("keyLargo_getHostKeyLargo");
 	keyLargo_powerI2S = OSSymbol::withCString("keyLargo_powerI2S");
 	keyLargo_setPowerSupply = OSSymbol::withCString("setPowerSupply");
+	keyLargo_EnableI2SModem = OSSymbol::withCString("EnableI2SModem");
 	mac_io_publishChildren = OSSymbol::withCString("mac-io-publishChildren");
 	mac_io_publishChild = OSSymbol::withCString("mac-io-publishChild");
  
@@ -1042,24 +1040,13 @@ IOReturn AppleK2::callPlatformFunction(const OSSymbol *functionName,
 		return kIOReturnError;
 	}
 	
+    if (functionName == keyLargo_EnableI2SModem)
+    {
+        EnableI2SModem((bool)param1);
+        return kIOReturnSuccess;
+    }
+    
     return super::callPlatformFunction(functionName, waitForFunction, param1, param2, param3, param4);
-}
-
-IOReturn AppleK2::callPlatformFunction( const char * functionName,
-					  bool waitForFunction,
-					  void *param1, void *param2,
-					  void *param3, void *param4 )
-{
-  IOReturn result = kIOReturnNoMemory;
-  const OSSymbol *functionSymbol = OSSymbol::withCString(functionName);
-  
-  if (functionSymbol != 0) {
-    result = callPlatformFunction(functionSymbol, waitForFunction,
-				  param1, param2, param3, param4);
-    functionSymbol->release();
-  }
-  
-  return result;
 }
 
 /*
@@ -1175,12 +1162,26 @@ void AppleK2::EnableSCC(bool state, UInt8 device, bool type)
 void AppleK2::PowerModem(bool state)
 {
     OSData *prop;
+    if(fHasSoftModem) {
+        // Turn the I2S1 clock on or off.
+        if(state) {
+            safeWriteRegUInt32 (kKeyLargoFCR1, kKeyLargoFCR1I2S1ClkEnable,
+                                                kKeyLargoFCR1I2S1ClkEnable);
+        }
+        else {
+            // reset I2S1 before disabling clock
+            safeWriteRegUInt32 (kKeyLargoFCR1, kK2FCR1I2S1SWReset, kK2FCR1I2S1SWReset);
+            IOSleep(50);
+            safeWriteRegUInt32 (kKeyLargoFCR1, kK2FCR1I2S1SWReset, 0);
+            safeWriteRegUInt32 (kKeyLargoFCR1, kKeyLargoFCR1I2S1ClkEnable, 0);
+        }
+    }
     prop = (OSData *) fProvider->getProperty( "platform-modem-power" );
     if(prop && fPHandle) {
         char callName[255];
 		IOReturn res;
         sprintf(callName,"%s-%8lx", "platform-modem-power", fPHandle);
-        res = callPlatformFunction(callName, false, (void*) state, 0, 0, 0  );
+        res = IOService::callPlatformFunction(callName, false, (void*) state, 0, 0, 0  );
     }
     else {
         if (state) {
@@ -1202,7 +1203,7 @@ void AppleK2::ModemResetLow()
         char callName[255];
 		IOReturn res;
         sprintf(callName,"%s-%8lx", "platform-modem-reset", fPHandle);
-        res = callPlatformFunction(callName, false, (void*) false, 0, 0, 0  );
+        res = IOService::callPlatformFunction(callName, false, (void*) false, 0, 0, 0  );
     }
     else {
         *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x04;	// Set GPIO3_DDIR to output
@@ -1221,7 +1222,7 @@ void AppleK2::ModemResetHigh()
         char callName[255];
 		IOReturn res;
         sprintf(callName,"%s-%8lx", "platform-modem-reset", fPHandle);
-        res = callPlatformFunction(callName, false, (void*)true, 0, 0, 0  );
+        res = IOService::callPlatformFunction(callName, false, (void*)true, 0, 0, 0  );
     }
     else {
         *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x04;	// Set GPIO3_DDIR to output
@@ -1489,6 +1490,32 @@ bool AppleK2::setHTLinkWidth (UInt32 newLinkOutWidth, UInt32 newLinkInWidth)
 	
 	return result;
 }	
+
+void AppleK2::EnableI2SModem(bool enable)
+{
+    UInt32 fcr0ToClear = kKeyLargoFCR0ChooseSCCA | kKeyLargoFCR0SccAEnable;
+    UInt32 fcr1ToSet = kKeyLargoFCR1I2S1CellEnable | kKeyLargoFCR1I2S1Enable;
+    UInt32 fcr3ToSet = kKeyLargoFCR3I2S1Clk18Enable;
+    
+    if(enable) {
+        safeWriteRegUInt32 (kKeyLargoFCR0, fcr0ToClear, 0);
+        safeWriteRegUInt32 (kKeyLargoFCR3, fcr3ToSet, fcr3ToSet);
+        safeWriteRegUInt32 (kKeyLargoFCR1, fcr1ToSet, fcr1ToSet);
+        
+        // reset I2S1 bus
+        safeWriteRegUInt32 (kKeyLargoFCR1, kKeyLargoFCR1I2S1ClkEnable | kK2FCR1I2S1SWReset,
+                                            kKeyLargoFCR1I2S1ClkEnable | kK2FCR1I2S1SWReset);
+        IOSleep(50);
+        safeWriteRegUInt32 (kKeyLargoFCR1, kKeyLargoFCR1I2S1ClkEnable | kK2FCR1I2S1SWReset,
+                                            0);
+        
+    }
+    else {
+        safeWriteRegUInt32 (kKeyLargoFCR0, fcr0ToClear, fcr0ToClear);
+        safeWriteRegUInt32 (kKeyLargoFCR3, fcr3ToSet, 0);
+        safeWriteRegUInt32 (kKeyLargoFCR1, fcr1ToSet, 0);
+    }
+}
 
 void AppleK2::logClockState()
 {

@@ -1,0 +1,80 @@
+#! /bin/sh
+#
+# $XFree86: xc/programs/Xserver/hw/xfree86/XF86Setup/scripts/findopts,v 3.2 1997/12/06 08:53:03 hohndel Exp $
+#
+# This script should be run by XF86Setup \
+exec XF86Setup -notk `basename $0` -- ${1+"$@"}
+
+# This is just for my own use in generating a list of valid options
+# to each server as needed by carddata.tcl
+
+set xf86dir $Xwinhome/xc/programs/Xserver/hw/xfree86
+
+set dirlist [list accel/ibm8514 accel/agx accel/i128 accel/mach8\
+		accel/mach32 accel/mach64 accel/p9000 accel/s3 \
+		vga256 vga16 vga2]
+set srvlist {8514 AGX I128 Mach8 Mach32 Mach64 P9000 S3 SVGA VGA16 Mono}
+
+set fd [open $xf86dir/common/xf86_Option.h r]
+set table none
+while {[gets $fd line] >= 0} {
+	if { $table == "none" } {
+		if {[regexp {^OptFlagRec xf86_(.+)Tab.+ =} $line dummy tab]} {
+			if { $tab == "Option" } {
+				set table Options
+			} elseif { $tab == "ClockOption" } {
+				set table Clocks
+			}
+		}
+		continue
+	}
+	if {[string match {*"",*} $line]} {
+		set table none
+		continue
+	}
+	if {![regexp {"([^"]+)",[ 	]*([A-Z_]+TION_[^ \}]+)} $line dummy nam val]} {
+		continue
+	}
+	if ![info exists ${table}($val)] {
+		set ${table}($val) ""
+	}
+	lappend ${table}($val) $nam
+}
+close $fd
+set Clocks(CLOCK_OPTION_PROGRAMABLE) ""
+
+for {set idx 0} {$idx < [llength $srvlist]} {incr idx} {
+	set srv [lindex $srvlist $idx]
+	cd $xf86dir/[lindex $dirlist $idx]
+	set optlist ""
+	set clklist ""
+	set lines [exec find . -name {*.[hc]} -print | xargs grep OPTION_]
+	foreach line [split $lines \n] {
+		if [regexp {[^_](OPTION_[0-9A-Z_]+)} $line dummy opt] {
+			lappend optlist $opt
+		}
+		if [regexp {(CLOCK_OPTION_[0-9A-Z_]+)} $line dummy opt] {
+			lappend clklist $opt
+		}
+	}
+	set optnamlist ""
+	foreach opt [lrmdups $optlist] {
+		if [info exists Options($opt)] {
+			eval lappend optnamlist $Options($opt)
+		} else {
+			puts "Unknown option: $opt"
+		}
+	}
+	puts "CardOptions($srv) = $optnamlist"
+	set clknamlist ""
+	foreach opt [lrmdups $clklist] {
+		if [info exists Clocks($opt)] {
+			eval lappend clknamlist $Clocks($opt)
+		} else {
+			puts "Unknown clock option: $opt"
+		}
+	}
+	puts "CardClockChips($srv) = $clknamlist"
+	puts ""
+}
+

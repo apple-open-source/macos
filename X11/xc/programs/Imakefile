@@ -1,0 +1,139 @@
+XCOMM $Xorg: Imakefile,v 1.4 2000/08/17 19:47:01 cpqbld Exp $
+
+
+
+XCOMM $XFree86: xc/programs/Imakefile,v 3.53 2002/11/20 04:43:50 dawes Exp $
+
+#define IHaveSubdirs
+#define PassCDebugFlags CDEBUGFLAGS="$(CDEBUGFLAGS)"
+
+#if BuildServer || UseRgbTxt
+       RGBSRCDIR = rgb
+#endif
+#if BuildServer
+        XSSRCDIR = Xserver
+#endif
+#ifndef Win32Architecture
+#if HasXServer
+     XINITSRCDIR = xinit
+#endif
+#if BuildFontServer
+       XFSSRCDIR = xfs
+#endif
+#if BuildXKBlib
+      XKBSRCDIRS = setxkbmap xkbcomp xkbevd xkbprint xkbutils
+#endif
+#if BuildScreenSaverLibrary
+SCREENSAVESRCDIR = beforelight
+#endif
+#if BuildXF86VidModeLibrary
+  XVIDTUNESRCDIR = xvidtune
+#endif
+#if BuildXF86DGALibrary
+   XF86DGASRCDIR = xf86dga
+#endif
+#if BuildXAServer
+       XASSRCDIR = Xaserver
+#endif
+#if BuildLBX
+  LBXPROXYSRCDIR = lbxproxy
+#endif
+  PROXYMGRSRCDIR = proxymngr
+    RSTARTSRCDIR = rstart
+   SMPROXYSRCDIR = smproxy
+       TWMSRCDIR = twm
+  XCONSOLESRCDIR = xconsole
+       XDMSRCDIR = xdm
+XFINDPROXYSRCDIR = xfindproxy
+      XFWPSRCDIR = xfwp
+#if BuildXF86VidModeLibrary
+    XGAMMASRCDIR = xgamma
+#endif
+#if BuildXvLibrary
+    XVINFOSRCDIR = xvinfo
+#endif
+     XHOSTSRCDIR = xhost
+#if BuildPlugin
+       XRXSRCDIR = xrx
+#endif
+       XSMSRCDIR = xsm
+     XTERMSRCDIR = xterm
+      SCRIPTSDIR = scripts
+#endif
+#if BuildCID
+     MKCFMSRCDIR = mkcfm
+#endif
+
+#if (HasFreetype2 || BuildFreetype2Library) && BuildFontEncLib
+  MKFONTSCALEDIR = mkfontscale
+#endif
+
+#if BuildXIElib
+   XIECLIENTDIRS = xieperf
+#endif
+
+#if BuildXInputLib
+XINPUTCLIENTDIRS = xsetmode xsetpointer
+#endif
+
+#if BuildXTrapLibrary
+XTRAPCLIENTDIRS = xtrap
+#endif
+
+/* makepsres should be considered as part of the DPS libraries */
+#if BuildDPSLibraries
+    MAKEPSRESDIR = makepsres
+#endif
+
+/* on the other hand, the following are independent clients */
+#if BuildDPSClients
+     DPSCLIENTDIRS = dpsinfo dpsexec texteroids
+#endif
+
+   XPMCLIENTDIRS = cxpm sxpm
+
+#if BuildGLXLibrary
+      GLXCLIENTDIRS = glxinfo glxgears
+#endif
+
+#ifndef cygwinArchitecture
+        XLOADDIR = xload
+#endif
+
+#if BuildRandRLibrary
+       XRANDRDIR = xrandr
+#endif
+
+#if BuildXcursorgen
+   XCURSORGENDIR = xcursorgen
+#endif
+
+#if BuildServersOnly || !BuildClients
+SUBDIRS = $(XSSRCDIR)
+#else
+SUBDIRS = \
+	appres bdftopcf bitmap \
+	$(SCREENSAVESRCDIR) editres fslsfonts fstobdf iceauth \
+	ico listres luit \
+	$(MAKEPSRESDIR) $(DPSCLIENTDIRS) \
+	$(MKCFMSRCDIR) \
+	mkfontdir $(MKFONTSCALEDIR) oclock $(PROXYMGRSRCDIR) \
+	$(RGBSRCDIR) $(RSTARTSRCDIR) showfont \
+	$(SMPROXYSRCDIR) $(TWMSRCDIR) viewres x11perf xauth xbiff xcalc \
+	xclipboard xclock \
+	xcmsdb $(XCONSOLESRCDIR) xditview $(XDMSRCDIR) xdpyinfo \
+	$(XF86DGASRCDIR) xedit xev xeyes xfd xfontsel $(XFSSRCDIR) xfsinfo \
+	$(XFINDPROXYSRCDIR) $(XFWPSRCDIR) $(XGAMMASRCDIR) xgc $(XHOSTSRCDIR) \
+	$(XIECLIENTDIRS) $(XINITSRCDIR) $(XKBSRCDIRS) xkill $(XLOADDIR) xlogo \
+	xlsatoms \
+	xlsclients xlsfonts xmag xman xmessage xmh xmodmap xprop xrdb \
+	xrefresh $(XRXSRCDIR) xset \
+	xsetroot $(XSMSRCDIR) xstdcmap $(XINPUTCLIENTDIRS) \
+	$(XTERMSRCDIR) $(XTRAPCLIENTDIRS) $(XVIDTUNESRCDIR) xwd xwininfo xwud \
+	$(XPMCLIENTDIRS) $(XVINFOSRCDIR) \
+	$(XSSRCDIR) $(XASSRCDIR) $(LBXPROXYSRCDIR) $(SCRIPTSDIR) \
+	$(GLXCLIENTDIRS) $(XRANDRDIR) $(XCURSORGENDIR)
+#endif
+
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))

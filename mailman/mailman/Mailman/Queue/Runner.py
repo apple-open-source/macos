@@ -1,4 +1,4 @@
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -31,6 +31,12 @@ from Mailman import i18n
 from Mailman.Queue.Switchboard import Switchboard
 from Mailman.Logging.Syslog import syslog
 
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
+
 
 
 class Runner:
@@ -44,16 +50,16 @@ class Runner:
         self._switchboard = Switchboard(self.QDIR, slice, numslices)
         # Create the shunt switchboard
         self._shunt = Switchboard(mm_cfg.SHUNTQUEUE_DIR)
-        self._stop = 0
+        self._stop = False
 
     def stop(self):
-        self._stop = 1
+        self._stop = True
 
     def run(self):
         # Start the main loop for this queue runner.
         try:
             try:
-                while 1:
+                while True:
                     # Once through the loop that processes all the files in
                     # the queue directory.
                     filecnt = self._oneloop()
@@ -64,10 +70,10 @@ class Runner:
                     # If the stop flag is set, we're done.
                     if self._stop:
                         break
-                    # If there were no files to process, then we'll simply
-                    # sleep for a little while and expect some to show up.
-                    if not filecnt:
-                        self._snooze()
+                    # Give the runner an opportunity to snooze for a while,
+                    # but pass it the file count so it can decide whether to
+                    # do more work now or not.
+                    self._snooze(filecnt)
             except KeyboardInterrupt:
                 pass
         finally:
@@ -79,8 +85,7 @@ class Runner:
         # First, list all the files in our queue directory.
         # Switchboard.files() is guaranteed to hand us the files in FIFO
         # order.  Return an integer count of the number of files that were
-        # available for this qrunner to process.  A non-zero value tells run()
-        # not to snooze for a while.
+        # available for this qrunner to process.
         files = self._switchboard.files()
         for filebase in files:
             # Ask the switchboard for the message and metadata objects
@@ -105,12 +110,12 @@ class Runner:
                     self._onefile(msg, msgdata)
                 except Exception, e:
                     self._log(e)
-                    syslog('error', 'SHUNTING: %s', filebase)
                     # Put a marker in the metadata for unshunting
                     msgdata['whichq'] = self._switchboard.whichq()
-                    self._shunt.enqueue(msg, msgdata)
+                    filebase = self._shunt.enqueue(msg, msgdata)
+                    syslog('error', 'SHUNTING: %s', filebase)
             # Other work we want to do each time through the loop
-            Utils.reap(self._kids, once=1)
+            Utils.reap(self._kids, once=True)
             self._doperiodic()
             if self._shortcircuit():
                 break
@@ -172,7 +177,7 @@ class Runner:
         mlist = self._listcache.get(listname)
         if not mlist:
             try:
-                mlist = MailList.MailList(listname, lock=0)
+                mlist = MailList.MailList(listname, lock=False)
             except Errors.MMListError, e:
                 syslog('error', 'error opening list: %s\n%s', listname, e)
                 return None
@@ -219,18 +224,18 @@ class Runner:
         from the Runner's hash slice processing loop.  You can do whatever
         special periodic processing you want here, and the return value is
         irrelevant.
-
         """
         pass
 
-    def _snooze(self):
-        """Sleep for a little while, because there was nothing to do.
+    def _snooze(self, filecnt):
+        """Sleep for a little while.
 
-        This is called from the Runner's main loop, but only when the last
-        processing loop had no work to do (i.e. there were no messages in it's
-        little slice of hash space).
+        filecnt is the number of messages in the queue the last time through.
+        Sub-runners can decide to continue to do work, or sleep for a while
+        based on this value.  By default, we only snooze if there was nothing
+        to do last time around.
         """
-        if self.SLEEPTIME <= 0:
+        if filecnt or self.SLEEPTIME <= 0:
             return
         time.sleep(self.SLEEPTIME)
 

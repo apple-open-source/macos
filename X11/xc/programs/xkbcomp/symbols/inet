@@ -1,0 +1,1769 @@
+ // $XFree86: xc/programs/xkbcomp/symbols/inet,v 1.28 2003/02/26 19:08:43 dawes Exp $
+
+// EAK (Easy Access, Internet, Multimedia, PDA) keyboards
+// Copyright (C) 2002 Stanislav Brabec <sbrabec@suse.cz>
+//
+// Based on LinEAK project
+// LinEAK - Linux support for Easy Access and Internet Keyboards      
+// Copyright (C) 2001, 2002 Mark Smulders <Mark@PIRnet.nl>
+
+// Usage in XF86Config:
+// Option "XkbLayout"	"my_kb_layout"
+// Option "XkbVariant"	"my_kb_variant"
+// Option "XkbModel"	"my_eak_type"
+// Option "XkbRules"	"xfree86"
+// Simple command line usage:
+// setxkbmap 'my_kb_layout(my_kb_variant)+inet(my_eak_type)'
+
+
+// Acer
+
+partial alphanumeric_keys
+xkb_symbols "airkey" {
+    name[Group1]= "Acer AirKey V";
+
+    key <I18>	{	[ XF86AudioPrev		]	};
+    key <I15>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I31>	{	[ XF86AudioStop, XF86Eject ]	};
+    key <I13>	{	[ XF86AudioNext		]	};
+    key <I2D>	{	[ XF86AudioRaiseVolume	]	};
+    key <I26>	{	[ XF86AudioLowerVolume	]	};
+    key <I19>	{	[ XF86AudioMute		]	};
+    key <I24>	{	[ XF86WWW		]	};
+    key <I16>	{	[ XF86Mail		]	};
+    key <I2F>	{	[ XF86Terminal		]	};
+    key <I63>	{	[ XF86Standby		]	};
+    key <I5E>	{	[ XF86PowerOff		]	};
+};
+
+
+// ACPI Standard
+
+partial alphanumeric_keys
+xkb_symbols "acpi" {
+    name[Group1]= "ACPI Standard";
+
+    key <I5E>	{	[ XF86PowerOff		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I63>	{	[ XF86WakeUp		]	};
+};
+
+
+// Advance
+
+partial alphanumeric_keys
+xkb_symbols "scorpius" {
+    name[Group1]= "Advance Scorpius KI";
+
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I6D>	{	[ XF86AudioMedia	]	};
+
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+
+    key <I63>	{	[ XF86WakeUp		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I5E>	{	[ XF86PowerOff		]	};
+
+    key <I21>	{	[ XF86Calculator	]	};
+    key <I6B>	{	[ XF86MyComputer	]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I66>	{	[ XF86Favorites		]	};
+    key <I32>	{	[ XF86HomePage		]	};
+
+    key <I6A>	{	[ XF86Back		]	};
+    key <I69>	{	[ XF86Forward		]	};
+    key <I68>	{	[ XF86Stop		]	};
+    key <I67>	{	[ XF86Reload		]	};
+    key <I65>	{	[ XF86Search		]	};
+};
+
+
+// Brother
+
+partial alphanumeric_keys
+xkb_symbols "brother" {
+    name[Group1]= "Brother Internet Keyboard";
+
+    key <I21>	{	[ XF86WWW		]	};
+    key <I1E>	{	[ XF86AudioMute		]	};
+    key <I68>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I18>	{	[ XF86ScrollDown	]	};
+    key <I10>	{	[ XF86ScrollUp		]	};
+    key <I17>	{	[ XF86AudioPrev		]	};
+    key <I12>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I2E>	{	[ XF86AudioNext		]	};
+    key <I23>	{	[ XF86AudioStop		]	};
+    key <I19>	{	[ XF86ZoomOut		]	};
+    key <I32>	{	[ XF86ZoomIn		]	};
+    key <I24>	{	[ XF86Calculator	]	};
+    key <I25>	{	[ XF86Xfer		]	};
+    key <I22>	{	[ Menu			]	};
+    key <I26>	{	[ XF86Mail		]	};
+    key <I5E>	{	[ XF86PowerOff		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I63>	{	[ XF86WakeUp		]	};
+};
+
+
+// BTC
+
+partial alphanumeric_keys
+xkb_symbols "btc5113rf" {
+    name[Group1]= "BTC 5113RF Multimedia";
+
+    key <I30>	{	[ XF86WWW		]	};
+    key <I26>	{	[ XF86Back		]	};
+    key <I20>	{	[ XF86Favorites		]	};
+    key <I32>	{	[ XF86Search		]	};
+    key <I25>	{	[ XF86AudioLowerVolume	]	};
+    key <I1E>	{	[ XF86AudioRaiseVolume	]	};
+    key <I12>	{	[ XF86AudioMute		]	};
+    key <I22>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I10>	{	[ XF86AudioStop		]	};
+    key <I24>	{	[ XF86AudioNext		]	};
+    key <I21>	{	[ XF86Eject		]	};
+    key <I5E>	{	[ XF86PowerOff		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I63>	{	[ XF86WakeUp		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "btc5126t" {
+    name[Group1]= "BTC 5126T";
+
+    key <I30>	{	[ XF86WWW		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I2B>	{	[ XF86Mail		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "btc9000" {
+    name[Group1]= "BTC 9000";
+
+    key <I19>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I22>	{	[ XF86AudioPrev		]	};
+    key <I24>	{	[ XF86AudioNext		]	};
+    key <I10>	{	[ XF86AudioStop		]	};
+    key <I21>	{	[ XF86AudioMedia	]	};
+
+    key <I25>	{	[ XF86AudioLowerVolume	]	};
+    key <I1E>	{	[ XF86AudioRaiseVolume	]	};
+    key <I12>	{	[ XF86AudioMute		]	};
+
+    key <I30>	{	[ XF86HomePage		]	};
+    key <I26>	{	[ XF86Reload		]	};
+    key <I32>	{	[ XF86Search		]	};
+    key <I20>	{	[ XF86Favorites		]	};
+
+    key <I2E>	{	[ XF86Mail		]	};
+    key <I63>   {	[ XF86WakeUp		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I5E>   {	[ XF86PowerOff		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "btc9000a" {
+    name[Group1]= "BTC 9000A";
+
+    key <I19>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I22>	{	[ XF86AudioPrev		]	};
+    key <I24>	{	[ XF86AudioNext		]	};
+    key <I10>	{	[ XF86AudioStop		]	};
+    key <I21>	{	[ XF86Eject		]	};
+
+    key <I1E>	{	[ XF86AudioRaiseVolume	]	};
+    key <I25>	{	[ XF86AudioLowerVolume	]	};
+    key <I12>	{	[ XF86AudioMute		]	};
+
+    key <I30>	{	[ XF86WWW		]	};
+    key <I26>	{	[ XF86HomePage		]	};
+    key <I32>	{	[ XF86Search		]	};
+    key <I20>	{	[ XF86Favorites		]	};
+
+    key <I2E>	{	[ Help			]	};
+    key <I63>	{	[ XF86WakeUp		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I5E>	{	[ XF86PowerOff		]	};
+};
+
+
+// Cherry Blue Line
+
+partial alphanumeric_keys
+xkb_symbols "cherryblue" {
+    name[Group1]= "Cherry Blue Line CyBo@rd";
+
+    key <I6A>	{	[ XF86Back		]	};
+    key <I69>	{	[ XF86Forward		]	};
+    key <I68>	{	[ XF86Stop		]	};
+    key <FK16>	{	[ XF86Reload		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I66>	{	[ XF86MyComputer	]	};
+    key <I02>	{	[ XF86HomePage		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <PRSC>	{	[ XF86Terminal		]	};
+    key <I21>	{	[ XF86Calculator	]	};
+    key <I1E>	{	[ XF86AudioRaiseVolume	]	};
+    key <I26>	{	[ XF86AudioMute		]	};
+    key <I25>	{	[ XF86AudioLowerVolume	]	};
+    key <XFER>	{	[ XF86Go		]	};
+    key <I24>	{	[ XF86AudioPrev		]	};
+    key <I22>	{	[ XF86AudioNext		]	};
+    key <I1F>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I17>	{	[ XF86AudioStop		]	};
+    key <I63>	{	[ XF86Standby		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "cherrybluea" {
+    name[Group1]= "Cherry Blue Line CyBo@rd (alternate option)";
+
+    key <I6A>	{	[ XF86Back		]	};
+    key <I69>	{	[ XF86Forward		]	};
+    key <I68>	{	[ XF86Stop		]	};
+    key <I67>	{	[ XF86Reload		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I66>	{	[ XF86MyComputer	]	};
+    key <I32>	{	[ XF86HomePage		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I6B>	{	[ XF86Terminal		]	};
+    key <I21>	{	[ XF86Calculator	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I6D>	{	[ XF86Go		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+};
+
+
+// Chicony
+
+partial alphanumeric_keys 
+xkb_symbols "chicony" {
+    name[Group1]= "Chicony Internet Keyboard";
+
+    key <I19>	{	[ XF86AudioLowerVolume	]	};
+    key <I12>	{	[ XF86AudioMute		]	};
+    key <I23>	{	[ XF86AudioRaiseVolume	]	};
+    key <I22>	{	[ XF86AudioPrev		]	};
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I21>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I20>	{	[ XF86AudioNext		]	};
+    key <I5E>	{	[ XF86PowerOff		]	};
+    key <I32>	{	[ XF86HomePage		]	};
+    key <I17>	{	[ XF86Mail		]	};
+    key <I25>	{	[ XF86Back		]	};
+    key <I1E>	{	[ XF86Forward		]	};
+    key <I5F>	{	[ XF86ContrastAdjust	]	};
+    key <I63>	{	[ XF86BrightnessAdjust	]	};
+    key <I30>	{	[ XF86LaunchA		]	};
+    key <I26>	{	[ XF86LaunchB		]	};
+    key <I2E>	{	[ XF86LaunchC		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "chicony9885" {
+    name[Group1]= "Chicony KB-9885";
+
+    key <I19>	{	[ XF86AudioLowerVolume	]	};
+    key <I12>	{	[ XF86AudioMute		]	};
+    key <I23>	{	[ XF86AudioRaiseVolume	]	};
+    key <I22>	{	[ XF86AudioPrev		]	};
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I21>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I20>	{	[ XF86AudioNext		]	};
+    key <I5E>	{	[ XF86PowerOff		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I63>	{	[ XF86WakeUp		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I17>	{	[ XF86Mail		]	};
+    key <I30>	{	[ XF86LaunchA		]	};
+    key <I26>	{	[ XF86LaunchB		]	};
+    key <I2E>	{	[ XF86LaunchC		]	};
+    key <I25>	{	[ XF86Back		]	};
+    key <I1E>	{	[ XF86Forward		]	};
+};
+
+
+// Compaq
+
+partial alphanumeric_keys
+xkb_symbols "compaqeak8" {
+    name[Group1]= "Compaq Easy Access Keyboard";
+
+    key <I23>	{	[ XF86WWW		]	};
+    key <I1F>	{	[ XF86HomePage		]	};
+    key <I1A>	{	[ XF86Search		]	};
+    key <I1E>	{	[ XF86Mail		]	};
+    key <I13>	{	[ XF86Community		]	};
+    key <I14>	{	[ XF86Market		]	};
+    key <I15>	{	[ XF86Meeting		]	};
+    key <I1B>	{	[ XF86News		]	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "compaqik7" {
+    name[Group1]= "Compaq Internet Keyboard (7 keys)";
+
+    key <I1E>	{	[ XF86Mail		]	};
+    key <I23>	{	[ Help			]	};
+    key <I21>	{	[ XF86Search		]	};
+    key <I25>	{	[ XF86VendorHome	]	};
+    key <I26>	{	[ XF86HomePage		]	};
+    key <I12>	{	[ XF86LightBulb		]	};
+    key <I32>	{	[ XF86Shop		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "compaqik13" {
+    name[Group1]= "Compaq Internet Keyboard (13 keys)";
+
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I1F>	{	[ XF86Go		]	};
+    key <I23>	{	[ XF86WWW		]	};
+    key <I21>	{	[ XF86Search		]	};
+    key <I1E>	{	[ XF86Mail		]	};
+    key <I32>	{	[ XF86Shop		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "compaqik18" {
+    name[Group1]= "Compaq Internet Keyboard (18 keys)";
+
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I18>	{	[ XF86Eject		]	};
+
+    key <I1E>	{	[ XF86Mail		]	};
+    key <I26>	{	[ XF86Community		]	};
+    key <I25>	{	[ XF86VendorHome	]	};
+    key <I23>	{	[ XF86WWW		]	};
+    key <I21>	{	[ XF86Search		]	};
+    key <I12>	{	[ XF86LightBulb		]	};
+    key <I32>	{	[ XF86Shop		]	};
+
+    key <I68>	{	[ Print			]	};
+    key <I1F>	{	[ XF86Go		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I5F>	{	[ XF86Standby		]	};
+};
+
+
+partial alphanumeric_keys
+xkb_symbols "armada" {
+    name[Group1]= "Laptop/notebook Compaq (eg. Armada) Laptop Keyboard";
+
+    key <I23>	{	[ XF86WWW		]	};
+    key <I1F>	{	[ XF86HomePage		]	};
+    key <I1A>	{	[ XF86Search		]	};
+    key <I1E>	{	[ XF86Mail		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "presario" {
+    name[Group1]= "Laptop/notebook Compaq (eg. Presario) Internet Keyboard";
+
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I1F>	{	[ XF86Launch1		]	};
+    key <I18>	{	[ XF86Launch2		]	};
+
+    key <I75>	{	[ XF86AudioMedia	]	};
+    key <I23>	{	[ XF86WWW		]	};
+    key <I14>	{	[ XF86Q			]	};
+    key <I32>	{	[ XF86Shop		]	};
+    key <I1E>	{	[ XF86Mail		]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "ipaq" {
+    name[Group1]= "Compaq iPaq Keyboard";
+
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I69>	{	[ XF86BackForward	]	};
+    key <I6A>	{	[ XF86Q			]	};
+    key <I02>	{	[ XF86Standby		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I66>	{	[ XF86Travel		]	};
+    key <FK16>	{	[ XF86Shop		]	};
+};
+
+
+// Dell
+
+partial alphanumeric_keys
+xkb_symbols "dell" {
+    name[Group1]= "Dell";
+
+    key <I12>	{	[ XF86Mail		]	};
+    key <I26>	{	[ XF86HomePage		]	};
+    key <I1E>	{	[ XF86Search		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+};
+
+
+partial alphanumeric_keys
+xkb_symbols "inspiron" {
+    name[Group1]= "Laptop/notebook Dell Inspiron 8xxx";
+
+    key <XFER>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <NFER>	{	[ XF86AudioPrev		]	};
+    key <I04>	{	[ XF86AudioNext		]	};
+    key <I02>	{	[ XF86AudioStop		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+};
+
+
+// Dexxa
+
+partial alphanumeric_keys
+xkb_symbols "dexxa" {
+    name[Group1]= "Dexxa Wireless Desktop Keyboard";
+
+    key <I67>	{	[ XF86Reload		]	};
+    key <I66>	{	[ XF86Favorites		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+};
+
+
+// Diamond
+
+partial alphanumeric_keys
+xkb_symbols "diamond" {
+    name[Group1]= "Diamond 9801 / 9802 series";
+
+    key <I6A>	{	[ XF86Back		]	};
+    key <I69>	{	[ XF86Forward		]	};
+    key <I68>	{	[ XF86Stop		]	};
+    key <I66>	{	[ XF86Favorites		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I67>	{	[ XF86Reload		]	};
+    key <I32>	{	[ XF86HomePage		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I6D>	{	[ XF86Go		]	};
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I21>	{	[ XF86Calculator	]	};
+    key <I6B>	{	[ XF86MyComputer	]	};
+    key <I5E>	{	[ XF86PowerOff		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I63>	{	[ XF86WakeUp		]	};
+};
+
+// Ennyah
+
+partial alphanumeric_keys
+xkb_symbols "ennyah_dkb1008" {
+    name[Group1]= "Ennyah DKB-1008";
+
+    key <I32>	{	[ XF86HomePage		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I6A>	{	[ XF86Back		]	};
+    key <I69>	{	[ XF86Forward		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I67>	{	[ XF86Refresh		]	};
+    key <I66>	{	[ XF86Favorites		]	};
+    key <I68>	{	[ XF86Stop		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I20>   {	[ XF86AudioMute		]	};
+    key <I24>   {	[ XF86AudioStop		]	};
+    key <I10>   {	[ XF86AudioPrev		]	};
+    key <I22>   {	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I19>   {	[ XF86AudioNext		]	};
+    key <XFER>  {	[ XF86AudioMedia	]	};
+    key <I5E>   {	[ XF86PowerOff		]	};
+    key <I5F>   {	[ XF86Standby		]	};
+    key <I63>   {	[ XF86WakeUp		]	};
+};
+
+
+// Genius
+
+partial alphanumeric_keys
+xkb_symbols "genius" {
+    name[Group1]= "Genius Comfy KB-16M / Genius MM Keyboard KWD-910";
+
+    key <I23>	{	[ XF86AudioPrev		]	};
+    key <I22>   {	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>   {	[ XF86AudioStop		]	};
+    key <I21>   {	[ XF86AudioNext		]	};
+    key <I30>   {	[ XF86Eject		]	};
+    key <I19>   {	[ XF86AudioLowerVolume	]	};
+    key <I12>   {	[ XF86AudioRaiseVolume	]	};
+    key <I20>   {	[ XF86AudioMute		]	};
+    key <I26>   {	[ XF86ScreenSaver	]	};
+    key <I17>   {	[ XF86Calculator	]	};
+    key <I2E>   {	[ XF86Mail		]	};
+    key <I25>   {	[ XF86Back		]	};
+    key <I32>   {	[ XF86WWW		]	};
+    key <I1E>   {	[ XF86Forward		]	};
+    key <I5F>   {	[ XF86Standby		]	};
+    key <I63>   {	[ XF86WakeUp		]	};
+};
+
+
+// Hewlett-Packard
+
+partial alphanumeric_keys 
+xkb_symbols "hpi6" {
+    name[Group1]= "Hewlett-Packard Internet Keyboard";
+
+    key <I12>	{	[ XF86Search		]	};
+    key <I26>	{	[ Help			]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "hp2501" {
+    name[Group1]= "Hewlett-Packard SK-2501 Multimedia Keyboard";
+
+    key <I32>	{	[ XF86WWW		]	};
+    key <I17>	{	[ XF86Search		]	};
+    key <I12>	{	[ XF86Tools		]	};
+    key <I1E>	{	[ XF86Mail		]	};
+    key <I23>	{	[ XF86Launch2		]	};
+    key <I22>	{	[ XF86Launch3		]	};
+    key <I24>	{	[ XF86Launch4		]	};
+    key <I21>	{	[ XF86Launch5		]	};
+    key <I25>	{	[ XF86Standby		]	};
+    key <I26>	{	[ Help			]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "hp2505" {
+    name[Group1]= "Hewlett-Packard SK-2505 Internet Keyboard";
+
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I18>	{	[ XF86Eject		]	};
+    key <I1E>	{	[ XF86Mail		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I25>	{	[ XF86Standby		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "hp5181" {
+    name[Group1]= "Hewlett-Packard 5181 Internet Keyboard";
+
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I12>	{	[ XF86Search		]	};
+    key <I14>	{	[ XF86VendorHome	]	};
+    key <I15>	{	[ XF86Community		]	};
+    key <I16>	{	[ XF86AudioMedia	]	};
+    key <I18>	{	[ XF86Eject		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I1E>	{	[ XF86Shop		]	};
+    key <I1F>	{	[ XF86Launch1		]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I22>	{	[ XF86AudioStop		]	};
+    key <I24>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I26>	{	[ Help			]	};
+    key <I27>	{	[ XF86Finance		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I32>	{	[ XF86HomePage		]	};
+    key <I39>	{	[ Print			]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+};
+
+
+partial alphanumeric_keys
+xkb_symbols "hpxe3gc" {
+
+    // Describes the OneTouch buttons on HP Omnibook XE3 GC and
+    // HP Pavilion N52XX models.
+    // See http://sourceforge.net/projects/omke for details on enabling
+    // these keys
+
+    name[Group1]= "Hewlett-Packard Omnibook XE3 GC, GD, GE and Pavilion N5xxx";
+    key <I73>	{	[ XF86WWW		]	};
+    key <I74>	{	[ XF86Mail		]	};
+    key <I72>	{	[ XF86Launch1		]	};
+    key <I71>	{	[ Help			]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause	]	};
+    key <I24>	{	[ XF86AudioStop, XF86Eject	]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "hpxe3gf" {
+
+    // Describes the OneTouch buttons on HP Omnibook XE3 GF models.
+    // See http://sourceforge.net/projects/omke for details on enabling
+    // these keys
+
+    name[Group1]= "Hewlett-Packard Omnibook XE3 GF";
+    key <I32>	{	[ XF86WWW		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I74>	{	[ XF86Launch1		]	};
+    key <I73>	{	[ Help			]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause	]	};
+    key <I24>	{	[ XF86AudioStop, XF86Eject	]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "hpxt1000" {
+
+    // Describes the OneTouch buttons on HP Omnibook XT1000 models.
+    // See http://sourceforge.net/projects/omke for details on enabling
+    // these keys
+
+    name[Group1]= "Hewlett-Packard Omnibook XT1000";
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I74>	{	[ XF86Launch1		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I73>	{	[ XF86Launch2		]	};
+    key <I72>	{	[ Help			]	};
+    key <I71>	{	[ XF86Launch3		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause	]	};
+    key <I24>	{	[ XF86AudioStop, XF86Eject	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "hpzt11xx" {
+
+    // Describes the OneTouch buttons on HP Pavilion ZT11xx models.
+    // See http://sourceforge.net/projects/omke for details on enabling
+    // these keys
+
+    name[Group1]= "Hewlett-Packard Pavilion ZT11xx";
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I74>	{	[ XF86Launch1		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I73>	{	[ XF86Launch2		]	};
+    key <I72>	{	[ Help			]	};
+    key <I71>	{	[ XF86Launch3		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause	]	};
+    key <I24>	{	[ XF86AudioStop, XF86Eject	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "hpxe4xxx" {
+
+    // Describes the OneTouch buttons on HP Omnibook XE4xxx and ZE4xxx
+    // models.
+    // See http://sourceforge.net/projects/omke for details on enabling
+    // these keys
+
+    name[Group1]= "Hewlett-Packard Omnibook XE4xxx and ZE4xxx";
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I73>	{	[ XF86Launch1		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I71>	{	[ XF86Launch2		]	};
+    key <I70>	{	[ Help			]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "hp500fa" {
+
+    // Describes the OneTouch buttons on HP Omnibook 500 FA models.
+    // See http://sourceforge.net/projects/omke for details on enabling
+    // these keys
+
+    name[Group1]= "Hewlett-Packard Omnibook 500 FA";
+    key <I74>	{	[ XF86Launch1		]	};
+    key <I73>	{	[ Help			]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "hp5xx" {
+
+    // Describes the OneTouch buttons on HP Omnibook 5xx models.
+    // See http://sourceforge.net/projects/omke for details on enabling
+    // these keys
+
+    name[Group1]= "Hewlett-Packard Omnibook 5xx";
+    key <I74>	{	[ XF86Launch1		]	};
+    key <I73>	{	[ Help			]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause	]	};
+    key <I24>	{	[ XF86AudioStop, XF86Eject	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+};
+
+
+// Honeywell
+
+
+partial alphanumeric_keys
+xkb_symbols "honeywell_euroboard" {
+
+    // Scott Penrose <scottp@dd.com.au>
+    // January 2002
+    // http://linux.dd.com.au/quest/linux/keyboard/honeywell/
+
+    name[Group1]= "Honeywell Euroboard";
+    key <I10>	{	[ XF86Game		]	};
+    key <I12>	{	[ XF86AudioPrev		]	};
+    key <I17>	{	[ XF86Eject		]	};
+    key <I18>	{	[ XF86Launch2		]	};
+    key <I19>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I1E>	{	[ XF86Launch1		]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I22>	{	[ XF86AudioNext		]	};
+    key <I23>	{	[ XF86AudioStop		]	};
+    key <I24>	{	[ XF86Mail		]	};
+    key <I25>	{	[ XF86ScreenSaver	]	};
+    key <I26>	{	[ XF86Calculator	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I32>	{	[ XF86WWW		]	};
+};
+
+
+// IBM
+
+
+partial alphanumeric_keys 
+xkb_symbols "rapidaccess" {
+    name[Group1]= "IBM Rapid Access";
+
+    key <I22>	{	[ XF86AudioPause	]	};
+    key <I12>	{	[ XF86AudioMute		]	};
+    key <I1E>	{	[ XF86AudioLowerVolume	]	};
+    key <I20>	{	[ XF86AudioRaiseVolume	]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I23>	{	[ XF86AudioPrev		]	};
+    key <I21>	{	[ XF86AudioNext		]	};
+    key <I25>	{	[ XF86Standby		]	};
+    key <I32>	{	[ XF86Launch1		]	};
+    key <I17>	{	[ XF86Launch2		]	};
+    key <I30>	{	[ XF86Launch3		]	};
+    key <I2E>	{	[ XF86Launch4		]	};
+    key <I26>	{	[ Help			]	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "rapidaccess2" {
+    name[Group1]= "IBM Rapid Access II";
+
+    key <I25>	{	[ XF86HomePage		]	};
+    key <I26>	{	[ XF86Shop		]	};
+    key <I32>	{	[ XF86VendorHome	]	};
+    key <I17>	{	[ XF86Favorites		]	};
+    key <I30>	{	[ XF86MyComputer	]	};
+    key <I2E>	{	[ XF86Search		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I1E>	{	[ XF86AudioMute		]	};
+    key <I21>	{	[ XF86AudioLowerVolume	]	};
+    key <I23>	{	[ XF86AudioRaiseVolume	]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I20>	{	[ XF86AudioStop		]	};
+    key <I24>	{	[ XF86AudioPrev		]	};
+    key <I12>	{	[ XF86AudioNext		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "rapidaccess2a" {
+    name[Group1]= "IBM Rapid Access II (alternate option)";
+
+    key <I25>	{	[ XF86WWW		]	};
+    key <I26>	{	[ XF86Shop		]	};
+    key <I32>	{	[ XF86VendorHome	]	};
+    key <I17>	{	[ XF86Favorites		]	};
+    key <I30>	{	[ XF86Option		]	};
+    key <I2E>	{	[ Help			]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I1E>	{	[ XF86AudioMute		]	};
+    key <I20>	{	[ XF86AudioStop		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioPrev		]	};
+    key <I12>	{	[ XF86AudioNext		]	};
+    key <I21>	{	[ XF86AudioLowerVolume	]	};
+    key <I23>	{	[ XF86AudioRaiseVolume	]	};
+    key <MENU>	{	[ Menu			]	};
+};
+
+
+// Logitech
+
+partial alphanumeric_keys
+xkb_symbols "ltcd" {
+    name[Group1]= "Logitech Cordless Desktop";
+
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I02>	{	[ XF86WWW		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I66>	{	[ XF86Go		]	};
+    key <I26>	{	[ XF86AudioMute		]	};
+    key <I25>	{	[ XF86AudioLowerVolume	]	};
+    key <I1E>	{	[ XF86AudioRaiseVolume	]	};
+    key <I1F>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I17>	{	[ XF86AudioStop		]	};
+    key <I24>	{	[ XF86AudioPrev		]	};
+    key <I22>	{	[ XF86AudioNext		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "logicdit" {
+    name[Group1]= "Logitech Cordless Desktop iTouch";
+
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I13>	{	[ XF86Finance		]	};
+    key <I14>	{	[ XF86MySites		]	};
+    key <I15>	{	[ XF86Community		]	};
+    key <I66>	{	[ XF86Favorites		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I6D>	{	[ XF86AudioMedia	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I12>	{	[ XF86VendorHome	]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I11>	{	[ XF86Shop		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I32>	{	[ XF86HomePage		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "logicdp" {
+    name[Group1]= "Logitech Cordless Desktop Pro";
+
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I66>	{	[ XF86Go		]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I21>	{	[ XF86VendorHome	]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "logicdpa" {
+    name[Group1]= "Logitech Cordless Desktop Pro (alternate option)";
+
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I02>	{	[ XF86WWW		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I66>	{	[ XF86Go		]	};
+    key <I26>	{	[ XF86AudioMute		]	};
+    key <I25>	{	[ XF86AudioLowerVolume	]	};
+    key <I1E>	{	[ XF86AudioRaiseVolume	]	};
+    key <I1F>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I17>	{	[ XF86AudioStop		]	};
+    key <I24>	{	[ XF86AudioPrev		]	};
+    key <I22>	{	[ XF86AudioNext		]	};
+    key <I21>	{	[ XF86VendorHome	]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "logicdpa2" {
+    name[Group1]= "Logitech Cordless Desktop Pro (alternate option2)";
+
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I32>	{	[ XF86HomePage		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I66>	{	[ XF86Start		]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "logicdo" {
+    name[Group1]= "Logitech Cordless Desktop Optical";
+
+    key <I69>	{	[ XF86Go		]	};
+    key <I6A>	{	[ XF86Back		]	};
+    key <I16>	{	[ XF86WheelButton	]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I13>	{	[ XF86Finance		]	};
+    key <I14>	{	[ XF86MySites		]	};
+    key <I15>	{	[ XF86Community		]	};
+    key <I66>	{	[ XF86Favorites		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I6D>	{	[ XF86AudioMedia	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I12>	{	[ XF86iTouch		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I11>	{	[ XF86Shop		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I32>	{	[ XF86HomePage		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "logicfn" {
+    name[Group1]= "Logitech Cordless Freedom/Desktop Navigator";
+
+    key <I13>	{	[ XF86Finance		]	};
+    key <I14>	{	[ XF86MySites		]	};
+    key <I15>	{	[ XF86Community		]	};
+    key <I66>	{	[ XF86Favorites		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I6D>	{	[ XF86AudioMedia	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I12>	{	[ XF86iTouch		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I11>	{	[ XF86Shop		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I32>	{	[ XF86HomePage		]	};
+    key <I69>	{	[ XF86Standby		]	};
+    key <UP>	{	[ XF86ScrollUp		]	};
+    key <DOWN>	{	[ XF86ScrollDown	]	};
+    key <I16>	{	[ XF86ScrollClick	]	};
+    key <I6A>	{	[ XF86Back		]	};
+    key <I69>	{	[ XF86Forward		]	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "logicdn" {
+    name[Group1]= "Logitech Cordless Desktop Navigator";
+
+    // Media keys
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I6D>	{	[ XF86AudioMedia	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+
+    // Left side
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I11>	{	[ XF86Messenger		]	};
+    key <I12>	{	[ XF86WebCam		]	};
+
+    // Right side
+    key <I13>	{	[ XF86VendorHome	]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I14>	{	[ XF86Shop		]	};
+    key <I66>	{	[ XF86Favorites		]	};
+    key <I32>	{	[ XF86HomePage		]	};
+
+    // Extended function keys
+    key <I3B>	{	[ XF86New		]	};	// F1
+    key <I3C>	{	[ XF86Reply		]	};	// F2
+    key <FK13>	{	[ XF86MailForward	]	};	// F3
+    key <FK14>	{	[ XF86Send		]	};	// F4
+    key <FK15>	{	[ Undo			]	};	// F5
+    key <FK16>	{	[ Redo			]	};	// F6
+    key <FK17>	{	[ Print			]	};	// F7
+    key <I42>	{	[ XF86Save		]	};	// F8
+    key <I43>	{	[ XF86MyComputer	]	};	// F9
+    key <I44>	{	[ XF86Documents		]	};	// F10
+    key <I57>	{	[ XF86Pictures		]	};	// F11
+    key <I58>	{	[ XF86Music		]	};	// F12
+
+};
+
+partial alphanumeric_keys
+xkb_symbols "logidak" {
+    name[Group1]= "Logitech Deluxe Access Keyboard";
+
+    key <I32>	{	[ XF86WWW		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I65>	{	[ XF86Search		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "logiik" {
+    name[Group1]= "Logitech Internet Keyboard";
+
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I24>	{	[ XF86AudioStop		]	};
+
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I65>	{	[ XF86Search		]	};
+
+    key <I66>	{	[ XF86Go		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I5F>	{	[ XF86Standby		]	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "itouch" {
+    name[Group1]= "Logitech iTouch";
+
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I1F>	{	[ XF86AudioMute		]	};
+    key <I2B>	{	[ XF86AudioLowerVolume	]	};
+    key <I2D>	{	[ XF86AudioRaiseVolume	]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I32>	{	[ XF86HomePage		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I66>	{	[ XF86Start		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "logiitc" {
+    name[Group1]= "Logitech iTouch Cordless Keyboard (model Y-RB6)";
+
+    key <I5F>	{	[ XF86PowerOff		]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I32>	{	[ XF86HomePage		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I66>	{	[ XF86Favorites		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "logiik" {
+    name[Group1]= "Logitech Internet Keyboard";
+
+    key <I25>	{	[ XF86VendorHome	]	};
+    key <I10>	{	[ XF86Back		]	};
+    key <I22>	{	[ XF86Forward		]	};
+    key <I24>	{	[ XF86Stop		]	};
+    key <I19>	{	[ XF86Reload		]	};
+    key <I1E>	{	[ XF86Search		]	};
+    key <I18>	{	[ XF86Favorites		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I23>	{	[ XF86HomePage		]	};
+    key <I7A>	{	[ XF86WWW		]	};
+    key <I32>	{	[ XF86History		]	};
+    key <I21>	{	[ XF86OpenURL		]	};
+    key <I17>	{	[ Print			]	};
+    key <I12>	{	[ Find			]	};
+    key <I26>	{	[ XF86AddFavorite	]	};
+    key <I20>	{	[ XF86HotLinks		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "logiink" {
+    name[Group1]= "Logitech Internet Navigator Keyboard";
+
+    key <I69>	{	[ XF86Go		]	};
+    key <I6A>	{	[ XF86Back		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I13>	{	[ XF86Finance		]	};
+    key <I14>	{	[ XF86MySites		]	};
+    key <I15>	{	[ XF86Community		]	};
+    key <I66>	{	[ XF86Favorites		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I6D>	{	[ XF86AudioMedia	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I12>	{	[ XF86VendorHome	]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I11>	{	[ XF86Market		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I32>	{	[ XF86HomePage		]	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "itouchin" {
+    name[Group1]= "Logitech iTouch keyboard Internet Navigator";
+
+    // Media keys
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I6D>	{	[ XF86AudioMedia	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+
+    // Left side
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I13>	{	[ XF86Finance		]	};
+    key <I14>	{	[ XF86Favorites		]	};
+    key <I15>	{	[ XF86Community		]	};
+    key <I66>	{	[ XF86Start		]	};
+
+    // Right side
+    key <I12>	{	[ XF86VendorHome	]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I32>	{	[ XF86HomePage		]	};
+    key <I11>	{	[ XF86Shop		]	};
+    key <I65>	{	[ XF86Search		]	};
+
+    // Wheel buttons
+    key <I6A>	{	[ XF86Back		]	};
+    key <I69>	{	[ XF86Forward		]	};
+};
+
+
+// Memorex
+
+partial alphanumeric_keys
+xkb_symbols "mx1998" {
+    name[Group1]= "Memorex MX1998";
+
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I5E>	{	[ XF86PowerOff		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I7A>	{	[ XF86ScreenSaver	]	};
+    key <I57>	{	[ XF86WakeUp		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I25>	{	[ XF86Calculator	]	};
+    key <I18>	{	[ XF86Xfer		]	};
+    key <I68>	{	[ XF86DOS		]	};
+    key <I21>	{	[ XF86Documents		]	};
+    key <I12>	{	[ XF86AudioRewind	]	};
+    key <I1E>	{	[ XF86AudioRecord	]	};
+    key <I23>	{	[ XF86Game		]	};
+    key <I17>	{	[ XF86Close		]	};
+    key <I26>	{	[ Menu			]	};
+    key <UP>	{	[ XF86ScrollUp		]	};
+    key <DOWN>	{	[ XF86ScrollDown	]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "mx2500" {
+    name[Group1]= "Memorex MX2500 EZ-Access Keyboard";
+
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I6B>	{	[ XF86WakeUp		]	};
+    key <I5E>	{	[ XF86PowerOff		]	};
+    key <I14>	{	[ XF86DOS		]	};
+    key <I1F>	{	[ XF86Documents		]	};
+    key <I26>	{	[ XF86News		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I18>	{	[ XF86Xfer		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I12>	{	[ XF86Clear		]	};
+    key <I13>	{	[ XF86Phone		]	};
+    key <I21>	{	[ XF86Calculator	]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I6D>	{	[ XF86RotateWindows	]	};
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I17>	{	[ XF86Close		]	};
+    key <I1E>	{	[ XF86Eject		]	};
+    key <LWIN>	{	[ Meta_L		]	};
+    key <RWIN>	{	[ Meta_R		]	};
+    key <MENU>	{	[ Menu			]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "mx2750" {
+    name[Group1]= "Memorex MX2750";
+
+    key <I5E>	{	[ XF86PowerOff		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I63>	{	[ XF86WakeUp		]	};
+    key <I32>	{	[ XF86Launch0		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I66>	{	[ XF86Favorites		]	};
+    key <I6A>	{	[ XF86Back		]	};
+    key <I69>	{	[ XF86Forward		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+};
+
+
+// Microsoft
+
+partial alphanumeric_keys
+xkb_symbols "microsoftinet" {
+    name[Group1]= "Microsoft Internet Keyboard";
+
+    key <I6A>	{	[ XF86Back		]	};
+    key <I69>	{	[ XF86Forward		]	};
+    key <I68>	{	[ XF86AudioStop		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I6B>	{	[ XF86MyComputer	]	};
+    key <I21>	{	[ XF86Calculator	]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I66>	{	[ XF86Favorites		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "microsoftpro" {
+    name[Group1]= "Microsoft Natural Keyboard Pro / Microsoft Internet Keyboard Pro";
+
+//   Multimedia Section -- Right Side
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I6D>	{	[ XF86AudioMedia	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+//   Internet Section -- Left Side
+    key <I32>	{	[ XF86HomePage		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I66>	{	[ XF86Favorites		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I68>	{	[ XF86Stop		]	};
+    key <I6A>	{	[ XF86Back		]	};
+    key <I69>	{	[ XF86Forward		]	};
+    key <I67>	{	[ XF86Reload		]	};
+//   My Computer Section -- Far Right
+    key <I6B>	{	[ XF86MyComputer	]	};
+    key <I21>	{	[ XF86Calculator	]	};
+    key <I5F>	{	[ XF86Standby		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "microsoftprose" {
+    name[Group1]= "Microsoft Internet Keyboard Pro, Swedish";
+
+    key <I6A>	{	[ XF86Back		]	};
+    key <I69>	{	[ XF86Forward		]	};
+    key <I68>	{	[ XF86AudioStop		]	};
+    key <FK16>	{	[ XF86Reload		]	};
+    key <I65>	{	[ XF86Search		]	};
+    key <I66>	{	[ XF86Favorites		]	};
+    key <I02>	{	[ XF86HomePage		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I26>	{	[ XF86AudioMute		]	};
+    key <I25>	{	[ XF86AudioLowerVolume	]	};
+    key <I1E>	{	[ XF86AudioRaiseVolume	]	};
+    key <I1F>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I17>	{	[ XF86AudioStop		]	};
+    key <I24>	{	[ XF86AudioPrev		]	};
+    key <I22>	{	[ XF86AudioNext		]	};
+    key <XFER>	{	[ XF86AudioMedia	]	};
+    key <PRSC>	{	[ XF86MyComputer	]	};
+    key <I21>	{	[ XF86Calculator	]	};
+    key <I63>	{	[ XF86Standby		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "microsoftoffice" {
+    name[Group1]= "Microsoft Office Keyboard";
+
+    key <I6A>	{	[ XF86Back		]	};
+    key <I69>	{	[ XF86Forward		]	};
+    key <I3C>	{	[ XF86Cut		]	};
+    key <I78>	{	[ XF86Copy		]	};
+    key <RCTL>	{	[ XF86Paste		]	};
+    key <I54>	{	[ XF86ApplicationLeft	]	};
+    key <MOAR>	{	[ XF86ApplicationRight	]	};
+    key <I44>	{	[ XF86Word		]	};
+    key <I45>	{	[ XF86Excel		]	};
+    key <I02>	{	[ XF86WWW		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <BRK>	{	[ XF86Calendar		]	};
+    key <I57>	{	[ XF86HomePage		]	};
+    key <I21>	{	[ XF86Calculator	]	};
+    key <I26>	{	[ XF86AudioMute		]	};
+    key <I25>	{	[ XF86AudioRaiseVolume	]	};
+    key <I1E>	{	[ XF86AudioLowerVolume	]	};
+    key <I4A>	{	[ XF86LogOff		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I62>	{	[ Help			]	};
+    key <I6D>	{	[ XF86OfficeHome	]	};
+    key <I55>	{	[ XF86TaskPane		]	};
+    key <I58>	{	[ XF86New		]	};
+    key <I59>	{	[ XF86Open		]	};
+    key <I5A>	{	[ XF86Close		]	};
+    key <I71>	{	[ XF86Reply		]	};
+    key <I72>	{	[ XF86MailForward	]	};
+    key <I73>	{	[ XF86Send		]	};
+    key <I56>	{	[ XF86Spell		]	};
+    key <I64>	{	[ XF86Save		]	};
+    key <I67>	{	[ Print			]	};
+    key <END>	{	[ Undo			]	};
+    key <I70>	{	[ Redo			]	};
+};
+
+
+// Oretec
+
+partial alphanumeric_keys
+xkb_symbols "oretec" {
+    name[Group1]= "Oretec MCK-800 MM/Internet keyboard";
+
+    key <I21>	{	[ XF86WWW		]	};
+    key <I1E>	{	[ XF86AudioMute		]	};
+    key <I68>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I18>	{	[ XF86ScrollDown	]	};
+    key <I10>	{	[ XF86ScrollUp		]	};
+    key <I17>	{	[ XF86AudioPrev		]	};
+    key <I12>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I2E>	{	[ XF86AudioNext		]	};
+    key <I23>	{	[ XF86AudioStop		]	};
+    key <I19>	{	[ XF86ZoomOut		]	};
+    key <I32>	{	[ XF86ZoomIn		]	};
+    key <I24>	{	[ XF86Calculator	]	};
+    key <I25>	{	[ XF86Xfer		]	};
+    key <I22>	{	[ Menu			]	};
+    key <I26>	{	[ XF86Mail		]	};
+    key <I5E>	{	[ XF86PowerOff		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I63>	{	[ XF86WakeUp		]	};
+};
+
+
+// Propeller
+
+partial alphanumeric_keys
+xkb_symbols "propeller" {
+    name[Group1]= "Propeller Voyager (KTEZ-1000)";
+
+    key <I25>	{	[ XF86Calculator	]	};
+    key <I18>	{	[ XF86Xfer		]	};
+
+    key <I68>	{	[ XF86DOS		]	};
+    key <I21>	{	[ XF86Documents		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I26>	{	[ Menu			]	};
+    key <I23>	{	[ XF86Game		]	};
+
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I12>	{	[ XF86AudioRewind	]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I17>	{	[ XF86Close		]	};
+    key <I1E>	{	[ XF86AudioRecord	]	};
+
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I7A>	{	[ XF86Standby		]	};
+};
+
+
+// QTronix
+
+partial alphanumeric_keys
+xkb_symbols "qtronix" {
+    name[Group1]= "QTronix Scorpius 98N+";
+
+    key <I21>	{	[ XF86AudioPrev		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I23>	{	[ XF86AudioNext		]	};
+    key <I30>	{	[ XF86AudioRecord	]	};
+
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I26>	{	[ XF86AudioMute		]	};
+    key <I20>	{	[ XF86AudioRaiseVolume	]	};
+
+    key <I13>	{	[ XF86WakeUp		]	};
+    key <I18>	{	[ XF86Standby		]	};
+    key <I31>	{	[ XF86PowerOff		]	};
+    key <I68>	{	[ XF86Calculator	]	};
+    key <I1F>	{	[ XF86Reload		]	};
+
+    key <I25>	{	[ XF86HomePage		]	};
+    key <I1E>	{	[ XF86Back		]	};
+    key <I17>	{	[ XF86Search		]	};
+    key <I32>	{	[ XF86Stop		]	};
+    key <I12>	{	[ XF86Forward		]	};
+
+    key <I19>	{	[ XF86ScrollUp		]	};
+    key <I10>	{	[ XF86ScrollDown	]	};
+};
+
+
+// Samsung
+
+partial alphanumeric_keys
+xkb_symbols "samsung4500" {
+    name[Group1]= "Samsung SDM 4500P";
+
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I18>	{	[ XF86Eject		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I26>	{	[ Help			]	};
+    key <I59>	{	[ XF86Explorer		]	};
+    key <I09>	{	[ XF86Close		]	};
+    key <I0A>	{	[ XF86Book		]	};
+    key <I02>	{	[ XF86Launch1		]	};
+    key <NFER>	{	[ XF86Launch2		]	};
+    key <I04>	{	[ XF86Launch3		]	};
+    key <AE13>	{	[ XF86Launch4		]	};
+    key <I06>	{	[ XF86Launch5		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "samsung4510" {
+    name[Group1]= "Samsung SDM 4510P";
+
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I18>	{	[ XF86Eject		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I02>	{	[ XF86Launch1		]	};
+    key <NFER>	{	[ XF86Launch2		]	};
+    key <I04>	{	[ XF86Launch3		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+};
+
+
+// SK
+
+partial alphanumeric_keys
+xkb_symbols "sk1300" {
+    name[Group1]= "SK-1300";
+
+    key <I20>	{	[ XF86WWW		]	};
+    key <I26>	{	[ XF86Back		]	};
+    key <I1E>	{	[ XF86Forward		]	};
+    key <I32>	{	[ XF86Stop		]	};
+    key <I25>	{	[ XF86Standby		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I12>	{	[ XF86Eject		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "sk2500" {
+    name[Group1]= "SK-2500";
+
+    key <I25>	{	[ XF86PowerOff		]	};
+    key <I7A>	{	[ XF86ScreenSaver	]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I21>	{	[ XF86Calculator	]	};
+    key <I23>	{	[ XF86Xfer		]	};
+    key <I17>	{	[ XF86Close		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I1E>	{	[ XF86AudioRecord	]	};
+    key <I12>	{	[ XF86AudioRewind	]	};
+    key <I26>	{	[ Menu			]	};
+    key <I18>	{	[ XF86Eject		]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I19>	{	[ XF86Forward		]	};
+    key <I18>	{	[ XF86Eject		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "sk6200" {
+    name[Group1]= "SK-6200";
+
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I23>	{	[ XF86AudioPrev		]	};
+    key <I21>	{	[ XF86AudioNext		]	};
+    key <I16>	{	[ XF86AudioRaiseVolume	]	};
+    key <I14>	{	[ XF86AudioLowerVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I5E>	{	[ XF86PowerOff		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I1E>	{	[ XF86WWW		]	};
+    key <I12>	{	[ XF86Favorites		]	};
+    key <I32>	{	[ XF86Mail		]	};
+    key <I17>	{	[ XF86Back		]	};
+    key <I19>	{	[ XF86Forward		]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "sk7100" {
+    name[Group1]= "SK-7100";
+
+    key <I17>	{	[ XF86Close		]	};
+    key <I25>	{	[ XF86CD		]	};
+    key <I18>	{	[ XF86Video		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I1E>	{	[ XF86Eject		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I12>	{	[ XF86AudioPause	]	};
+    key <I22>	{	[ XF86AudioPlay		]	};
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I26>	{	[ XF86Display		]	};
+};
+
+
+// Sven
+
+partial alphanumeric_keys
+xkb_symbols "sven" {
+    name[Group1]= "SVEN Ergonomic 2500";
+
+    key <I68>	{	[ XF86Back		]	};
+    key <I12>	{	[ XF86Forward		]	};
+    key <I23>	{	[ XF86Stop		]	};
+    key <I29>	{	[ XF86Reload		]	};
+    key <I2E>	{	[ XF86Search		]	};
+    key <I30>	{	[ XF86Favorites		]	};
+    key <I1E>	{	[ XF86HomePage		]	};
+    key <I19>	{	[ XF86AudioPrev		]	};
+    key <I1A>	{	[ XF86AudioStop		]	};
+    key <I10>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I62>	{	[ XF86AudioNext		]	};
+    key <I26>	{	[ XF86AudioMute		]	};
+    key <I25>	{	[ XF86AudioLowerVolume	]	};
+    key <I17>	{	[ XF86AudioRaiseVolume	]	};
+    key <I18>	{	[ XF86ZoomOut		]	};
+    key <I21>	{	[ XF86ZoomIn		]	};
+    key <I32>	{	[ XF86ScrollDown	]	};
+    key <I31>	{	[ XF86ScrollUp		]	};
+    key <I20>	{	[ XF86Mail		]	};
+    key <I22>	{	[ XF86MyComputer	]	};
+    key <I28>	{	[ XF86Calculator	]	};
+    key <I24>	{	[ XF86ScreenSaver	]	};
+    key <I5E>	{	[ XF86PowerOff		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I63>	{	[ XF86WakeUp		]	};
+};
+
+
+// Symplon
+
+partial alphanumeric_keys
+xkb_symbols "symplon" {
+    name[Group1]= "Symplon PaceBook (tablet PC)";
+
+    key <HOME>	{	[ XF86RotationPB	]	};
+    key <UP>	{	[ XF86MenuPB		]	};
+    key <PAUS>	{	[ XF86UserPB		]	};
+    key <I25>	{	[ XF86RotationKB	]	};
+    key <I26>	{	[ XF86MenuKB		]	};
+    key <I13>	{	[ XF86SplitScreen	]	};
+    key <I6B>	{	[ XF86User1KB		]	};
+    key <I21>	{	[ XF86User2KB		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I17>	{	[ XF86New		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I14>	{	[ XF86Support		]	};
+};
+
+// Toshiba
+
+partial alphanumeric_keys
+xkb_symbols "toshiba_s3000" {
+
+    // Describes the Special buttons on Toshiba Satellite 3000 models.
+    // See http://sourceforge.net/projects/omke for details on enabling
+    // these keys
+
+    name[Group1]= "Toshiba Satellite S3000";
+    key <I71>	{	[ XF86WWW		]	};
+    key <I73>	{	[ XF86Mail		]	};
+    key <I06>	{	[ XF86Launch1		]	};
+    key <I13>	{	[ XF86Launch2		]	};
+    key <I24>	{	[ XF86AudioStop, XF86Eject	]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause	]	};
+    key <I75>	{	[ XF86AudioRaiseVolume	]	};
+    key <I76>	{	[ XF86AudioLowerVolume	]	};
+};
+
+// Trust
+
+partial alphanumeric_keys
+xkb_symbols "trust" {
+    name[Group1]= "Trust Wireless Keyboard Classic";
+
+    key <I32>	{	[ XF86WWW		]	};
+    key <I6A>	{	[ XF86Back		]	};
+    key <I69>	{	[ XF86Forward		]	};
+    key <I6C>	{	[ XF86Mail		]	};
+    key <I21>	{	[ XF86Calculator	]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I1E>	{	[ XF86Eject		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I63>	{	[ XF86WakeUp		]	};
+    key <I11>	{	[ XF86ScreenSaver	]	};
+};
+
+
+partial alphanumeric_keys
+xkb_symbols "trustda" {
+    name[Group1]= "Trust Direct Access Keyboard";
+
+    key <I7A>	{	[ XF86Away		]	};
+    key <I32>	{	[ XF86WWW		]	};
+    key <I21>	{	[ XF86Calculator	]	};
+    key <I23>	{	[ XF86Xfer		]	};
+    key <I17>	{	[ XF86Close		]	};
+    key <I10>	{	[ XF86AudioPrev		]	};
+    key <I22>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I24>	{	[ XF86AudioStop		]	};
+    key <I19>	{	[ XF86AudioNext		]	};
+    key <I1E>	{	[ XF86AudioRecord	]	};
+    key <I12>	{	[ XF86AudioRewind	]	};
+    key <I26>	{	[ Help			]	};
+    key <I18>	{	[ XF86Eject		]	};
+    key <I20>	{	[ XF86AudioMute		]	};
+    key <I30>	{	[ XF86AudioRaiseVolume	]	};
+    key <I2E>	{	[ XF86AudioLowerVolume	]	};
+    key <I25>	{	[ XF86Standby		]	};
+};
+
+
+// YaHoo!
+
+partial alphanumeric_keys
+xkb_symbols "yahoo" {
+    name[Group1]= "Yahoo! Internet Keyboard";
+
+    key <I11>	{	[ XF86AudioPrev		]	};
+    key <I12>	{	[ XF86AudioPlay, XF86AudioPause ] };
+    key <I1E>	{	[ XF86AudioStop		]	};
+    key <I1F>	{	[ XF86AudioNext		]	};
+    key <I20>	{	[ XF86AudioRecord	]	};
+    key <I21>	{	[ XF86AudioLowerVolume	]	};
+    key <I22>	{	[ XF86AudioRaiseVolume	]	};
+    key <I23>	{	[ XF86AudioMute		]	};
+    key <I24>	{	[ XF86Close		]	};
+    key <I25>	{	[ XF86Calculator	]	};
+    key <I26>	{	[ Help			]	};
+    key <I27>	{	[ XF86Mail		]	};
+    key <I28>	{	[ XF86WWW		]	};
+    key <I5E>	{	[ XF86PowerOff		]	};
+    key <I5F>	{	[ XF86Standby		]	};
+    key <I63>	{	[ XF86WakeUp		]	};
+};

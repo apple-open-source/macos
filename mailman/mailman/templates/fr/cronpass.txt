@@ -16,6 +16,6 @@ uniquement le mot 'help' dans le corps du message, vous recevrez alors
 un courrier vous indiquant la marche à suivre.
 
 Si vous avez des questions, des problèmes, des commentaires, etc.,
-envoyez-les à %(owner)s. Merci!
+envoyez-les à %(owner)s. Merci !
 
 Mots de passe pour %(useraddr)s: 

@@ -129,7 +129,7 @@ const char *Usage =
 #define MAXTRAIN 2	    /* maximum training retries at lowest speed */
 #define MAXRETRY 3	    /* maximum retries of unacknowledged commands */
 #define NCAP 8              /* number of fields in a capability string */
-#define NTXRETRY 3	    /* maximum re-sends per page */
+#define NTXRETRY 2	    /* maximum re-sends per page */
 
 typedef int cap [ NCAP ] ;		/* remote/local capabilities */
 
@@ -189,9 +189,11 @@ t30tabst t30tab [ NCAP ] = {
   { "ec", 3, 4, 0x03, 0, { 0, 2, 2 } , { 0, X, 2, X } , 
       { 0, 3, 2 } , { 0, 0, 2, 1 } }, 
   { "bf", 5, 5, 0x01, 0, { 0, 1 } , { 0, 1 } , { 0, 1 } , { 0, 1 } },
+  // (2003-01-15, ggs) The dcstocap table for the st field was incorrect
+  //   dcstocap[3] should be X and dcstocap[4] should be 1 (5ms).
   { "st", 2, 1, 0x07, 7,
       { 7, 4, 3, 2, 6, 0, 5, 1 } , { 5, 7, 3, 2, 1, 6, 4, 0 } ,
-      { 7, 4, X, 2, X, 0, X, 1 } , { 5, 7, 3, 1, X, X, X, 0 } } 
+      { 7, 4, X, 2, X, 0, X, 1 } , { 5, 7, 3, X, 1, X, X, 0 } } 
 } ;
 
 					/* values of capability fields */
@@ -826,7 +828,7 @@ int readfaxruns ( TFILE *f, DECODER *d, short *runs, int *pels )
    complete. Returns 0 if OK, 1 on DLE-ETX without RTC, or 2 if
    there was a file write error. */
 
-int receive_data ( TFILE *mf, OFILE *f, cap session, int *nerr )
+int receive_data ( TFILE *mf, OFILE *f, cap session, int *nerr, int *nline )
 {
   int err=0, line, lines, nr, len ;
   int pwidth = pagewidth [ session [ WD ] ] ;
@@ -869,7 +871,9 @@ int receive_data ( TFILE *mf, OFILE *f, cap session, int *nerr )
     err = 1 ;			/* DLE-ETX without RTC - should try again */
   }
 
-  msg ( "I- received %d lines, %d errors", lines, *nerr ) ;
+  msg ( "I- received %d lines, %d errors, eolcnt %d", lines, *nerr, d.eolcnt ) ;
+
+  if (nline) *nline = lines;
 
   return err ;
 }
@@ -933,9 +937,22 @@ int gettrain ( TFILE *f, char *s, int n, int *good )
 { 
   int err=0, c, i=0, maxrunl=0, runl=0 ;
   
-  ckcmd ( f, &err, s, T2, CONNECT ) ;
+  // (2003-01-29, ggs) Modify to support proper operation when +FAR=1
+  //   which is necessary to support receive at 9600bps from Brother
+  //   branded fax machines (and probably others using the same chipset)
+  //   If we get the PLUS result, we eat the rogue frame then re-issue
+  //   the +FRM command.
+  c = cmd ( f, s, T3S ) ; // CONNECT or +FRH:3
   
-  if ( ! err ) {
+  if (c == PLUS) {
+  	c = cmd ( f, 0, T2 ) ; 	// CONNECT
+  	while ( ( c = tgetd ( f, T3S ) ) >= 0 )
+  		;					// rogue data
+  	c = cmd ( f, 0, T2 ) ; 	// OK
+    c = cmd ( f, s, T2 ); 	// +FRM=X
+  }
+  
+  if ( c == CONNECT ) {
 
     for ( i=0 ; ( c = tgetd ( f, T3S ) ) >= 0 ; i++ )
       if ( c ) {
@@ -951,7 +968,13 @@ int gettrain ( TFILE *f, char *s, int n, int *good )
       ckcmd ( f, &err, 0, TO_RTCMD, NO ) ;
     
   }
-     
+  else if (c != OK)
+  {
+    tput ( f, CAN_STR, 1 ) ;
+    ckcmd ( f, 0, 0, 1, OK ) ;
+    err = 1 ;
+  }
+
   if ( runl > maxrunl ) maxrunl = runl ;
      
   if ( good ) *good = !err && maxrunl > n ;
@@ -1162,6 +1185,8 @@ int getfr ( TFILE *mf, uchar *buf, int getcmd )
     break ;
   case CONNECT:			/* frame */
     break ;
+  case OK:
+    break;
   default:			/* shouldn't happen */
     err = msg ( "E3wrong response to receive-frame command" ) ;
     break ;
@@ -1220,7 +1245,7 @@ int c1sndrcv (
 	      int pages, char *header, faxfont *font, 
 	      int maxpgerr, int noretry, int calling )
 { 
-  int err=0, rxpage=0, page=1, t, disbit, good, frame, last, nerr ;
+  int err=0, rxpage=0, page=1, t, disbit, good, frame, last, nerr, nlines ;
   int rxdislen, ppm, try=0, pagetry=0, retry=0, remtx=0, remrx=0 ;
   int writepending=0, dp=0 ;
   cap remote = { DEFCAP }, session = { DEFCAP } ;
@@ -1390,7 +1415,16 @@ int c1sndrcv (
   case PIN:
   case RTN:
     dp = 0 ;
-    retry = pagetry < NTXRETRY ;
+    if ((retry = pagetry < NTXRETRY) == 0)
+    {
+      /* Step down in speed and reset the page try counter */
+      if ((remote[BR] = fallback[session[BR]]) < 0)
+      {
+        err = msg ( "E2 channel not usable at lowest speed" ) ; 
+        goto C ;
+      }
+      pagetry = 0;
+    }
     break ;
   default:  
     err = msg ( "E3invalid post-page response (0x%02x)", frame ) ;
@@ -1417,9 +1451,7 @@ int c1sndrcv (
       nextipage ( inf, 1 ) ;	/* skip ahead to mark all files done */
       if ( remtx ) goto R ;	/* poll after sending */
       else goto C ;
-    case RTN: 
-      if ( retry ) goto D ;
-      else goto C ;
+    case RTN: goto D ;
     }
     
   case EOM:
@@ -1428,10 +1460,9 @@ int c1sndrcv (
     case PIP: goto E ;
     case MCF: 
     case RTP: 
-    case RTN: 
       cmd ( mf, "+FRS=20", T3S ) ; /* wait for ppr carrier to drop */
-      if ( retry ) goto T ;
-      else goto T ;
+      goto T ;
+    case RTN: goto D ;
     }
     
   }  
@@ -1503,8 +1534,6 @@ int c1sndrcv (
   case DCS: 
     mkcap ( fif, session, 0 ) ;
     printcap ( "session", session ) ;
-    
-    cmd ( mf, "+FTS=1", T3S ) ;	/* make sure DCS is over */
 
     gettrain ( mf, c1cmd [RCV][TRN][session[BR]], cps[session[BR]], &good ) ;
 
@@ -1517,6 +1546,7 @@ int c1sndrcv (
     outf->h=0;
     outf->xres=204.0;
     outf->yres=vresolution[session[VR]];
+    nlines = 0 ;
     nerr = 0 ;
     
   re_getdata:
@@ -1524,7 +1554,7 @@ int c1sndrcv (
     if ( cmd ( mf, c1cmd [RCV][DTA][session[BR]], TO_FT ) != CONNECT ) 
       goto F ;			/* +FCERROR -> DCS resent */
     
-    switch ( receive_data ( mf, outf, session, &nerr ) ) {
+    switch ( receive_data ( mf, outf, session, &nerr, &nlines) ) {
     case 0:
       good = nerr < maxpgerr ;
       msg ( "I-received -> %s", outf->cfname ) ;
@@ -1532,8 +1562,24 @@ int c1sndrcv (
       rxpage++ ;
       break ;
     case 1:
-      /* no RTC, re-issue +FRM command */
-      goto re_getdata ;
+      /* no RTC */
+      if (nlines >= 10 && nerr < nlines / 2)
+      {
+        /* we received at least 10 scan lines and less than half of them had errors */
+        msg ("W3 Missing RTC (%d good lines / %d bad lines)", nlines, nerr) ;
+        good = nerr < maxpgerr ;
+        msg ( "I-received -> %s", outf->cfname ) ;
+        writepending=1 ;		/* ppm follows immediately, don't write yet */
+        rxpage++ ;
+      }
+      else
+      {
+        /* re-issue +FRM command */
+        msg ("W3 Missing RTC, re-getting data (%d good lines / %d bad lines)", nlines, nerr) ;
+        goto re_getdata ;
+      }
+      break ;
+
     default:
       good = 0 ;
       break ;
@@ -1808,7 +1854,7 @@ int c2sndrcv (
 	
 	tput ( mf, &startchar, 1 ) ;
 
-	if ( receive_data ( mf, outf, session, &nerr ) == 0 ) {
+	if ( receive_data ( mf, outf, session, &nerr, NULL) == 0 ) {
 	  good = nerr < maxpgerr ;
 	  msg ( "I-received -> %s", outf->cfname ) ;
 	} else { 
@@ -2173,6 +2219,12 @@ int modem_init ( TFILE *mf, cap c, char *id,
     }
   }
 
+  // (2003-02-04, ggs) If we're faxing in Class 1, try to turn on adaptive receive.
+  //   Ignore the result (in case the modem doesn't support adaptive receive).
+  if ( ! err && c1 ) {
+    cmd ( mf, "+FAR=1", t );
+  }
+
   return err ;
 }
 
@@ -2255,7 +2307,11 @@ int main( int argc, char **argv)
   int pages = 0 ;
   char *phnum="", *ansfname = DEFPAT ;
   char fnamepat [ EFAX_PATH_MAX ] ;
-  
+
+  /* Don't buffer stdout and stderr */
+  setbuf(stdout, NULL);
+  setbuf(stderr, NULL);
+
   /* print initial message to both stderr & stdout */
   argv0 = argv[0] ;
   verb[1] = "ewia" ;

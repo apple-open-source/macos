@@ -3,17 +3,17 @@ Avis de confirmation de demande d'abonnement pour la liste %(listname)s
 Nous avons reçu une demande de %(remote)s, pour l'abonnement de votre
 adresse courriel "%(email)s", à la liste de diffusion
 %(listaddr)s.  Pour confirmer la demande, répondez à ce message en
-gardant l'objet: intact, ou visitez la page:
+gardant l'en-tête Objet: intact, ou consultez la page :
 
 	%(confirmurl)s 
 
-ou mettez la ligne suivante - et seulement la ligne suivante -
+ou bien encore mettez la ligne suivante - et seulement la ligne suivante -
 dans le corps d'un message à l'attention de %(requestaddr)s: 
 
      confirm %(cookie)s
 
-Notez qu'un simple `répondre' devrait marcher pour la plupart des
-lecteurs de courriel, puisque ceux-ci laissent en général l'objet: au
+Notez qu'un simple "répondre" devrait marcher pour la plupart des
+lecteurs de courriel, puisque ceux-ci laissent en général l'en-tête Objet: au
 format correct (un "Re:" devant l'objet passe).
 
 Si vous ne souhaitez pas vous abonner à cette liste, ignorez simplement

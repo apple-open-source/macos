@@ -732,20 +732,10 @@ void
 IOSCSIBlockCommandsDevice::StartDeviceSupport ( void )
 {
 	
-	// Do one poll
-	PollForNewMedia ( );
+	// Start polling
+	EnablePolling ( );
 	
 	CreateStorageServiceNub ( );
-	
-	// Should we keep polling?
-	if ( fPollingMode != kPollingMode_Suspended )
-	{
-		
-		// Enable polling
-		EnablePolling ( );
-		
-	}
-	
 }
 
 
@@ -1389,16 +1379,6 @@ IOSCSIBlockCommandsDevice::CreateStorageServiceNub ( void )
 	
 	nub->init ( );
 	require ( nub->attach ( this ), ErrorExit );
-	
-	if ( fMediumPresent == true )
-	{
-		
-		// Message up the chain that we have media
-		nub->message ( kIOMessageMediaStateHasChanged,
-					   this,
-					   ( void * ) kIOMediaStateOnline );
-		
-	}
 	
 	nub->registerService ( );
 	nub->release ( );

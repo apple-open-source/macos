@@ -1,0 +1,194 @@
+// Northern Sami keyboards for Finland, Norway and Sweden
+//
+// Describes the differences between a very simple en_US
+// keyboard and a Norwegian Northern Sami keyboard (with 
+// dead key support) according to the spec on
+// http://www.hum.uit.no/a/trond/se-lat9-no-keys.html
+// Written by Børre Gaup <boerre.gaup@pc.nu>
+// 
+// $XFree86: xc/programs/xkbcomp/symbols/sapmi,v 1.1 2001/11/21 21:20:55 dawes Exp $
+//
+// Quick usage 
+// For a Norwegian Northern Sami setup: 
+//	setxkbmap -layout sapmi
+// For a Swedish/Finnish Northern Sami setup:
+//	setxkbmap -layout "sapmi(sefi)"
+// For a Swedish/Finnish Northern Sami setup, with an en_US keyboard as Group3:
+//	setxkbmap "sapmi(sefi)+us_group3"
+
+partial alphanumeric_keys 
+ xkb_symbols "basic" {
+ 
+ 
+    name[Group1]= "Sámegiella";
+ 
+    key <TLDE> {	[             bar,         section      ],
+			[       brokenbar,       paragraph	]};
+    key <AE01> {	[               1,          exclam  	],
+			[       copyright,      exclamdown	]};
+    key <AE02> {	[               2,        quotedbl  	],
+			[	       at,      registered	]};
+    key <AE03> {	[              	3,	numbersign	],
+			[	 sterling,            less	]};
+    key <AE04> {	[               4,          dollar     	],
+			[	   dollar,	   greater	]};
+
+    // 0x2022 BULLET and 0x2030 PER MILLE SIGN
+    key <AE05> {	[               5,         percent     	],
+			[      0x01002022,      0x01002030    	]};
+    key <AE06> {	[               6,       ampersand     	],
+			[	  section,	 paragraph	]};
+    key <AE07> {	[               7,           slash     	],
+			[       braceleft,             bar	]};
+    key <AE08> {	[               8,       parenleft     	],
+			[     bracketleft,       braceleft	]};
+    key <AE09> {	[               9,      parenright     	],
+			[    bracketright,      braceright	]};
+    key <AE10> {	[               0,           equal     	],
+			[      braceright,        notequal	]};
+    key <AE11> {	[            plus,        question      ],
+			[        division,    questiondown	]};
+    key <AE12> {   	[       backslash,           grave      ],
+                 	[           acute,      asciitilde      ]};
+ 
+
+    key <AD01> {	[	   aacute,	    Aacute	],
+			[		q,		 Q	]};
+    key <AD02> {	[	   scaron,	    Scaron	],
+			[		w,		 W	]};
+    key <AD03> {        [               e,               E      ],
+                        [          eacute,          Eacute      ]};
+    key <AD04> {        [               r,               R      ],
+                        [      registered,       trademark      ]};
+    key <AD05> {        [               t,               T      ],
+                        [          tslash,          Tslash      ]};
+    key <AD06> {        [               y,               Y      ],
+                        [          yacute,          Yacute      ]};
+    key <AD07> {        [               u,               U      ],
+                        [      udiaeresis,      Udiaeresis      ]};
+    key <AD08> {        [               i,               I      ],
+                        [      idiaeresis,      Idiaeresis      ]};
+    key <AD09> {        [               o,               O      ],
+                        [              oe,              OE      ]};
+    key <AD10> {        [               p,               P      ],
+                        [           thorn,           THORN      ]};
+    key <AD11> {        [           aring,           Aring      ],
+                        [     acircumflex,     Acircumflex      ]};
+    key <AD12> {	[	      eng,	       ENG	],
+			[	 quotedbl,     asciicircum	]};
+
+    key <AC01> {        [               a,               A      ],
+                        [          agrave,          Agrave      ]};
+    key <AC02> {        [               s,               S      ],
+                        [          ssharp,      apostrophe      ]};
+    key <AC03> {        [               d,               D      ],
+                        [             eth,             ETH      ]};
+    key <AC04> {        [               f,               F      ],
+                        [     ordfeminine,     ordfeminine      ]};
+    key <AC05> {        [               g,               G      ],
+                        [          gcaron,          Gcaron      ]};
+    // 0x01e5 LATIN SMALL LETTER G WITH STROKE and 
+    // 0x01e4 LATIN CAPITAL LETTER G WITH STROKE
+    key <AC06> {        [               h,               H      ],
+                        [      0x010001e5,      0x010001e4   ]};
+    key <AC07> {        [               j,               J      ],
+                        [         notsign,        multiply      ]};
+    // 0x01e9 LATIN SMALL LETTER K WITH CARON and
+    // 0x01e8 LATIN CAPITAL LETTER K WITH CARON
+    key <AC08> {        [               k,               K      ],
+                        [      0x010001e9,      0x010001e8      ]};
+    key <AC09> {        [               l,               L      ],
+                        [          degree,          hyphen      ]};
+    key <AC10> {        [          oslash,        Ooblique      ],
+                        [      odiaeresis,      Odiaeresis      ]};
+    key <AC11> {        [              ae,              AE      ],
+                        [      adiaeresis,      Adiaeresis      ]};
+    key <BKSL> {	[	  dstroke,	   Dstroke	],
+			[      apostrophe,        asterisk	]};
+
+    // 0x01ef LATIN SMALL LETTER EZH WITH CARON and
+    // 0x01ee LATIN CAPITAL LETTER EZH WITH CARON
+    key <LSGT> {	[	   zcaron,          Zcaron	],
+			[      0x010001ef,      0x010001ee   	]};
+    // 0x0292 LATIN SMALL LETTER EZH and
+    // 0x01b7 LATIN CAPITAL LETTER EZH
+    key <AB01> {        [               z,               Z      ],
+                        [      0x01000292,      0x010001b7      ]};
+    key <AB02> {        [          ccaron,          Ccaron      ],
+                        [       	x,        	 X      ]};
+    key <AB03> {        [               c,               C      ],
+                        [        ccedilla,        Ccedilla      ]};
+    key <AB04> {        [               v,               V      ],
+                        [   lessthanequal,  guillemotleft      ]};
+    key <AB05> {        [               b,               B      ],
+                        [greaterthanequal, guillemotright      ]};
+    key <AB06> {        [               n,               N      ],
+                        [leftsinglequotemark,leftdoublequotemark      ]};
+    key <AB07> {        [               m,               M      ],
+                        [rightsinglequotemark,rightdoublequotemark]};
+    key <AB08> {	[           comma,       semicolon     	],
+			[singlelowquotemark,doublelowquotemark	]};
+    key <AB09> {	[          period,           colon     	],
+			[        ellipsis,  periodcentered	]};
+    key <AB10> {	[           minus,      underscore     	],
+			[          endash,          emdash	]};
+
+    key <SPCE> {	[	    space,	     space	],
+			[    nobreakspace,    nobreakspace	]};
+
+    // End alphanumeric section
+
+    // begin modifier mappings
+    
+    modifier_map Shift  { Shift_L };
+    modifier_map Lock   { Caps_Lock };
+    modifier_map Control{ Control_L };
+    modifier_map Mod3   { Mode_switch };
+};
+
+
+ xkb_symbols "sefi" {
+ 
+    // Describes the differences between a Norwegian Northern Sami
+    // (keyboard with dead key support) and a Swedish/Finnish Sami
+    // keyboard according to the specs at:
+    // http://www.hum.uit.no/a/trond/se-lat9-sefi-keys.html
+ 
+    name[Group1]= "Sámegiella";
+
+    include "sapmi(basic)"
+ 
+    key <AC10> {        [      odiaeresis,      Odiaeresis      ],
+                        [          oslash,        Ooblique      ]};
+    key <AC11> {        [      adiaeresis,      Adiaeresis      ],
+                        [              ae,              AE      ]};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "Sundeadkeys" {
+
+    // For naming consistency
+
+    include "sapmi(basic)"
+
+};
+
+partial alphanumeric_keys 
+xkb_symbols "sundeadkeys" {
+
+    // For naming consistency
+
+    include "sapmi(Sundeadkeys)"
+
+};
+
+partial alphanumeric_keys 
+xkb_symbols "nodeadkeys" {
+
+    // Modifies the basic Norwegian layout to eliminate dead keys
+
+    include "sapmi(basic)"
+    key <AE12> {	[       backslash,           grave	],
+			[	    acute,          ogonek 	]	};
+
+};

@@ -1,0 +1,130 @@
+// $Xorg: de,v 1.3 2000/08/17 19:54:42 cpqbld Exp $
+
+
+
+
+// $XFree86: xc/programs/xkbcomp/symbols/de,v 3.12 2002/11/25 14:05:06 eich Exp $
+
+default partial alphanumeric_keys 
+xkb_symbols "basic" {
+
+    // Describes the differences between a very simple US/ASCII
+    // keyboard and a very simple German keybaord
+
+    // Alphanumeric section
+    name[Group1]= "German";
+    key <TLDE> {	[ dead_circumflex,	degree	],
+			[   notsign 			]	};
+    key <AE02> {	[	  2,	quotedbl	],
+			[ twosuperior			]	};
+    key <AE03> {	[	  3,	section	],
+			[ threesuperior,sterling	]	};
+    key <AE04> {	[	  4,	dollar		],
+			[ onequarter,	currency	]	};
+    key <AE05> {	[	  5,	percent		],
+			[   onehalf			]	};
+    key <AE06> {	[	  6,	ampersand	],
+			[ threequarters			]	};
+    key <AE07> {	[	  7,	slash		],
+			[ braceleft			]	};
+    key <AE08> {	[	  8,	parenleft	],
+			[ bracketleft			]	};
+    key <AE09> {	[	  9,	parenright	],
+			[ bracketright,	plusminus	]	};
+    key <AE10> {	[	  0,	equal		],
+			[ braceright,	degree		]	};
+    key <AE11> {	[    ssharp,	question	],
+			[ backslash,	questiondown	]	};
+    key <AE12> {	[ dead_acute,	dead_grave	],
+			[ dead_cedilla,	dead_ogonek	]	};
+
+    key <AD01> {	[	  q,	Q 		],
+			[	 at			]	};
+    key <AD03> {	[	  e,	E		],
+			[  EuroSign			]	};
+    key <AD05> {	[	  t,	T		]	};
+    key <AD06> {	[	  z,	Z		]	};
+    key <AD07> {	[	  u,	U		]	};
+    key <AD08> {	[	  i,	I		]	};
+    key <AD11> {	[ udiaeresis,	Udiaeresis	],
+			[ dead_diaeresis 		]	};
+    key <AD12> {	[      plus,	asterisk	],
+			[ dead_tilde,	dead_macron	]	};
+    key <AC04> {	[	  f,	F		]	};
+    key <AC05> {	[	  g,	G		]	};
+    key <AC10> {	[ odiaeresis,	Odiaeresis	],
+			[ dead_doubleacute		]	};
+    key <AC11> {	[ adiaeresis,	Adiaeresis	],
+			[ dead_circumflex		]	};
+
+    key <LSGT> {	[      less,	greater		],
+			[       bar			]	};
+    key <AB01> {	[	  y,	Y 		],
+			[ guillemotleft,less		]	};
+    key <AB07> {	[	  m,	M		],
+			[	 mu			]	};
+    key <AB08> {	[     comma,	semicolon	]	};
+    key <AB09> {	[    period,	colon		],
+			[ periodcentered, division	]	};
+    key <AB10> {	[     minus,	underscore	]	};
+    key <BKSL> {	[ numbersign,	apostrophe	],
+			[ dead_grave			]	};
+    key <RALT> {	[ Mode_switch,	Multi_key	]	};
+
+    // End alphanumeric section, begin "Keypad"
+    key <KPDL> {	[  KP_Delete,	KP_Separator	]	};
+    // End "Keypad" section
+
+    // begin modifier mappings
+    modifier_map Shift  { Shift_L };
+    modifier_map Lock   { Caps_Lock };
+    modifier_map Control{ Control_L };
+    modifier_map Mod3	{ Mode_switch };
+};
+
+partial alphanumeric_keys 
+xkb_symbols "nodeadkeys" {
+    // modify the default German layout to not have any dead keys
+    include "de(basic)"
+    key <TLDE> {	[ asciicircum,	degree		],
+			[   notsign 			]	};
+    key <AE12> {	[ apostrophe,	grave		],
+			[ cedilla			]	};
+    key <AD11> {	[ udiaeresis,	Udiaeresis	],
+			[ diaeresis 			]	};
+    key <AD12> {	[      plus,	asterisk	],
+			[ asciitilde,	macron		]	};
+    key <AC10> {	[ odiaeresis,	Odiaeresis	],
+			[ doubleacute			]	};
+    key <AC11> {	[ adiaeresis,	Adiaeresis	],
+			[ asciicircum			]	};
+
+    key <BKSL> {	[ numbersign,	apostrophe	],
+			[ grave				]	};
+};
+
+partial alphanumeric_keys 
+xkb_symbols "deadgraveacute" {
+    // modify the default German layout to have only acute and grave
+    // as dead keys (tilde and circumflex are needed as spacing characters
+    // in many programming languages)
+    include "de(basic)"
+    key <TLDE> {	[ asciicircum,	degree		],
+			[ notsign			]	};
+    key <AD12> {	[ plus,		asterisk	],
+			[ asciitilde,   dead_macron	]	};
+    key <BKSL> {	[ numbersign,   apostrophe	],
+			[ grave				]	};
+};
+
+partial alphanumeric_keys
+xkb_symbols "deadacute" {
+    // modify the default German layout to have only acute as
+    // dead keys (ASCII grave, tilde and circumflex are needed as
+    // spacing characters in many programming languages and text formatters)
+    include "de(deadgraveacute)"
+    key <AE12> {	[ dead_acute,	grave		],
+			[ dead_cedilla,	dead_ogonek	]	};
+    key <BKSL> {	[ numbersign,	apostrophe	],
+			[ dead_grave			]	};
+};

@@ -1,0 +1,49 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:29 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/xinit/Imakefile,v 3.16 2002/05/31 18:46:13 dawes Exp $
+
+#if HasVFork
+  VFORK_DEFINES = -DHAS_VFORK
+#endif
+#ifdef XFree86Version
+        OS_DEFS = -DXFREE86
+#endif
+#ifdef OS2Architecture
+        DEFFILE = xinit.def
+#endif
+        DEFINES = $(CONNECTION_FLAGS) $(VFORK_DEFINES) $(SIGNAL_DEFINES) \
+			-DBINDIR=\"$(BINDIR)\" $(OS_DEFS)
+        DEPLIBS = $(DEPXMUULIB) $(DEPXLIB)
+LOCAL_LIBRARIES = $(XMUULIB) $(XLIB)
+          SRCS1 = xinit.c 
+          OBJS1 = xinit.o 
+   SAMPLECONFIG = xinitrc
+       PROGRAMS = ProgramTargetName(xinit)
+#if HasCookieMaker
+     COOKIEDEFS = -DHAS_COOKIE_MAKER -DMK_COOKIE=MkCookieCmd
+#endif
+
+all:: startx $(SAMPLECONFIG)
+
+ComplexProgramTarget_1(xinit,$(LOCAL_LIBRARIES),$(DEFFILE))
+
+MakeScriptFromCpp(xinitrc, -DXINITDIR=$(XINITDIR))
+
+MakeScriptFromCpp(startx, -DXINITDIR=$(XINITDIR) -DBINDIR=$(BINDIR) $(COOKIEDEFS))
+
+EXTRAMANDEFS=-D__xinitdir__=$(XINITDIR)
+
+InstallNamedProg(startx,startx,$(BINDIR))
+InstallManPage(startx,$(MANDIR))
+
+#if InstallXinitConfig
+InstallNonExecFile($(SAMPLECONFIG),$(XINITDIR))
+#else
+InstallNonExecFileNoClobber($(SAMPLECONFIG),$(XINITDIR))
+#endif
+
+LinkConfDirectory(xinit,.,xinit,.)
+

@@ -1,0 +1,47 @@
+XCOMM
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:42:12 cpqbld Exp $
+XCOMM 
+$XCCOPY
+XCOMM Copyright (c) 1989,1990, 1991 by Sun Microsystems, Inc. 
+XCOMM 
+XCOMM			 All Rights Reserved
+XCOMM 
+XCOMM Permission to use, copy, modify, and distribute this software and its 
+XCOMM documentation for any purpose and without fee is hereby granted, 
+XCOMM provided that the above copyright notice appear in all copies and that
+XCOMM both that copyright notice and this permission notice appear in 
+XCOMM supporting documentation, and that the name of Sun Microsystems,
+XCOMM not be used in advertising or publicity 
+XCOMM pertaining to distribution of the software without specific, written 
+XCOMM prior permission.  
+XCOMM 
+XCOMM SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, 
+XCOMM INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+XCOMM EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+XCOMM CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+XCOMM USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+XCOMM OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+XCOMM PERFORMANCE OF THIS SOFTWARE.
+
+#define PassCDebugFlags
+
+SRCS = indexer.c build_ind.c print_ind.c ind_token.c \
+       xref.c build_cw.c token.c print_refs.c sub_refs.c dump_cw.c \
+       recode.c
+
+IND_OBJECTS = indexer.o build_ind.o print_ind.o ind_token.o
+
+XREF_OBJECTS = xref.o build_cw.o token.o print_refs.o \
+	sub_refs.o dump_cw.o
+
+RECODE_OBJECTS = recode.o
+
+all:: xref recode indexer pex.macros
+
+pex.macros: ex.toc exp.acc exp.eqn exp.ref exp.tbl
+
+NormalProgramTarget(xref,$(XREF_OBJECTS),NullParameter,NullParameter,NullParameter)
+NormalProgramTarget(recode,$(RECODE_OBJECTS),NullParameter,NullParameter,NullParameter)
+NormalProgramTarget(indexer,$(IND_OBJECTS),NullParameter,NullParameter,NullParameter)
+
+DependTarget()

@@ -1,0 +1,813 @@
+                       Information for S3 Chipset Users
+
+                          The XFree86 Project Inc.
+
+                              27 February 1998
+
+1.  Supported hardware
+
+The current S3 Server supports the following S3 chipsets: 911, 924, 801/805,
+928, 732 (Trio32), 764, 765, 775, 785 (Trio64*), 864, 868, 964, 968 and M65
+(Aurora64V+).  The S3 server will also recognise the 866, but it has not been
+tested with this chipset.  If you have any problems or success with these,
+please report it to us.
+
+Nevertheless, this is not enough to support every board using one of these
+chipsets. The following list contains some data points on boards that are
+known to work.  If your card is similar to one of the described ones, chances
+are good it might work for you, too.
+
+      S3 801/805, AT&T 20C490 (or similar) RAMDAC
+
+               o Orchid Fahrenheit 1280+ VLB
+
+               o Actix GE32
+
+            8 and 15/16 bpp
+
+            Note: Real AT&T20C490 RAMDACs should be automatically detected by
+            the server.  For others which are compatible, you need to provide
+            a `Ramdac "att20c490"' entry in your XF86Config.
+
+            Real AT&T 20C490 or 20C491 RAMDACs work with the "dac_8_bit"
+            option.  Some clones (like the Winbond 82C490) do not.
+
+            The Orchid Fahrenheit 1280+ VLB may require `Option "nolinear"'.
+
+      S3 805 VLB, S3 GENDAC (RAMDAC + clock synthesizer)
+
+               o MIRO 10SD (available for VLB and PCI) It is not known
+                 whether all 10SDs use the S3 GENDAC.
+
+            8 and 15/16 bpp
+
+                  ClockChip "s3gendac"
+                  RamDac    "s3gendac"
+
+      S3 801/805, AT&T 20C490 RAMDAC, ICD2061A Clockchip
+
+               o STB PowerGraph X.24 S3 (ISA)
+
+            8 and 15/16 bpp
+
+            Note: Real AT&T20C490 RAMDACs should be automatically detected by
+            the server.  For others which are compatible, you need to provide
+            a `Ramdac "att20c490"' entry in your XF86Config.
+
+                  ClockChip "icd2061a"
+                  RamDac    "att20c490"
+                  Option    "dac_8_bit
+
+      S3 805, Diamond SS2410 RAMDAC, ICD2061A Clockchip
+
+               o Diamond Stealth 24 VLB
+
+            8 and 15bpp(*) only.
+
+            requires `Option "nolinear"'
+
+            (*) The SS2410 RAMDAC is reportedly compatible with the
+            AT&T20C490 in 15bpp mode.  To make the server treat it as an
+            AT&T20C490, you need to provide a `Ramdac "att20c490"' entry in
+            your XF86Config.
+
+      S3 801/805, Chrontel 8391 Clockchip/Ramdac
+
+               o JAX 8241
+
+               o SPEA Mirage
+
+            8 and 15/16 bpp.
+
+            The 8391 is compatible with the AT&T 20C490 RAMDAC
+
+                  ClockChip "ch8391"
+                  Ramdac    "ch8391"
+                  Option    "dac_8_bit"
+
+      S3 928, AT&T 20C490 RAMDAC
+
+               o Actix Ultra
+
+            8 and 15/16 bpp
+
+            Note: Real AT&T20C490 RAMDACs should be automatically detected by
+            the server.  For others which are compatible, you need to provide
+            a `Ramdac "att20c490"' entry in your XF86Config.  Also, the
+            server's RAMDAC probe reportedly causes problems with some of
+            these boards, and a RamDac entry should be used to avoid the
+            probe.
+
+            Real AT&T 20C490 or 20C491 RAMDACs work with the "dac_8_bit"
+            option.  Some clones (like the Winbond 82C490) do not.
+
+      S3 928, Sierra SC15025 RAMDAC, ICD2061A Clockchip
+
+               o ELSA Winner 1000 ISA/EISA (``TwinBus'', not Winner1000ISA!!)
+
+               o ELSA Winner 1000 VL
+
+            8, 15/16 and 24(32) bpp
+
+            Supports 8bit/pixel RGB in 8bpp and gamma correction for 15/16
+            and 24bpp modes
+
+            24 bpp might get ``snowy'' if the clock is near the limit of
+            30MHz. This is not considered dangerous, but limits the usability
+            of 24 bpp.
+
+            D-step (or below) chips cannot be used with a line width of 1152;
+            hence the most effective mode for a 1 MB board is about
+            1088x800x8 (similar to 2 MB, 1088x800x16).
+
+                  ClockChip "icd2061a"
+
+      S3 928, Bt9485 RAMDAC, ICD2061A Clockchip
+
+               o STB Pegasus VL
+
+            8, 15/16 and 24(32) bpp
+
+            Supports RGB with sync-on-green if "sync_on_green" option is pro-
+            vided and board jumper is set for BNC outputs.
+
+            VLB linear addressing now occurs at 0x7FCxxxxx so that 64MB or
+            more main memory can be supported without losing linear frame
+            buffer access.
+
+                  ClockChip "icd2061a"
+                  Option    "stb_pegasus"
+
+      S3 928, Bt485 RAMDAC, SC11412 Clockchip
+
+               o SPEA Mercury 2MB VL
+
+            8, 15/16 and 24(32) bpp
+
+                  ClockChip "SC11412"
+                  Option    "SPEA_Mercury"
+
+      S3 928, Bt485 RAMDAC, ICD2061A Clockchip
+
+               o #9 GXE Level 10, 11, 12
+
+            8, 15/16 and 24(32) bpp
+
+                  ClockChip "icd2061a"
+                  Option    "number_nine"
+
+      S3 928, Ti3020 RAMDAC, ICD2061A Clockchip
+
+               o #9 GXE Level 14, 16
+
+            8, 15/16 and 24(32) bpp
+
+            Supports RGB with sync-on-green
+
+                  ClockChip "icd2061a"
+                  Option    "number_nine"
+
+      S3 864, AT&T20C498, ICS2494 Clockchip
+
+               o MIRO 20SD (BIOS 1.xx)
+
+            The ICS2494 is a fixed frequency clockchip, you have to use X
+            -probeonly (without a Clocks line in XF86Config) to get the cor-
+            rect clock values.
+
+            8, 15/16 and 24(32) bpp
+
+      S3 864, AT&T20C498 or STG1700 RAMDAC, ICD2061A or ICS9161 Clockchip
+
+               o Elsa Winner1000PRO VLB
+
+               o Elsa Winner1000PRO PCI
+
+               o MIRO 20SD (BIOS 2.xx)
+
+               o Actix GraphicsENGINE 64 VLB/2MB
+
+            8, 15/16 and 24(32) bpp
+
+                  ClockChip "icd2061a"
+
+      S3 864, 20C498 or 21C498 RAMDAC, ICS2595 Clockchip
+
+               o SPEA MirageP64 2MB DRAM  (BIOS 3.xx)
+
+            8, 15/16 and 24(32) bpp
+
+            Clockchip support is still sometimes flaky and on some machines
+            problems with the first mode after startup of XF86_S3 or after
+            switching back from VT have been seen; switching to next mode
+            with CTRL+ALT+``KP+'' and back seems to solve this problem.
+
+            Interlaced modes don't work correctly.
+
+            Mirage P64 with BIOS 4.xx uses the S3 SDAC.
+
+                  ClockChip "ics2595"
+
+      S3 864, S3 86C716 SDAC RAMDAC and Clockchip
+
+               o Elsa Winner1000PRO
+
+               o MIRO 20SD (BIOS 3.xx)
+
+               o SPEA MirageP64 2MB DRAM  (BIOS 4.xx)
+
+               o Diamond Stealth 64 DRAM
+
+            8, 15/16 and 24 bpp
+
+      S3 864, ICS5342 RAMDAC and Clockchip
+
+               o Diamond Stealth 64 DRAM (only some cards)
+
+            8, 15/16 and 24 bpp
+
+                  ClockChip "ics5342"
+                  Ramdac    "ics5342"
+
+      S3 864, AT&T21C498-13 RAMDAC, ICD2061A Clockchip
+
+               o #9 GXE64 - PCI
+
+            8, 15/16, 24(32) bpp
+
+                  ClockChip "icd2061a"
+                  Option    "number_nine"
+
+      S3 964, AT&T 20C505 RAMDAC, ICD2061A Clockchip
+
+               o Miro Crystal 20SV
+
+            8, 15/16, 24(32) bpp
+
+                  ClockChip "icd2061a"
+                  Ramdac    "att20c505"
+
+      S3 964, Bt485 RAMDAC, ICD2061A Clockchip
+
+               o Diamond Stealth 64
+
+            8, 15/16, 24(32) bpp
+
+                  ClockChip "icd2061a"
+
+      S3 964, Bt9485 or AT&T 20C505 RAMDAC, ICS9161a Clockchip
+
+               o SPEA Mercury 64
+
+            8, 15/16, 24(32) bpp
+
+                  ClockChip "ics9161a"
+                  Option    "SPEA_Mercury"
+
+      S3 964, Ti3020 RAMDAC, ICD2061A Clockchip
+
+               o Elsa Winner2000PRO PCI
+
+            8, 15/16, 24(32) bpp
+
+                  ClockChip "icd2061a"
+
+      S3 964, Ti3025 RAMDAC, Ti3025 Clockchip
+
+               o Miro Crystal 40SV
+
+               o #9 GXE64 Pro VLB
+
+               o #9 GXE64 Pro PCI
+
+            8 bpp, 15, 16 and 24(32) bpp
+
+            There are some known problems with the GXE64 Pro support, includ-
+            ing some image shifting/wrapping at 15/16/24 bpp.
+
+            We have found that #9 no longer support the GXE64 Pro at
+            1600x1200.  They do however have a new (and more expensive) board
+            called the GXE64Pro-1600 which uses a 220MHz RAMDAC instead of
+            135MHz part used on the other boards.
+
+      S3 764 (Trio64)
+
+               o SPEA Mirage P64 (BIOS 5.xx)
+
+               o Diamond Stealth 64 DRAM
+
+               o #9 GXE64 Trio64
+
+            8/15/16/24 bpp
+
+            Note: The Trio64 has a builtin RAMDAC and clockchip, so the
+            server should work with all Trio64 cards, and there is no need to
+            specify the RAMDAC or clockchip in the XF86Config file.
+
+      S3 732 (Trio32)
+
+               o Diamond Stealth 64 DRAM SE
+
+            8/15/16/24 bpp
+
+            Note: The Trio32 has a builtin RAMDAC and clockchip, so the
+            server should work with all Trio32 cards, and there is no need to
+            specify the RAMDAC or clockchip in the XF86Config file.
+
+      S3 868, S3 86C716 SDAC RAMDAC and Clockchip
+
+               o ELSA Winner 1000AVI
+
+               o Diamond Stealth Video DRAM
+
+            8/15/16/24 bpp
+
+      S3 868, AT&T 20C409 RAMDAC and Clockchip
+
+               o ELSA Winner 1000AVI
+
+            8/15/16/24 bpp
+
+            Note: pixelmultiplexing is not supported yet, therefore limited
+            maximum dot clock for 8bpp (currently 67.5MHz, should be changed
+            to 100MHz if pixmux isn't fixed prior to release)
+
+      S3 968, Ti3026 RAMDAC, Ti3026 Clockchip
+
+               o Elsa Winner 2000PRO/X-2 and /X-4 (Revsions <= F)
+
+               o Elsa Winner 2000AVI-2 and -4
+
+               o Diamond Stealth 64 VIDEO VRAM
+
+            8/15/16/24 bpp
+
+      S3 968, Ti3026 RAMDAC, ICS9161A Clockchip
+
+               o Elsa Winner 2000PRO/X-2 and /X-4 (Revision G)
+
+            8/15/16/24 bpp
+
+            Note: clock doubling doesn't work, yet, therefore the maximum
+            usable dot clock is limited to about 120MHz.
+
+      S3 964, IBM RGB 514/524/525/528 RAMDAC & Clockchip
+
+               o Hercules Graphics Terminator 64
+
+            8/15/16/24 bpp
+
+                  s3RefClk   50
+                  DACspeed  170
+                  Option  "slow_vram"
+
+      S3 968, IBM RGB 514/524/525/528 RAMDAC & Clockchip
+
+               o Genoa Genoa VideoBlitz III AV
+
+                       s3RefClk   50
+                       DACspeed  170
+
+               o Hercules Graphics Terminator Pro 64
+
+                       s3RefClk   16
+                       DACspeed  220
+
+                 This card may require the line:
+
+                              Invert_VCLK "*" 0
+
+                 in each Display subsection.
+
+               o STB Velocity 64
+
+                       s3RefClk   24
+                       DACspeed  220
+
+               o Number Nine FX Motion 771
+
+                       s3RefClk   16
+                       DACspeed  220
+
+                 This card may require the line:
+
+                       Invert_VCLK "*" 0
+
+                 in each Display subsection.
+
+               o MIRO 80SV
+
+                       s3RefClk   16
+                       DACspeed  250
+
+            8/15/16/24 bpp
+
+      ELSA Winner 2000PRO/X-8 (S3 968, 8MB VRAM, 220MHz for 32bpp)
+            The server has only been tested for "revision C" of this card
+            (guess the serial number should start with C, but not sure since
+            mine says  Ser.No. A-0000.000.000;)  which have an IBM RGB528A
+            note the A;  can't be probed though)
+
+            depending on the mode line etc there may be some display distor-
+            tions like:
+
+              1.  many long horizontal lines/stripes
+
+              2.  pixel jitter or short horizontal stripes like snow all over
+                  the screen
+
+              3.  Like 2., but only when doing graphics ops (like opaque move
+                  of windows).
+
+              4.  additional pixel at the left display edge and some missing
+                  pixels at the right edge.
+
+            All of these problems can be fixed by small adjustments to the
+            mode line (best to run `xvidtune' and make these adjustments
+            interactively).  E.g., for the first three problems, shift the
+            display left or right a few steps.  For the last problem,
+            increasing HSyncEnd (making the hsync pulse longer) solves the
+            problem.  In some cases, a significant increase in the sync pulse
+            width is needed, and rarely, it needs to be shortened (by
+            decreasing HSyncEnd).
+
+            In rare cases, InvertVCLK and/or EarlySC may need to be adjusted,
+            followed by an adjustment of BlankDelay (see the bottom line of
+            xvidtune).
+
+            If you see any of these problems, please contact
+            koenig@XFree86.org, and send details of:
+
+               o Original mode showing the problem,
+
+               o Tuned/fixed mode, including all flags from the bottom line
+                 of xvidtune,
+
+               o Colour depth used for this tuned mode line,
+
+               o Full server startup output.
+
+2.  16bpp and 32bpp
+
+On 801/805 + AT&T490 Cards (like the Fahrenheit 1280+ VLB) only 15 and 16bpp
+are supported. 32bpp isn't available on this type of card. (There is a 24 bit
+mode under MS Windows, but it's not a 32bpp sparse mode but a real 3
+bytes/pixel mode).
+
+3.  List of Supported Clock Chips
+
+     ICD2061A                                ==> ClockChip "icd2061a"
+     ICS9161A (ICD2061A compatible)          ==> ClockChip "ics9161a"
+     DCS2824-0 (Diamond, ICD2061A comp.)     ==> ClockChip "dcs2824"
+
+     S3 86c708 GENDAC                        ==> ClockChip "s3gendac"
+     ICS5300 GENDAC (86c708 compatible)      ==> ClockChip "ics5300"
+
+     S3 86c716 SDAC                          ==> ClockChip "s3_sdac"
+     ICS5342 GENDAC                          ==> ClockChip "ics5342"
+     STG 1703                                ==> ClockChip "stg1703"
+
+     Sierra SC11412                          ==> ClockChip "sc11412"
+     ICS2595                                 ==> ClockChip "ics2595"
+     TI3025                                  ==> ClockChip "ti3025"
+     TI3026                                  ==> ClockChip "ti3026"
+     IBM RGB 5xx                             ==> ClockChip "ibm_rgb5xx"
+
+     Chrontel 8391                           ==> ClockChip "ch8391"
+
+     AT&T 20C409                   ==> ClockChip "att20c409"
+     AT&T 20C499 (untested)        ==> ClockChip "att20c499"
+
+4.  List of Supported RAMDAC Chips
+
+If you have a RAMDAC that is not listed here, be VERY careful not to over-
+drive it using XF86_S3. Better contact the XFree86 team first to verify that
+running XF86_S3 will not damage your board.
+
+RAMDACs that are grouped together below are treated as compatible with each
+other as far as the server is concerned. For example, the server will report
+"bt485" when you actually specify RAMDAC "bt9485", or "s3_gendac" when you
+specify RAMDAC "ics5300".
+
+     ATT20C409                               ==> RAMDAC "att20c409"
+
+     ATT20C490                               ==> RAMDAC "att20c490"
+     ATT20C491                               ==> RAMDAC "att20c491"
+     CH8391                                  ==> RAMDAC "ch8391"
+
+     ATT20C498                               ==> RAMDAC "att20c498"
+     ATT21C498                               ==> RAMDAC "att21c498"
+
+     ATT22C498                               ==> RAMDAC "att22c498"
+
+     ATT20C505                               ==> RAMDAC "att20c505"
+
+     BT485                                   ==> RAMDAC "bt485"
+     BT9485                                  ==> RAMDAC "bt9485"
+
+     IBMRGB514                               ==> RAMDAC "ibm_rgb514"
+     IBMRGB525                               ==> RAMDAC "ibm_rgb525"
+
+     IBMRGB524                               ==> RAMDAC "ibm_rgb524"
+     IBMRGB526                               ==> RAMDAC "ibm_rgb526"
+
+     IBMRGB528                               ==> RAMDAC "ibm_rgb528"
+
+     S3_GENDAC                               ==> RAMDAC "s3gendac"
+     ICS5300                                 ==> RAMDAC "ics5300"
+
+     S3_SDAC                                 ==> RAMDAC "s3_sdac"
+     ICS5342                                 ==> RAMDAC "ics5342"
+
+     S3_TRIO32                               ==> RAMDAC "s3_trio32"
+
+     S3_TRIO64                               ==> RAMDAC "s3_trio64"
+     S3_TRIO64                               ==> RAMDAC "s3_trio"
+
+     SC11482                                 ==> RAMDAC "sc11482"
+     SC11483                                 ==> RAMDAC "sc11483"
+     SC11484                                 ==> RAMDAC "sc11484"
+
+     SC11485                                 ==> RAMDAC "sc11485"
+     SC11487                                 ==> RAMDAC "sc11487"
+     SC11489                                 ==> RAMDAC "sc11489"
+
+     SC15025                                 ==> RAMDAC "sc15025"
+
+     STG1700                                 ==> RAMDAC "stg1700"
+
+     STG1703                                 ==> RAMDAC "stg1703"
+
+     TI3020                                  ==> RAMDAC "ti3020"
+
+     TI3025                                  ==> RAMDAC "ti3025"
+
+     TI3026                                  ==> RAMDAC "ti3026"
+
+     None of the above                       ==> RAMDAC "normal"
+
+If you feel adventurous you could also open up your computer and have a peek
+at your RAMDAC. The RAMDAC is usually one of the larger chips (second or
+third largest chip that is NOT an EPROM) on the board.  The markings on it
+are usually
+
+       <Company logo>
+
+           <company identifier><part number>-<speed grade>
+           <manufacturing week><manufacturing year>
+           <lot number><other funny numbers>
+
+For example:
+
+               @@
+               @@ AT&T
+
+             ATT20C490-11
+              9339S ES
+               9869874
+
+This is an AT&T 20C490 with a speed grade of 110 MHz. This would then mean
+that you put a `DacSpeed 110' line in your XF86Config file.  Be advised that
+some RAMDACs have different modes that have different limits. The manufac-
+turer will always mark the chip naming the higher limits, so you should be
+careful.  The S3 server knows how to handle the limits for most of the RAM-
+DACs it supports providing the DacSpeed is specified correctly.
+
+Chips labeled -80 or -8  should use `DacSpeed 80' in the device section.
+
+     S3 86C716-ME SDAC  ==>  DacSpeed 110
+     SC15025-8          ==>  DacSpeed  80
+     ATT20C490-80       ==>  DacSpeed  80
+
+     IBM 8190429        ==>  DacSpeed 170
+     IBM 03H5428        ==>  DacSpeed 170
+     IBM 03H6447        ==>  DacSpeed 170
+     IBM 03H6448        ==>  DacSpeed 220
+     IBM 03H5319        ==>  DacSpeed 220
+     IBM 63G9902        ==>  DacSpeed 250
+
+     IBM 37RGB514CF17   ==>  DacSpeed 170
+     IBM 37RGB524CF22   ==>  DacSpeed 220
+                   ^^
+
+5.  Additional Notes
+
+Note that the Sierra SC1148{5,7,9} will not be distinguished from the Sierra
+SC1148{2,3,4} by the probe. The only difference between the two series as far
+as the server is concerned is that the {2,3,4} is capable of 15bpp, while the
+{5,7,9} is capable of 16bpp. So if you have a SC1148{5,7,9} and want to use
+16bpp instead of 15bpp, you will have to specify a RAMDAC "sc11485" line as
+shown above.
+
+Some RAMDACs (like the Ti3025) require some mode timing consideration for
+their hardware cursor to work correctly.  The Ti3025 requires that the mode
+have a back porch of at least 80 pixel-clock cycles.  A symptom of this not
+being correct is the HW cursor being chopped off when positioned close to the
+right edge of the screen.
+
+6.  Reference clock value for IBM RGB 5xx  RAMDACs
+
+Cards with IBM RGB5xx RAMDACs use several different input frequencies for the
+clock synthesizer which can't be probed without some knowledge of the text
+mode clocks (which may be a wrong assumption if you're using non-standard
+text modes).  Here is the procedure you should use to find out the input fre-
+quency:
+
+First run
+
+         X -probeonly >& outfile
+
+and check the output for the probed clock chip which might look like this:
+
+     (--) S3: Using IBM RGB52x programmable clock (MCLK 66.000 MHz)
+     (--) S3: with refclock 16.000 MHz (probed 15.952 & 16.041)
+                            ^^^^^^      ^^^^^^^^^^^^^^^^^^^^^^
+
+there will be a "good guessed" value which will be used and two probed values
+in brackets based on the 25MHz and 28MHz text clocks. This probing can only
+work if you run a normal 80x25 or 80x28 text mode!
+
+The refclock values known so far are:
+
+          STB Velocity 64          24 Mhz
+          Genoa VideoBlitz II AV   50 MHz
+          Hercules S3 964     50 MHz
+          Hercules S3 968     16 MHz
+          #9 Motion 771       16 MHz
+
+depending on the quartz on your card and maybe other features like an addi-
+tional clock chip on the Genoa card (which as a 14.3MHz quartz).
+
+If you claim that your card has a 16MHz clock, but it really uses 50MHz, all
+pixel clocks will be tripled and a 640x480 mode with 25MHz will use a 75MHz
+pixel clock, so be very careful.
+
+If you found the right refclock, you should set it in the config file (device
+section) e.g. with
+
+          s3RefClk  16
+
+or
+
+          s3RefClk  50
+
+so that that this value will be used even if you use another text mode and
+probing fails!
+
+7.  Hints for LCD configuration (S3 Aurora64V+)
+
+If LCD is active the CRT will always output 1024x768 (or whatever is the
+_physical_ LCD size) and smaller modes are zoomed to fit on the LCD unless
+you specify Option "lcd_center" in the device section.
+
+The pixel clock for this physical size (e.g. 1024x768) mode...
+
+   o ...can explicitly set in the config file (device section) with  e.g.
+     `Set_LCDClk 70' (resulting 70 MHz pixel clock being used for all modes
+     when LCD is on)
+
+   o ...is taken from the _first_ mode in the modes line iff this mode's dis-
+     play size is the same as the physical LCD size
+
+   o ...the default LCD pixel clock of BIOS initialisation setup is used.
+     This value is output at server startup in the line `LCD size ...' unless
+     you're specifying a value using `Set_LCDClk ...'
+
+If LCD is _not_ active, the normal mode lines and pixel clocks are used for
+the VGA output.
+
+Whenever you switch output sources with Fn-F5, the Xserver won't get informed
+and pixel clock and other settings are wrong.  Because of this you have to
+switch modes _after_ switch output sources!  Then the server will check which
+outputs are active and select the correct clocks etc.  So the recommended key
+sequence to switch output is
+
+Fn-F5  Ctrl-Alt-Plus  Ctrl-Alt-Minus
+
+and everything should be ok..
+
+on the Toshiba keypad you can first hold down Ctrl-Alt, then press `Fn' addi-
+tionally before pressing Plus/Minus too to avoid to explicitly enable/disable
+the numeric keypad for mode switching.
+
+8.  How to avoid ``snowing'' display while performing graphics operations
+
+For cards with the S3 Vision864 chip, there is an automatic correction which
+depends on the pixel clock and the memory clock MCLK at which the S3 chip
+operates. For most clock chips this value can't be read (only the S3 SDAC
+allows reading the MCLK value so far), so this value has to be estimated and
+specified by the user (the default is 60 [MHz]).
+
+With the new `s3MCLK' entry for your XF86Config file, now you can specify
+e.g.
+
+      s3MCLK 55
+
+for a 55 MHz MCLK which will reduce snowing. Smaller MCLK values will reduce
+performance a bit so you shouldn't use a too low value (55 or 50 should be a
+good guess in most cases).
+
+Below is a small shell script which might be useful to determine the approxi-
+mate value for MCLK (about +/- 1-2 MHz error). Before running this script you
+have to add the line
+
+      s3MNadjust -31 255
+
+to the device section in your XF86Config file and restart X.  With
+this option (which is for testing and debugging only) you'll get lots of dis-
+astrous display flickering and snowing, so it should be removed again immedi-
+ately after running the test script below.
+
+Running this script will use xbench and/or x11perf to run a test to determine
+the MLCK value, which is printed in MHz. Up to 4 tests are run, so you'll get
+up to 4 estimates (where the first might be the most accurate one).
+
+     #!/bin/sh
+
+     exec 2> /dev/null
+
+     scale=2
+
+     calc() {
+       m=`awk 'BEGIN{printf "%.'$scale'f\n",'"( $1 + $2 ) / $3; exit}" `
+       [ -z "$m" ] && m=` echo "scale=$scale; ( $1 + $2 ) / $3" | bc `
+       [ -z "$m" ] && m=` echo "$scale $1 $2 + $3 / pq" | dc `
+       echo $m
+     }
+
+     run_xbench() {
+       r=` ( echo 1; echo 2; echo 3; echo 4 ) | xbench -only $1 | grep rate `
+       [ -z "$r" ] && return
+       cp="$2 $3"
+       set $r
+       calc $3 $cp
+     }
+
+     run_x11perf() {
+       r=` x11perf $1 | grep trep | tr '(/)' '   ' `
+       [ -z "$r" ] && return
+       cp="$2 $3"
+       set $r
+       calc `calc 1000 0 $4` $cp
+     }
+
+     run_x11perf "-rect500 -rop GXxor"     3.86  5.53  #  0 1  #    4.11    5.52  #
+     run_xbench invrects500                4.63  5.48  #  0 1  #    4.69    5.48  #
+
+     run_x11perf "-rect500 -rop GXcopy"  -16.42 13.90  #  0 1  #  -14.99   13.88  #
+     run_xbench fillrects500              -7.81 13.57  #  0 1  #   -8.53   13.58  #
+
+     exit
+
+9.  New S3 SVGA driver
+
+There is a new experimental S3 driver for non-ViRGE S3 chipsets in the
+XF86_SVGA server.  This is definitely an ALPHA quality driver and hasn't been
+well tested, and has some known problems.  Because of this, the configuration
+programs will install XF86_S3 by default rather than this one.  But if you're
+adventurous or had some problems with XF86_S3, you might want to give it a
+try.
+
+The driver includes generic S3 support which should work on all non-ViRGE S3
+chips (in theory, that is).  It also has improved support for chips that sup-
+port S3's new style memory mapped I/O.  These chips include the 868, 968 and
+recent Trio64 variants (not the plain old Trio64s).  Chips that are capable
+of using the new style MMIO will use it automatically.  The option "NO_MMIO"
+can be used to turn this off.
+
+Performance for chips using the new style MMIO is expected to be better than
+XF86_S3, especially on a PCI bus.  Performance without MMIO, however, is
+expected to be roughly comparable to XF86_S3 (faster in some areas, slower in
+others).
+
+All color depths achievable with XF86_S3 should be possible with these
+drivers.  Additionally, packed 24 bpp "sort of" works for the 868 and 968.
+Your results may vary.
+
+Nearly all the options and features supported by XF86_S3 are supported by
+this driver.  Additionally, the standard XAA/SVGA server options such as
+NO_ACCEL, SW_CURSOR, and NO_PIXMAP_CACHE are also supported.  XF86_S3 fea-
+tures which are NOT supported in this driver are DPMS support and gamma cor-
+rection.
+
+The driver supports the PCI_RETRY option when using MMIO and a PCI card.
+This option can give large performance boosts for some operations, but has a
+tendency to hog the bus.  Because of this, the option is not set by default.
+Most hardware combinations may not have any problems using this option, but
+sound card glitches during intensive graphics operations have been reported
+on some.
+
+One shortcoming worth noting is that this driver does not yet contain the
+work-around for some S3 PCI BIOSs that report their memory usage incorrectly.
+This can result in conflicting address spaces.  If this is the case on your
+hardware you should run XF86_S3 once and write down the address that your
+card is relocated to (as printed out in the server output).  Then you can
+force the server to use this address with the MemBase field in the XF86Config
+(see the man page on XF86Config).
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/S3.sgml,v 3.38 1999/08/23 06:38:52 dawes Exp $
+
+     $XConsortium: S3.sgml /main/14 1996/02/21 17:45:58 kaleb $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.S3,v 3.57 2001/12/17 20:52:30 dawes Exp $

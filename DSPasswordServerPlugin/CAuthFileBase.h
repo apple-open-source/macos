@@ -75,6 +75,7 @@ class CAuthFileBase
         virtual void					resetPasswordFileState(void);
         virtual void					carryOn(void);
 		virtual void					pwLock(void);
+		virtual bool					pwLock( unsigned long inMillisecondsToWait );
         virtual void					pwUnlock(void);
         virtual void					pwWait(void);
         virtual void					pwSignal(void);
@@ -107,6 +108,9 @@ class CAuthFileBase
         virtual int						addPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfuscate = true, bool setModDate = true);
         virtual int						setPasswordAtSlot(PWFileEntry *passwordRec, long slot, bool obfuscate = true, bool setModDate = true);
 		//virtual void					addHashes( const char *inRealm, PWFileEntry *inOutPasswordRec );
+		virtual void					addHashDigestMD5( const char *inRealm, PWFileEntry *inOutPasswordRec );
+		virtual void					addHashCramMD5( PWFileEntry *inOutPasswordRec );
+		static void						getHashCramMD5( const unsigned char *inPassword, long inPasswordLen, unsigned char *outHash, unsigned long *outHashLen );
 		virtual bool					ConvertBinaryToHex( const unsigned char *inData, long len, char *outHexStr );
         virtual int						getPasswordRec(long slot, PWFileEntry *passRec, bool unObfuscate = true);
         virtual int						getValidPasswordRec(PWFileEntry *passwordRec, bool *outFromSpillBucket = NULL, bool unObfuscate = true);

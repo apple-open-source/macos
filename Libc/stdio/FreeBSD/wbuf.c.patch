@@ -1,0 +1,22 @@
+--- wbuf.c.orig	Mon Mar 22 13:35:00 2004
++++ wbuf.c	Mon Mar 22 13:38:02 2004
+@@ -41,6 +41,7 @@
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/wbuf.c,v 1.10 2002/08/13 09:30:41 tjr Exp $");
+ 
+ #include <stdio.h>
++#include <errno.h>
+ #include "local.h"
+ 
+ /*
+@@ -65,8 +66,10 @@
+ 	 * calls might wrap _w from negative to positive.
+ 	 */
+ 	fp->_w = fp->_lbfsize;
+-	if (cantwrite(fp))
++	if (cantwrite(fp)) {
++		errno = EBADF;
+ 		return (EOF);
++	}
+ 	c = (unsigned char)c;
+ 
+ 	ORIENT(fp, -1);

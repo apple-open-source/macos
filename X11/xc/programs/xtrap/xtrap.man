@@ -1,0 +1,216 @@
+.\" $XFree86: xc/programs/xtrap/xtrap.man,v 1.2 2001/11/03 18:51:04 dawes Exp $
+.TH xtrap 1
+.SH NAME
+xtrapreset, xtrapinfo, xtrapstats, xtrapout, xtrapin, xtrapchar, xtrapproto  
+- XTrap sample clients
+.SH SYNTAX
+.NXR "XTrap X Server Extension Sample Clients"
+.B xtrapreset
+[
+.B \-d[isplay]
+.I display
+]
+.\".ll -8
+.LP
+.B xtrapinfo
+[
+.B \-d[isplay]
+.I display
+]
+.\".ll -8
+.LP
+.B xtrapstats
+[
+.B \-d[isplay]
+.I display
+]
+.\".ll -8
+.LP
+.B xtrapout
+[
+.B \-f 
+.I script
+] [
+.B \-e
+] [
+.B \-d[isplay]
+.I display
+] [
+.B \-v
+]
+.\".ll -8
+.LP
+.B xtrapin
+[
+.B \-f 
+.I script
+] [
+.B \-d[isplay]
+.I display
+]
+.\".ll -8
+.LP
+.B xtrapchar
+[
+.B \-v 
+] [
+.B \-d[isplay]
+.I display
+]
+.LP
+.B xtrapproto
+[
+.B \-d[isplay]
+.I display
+]
+.SH DESCRIPTION
+.LP
+These commands are 
+.B "SAMPLE CLIENTS"
+provided with the XTrap X Server Extension
+Sources, Version 3.3.
+XTrap is an X Server 
+extension which facilitates the capturing of server protocol and synthesizing
+core input events.
+Information on how to obtain these sources can be
+found in the SOURCES section below.
+.LP
+The 
+.B xtrapreset
+command
+is the simplest XTrap client in that it merely performs an XQueryExtension()
+against XTrap.  The name "reset" is historical.  The 
+.I display
+argument is parsed by the X Toolkit and specifies the display where XTrap is
+to be loaded; see X(1).
+.LP
+.B xtrapinfo
+displays general configuration information as a result of an GetAvailable
+XTrap request to the specified server.  It is simply designed to test the
+request/response mechanism of the XTrap extension and client library as
+well as display the configuration information that it finds.
+.LP
+.B xtrapstats
+tests the event and request vectoring of the server extension by configuring
+XTrap to collect usage statistics on all core input events and requests.  It
+has a primitive command-line interface for showing the counters, zeroing
+out the counters, and quitting the program.
+.LP
+.B xtrapout
+tests the output transport from the XTrap extension to the XTrap client
+library.  
+As an aside, since xtrapout has the capability of "recording" events and
+requests it receives, 
+.B xtrapout
+is ideal for providing input to test 
+.B xtrapin.
+Since events are the only concern for the input transport, the \-e flag can
+be specified to indicate that all input events (and only events) should be
+recorded by
+.B xtrapout.
+.I script
+is specified primarily for non-U*IX machines which don't support I/O 
+re-direction easily.
+The \-v flag is used to force recording of all requests and input events.
+.LP
+.B xtrapin
+is used to test the input transport to the XTrap server extension.  As stated
+earler, it's input can be provided by 
+.B xtrapout
+using the \-e qualifer.  While it's primary function is for testing XTrap
+and serving as an example for XTrap functionality, it can reasonably used as
+a primitive "playback" client for X sessions.
+.LP
+.B xtrapchar
+parses ANSI character sequences including application program sequences to 
+synthesize input events to X Window servers using the XTrap server extension.
+The intent of this program is to serve as a sample implementation for 
+interfacing character-based alternative input sources into X servers (e.g.
+voice recognition systems).  Another application might be "remote keyboards".
+The -v flag causes the program to display XTrap configuration information 
+and echo's characters processed to stdout.  If present, this must be the 
+first argument.
+.LP
+Note:  
+.B xtrapchar 
+has only been used with Digital Workstations using the 
+LK201 compatible keyboard.  Though reasonable effort was done to maintain 
+portability,  no claims are made as to the current level of portability to 
+non-DEC servers for this program.
+.LP
+The
+.B xtrapproto
+command
+is a regression test designed to test the basic XTrap protocol between a
+client and server.  If a given implementation is suspect, the results of
+this test should be sent to an XTrap implementor and/or developer.
+.SH OPTIONS
+.PP
+.TP 4
+.B "-d[isplay] \fIdisplay\fP"
+Specifies the server to record from or playback to; see
+.PN X(1).
+.PP
+.TP 4
+.B "-e"
+Record only (and all) events.  Should be used when creating input for
+.PN xtrapin.
+.PP
+.TP 4
+.B "-f \fIscript\fP"
+The pathname of the script to be recorded / played back.
+.PP
+.TP 4
+.B "-v"
+Verbose mode.
+.LP
+.SH DIAGNOSTICS
+.LP
+.B "X Toolkit Error: Can't load DEC-XTRAP extension"
+.PP
+The XTrap X server extension has not been linked into the specified X
+server.
+.SH SOURCES
+.LP
+.EX
+Sources have been posted on UseNet systems via anonymous ftp.
+They are:
+East Coast (USA):   export@lcs.mit.edu:contrib/XTrap_v32*.tar.Z
+West Coast (USA):   gatekeeper@pa.dec.com:X11/contrib/XTrap_v32*.tar.Z
+
+.SH IMPORTANT NOTE
+.LP
+.EX
+Digital participated in the X Consortium's xtest working group which 
+chose to evolve XTrap functionality into a new extension for X11/R6
+known as the RECORD extension (XTrap input synthesis functionality is
+currently covered by the XTEST extension).  It is strongly suggested
+that users of XTrap technology begin developing against RECORD/XTEST
+as it is the intention of the X Consortium to drive these two extensions
+in the standards process for providing the protocol capturing/synthesis
+functionality.  Some members of the xtest working group are actively
+researching migration issues between XTrap and RECORD.  If you'd like
+to contribute, please participate!  Contact your local X Consortium Rep
+for details on how to be added to the xtest mailing list.
+
+If you encounter problems, have questions, etc. with XTrap, please contact 
+via mail, phone, etc. at:
+
+        Ken Miller
+	miller@zk3.dec.com
+	(VOICE) 603-881-6221
+        (FAX)   603 881-2257
+
+or paper mail at:
+
+        Digital Equipment Corp.
+        Ken Miller @ ZKO3-3/Y25
+        110 Spitbrook Rd.
+        Nashua, NH 03062
+
+Naturally email is preferred and will get the fastest response.
+.EE
+.SH SEE ALSO
+X(1)
+.NXE "X" 
+

@@ -1,0 +1,105 @@
+Each line corresponds to a single manpage text body.
+Lines with comma-separated command names, and with the
+parenthetical (both share one page description, two
+entry points) do just that: they share a single text
+body, but have multiple instantiations.  Lines with
+comma-separated command names, and with the
+parenthetical (one page, one entry point) simply share
+a single page.
+
+Accum
+AlphaFunc
+Begin, End (both share one page description, two entry points)
+Bitmap
+BlendFunc
+CallList, CallLists (one page, one entry point)
+Clear
+ClearAccum
+ClearColor
+ClearDepth
+ClearIndex
+ClearStencil
+ClipPlane
+Color, Colorv (one page, one entry point)
+ColorMask
+ColorMaterial
+CopyPixels
+CullFace
+DeleteList
+DepthFunc
+DepthRange
+Disable, Enable (both share one page description, two entry points)
+DrawBuffer
+DrawPixels
+EdgeFlag, EdgeFlagv (one page, one entry point)
+EvalCoord, EvalCoordv (one page, one entry point)
+EvalMesh
+EvalPoint
+FeedbackBuffer
+Finish
+Flush
+Fogv
+FrontFace
+Frustum
+GenLists
+GetClipPlane
+GetImage
+GetLightv
+GetMapv
+GetMaterialv
+GetTexEnvv
+GetTexGenv
+Getv
+Hint
+IndexMask
+Index, Indexv (one page, one entry point)
+InitNames
+IsEnabled
+IsList
+LightModelv
+Lightv
+LineStipple
+LineWidth
+ListBase
+LoadMatrix
+LoadName
+LogicOp
+Map1, Map2 (one page, one entry point)
+MapGrid1, MapGrid2 (one page, one entry point)
+Materialv
+MatrixMode
+MultMatrix
+NewList, EndList (both share one page description, two entry points)
+Normal, Normalv (one page, one entry point)
+Ortho
+PassThrough
+PixelMap
+PixelStore
+PixelTransfer
+PointSize
+PolygonMode
+PolygonStipple
+PushAttrib, PopAttrib (both share one page description, two entry points)
+PushMatrix, PopMatrix (both share one page description, two entry points)
+PushName, PopName (both share one page description, two entry points)
+RasterPos, RasterPosv (one page, one entry point)
+ReadPixels
+ReadSource
+Rect, Rectv (one page, one entry point)
+RenderMode
+Rotate
+Scale
+Scissor
+SelectBuffer
+ShadeModel
+StencilFunc
+StencilMask
+StencilOp
+TexCoord, TexCoordv (one page, one entry point)
+TexEnvv
+TexGenv
+TexImage1d, TexImage2d (one page, one entry point)
+TexParameter
+Translate
+Vertex, Vertexv (one page, one entry point)
+Viewport

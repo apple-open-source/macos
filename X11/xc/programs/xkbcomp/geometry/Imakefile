@@ -1,0 +1,20 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:35 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/xkbcomp/geometry/Imakefile,v 3.12 2003/02/15 22:22:43 dawes Exp $
+
+#define IHaveSubdirs
+
+     TESTDATA = 
+    DATAFILES = README amiga ataritt dell everex fujitsu hp keytronic kinesis \
+		macintosh microsoft nec northgate pc sony sun winbook \
+		$(TESTDATA)
+      SUBDIRS = digital sgi
+
+all::
+
+MakeXkbDir($(LIBDIR)/xkb,geometry)
+InstallMultiple($(DATAFILES),$(LIBDIR)/xkb/geometry)
+DependSubdirs($(SUBDIRS))

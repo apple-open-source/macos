@@ -1,0 +1,608 @@
+dnl
+dnl $XFree86: xc/programs/xterm/configure.in,v 3.56 2002/12/27 21:05:22 dickey Exp $
+dnl
+dnl ---------------------------------------------------------------------------
+dnl
+dnl Copyright 1997-2002 by Thomas E. Dickey
+dnl
+dnl                         All Rights Reserved
+dnl
+dnl Permission to use, copy, modify, and distribute this software and its
+dnl documentation for any purpose and without fee is hereby granted,
+dnl provided that the above copyright notice appear in all copies and that
+dnl both that copyright notice and this permission notice appear in
+dnl supporting documentation, and that the name of the above listed
+dnl copyright holder(s) not be used in advertising or publicity pertaining
+dnl to distribution of the software without specific, written prior
+dnl permission.
+dnl
+dnl THE ABOVE LISTED COPYRIGHT HOLDER(S) DISCLAIM ALL WARRANTIES WITH REGARD
+dnl TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+dnl AND FITNESS, IN NO EVENT SHALL THE ABOVE LISTED COPYRIGHT HOLDER(S) BE
+dnl LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+dnl WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+dnl ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+dnl OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+dnl
+dnl ---------------------------------------------------------------------------
+dnl Process this file with autoconf to produce a configure script.
+dnl
+AC_PREREQ(2.13.20020210)
+AC_INIT(charproc.c)
+AC_CONFIG_HEADER(xtermcfg.h:xtermcfg.hin)
+CF_CHECK_CACHE
+
+###	checks for alternative programs
+
+dnl Only add to this case statement when a system has a compiler that is not
+dnl detected by AC_PROG_CC.
+case "$host_os" in
+openedition)	: ${CFLAGS="-O2 -Wc,dll -Wl,EDIT=NO"}
+		: ${CPPFLAGS="-D_ALL_SOURCE"}
+		: ${LIBS="/usr/lib/Xaw.x /usr/lib/SM.x /usr/lib/ICE.x /usr/lib/X11.x"}
+		: ${CC=c89};;
+esac
+
+AC_PROG_CC
+AC_PROG_CPP
+AC_GCC_TRADITIONAL
+AC_PROG_AWK
+AC_PROG_INSTALL
+AC_ARG_PROGRAM
+
+###	checks for UNIX variants that set C preprocessor variables
+AC_AIX
+AC_ISC_POSIX
+
+###	checks for header files
+AC_CHECK_HEADERS( \
+ncurses/term.h \
+stdlib.h \
+termios.h \
+unistd.h \
+)
+AC_HEADER_TIME
+
+###	checks for typedefs
+CF_SIZE_T
+AC_CHECK_TYPE(time_t, long)
+
+###	checks for library functions
+AC_CHECK_FUNCS( \
+	bcopy \
+	gethostname \
+	getlogin \
+	memmove \
+	strerror \
+	strftime \
+	tcgetattr \
+	waitpid \
+	)
+CF_FUNC_MEMMOVE
+CF_FUNC_TGETENT
+CF_UTMP
+
+AC_MSG_CHECKING(if you want to link with utempter)
+AC_ARG_WITH(utempter,
+	[  --with-utempter         use utempter library for access to utmp],
+	[use_utempter=$withval],
+	[use_utempter=no])
+AC_MSG_RESULT($use_utempter)
+
+if test "$use_utempter" = yes ; then
+	CF_UTEMPTER
+fi
+
+###	checks for external data
+CF_ERRNO
+CF_TTY_GROUP
+
+###	checks for compiler characteristics
+CF_ANSI_CC_CHECK
+AC_CONST
+
+###	checks for system services and user specified options
+
+CF_POSIX_WAIT
+CF_SYSV
+CF_SVR4
+CF_GNU_SOURCE
+CF_X_TOOLKIT
+
+AC_CHECK_HEADERS( \
+	X11/DECkeysym.h \
+	X11/Sunkeysym.h \
+	X11/Xpoll.h \
+	)
+
+CF_X_ATHENA
+CF_TYPE_FD_SET
+CF_TERMIO_C_ISPEED
+
+LIBS="$LIBS $X_EXTRA_LIBS"
+
+# Check for openpty() in -lutil if the UNIX98-style pty functions are not
+# available. E.g. for GNU libc 2.0.
+AC_CHECK_FUNCS(grantpt, [], AC_CHECK_LIB(util,openpty))
+
+AC_PATH_PROG(XTERM_PATH,xterm)
+
+AC_CHECK_FUNCS( \
+	XkbStdBell \
+	)
+AC_CHECK_FUNCS(Xutf8LookupString, [],[
+	EXTRAHDRS="$EXTRAHDRS xutf8.h"
+	EXTRASRCS="$EXTRASRCS xutf8.c"
+	EXTRAOBJS="$EXTRAOBJS xutf8.o"
+])
+
+AC_MSG_CHECKING(if we should use imake to help)
+CF_ARG_DISABLE(imake,
+	[  --disable-imake         disable use of imake for definitions],
+	[enable_imake=no],
+	[enable_imake=yes])
+AC_MSG_RESULT($enable_imake)
+if test "$enable_imake" = yes ; then
+	CF_IMAKE_CFLAGS($(MAIN_DEFINES))
+	CF_ADD_CFLAGS($IMAKE_CFLAGS)
+fi
+
+AC_MSG_CHECKING(for default terminal-id)
+AC_ARG_WITH(terminal-id,
+	[  --with-terminal-id[=V]  set default decTerminalID (default: vt100)],
+	[default_termid=$withval],
+	[default_termid=vt100])
+AC_MSG_RESULT($default_termid)
+case $default_termid in
+vt*)	default_termid=`echo $default_termid | sed -e 's/^..//'`
+	;;
+esac
+AC_DEFINE_UNQUOTED(DFT_DECID,"$default_termid")
+
+AC_MSG_CHECKING(for default terminal-type)
+AC_ARG_WITH(terminal-type,
+	[  --with-terminal-type=T  set default \$TERM (default: xterm)],
+	[default_TERM=$withval],
+	[default_TERM=xterm])
+AC_MSG_RESULT($default_TERM)
+AC_DEFINE_UNQUOTED(DFT_TERMTYPE,"$default_TERM")
+
+AC_MSG_CHECKING(for private terminfo-directory)
+AC_ARG_WITH(own-terminfo,
+	[  --with-own-terminfo=P   set default \$TERMINFO (default: from environment)],
+	[TERMINFO_DIR=$withval],
+	[TERMINFO_DIR=${TERMINFO-none}])
+AC_MSG_RESULT($TERMINFO_DIR)
+if test "$TERMINFO_DIR" = yes ; then
+	AC_MSG_WARN(no value given)
+elif test "$TERMINFO_DIR" != none ; then
+	if test -d $TERMINFO_DIR ; then
+		AC_DEFINE_UNQUOTED(OWN_TERMINFO_DIR,"$TERMINFO_DIR")
+	else
+		AC_MSG_WARN(not a directory)
+	fi
+elif test "$prefix" != NONE ; then
+	TERMINFO_DIR='${prefix}/lib/terminfo'
+elif test -d /usr/lib/terminfo ; then
+	TERMINFO_DIR=/usr/lib/terminfo
+else
+	TERMINFO_DIR=
+fi
+SET_TERMINFO=
+if test -n "$TERMINFO_DIR" ; then
+	TERMINFO_DIR='$(DESTDIR)'$TERMINFO_DIR
+	SET_TERMINFO='TERMINFO=$(TERMINFO_DIR)'
+fi
+AC_SUBST(TERMINFO_DIR)
+AC_SUBST(SET_TERMINFO)
+
+###############################################################################
+CF_HELP_MESSAGE(Optional Features:)
+
+AC_MSG_CHECKING(if you want active-icons)
+CF_ARG_DISABLE(active-icon,
+	[  --disable-active-icon   disable X11R6.3 active-icon feature],
+	[enable_active_icon=no],
+	[enable_active_icon=yes])
+AC_MSG_RESULT($enable_active_icon)
+if test "$enable_active_icon" = no ; then
+	AC_DEFINE(NO_ACTIVE_ICON)
+fi
+
+AC_MSG_CHECKING(if you want ANSI color)
+CF_ARG_DISABLE(ansi-color,
+	[  --disable-ansi-color    disable ANSI color],
+	[enable_ansi_color=no],
+	[enable_ansi_color=yes])
+AC_MSG_RESULT($enable_ansi_color)
+test "$enable_ansi_color" = no && AC_DEFINE(OPT_ISO_COLORS,0)
+
+if test "$enable_ansi_color" = yes ; then
+
+	AC_MSG_CHECKING(if you want 16 colors like aixterm)
+	CF_ARG_DISABLE(16-color,
+		[  --disable-16-color      disable 16-color support],
+		[enable_16_color=no],
+		[enable_16_color=yes])
+	AC_MSG_RESULT($enable_16_color)
+	test "$enable_16_color" = no && AC_DEFINE(OPT_AIX_COLORS,0)
+
+	AC_MSG_CHECKING(if you want 256 colors)
+	CF_ARG_ENABLE(256-color,
+		[  --enable-256-color      enable 256-color support],
+		[enable_256_color=yes],
+		[enable_256_color=no])
+	AC_MSG_RESULT($enable_256_color)
+	if test "$enable_256_color" = yes ; then
+		CHARPROC_DEPS="$CHARPROC_DEPS 256colres.h"
+		EXTRAHDRS="$EXTRAHDRS 256colres.h"
+		AC_DEFINE(OPT_256_COLORS,1)
+	else
+	AC_MSG_CHECKING(if you want 88 colors)
+	CF_ARG_ENABLE(88-color,
+		[  --enable-88-color       enable 88-color support],
+		[enable_88_color=yes],
+		[enable_88_color=no])
+	AC_MSG_RESULT($enable_88_color)
+	if test "$enable_88_color" = yes ; then
+		CHARPROC_DEPS="$CHARPROC_DEPS 88colres.h"
+		EXTRAHDRS="$EXTRAHDRS 88colres.h"
+		AC_DEFINE(OPT_88_COLORS,1)
+	fi
+	fi
+
+fi
+
+AC_MSG_CHECKING(if you want blinking cursor)
+CF_ARG_DISABLE(blink-cursor,
+	[  --disable-blink-cursor  disable support for blinking cursor],
+	[enable_blink_curs=no],
+	[enable_blink_curs=yes])
+AC_MSG_RESULT($enable_blink_curs)
+test "$enable_blink_curs" = no && AC_DEFINE(OPT_BLINK_CURS,0)
+
+if test "$enable_ansi_color" = yes ; then
+
+	AC_MSG_CHECKING(if you want bold colors mapped like IBM PC)
+	CF_ARG_DISABLE(bold-color,
+		[  --disable-bold-color    disable PC-style mapping of bold colors],
+		[enable_pc_color=no],
+		[enable_pc_color=yes])
+	AC_MSG_RESULT($enable_pc_color)
+	test "$enable_pc_color" = no && AC_DEFINE(OPT_PC_COLORS,0)
+
+	AC_MSG_CHECKING(if you want separate color-classes)
+	CF_ARG_DISABLE(color-class,
+		[  --disable-color-class   disable separate color class resources],
+		[enable_color_class=no],
+		[enable_color_class=yes])
+	AC_MSG_RESULT($enable_color_class)
+	test "$enable_color_class" = no && AC_DEFINE(OPT_COLOR_CLASS,FALSE)
+
+	AC_MSG_CHECKING(if you want color-mode enabled by default)
+	CF_ARG_DISABLE(color-mode,
+		[  --disable-color-mode    disable default colorMode resource],
+		[default_colormode=no],
+		[default_colormode=yes])
+	AC_MSG_RESULT($default_colormode)
+	test "$default_colormode" = no && AC_DEFINE(DFT_COLORMODE,FALSE)
+
+fi
+
+AC_MSG_CHECKING(if you want support for color highlighting)
+CF_ARG_DISABLE(highlighting,
+	[  --disable-highlighting  disable support for color highlighting],
+	[default_highlight=no],
+	[default_highlight=yes])
+AC_MSG_RESULT($default_highlight)
+test "$default_highlight" = no && AC_DEFINE(OPT_HIGHLIGHT_COLOR,0)
+
+AC_MSG_CHECKING(if you want support for doublesize characters)
+CF_ARG_DISABLE(doublechars,
+	[  --disable-doublechars   disable support for double-size chars],
+	[enable_doublechars=no],
+	[enable_doublechars=yes])
+AC_MSG_RESULT($enable_doublechars)
+test "$enable_doublechars" = no && AC_DEFINE(OPT_DEC_CHRSET,0)
+
+AC_MSG_CHECKING(if you want fallback-support for box characters)
+CF_ARG_DISABLE(boxchars,
+	[  --disable-boxchars      disable fallback-support for box chars],
+	[enable_boxchars=no],
+	[enable_boxchars=yes])
+AC_MSG_RESULT($enable_boxchars)
+test "$enable_boxchars" = no && AC_DEFINE(OPT_BOX_CHARS,0)
+
+AC_MSG_CHECKING(if you want to use FreeType library)
+CF_ARG_DISABLE(freetype,
+	[  --disable-freetype      disable freetype library-support],
+	[enable_freetype=no],
+	[enable_freetype=yes])
+AC_MSG_RESULT($enable_freetype)
+if test "$enable_freetype" = yes ; then
+	CF_X_FREETYPE
+else
+	CPPFLAGS=`echo "$CPPFLAGS" | sed -e s/-DXRENDERFONT//`
+fi
+
+AC_MSG_CHECKING(if you want support for HP-style function keys)
+CF_ARG_ENABLE(hp-fkeys,
+	[  --enable-hp-fkeys       enable support for HP-style function keys],
+	[enable_hp_fkeys=yes],
+	[enable_hp_fkeys=no])
+AC_MSG_RESULT($enable_hp_fkeys)
+if test "$enable_hp_fkeys" = yes ; then
+	AC_DEFINE(OPT_HP_FUNC_KEYS,1)
+fi
+
+AC_MSG_CHECKING(if you want support for SCO-style function keys)
+CF_ARG_ENABLE(sco-fkeys,
+	[  --enable-sco-fkeys      enable support for SCO-style function keys],
+	[enable_sco_fkeys=yes],
+	[enable_sco_fkeys=no])
+AC_MSG_RESULT($enable_sco_fkeys)
+if test "$enable_sco_fkeys" = yes ; then
+	AC_DEFINE(OPT_SCO_FUNC_KEYS,1)
+fi
+
+AC_MSG_CHECKING(if you want support for internationalization)
+CF_ARG_DISABLE(i18n,
+	[  --disable-i18n          disable internationalization],
+	[enable_i18n=no],
+	[enable_i18n=yes])
+AC_MSG_RESULT($enable_i18n)
+if test "$enable_i18n" = no ; then
+	AC_DEFINE(OPT_I18N_SUPPORT,0)
+fi
+
+AC_MSG_CHECKING(if you want support for initial-erase setup)
+CF_ARG_DISABLE(initial-erase,
+	[  --disable-initial-erase disable setup for stty erase],
+	[enable_ie=no],
+	[enable_ie=yes])
+AC_MSG_RESULT($enable_ie)
+if test "$enable_ie" = no ; then
+	AC_DEFINE(OPT_INITIAL_ERASE,0)
+fi
+
+AC_MSG_CHECKING(if you want support for input-method)
+CF_ARG_DISABLE(input-method,
+	[  --disable-input-method  disable input-method],
+	[enable_ximp=no],
+	[enable_ximp=yes])
+AC_MSG_RESULT($enable_ximp)
+CF_INPUT_METHOD
+test "$cf_cv_input_method" = no && enable_ximp=no
+if test "$enable_ximp" = no ; then
+	AC_DEFINE(OPT_INPUT_METHOD,0)
+fi
+
+AC_MSG_CHECKING(if you want support for logging)
+CF_ARG_ENABLE(logging,
+	[  --enable-logging        enable logging],
+	[enable_logging=yes],
+	[enable_logging=no])
+AC_MSG_RESULT($enable_logging)
+if test "$enable_logging" = yes ; then
+	AC_DEFINE(ALLOWLOGGING)
+	AC_MSG_CHECKING(if you want to allow logging via a pipe)
+	CF_ARG_ENABLE(logfile-exec,
+		[  --enable-logfile-exec   enable exec'd logfile filter],
+		[enable_log_exec=yes],
+		[enable_log_exec=no])
+	AC_MSG_RESULT($enable_log_exec)
+	if test "$enable_log_exec" = yes ; then
+		AC_DEFINE(ALLOWLOGFILEEXEC)
+	fi
+fi
+
+AC_MSG_CHECKING(if you want support for iconify/maximize translations)
+CF_ARG_DISABLE(maximize,
+	[  --disable-maximize      disable actions for iconify/deiconify/maximize/restore],
+	[enable_maximize=no],
+	[enable_maximize=yes])
+AC_MSG_RESULT($enable_maximize)
+test "$enable_maximize" = no && AC_DEFINE(OPT_MAXIMIZE,0)
+
+AC_MSG_CHECKING(if you want NumLock to override keyboard tables)
+CF_ARG_DISABLE(num-lock,
+	[  --disable-num-lock      disable NumLock keypad support],
+	[enable_numlock=no],
+	[enable_numlock=yes])
+AC_MSG_RESULT($enable_numlock)
+test "$enable_numlock" = no && AC_DEFINE(OPT_NUM_LOCK,0)
+
+AC_MSG_CHECKING(if you want support for right-scrollbar)
+CF_ARG_DISABLE(rightbar,
+	[  --disable-rightbar      disable right-scrollbar support],
+	[enable_rightbar=no],
+	[enable_rightbar=yes])
+AC_MSG_RESULT($enable_rightbar)
+if test "$enable_rightbar" = yes ; then
+	AC_DEFINE(SCROLLBAR_RIGHT)
+fi
+
+AC_MSG_CHECKING(if you want check for redundant name-change)
+CF_ARG_DISABLE(samename,
+	[  --disable-samename      disable check for redundant name-change],
+	[enable_samename=no],
+	[enable_samename=yes])
+AC_MSG_RESULT($enable_samename)
+test "$enable_samename" = no && AC_DEFINE(OPT_SAME_NAME,0)
+
+AC_MSG_CHECKING(if you want support for session management)
+CF_ARG_DISABLE(session-mgt,
+	[  --disable-session-mgt   disable support for session management],
+	[enable_session_mgt=no],
+	[enable_session_mgt=yes])
+AC_MSG_RESULT($enable_session_mgt)
+test "$enable_session_mgt" = no && AC_DEFINE(OPT_SESSION_MGT,0)
+
+AC_MSG_CHECKING(if you want to use termcap-query/report)
+CF_ARG_ENABLE(tcap-query,
+	[  --enable-tcap-query     compile-in termcap-query support],
+	[enable_tcap_query=yes],
+	[enable_tcap_query=no])
+AC_MSG_RESULT($enable_tcap_query)
+test "$enable_tcap_query" = yes && AC_DEFINE(OPT_TCAP_QUERY,1)
+
+AC_MSG_CHECKING(if you want support for tek4014)
+CF_ARG_DISABLE(tek4014,
+	[  --disable-tek4014       disable tek4014 emulation],
+	[enable_tek4014=no],
+	[enable_tek4014=yes])
+AC_MSG_RESULT($enable_tek4014)
+if test "$enable_tek4014" = no ; then
+	AC_DEFINE(OPT_TEK4014,0)
+else
+	EXTRAHDRS="$EXTRAHDRS Tekparse.h"
+	EXTRASRCS="$EXTRASRCS TekPrsTbl.c Tekproc.c"
+	EXTRAOBJS="$EXTRAOBJS TekPrsTbl.o Tekproc.o"
+fi
+
+AC_MSG_CHECKING(if you want pulldown menus with a toolbar)
+CF_ARG_ENABLE(toolbar,
+	[  --enable-toolbar        compile-in toolbar for pulldown menus],
+	[enable_toolbar=yes],
+	[enable_toolbar=no])
+AC_MSG_RESULT($enable_toolbar)
+if test "$enable_toolbar" = yes ; then
+	# The Xaw library in XFree86 4.x is broken.  Let's try to avoid using
+	# that for the toolbar.
+	cf_broken_xaw=no
+	AC_MSG_CHECKING(for broken Xaw library)
+	AC_TRY_COMPILE([
+#include <X11/Intrinsic.h>
+#include <X11/Xaw/XawInit.h>
+	],[
+#if defined(XawVersion) && XawVersion > 7000000L
+make an error
+#endif
+	],[
+	cf_broken_xaw=no
+	],[
+	cf_broken_xaw=yes
+	])
+	AC_MSG_RESULT($cf_broken_xaw)
+	if test "$cf_broken_xaw" = no ; then
+		AC_DEFINE(OPT_TOOLBAR,1)
+	fi
+fi
+
+AC_MSG_CHECKING(if you want VT52 emulation)
+CF_ARG_DISABLE(vt52,
+	[  --disable-vt52          disable VT52 emulation],
+	[enable_vt52=no],
+	[enable_vt52=yes])
+AC_MSG_RESULT($enable_vt52)
+test "$enable_vt52" = no && AC_DEFINE(OPT_VT52_MODE,0)
+
+AC_MSG_CHECKING(if you want to use luit)
+CF_ARG_ENABLE(luit,
+	[  --enable-luit           enable luit filter (Unicode translation)],
+	[enable_luit=yes],
+	[enable_luit=no])
+AC_MSG_RESULT($enable_luit)
+if test "$enable_luit" = yes ; then
+	AC_DEFINE(OPT_LUIT_PROG,1)
+fi
+
+AC_MSG_CHECKING(if you want wide-character support)
+CF_ARG_OPTION(wide-chars,
+	[  --enable-wide-chars     enable wide-character support],
+	[enable_wchar=yes],
+	[enable_wchar=$enable_luit],
+	[$enable_luit])
+AC_MSG_RESULT($enable_wchar)
+if test "$enable_wchar" = yes ; then
+	AC_DEFINE(OPT_WIDE_CHARS,1)
+	EXTRAHDRS="$EXTRAHDRS charclass.h precompose.h wcwidth.h"
+	EXTRASRCS="$EXTRASRCS charclass.c precompose.c wcwidth.c"
+	EXTRAOBJS="$EXTRAOBJS charclass.o precompose.o wcwidth.o"
+fi
+
+AC_MSG_CHECKING(if you want DECterm Locator support)
+CF_ARG_ENABLE(dec-locator,
+	[  --enable-dec-locator    enable DECterm Locator support],
+	[enable_dec_locator=yes],
+	[enable_dec_locator=no])
+AC_MSG_RESULT($enable_dec_locator)
+if test "$enable_dec_locator" = yes ; then
+	AC_DEFINE(OPT_DEC_LOCATOR,1)
+fi
+
+AC_MSG_CHECKING(if you want -ziconbeep option)
+CF_ARG_DISABLE(ziconbeep,
+	[  --disable-ziconbeep     disable -ziconbeep option],
+	[enable_ziconbeep=no],
+	[enable_ziconbeep=yes])
+AC_MSG_RESULT($enable_ziconbeep)
+test "$enable_ziconbeep" = no && AC_DEFINE(OPT_ZICONBEEP,0)
+
+###############################################################################
+CF_HELP_MESSAGE(Testing/development Options:)
+
+AC_MSG_CHECKING(if you want debugging traces)
+CF_ARG_ENABLE(trace,
+	[  --enable-trace          test: set to enable debugging traces],
+	[enable_trace=yes],
+	[enable_trace=no])
+AC_MSG_RESULT($enable_trace)
+if test "$enable_trace" = yes ; then
+	AC_DEFINE(OPT_TRACE)
+	EXTRASRCS="$EXTRASRCS trace.c"
+	EXTRAOBJS="$EXTRAOBJS trace.o"
+fi
+
+CF_DISABLE_ECHO
+
+AC_MSG_CHECKING(if you want magic cookie emulation)
+CF_ARG_ENABLE(xmc-glitch,
+	[  --enable-xmc-glitch     test: enable xmc magic-cookie emulation],
+	[enable_xmc=yes],
+	[enable_xmc=no])
+AC_MSG_RESULT($enable_xmc)
+if test "$enable_xmc" = yes ; then
+	AC_DEFINE(OPT_XMC_GLITCH,1)
+	EXTRASRCS="$EXTRASRCS testxmc.c"
+	EXTRAOBJS="$EXTRAOBJS testxmc.o"
+fi
+
+if test -n "$GCC" ; then
+AC_MSG_CHECKING(if you want to turn on gcc warnings)
+CF_ARG_ENABLE(warnings,
+	[  --enable-warnings       test: turn on GCC compiler warnings],
+	[with_warnings=yes],
+	[with_warnings=no])
+AC_MSG_RESULT($with_warnings)
+if test "$with_warnings" = yes
+then
+	CF_GCC_ATTRIBUTES
+	CF_GCC_WARNINGS
+fi
+fi
+
+AC_SUBST(EXTRA_CFLAGS)
+AC_SUBST(CHARPROC_DEPS)
+AC_SUBST(EXTRAHDRS)
+AC_SUBST(EXTRASRCS)
+AC_SUBST(EXTRAOBJS)
+
+###	remove from CPPFLAGS the optional features we define in xtermcfg.h
+###	or other conflicting symbols that may be defined via imake:
+for cf_def in \
+	__STDC__ \
+	ALLOWLOGGING \
+	ALLOWLOGFILEEXEC \
+	OPT_LUIT_PROG \
+	OPT_WIDE_CHARS \
+	SCROLLBAR_RIGHT \
+	USE_TTY_GROUP \
+	USE_UTEMPTER \
+	XRENDERFONT
+do
+	CPPFLAGS=`echo "$CPPFLAGS" | sed -e s/-D$cf_def//`
+done
+
+###	output Makefile and xtermcfg.h
+AC_OUTPUT(Makefile)

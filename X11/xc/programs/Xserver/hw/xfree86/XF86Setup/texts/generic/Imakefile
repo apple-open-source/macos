@@ -1,0 +1,14 @@
+XCOMM
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/XF86Setup/texts/generic/Imakefile,v 1.2 1998/04/05 15:30:27 robin Exp $
+XCOMM
+ XF86SETUPLIBDIR = $(LIBDIR)/XF86Setup
+      SCRIPTSDIR = $(XF86SETUPLIBDIR)/texts/generic
+
+     SCRIPTFILES = messages.tcl message_proc.tcl \
+		help_card.tcl help_done.tcl help_keyboard.tcl \
+		help_monitor.tcl help_mouse.tcl help_other.tcl \
+		help_intro.tcl help_modeselect.tcl
+   
+all::
+
+InstallMultiple($(SCRIPTFILES),$(SCRIPTSDIR))

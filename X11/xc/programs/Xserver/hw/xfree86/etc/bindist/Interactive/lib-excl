@@ -1,0 +1,14 @@
+b/X11/XF86Setup
+lib/X11/app-defaults
+lib/X11/config
+lib/X11/doc
+lib/X11/fonts
+lib/X11/fs
+lib/X11/lbxproxy
+lib/X11/proxymngr
+lib/X11/rstart
+lib/X11/twm
+lib/X11/xdm
+lib/X11/xinit
+lib/X11/xsm
+lib/X11/xserver

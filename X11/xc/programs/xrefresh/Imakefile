@@ -1,0 +1,5 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:56 cpqbld Exp $
+        DEPLIBS = $(DEPXLIB)
+LOCAL_LIBRARIES = $(XLIB)
+
+SimpleProgramTarget(xrefresh)

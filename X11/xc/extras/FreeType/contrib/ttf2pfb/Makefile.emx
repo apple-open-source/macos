@@ -1,0 +1,16 @@
+# Makefile for ttf2pfb and t1asm
+
+all: ttf2pfb.exe t1asm.exe
+
+
+ttf2pfb.exe: ttf2pfb.o
+	gcc -O -o ttf2pfb.exe ttf2pfb.o -lttf
+
+ttf2pfb.o: ttf2pfb.c
+	gcc -O -c ttf2pfb.c
+
+t1asm.exe: t1asm.o
+	gcc -O -o t1asm.exe t1asm.o -lttf
+
+t1asm.o: t1asm.c
+	gcc -O -c t1asm.c

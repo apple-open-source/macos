@@ -1,0 +1,298 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:53:32 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/lmfcfb/Imakefile,v 1.4 2001/01/17 22:37:01 dawes Exp $
+
+#include <Server.tmpl>
+
+#ifndef PixelSize
+#define PixelSize 8
+#endif
+
+#if PixelSize == 8
+/* cfb8cppl.c MUST come last to avoid confusing makedepend */
+PSZSRCS = cfb8bit.c cfbteblt8.c cfbglrop8.c cfbpush8.c cfbrctstp8.c cfb8cppl.c
+PSZOBJS = cfb8bit.o cfbteblt8.o cfbglrop8.o cfbpush8.o cfbrctstp8.o cfb8cppl.o
+#ifdef MipsArchitecture
+#ifndef Mips64Architecture
+STIPPLESRC = stipmips.s stipmipste.s
+STIPPLEOBJ = stipmips.o stipmipste.o
+STIPPLEDEF = -DHAS_STIPPLE_CODE
+#endif
+#endif
+#ifdef SparcArchitecture
+STIPPLESRC = stipsparc.s stipsparcte.s
+STIPPLEOBJ = stipsparc.o stipsparcte.o
+STIPPLEDEF = -DHAS_STIPPLE_CODE
+#endif
+#endif
+
+#if PixelSize == 32
+#ifdef SparcArchitecture
+STIPPLESRC = stipsprc32.s stipsprcte32.s
+STIPPLEOBJ = stipsprc32.o stipsprcte32.o
+STIPPLEDEF = -DHAS_STIPPLE_CODE
+#endif
+#endif
+
+
+MFBSRCS = 	maskbits.c mfbgc.c mfbfont.c \
+	 mfbscrinit.c mfbpixmap.c mfbmisc.c \
+	 mfbbitblt.c mfbclip.c mfbgetsp.c \
+	 mfbfillsp.c mfbpawhite.c mfbsetsp.c \
+	 mfbpablack.c mfbpainv.c \
+	 mfbplywhite.c mfbplyblack.c mfbplyinv.c \
+	 mfbigbwht.c mfbigbblak.c \
+	 mfbpgbblak.c mfbpgbwht.c mfbpgbinv.c \
+	 mfbtewhite.c mfbteblack.c \
+	 mfbfillrct.c mfbtileC.c mfbtileG.c
+
+MFBOBJS = 	maskbits.o mfbgc.o mfbfont.o \
+	 mfbscrinit.o mfbpixmap.o mfbmisc.o \
+	 mfbbitblt.o mfbclip.o mfbgetsp.o \
+	 mfbfillsp.o mfbpawhite.o mfbsetsp.o \
+	 mfbpablack.o mfbpainv.o \
+	 mfbplywhite.o mfbplyblack.o mfbplyinv.o \
+	 mfbigbwht.o mfbigbblak.o \
+	 mfbpgbblak.o mfbpgbwht.o mfbpgbinv.o \
+	 mfbtewhite.o mfbteblack.o \
+	 mfbfillrct.o mfbtileC.o mfbtileG.o
+
+
+SRCS =	 cfbgc.c cfbrrop.c cfbwindow.c \
+	 cfbpntwin.c cfbmskbits.c cfbpixmap.c cfbbitblt.c \
+	 cfbfillsp.c cfbsetsp.c cfbscrinit.c cfballpriv.c \
+	 cfbgetsp.c cfbfillrct.c \
+	 cfbsolidC.c cfbsolidX.c cfbsolidG.c \
+	 cfbtileoddC.c cfbtileoddG.c cfbtile32C.c cfbtile32G.c \
+	 cfbcmap.c cfbzerarcC.c cfbzerarcX.c cfbzerarcG.c \
+	 cfbfillarcC.c cfbfillarcG.c \
+	 cfbigblt8.c cfbglblt8.c cfbtegblt.c cfbbstore.c \
+	 cfbbltC.c cfbbltX.c cfbbltO.c cfbbltG.c \
+	 cfbpolypnt.c \
+	 cfbbres.c cfbline.c cfbhrzvert.c cfbbresd.c cfbimage.c cfbseg.c \
+	 cfb8lineCO.c cfb8lineX.c cfb8lineG.c cfb8lineCP.c \
+	 cfb8segC.c cfb8segX.c cfb8segG.c cfb8segCS.c \
+	 cfbply1rctC.c cfbply1rctG.c $(PSZSRCS) $(MFBSRCS)
+
+OBJS =   cfbgc.o cfbrrop.o cfbwindow.o \
+	 cfbgetsp.o cfbfillrct.o \
+	 cfbsolidC.o cfbsolidX.o cfbsolidG.o \
+	 cfbtileoddC.o cfbtileoddG.o cfbtile32C.o cfbtile32G.o \
+	 cfbfillsp.o cfbsetsp.o cfbscrinit.o cfballpriv.o \
+	 cfbpntwin.o cfbmskbits.o cfbpixmap.o \
+	 cfbcmap.o cfbzerarcC.o cfbzerarcX.o cfbzerarcG.o \
+	 cfbfillarcC.o cfbfillarcG.o \
+	 cfbigblt8.o cfbglblt8.o cfbtegblt.o cfbbstore.o \
+	 cfbpolypnt.o \
+	 cfbbres.o cfbline.o cfbhrzvert.o cfbbresd.o cfbimage.o cfbseg.o \
+	 cfb8lineCO.o cfb8lineX.o cfb8lineG.o cfb8lineCP.o \
+	 cfb8segCS.o cfb8segX.o cfb8segG.o cfb8segC.o \
+	 cfbbitblt.o cfbbltC.o cfbbltX.o cfbbltO.o cfbbltG.o \
+	 cfbply1rctC.o cfbply1rctG.o $(PSZOBJS) $(STIPPLEOBJ) $(MFBOBJS)
+
+   INCLUDES = -I. -I../cfb -I../mfb -I../mi -I../include -I$(XINCLUDESRC) \
+	     -I$(FONTINCSRC)
+   LINTLIBS = ../dix/llib-ldix.ln ../os/llib-los.ln \
+	     ../mfb/llib-lmfb.ln ../mi/llib-lmi.ln
+    DEFINES = -DPSZ=PixelSize
+
+NormalLibraryObjectRule()
+NormalLibraryTarget(cfb,$(OBJS))
+LintLibraryTarget(cfb,$(SRCS))
+
+NormalLintTarget($(SRCS))
+
+LinkSourceFile(cfb.h,../cfb)
+LinkSourceFile(cfbmap.h,../cfb)
+LinkSourceFile(cfballpriv.c,../cfb)
+LinkSourceFile(cfbbitblt.c,../cfb)
+LinkSourceFile(cfbblt.c,../cfb)
+LinkSourceFile(cfbbres.c,../cfb)
+LinkSourceFile(cfbbresd.c,../cfb)
+LinkSourceFile(cfbbstore.c,../cfb)
+LinkSourceFile(cfbcmap.c,../cfb)
+LinkSourceFile(cfbfillarc.c,../cfb)
+LinkSourceFile(cfbfillrct.c,../cfb)
+LinkSourceFile(cfbfillsp.c,../cfb)
+LinkSourceFile(cfbgc.c,../cfb)
+LinkSourceFile(cfbgetsp.c,../cfb)
+LinkSourceFile(cfbhrzvert.c,../cfb)
+LinkSourceFile(cfbimage.c,../cfb)
+LinkSourceFile(cfbline.c,../cfb)
+LinkSourceFile(cfb8line.c,../cfb)
+LinkSourceFile(cfbmskbits.c,../cfb)
+LinkSourceFile(cfbmskbits.h,../cfb)
+LinkSourceFile(cfbpixmap.c,../cfb)
+LinkSourceFile(cfbply1rct.c,../cfb)
+LinkSourceFile(cfbpntwin.c,../cfb)
+LinkSourceFile(cfbpolypnt.c,../cfb)
+LinkSourceFile(cfbrrop.c,../cfb)
+LinkSourceFile(cfbrrop.h,../cfb)
+LinkSourceFile(cfbscrinit.c,../cfb)
+LinkSourceFile(cfbsetsp.c,../cfb)
+LinkSourceFile(cfbsolid.c,../cfb)
+LinkSourceFile(cfbigblt8.c,../cfb)
+LinkSourceFile(cfbglblt8.c,../cfb)
+LinkSourceFile(cfbtegblt.c,../cfb)
+LinkSourceFile(cfbtileodd.c,../cfb)
+LinkSourceFile(cfbtile32.c,../cfb)
+LinkSourceFile(cfbwindow.c,../cfb)
+LinkSourceFile(cfbzerarc.c,../cfb)
+LinkSourceFile(cfb8bit.h,../cfb)
+#if PixelSize == 8
+LinkSourceFile(cfb8bit.c,../cfb)
+LinkSourceFile(cfb8cppl.c,../cfb)
+LinkSourceFile(cfbpush8.c,../cfb)
+LinkSourceFile(cfbrctstp8.c,../cfb)
+LinkSourceFile(cfbteblt8.c,../cfb)
+#ifdef MipsArchitecture
+LinkSourceFile(stipmips.s,../cfb)
+#endif
+#ifdef SparcArchitecture
+LinkSourceFile(stipsparc.s,../cfb)
+#endif
+#endif
+#if PixelSize == 32
+#ifdef SparcArchitecture
+LinkSourceFile(stipsprc32.s,LinkDirectory)
+#endif
+#endif
+
+LinkSourceFile(maskbits.c,../mfb)
+LinkSourceFile(mfbgc.c,../mfb)
+LinkSourceFile(mfbfont.c,../mfb)
+LinkSourceFile(mfbscrinit.c,../mfb)
+LinkSourceFile(mfbpixmap.c,../mfb)
+LinkSourceFile(mfbmisc.c,../mfb)
+LinkSourceFile(mfbbitblt.c,../mfb)
+LinkSourceFile(mfbclip.c,../mfb)
+LinkSourceFile(mfbgetsp.c,../mfb)
+LinkSourceFile(mfbfillsp.c,../mfb)
+LinkSourceFile(mfbsetsp.c,../mfb)
+LinkSourceFile(mfbpntarea.c,../mfb)
+LinkSourceFile(mfbply1rct.c,../mfb)
+LinkSourceFile(mfbimggblt.c,../mfb)
+LinkSourceFile(mfbplygblt.c,../mfb)
+LinkSourceFile(mfbtegblt.c,../mfb)
+LinkSourceFile(mfbfillrct.c,../mfb)
+LinkSourceFile(mfbtile.c,../mfb)
+
+ObjectFromSpecialSource(cfbseg,cfbline,-DPOLYSEGMENT)
+
+ObjectFromSpecialSource(cfbfillarcC,cfbfillarc,-DRROP=GXcopy)
+ObjectFromSpecialSource(cfbfillarcG,cfbfillarc,-DRROP=GXset)
+
+ObjectFromSpecialSource(cfbzerarcC,cfbzerarc,-DRROP=GXcopy)
+ObjectFromSpecialSource(cfbzerarcX,cfbzerarc,-DRROP=GXxor)
+ObjectFromSpecialSource(cfbzerarcG,cfbzerarc,-DRROP=GXset)
+
+ObjectFromSpecialSource(cfbbltC,cfbblt,-DMROP=Mcopy)
+ObjectFromSpecialSource(cfbbltX,cfbblt,-DMROP=Mxor)
+ObjectFromSpecialSource(cfbbltO,cfbblt,-DMROP=Mor)
+ObjectFromSpecialSource(cfbbltG,cfbblt,-DMROP=0)
+
+ObjectFromSpecialSource(cfbsolidC,cfbsolid,-DRROP=GXcopy)
+ObjectFromSpecialSource(cfbsolidX,cfbsolid,-DRROP=GXxor)
+ObjectFromSpecialSource(cfbsolidG,cfbsolid,-DRROP=GXset)
+
+ObjectFromSpecialSource(cfbtileoddC,cfbtileodd,-DMROP=Mcopy)
+ObjectFromSpecialSource(cfbtileoddG,cfbtileodd,-DMROP=0)
+
+ObjectFromSpecialSource(cfbtile32C,cfbtile32,-DMROP=Mcopy)
+ObjectFromSpecialSource(cfbtile32G,cfbtile32,-DMROP=0)
+
+ObjectFromSpecialSource(cfb8lineCO,cfb8line,-DRROP=GXcopy)
+ObjectFromSpecialSource(cfb8lineCP,cfb8line,-DRROP=GXcopy -DPREVIOUS)
+ObjectFromSpecialSource(cfb8lineX,cfb8line,-DRROP=GXxor)
+ObjectFromSpecialSource(cfb8lineG,cfb8line,-DRROP=GXset)
+
+ObjectFromSpecialSource(cfb8segCS,cfb8line,-DRROP=GXcopy -DPOLYSEGMENT -DWIDTH_SHIFT)
+ObjectFromSpecialSource(cfb8segC,cfb8line,-DRROP=GXcopy -DPOLYSEGMENT)
+ObjectFromSpecialSource(cfb8segX,cfb8line,-DRROP=GXxor -DPOLYSEGMENT)
+ObjectFromSpecialSource(cfb8segG,cfb8line,-DRROP=GXset -DPOLYSEGMENT)
+
+ObjectFromSpecialSource(cfbply1rctC,cfbply1rct,-DRROP=GXcopy)
+ObjectFromSpecialSource(cfbply1rctG,cfbply1rct,-DRROP=GXset)
+
+ObjectFromSpecialSource(mfbpawhite,mfbpntarea,-DMFBSOLIDFILLAREA=mfbSolidWhiteArea -DMFBSTIPPLEFILLAREA=mfbStippleWhiteArea -DOPEQ=MFB_OPEQ_WHITE -DEQWHOLEWORD=MFB_EQWHOLEWORD_WHITE)
+
+ObjectFromSpecialSource(mfbpablack,mfbpntarea,-DMFBSOLIDFILLAREA=mfbSolidBlackArea -DMFBSTIPPLEFILLAREA=mfbStippleBlackArea -DOPEQ=MFB_OPEQ_BLACK -DEQWHOLEWORD=MFB_EQWHOLEWORD_BLACK)
+
+ObjectFromSpecialSource(mfbpainv,mfbpntarea,-DMFBSOLIDFILLAREA=mfbSolidInvertArea -DMFBSTIPPLEFILLAREA=mfbStippleInvertArea -DOPEQ=MFB_OPEQ_INVERT -DEQWHOLEWORD=MFB_EQWHOLEWORD_INVERT)
+
+ObjectFromSpecialSource(mfbplywhite,mfbply1rct,-DMFBFILLPOLY1RECT=mfbFillPolyWhite -DOPEQ=MFB_OPEQ_WHITE -DEQWHOLEWORD=MFB_EQWHOLEWORD_WHITE)
+
+ObjectFromSpecialSource(mfbplyblack,mfbply1rct,-DMFBFILLPOLY1RECT=mfbFillPolyBlack -DOPEQ=MFB_OPEQ_BLACK -DEQWHOLEWORD=MFB_EQWHOLEWORD_BLACK)
+
+ObjectFromSpecialSource(mfbplyinv,mfbply1rct,-DMFBFILLPOLY1RECT=mfbFillPolyInvert -DOPEQ=MFB_OPEQ_INVERT -DEQWHOLEWORD=MFB_EQWHOLEWORD_INVERT)
+
+ObjectFromSpecialSource(mfbigbwht,mfbimggblt,-DMFBIMAGEGLYPHBLT=mfbImageGlyphBltWhite -DOPEQ=MFB_OPEQ_WHITE)
+
+ObjectFromSpecialSource(mfbigbblak,mfbimggblt,-DMFBIMAGEGLYPHBLT=mfbImageGlyphBltBlack -DOPEQ=MFB_OPEQ_BLACK)
+
+ObjectFromSpecialSource(mfbpgbwht,mfbplygblt,-DMFBPOLYGLYPHBLT=mfbPolyGlyphBltWhite -DOPEQ=MFB_OPEQ_WHITE)
+
+ObjectFromSpecialSource(mfbpgbblak,mfbplygblt,-DMFBPOLYGLYPHBLT=mfbPolyGlyphBltBlack -DOPEQ=MFB_OPEQ_BLACK)
+
+ObjectFromSpecialSource(mfbpgbinv,mfbplygblt,-DMFBPOLYGLYPHBLT=mfbPolyGlyphBltInvert -DOPEQ=MFB_OPEQ_INVERT)
+
+ObjectFromSpecialSource(mfbtewhite,mfbtegblt,-DMFBTEGLYPHBLT=mfbTEGlyphBltWhite -DOP=MFB_OP_WHITE -DCLIPTETEXT=mfbImageGlyphBltWhite)
+
+ObjectFromSpecialSource(mfbteblack,mfbtegblt,-DMFBTEGLYPHBLT=mfbTEGlyphBltBlack -DOP=MFB_OP_BLACK -DCLIPTETEXT=mfbImageGlyphBltBlack)
+
+ObjectFromSpecialSource(mfbtileC,mfbtile,-DMROP=Mcopy)
+
+ObjectFromSpecialSource(mfbtileG,mfbtile,-DMROP=0)
+
+SpecialCObjectRule(cfbglblt8,$(_NOOP_),$(STIPPLEDEF))
+SpecialCObjectRule(cfbpixmap,$(ICONFIGFILES),$(_NOOP_))
+
+#if PixelSize == 8
+ObjectFromSpecialSource(cfbglrop8,cfbglblt8,-DGLYPHROP)
+
+#ifdef MipsArchitecture
+stipmipste.s: stipmips.s
+	$(RM) $@
+	$(LN) stipmips.s stipmipste.s
+clean::
+	$(RM) stipmipste.s
+
+stipmipste.o: stipmipste.s
+	$(AS) -o $@ -DTETEXT stipmipste.s
+#endif
+
+#ifdef SparcArchitecture
+stipsparcte.s: stipsparc.s
+	$(RM) $@
+	$(LN) stipsparc.s stipsparcte.s
+clean::
+	$(RM) stipsparcte.s
+
+stipsparc.o: stipsparc.s
+	$(CPP) stipsparc.s | $(AS) -o $@ -
+
+stipsparcte.o: stipsparcte.s
+	$(CPP) -DTETEXT stipsparcte.s | $(AS) -o $@ -
+#endif
+#endif
+
+#if PixelSize == 32
+#ifdef SparcArchitecture
+stipsprcte32.s: stipsprc32.s
+	$(RM) $@
+	$(LN) stipsprc32.s stipsprcte32.s
+clean::
+	$(RM) stipsprcte32.s
+
+stipsprc32.o: stipsprc32.s
+	$(CPP) stipsprc32.s | $(AS) -o $@ -
+
+stipsprcte32.o: stipsprcte32.s
+	$(CPP) -DTETEXT stipsprcte32.s | $(AS) -o $@ -
+#endif
+#endif
+
+DependTarget()

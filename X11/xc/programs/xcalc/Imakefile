@@ -1,0 +1,15 @@
+XCOMM $XConsortium: Imakefile,v 1.9 93/08/17 21:17:38 rws Exp $
+#if defined(MacIIArchitecture) || defined(MotoR4Architecture)
+      IEEE_DEFS = -DIEEE
+#endif
+
+        DEFINES = $(IEEE_DEFS) $(SIGNAL_DEFINES)
+        DEPLIBS = XawClientDepLibs
+LOCAL_LIBRARIES = XawClientLibs
+  SYS_LIBRARIES = MathLibrary
+           SRCS = actions.c math.c xcalc.c 
+           OBJS = actions.o math.o xcalc.o 
+
+ComplexProgramTarget(xcalc)
+InstallAppDefaults(XCalc)
+InstallAppDefaultsLong(XCalc-col,XCalc-color)

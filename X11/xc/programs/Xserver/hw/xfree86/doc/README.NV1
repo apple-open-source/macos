@@ -1,0 +1,42 @@
+           Information for NVidia NV1 / SGS-Thomson STG2000 Users
+
+                                 David McKay
+
+                               20th March 1997
+
+1.  XFree driver for NVidia NV1 / SGS-Thomson STG2000 v1.0
+
+This driver now accelerates bitblits and filled rectangles. It also support a
+hardware cursor.  More graphic acceleration is planned. There is no plan to
+support the audio functionality of the chip.
+
+1.1  Notes
+
+   o THE DRIVER DOES NOT SUPPORT THE VIRTUAL DESKTOP FEATURES OF XFREE86 This
+     is because the NV1 does not have the necessary hardware to support this
+     feature. If you want to change resolutions, you will have to modify your
+     config file. Comment out all but the mode you wish to use.
+
+   o The generic VGA16 server will not work with the NV1.  For this reason
+     XF86Setup cannot be used to configure the server.  Use xf86config
+     instead.  Select `Diamond Edge 3D' as your board, and select only ONE
+     mode for each of 8bpp and 16bpp.  Do not select a virtual desktop.
+     Also, make sure you don't select a RAMDAC or clock chip.
+
+   o The NV1 only supports a 555 RGB Weight in 16 bpp, the hardware does not
+     do 565. You must put a Weight 555 in the Display section.
+
+   o 24/32 bpp mode is not yet supported.
+
+1.2  Known Bugs
+
+   o The driver should force Weight 555 in 16 bpp mode
+
+   o The hardware cursor doesn't work if an doublescan mode is selected.
+
+   o Screen blanking doesn't work, nor does DPMS.
+
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/NV1.sgml,v 3.3 1997/03/22 09:35:30 hohndel Exp $
+
+
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.NV1,v 3.7 1999/04/15 03:34:51 dawes Exp $

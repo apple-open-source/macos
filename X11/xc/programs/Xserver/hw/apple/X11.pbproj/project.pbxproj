@@ -1,0 +1,405 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		02345980000FD03B11CA0E72 = {
+			children = (
+				1870340FFE93FCAF11CA0CD7,
+			);
+			isa = PBXVariantGroup;
+			name = main.nib;
+			refType = 4;
+		};
+		02345981000FD03B11CA0E72 = {
+			fileRef = 02345980000FD03B11CA0E72;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0249A667FF388E1711CA2CEA = {
+			isa = PBXApplicationReference;
+			path = X11.app;
+			refType = 3;
+		};
+//020
+//021
+//022
+//023
+//024
+//040
+//041
+//042
+//043
+//044
+		04313892FE3035C9C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+//040
+//041
+//042
+//043
+//044
+//080
+//081
+//082
+//083
+//084
+		0867D6AAFE840B52C02AAC07 = {
+			children = (
+				0867D6ABFE840B52C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		0867D6ABFE840B52C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		0867D6ACFE840B52C02AAC07 = {
+			fileRef = 0867D6AAFE840B52C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//080
+//081
+//082
+//083
+//084
+//180
+//181
+//182
+//183
+//184
+		1870340FFE93FCAF11CA0CD7 = {
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/main.nib;
+			refType = 4;
+		};
+//180
+//181
+//182
+//183
+//184
+//190
+//191
+//192
+//193
+//194
+		195DF8CFFE9D517E11CA2CBB = {
+			children = (
+				0249A667FF388E1711CA2CEA,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//200
+//201
+//202
+//203
+//204
+		20286C28FDCF999611CA2CEA = {
+			buildStyles = (
+				4A9504C5FFE6A39111CA0CBA,
+				4A9504C6FFE6A39111CA0CBA,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 20286C29FDCF999611CA2CEA;
+			projectDirPath = "";
+			targets = (
+				20286C34FDCF999611CA2CEA,
+			);
+		};
+		20286C29FDCF999611CA2CEA = {
+			children = (
+				20286C2AFDCF999611CA2CEA,
+				20286C2CFDCF999611CA2CEA,
+				20286C32FDCF999611CA2CEA,
+				195DF8CFFE9D517E11CA2CBB,
+			);
+			isa = PBXGroup;
+			name = X11;
+			path = "";
+			refType = 4;
+		};
+		20286C2AFDCF999611CA2CEA = {
+			children = (
+				50EE2AB703849F0B0ECA21EC,
+			);
+			isa = PBXGroup;
+			name = Sources;
+			path = "";
+			refType = 4;
+		};
+		20286C2CFDCF999611CA2CEA = {
+			children = (
+				50459C5F038587C60ECA21EC,
+				0867D6AAFE840B52C02AAC07,
+				02345980000FD03B11CA0E72,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			path = "";
+			refType = 4;
+		};
+		20286C32FDCF999611CA2CEA = {
+			children = (
+				50F4F0A7039D6ACA0E82C0CB,
+				570C5748047186C400ACF82F,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks and Libraries";
+			path = "";
+			refType = 4;
+		};
+		20286C34FDCF999611CA2CEA = {
+			buildPhases = (
+				20286C35FDCF999611CA2CEA,
+				20286C36FDCF999611CA2CEA,
+				20286C38FDCF999611CA2CEA,
+				20286C3BFDCF999611CA2CEA,
+				04313892FE3035C9C02AAC07,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = ../../../../exports/include;
+				LIBRARY_SEARCH_PATHS = ../../../../exports/lib;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lXau -lX11";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = X11;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = app;
+			};
+			dependencies = (
+			);
+			isa = PBXApplicationTarget;
+			name = X11;
+			productName = X11;
+			productReference = 0249A667FF388E1711CA2CEA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>x11app</string>
+			</array>
+			<key>CFBundleTypeIconFile</key>
+			<string>X11.icns</string>
+			<key>CFBundleTypeName</key>
+			<string>X11 Application</string>
+			<key>CFBundleTypeOSTypes</key>
+			<array>
+				<string>****</string>
+			</array>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSIsAppleDefaultForType</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>tool</string>
+				<string>*</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>UNIX Application</string>
+			<key>CFBundleTypeOSTypes</key>
+			<array>
+				<string>****</string>
+			</array>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+		</dict>
+	</array>
+	<key>CFBundleExecutable</key>
+	<string>X11</string>
+	<key>CFBundleGetInfoString</key>
+	<string>X11</string>
+	<key>CFBundleIconFile</key>
+	<string>X11.icns</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.x11</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>X11</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CSResourcesFileMapped</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2003, Apple Computer, Inc.
+Copyright © 2003, XFree86 Project, Inc.</string>
+	<key>NSMainNibFile</key>
+	<string>main</string>
+	<key>NSPrincipalClass</key>
+	<string>X11Application</string>
+</dict>
+</plist>
+";
+		};
+		20286C35FDCF999611CA2CEA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		20286C36FDCF999611CA2CEA = {
+			buildActionMask = 2147483647;
+			files = (
+				0867D6ACFE840B52C02AAC07,
+				02345981000FD03B11CA0E72,
+				50459C60038587C60ECA21EC,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		20286C38FDCF999611CA2CEA = {
+			buildActionMask = 2147483647;
+			files = (
+				50EE2AB803849F0B0ECA21EC,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		20286C3BFDCF999611CA2CEA = {
+			buildActionMask = 2147483647;
+			files = (
+				50F4F0E8039D6ACA0E82C0CB,
+				570C5749047186C400ACF82F,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+//200
+//201
+//202
+//203
+//204
+//4A0
+//4A1
+//4A2
+//4A3
+//4A4
+		4A9504C5FFE6A39111CA0CBA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		4A9504C6FFE6A39111CA0CBA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//4A0
+//4A1
+//4A2
+//4A3
+//4A4
+//500
+//501
+//502
+//503
+//504
+		50459C5F038587C60ECA21EC = {
+			isa = PBXFileReference;
+			path = X11.icns;
+			refType = 4;
+		};
+		50459C60038587C60ECA21EC = {
+			fileRef = 50459C5F038587C60ECA21EC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		50EE2AB703849F0B0ECA21EC = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = "bundle-main.c";
+			refType = 4;
+		};
+		50EE2AB803849F0B0ECA21EC = {
+			fileRef = 50EE2AB703849F0B0ECA21EC;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		50F4F0A7039D6ACA0E82C0CB = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		50F4F0E8039D6ACA0E82C0CB = {
+			fileRef = 50F4F0A7039D6ACA0E82C0CB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//500
+//501
+//502
+//503
+//504
+//570
+//571
+//572
+//573
+//574
+		570C5748047186C400ACF82F = {
+			isa = PBXFrameworkReference;
+			name = SystemConfiguration.framework;
+			path = /System/Library/Frameworks/SystemConfiguration.framework;
+			refType = 0;
+		};
+		570C5749047186C400ACF82F = {
+			fileRef = 570C5748047186C400ACF82F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 20286C28FDCF999611CA2CEA;
+}

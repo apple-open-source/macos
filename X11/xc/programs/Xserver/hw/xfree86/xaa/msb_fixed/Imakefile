@@ -1,0 +1,7 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/xaa/msb_fixed/Imakefile,v 1.2 1998/07/25 16:59:12 dawes Exp $
+
+#define LinkDirectory ..
+#define EXPDEFINES -DMSBFIRST -DFIXEDBASE
+#define EXPOBJECTNAME msb_fixed
+
+#include "../Imakefile.EXP"

@@ -1,5 +1,5 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
-/* $Id: config.h.in,v 1.5 2003/08/09 00:04:14 nicolai Exp $ */
+/* $Id: config.h.in,v 1.6 2004/02/27 23:27:13 nicolai Exp $ */
 
 #ifndef _CONFIG_H
 #define _CONFIG_H
@@ -955,6 +955,9 @@
 
 /* type to use in place of socklen_t if not defined */
 #undef socklen_t
+
+#undef HAVE_LIBBSM
+#undef HAVE_BSM_AUDIT_H
 
 /* ******************* Shouldn't need to edit below this line ************** */
 

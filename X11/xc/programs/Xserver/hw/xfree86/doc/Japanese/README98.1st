@@ -1,0 +1,141 @@
+  XFree86 PC98 General Information
+  The XFree86 Project Inc. / X98 CORE TEAM 著
+  1999 年 7 月 19 日
+
+  1.  はじめに
+
+  XFree86 は、NEC PC98 および互換機で動作する FreeBSD(98)、NetBSD/pc98
+  (based on NetBSD 1.3.2) 以降、PANIX Ver.5.0 for 98、Linux/98 をサポー
+  トします。PC98 のアーキテクチャは XFree86 のソースツリーでサポートさ
+  れ、その開発とコードの保守は、The XFree86 Project Inc と X98 CORE TEAM
+  が行っています。
+
+  PC98 用ドキュメントでは、主に PC98 特有の事項について説明します。その
+  他の事については、PC/AT 互換機版との共通ドキュメントを参照して下さい。
+  多くのドキュメントが日本語化されていますので、それらを参照する事をお勧
+  めします。
+
+  2.  情報源／連絡先
+
+  XFree86 の総合的なサポートについては、<XFree86@XFree86.Org> へ英語でコ
+  ンタクトして下さい。PC98 特有の問題については、日本語で開発者メーリン
+  グリスト <x98@mech.titech.ac.jp> へコンタクトして下さい。
+
+  動作報告やバグ情報、パッチなどは無条件に歓迎いたしますので、宜しくお願
+  いいたします。format は問いませんが、ドキュメントに記述がある内容につ
+  いての質問等はご遠慮下さい。
+
+  NetNews の fj.windows.x、fj.os.bsd.*、NIFTY-SERVE(FUNIX, FEPSONX,
+  SAISAP)、PC-VAN(JUNIX, JSPUNIX)、FreeBSD-users-jp ML、FreeBSD kit ML、
+  FreeBSD98-testers ML、FreeBSD98-hackers ML、seraphim-bugs ML、
+  seraphim-beta ML で多くの議論、質疑応答が行われています。PC98 について
+  の情報についてはこれらの場で提供しますので、参加する事をお勧めします。
+
+  3.  PC98 固有のドキュメント
+
+  o  README98.1st    概要 (このファイル)
+
+  o  README98        PC98 に関する説明
+
+  o  XF86Config.98   標準的な PC98 用 XF86Config
+
+  o  VideoBoard98    対応ビデオボードに関する情報
+
+  4.  クレジット
+
+  PC98 用コードは The XFree86 Project Inc と以下の X98 CORE TEAM、および
+  その他の協力者により作成されました。
+
+  X98 CORE TEAM
+
+  o  会津宏幸 <aizu@jaist.ac.jp>
+
+  o  石田和生 <ishidakz@obp.cl.nec.co.jp>
+
+  o  市川康浩 <cs94006@mbox.sist.ac.jp>
+
+  o  伊藤和雄 <ft4k-itu@asahi-net.or.jp>
+
+  o  上野和紀 <jagarl@creator.club.or.jp>
+
+  o  上野修一 <uenos@ppp.bekkoame.or.jp>
+
+  o  宇野和彦 <Kazuhiko.Uno@softvision.co.jp>
+
+  o  浦田修一郎 <s-urata@nmit.tmg.nec.co.jp>
+
+  o  大石勲 <ohishi@hf.rim.or.jp>
+
+  o  大石浩二 <atena@njk.co.jp>
+
+  o  掛札哲也 <kakefuda@tag.iijnet.or.jp>
+
+  o  加藤康之 <yasuyuki@acaets0.anritsu.co.jp>
+
+  o  木村聡 <KFB03633@nifty.ne.jp>
+
+  o  小池達也 <koiket@focus.rim.or.jp>
+
+  o  H.Komatsuzaki
+
+  o  坂本崇 <sakamoto@yajima.kuis.kyoto-u.ac.jp>
+
+  o  佐久間淳 <i931361@jks.is.tsukuba.ac.jp>
+
+  o  神保道夫 <karl@spnet.ne.jp>
+
+  o  鈴木孝一郎 <s-koichi@nims.nec.co.jp>
+
+  o  鈴木知見 <suzuki@grelot.elec.ryukoku.ac.jp>
+
+  o  鈴木康司 <suz@d2.bs1.fc.nec.co.jp>
+
+  o  滝上富晴 <takigami@elsd.mt.nec.co.jp>
+
+  o  塚田剛文 <tsuka@linkt.imasy.or.jp>
+
+  o  永尾禎啓 <nagao@cs.titech.ac.jp>
+
+  o  野田稔 <mnoda@cv.tottori-u.ac.jp>
+
+  o  野村高明 <amadeus@yk.rim.or.jp>
+
+  o  藤浦豊徳 <toyo@ibbsal.or.jp>
+
+  o  本多尚文 <honda@Kururu.math.hokudai.ac.jp>
+
+  o  森田昭夫 <amorita@bird.scphys.kyoto-u.ac.jp>
+
+  o  八色伸一 <QZR00522@nifty.ne.jp>
+
+  o  八木俊彦 <j2297222@ed.kagu.sut.ac.jp>
+
+  o  安田聖 <yasuda@cc.hit-u.ac.jp>
+
+  その他の協力者
+
+  o  山本浩 (x98ML 旧管理者)
+
+  o  中島求 (x98ML 管理者)
+
+  o  吉田正人 (PowerWindow805i 対応コード提供)
+
+  o  三浦敦司 (PW928II 貸与)
+
+  o  西塚博文 (Linux/98 対応)
+
+  o  井伊亮太 (同上)
+
+  o  PC-VAN(JUNIX, JSPUNIX), NIFTY-SERVE(FUNIX, FEPSONX, SAISAP), fj,
+     x98 ML, FreeBSD-users-jp ML, FreeBSD kit ML, FreeBSD98-testers ML,
+     FreeBSD98-hackers ML, seraphim-bugs ML, seraphim-beta ML で動作報告
+     をくださった方々
+
+  o  京大マイコンクラブ
+
+  o  FreeBSD PC98 移植チーム
+
+  o  NetBSD/pc98 Core Team
+
+  o  エー・アイ・ソフト株式会社
+

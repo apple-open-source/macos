@@ -1,0 +1,1791 @@
+_C_ License Applicability. Except to the extent portions of this file are
+_C_ made subject to an alternative license as permitted in the SGI Free
+_C_ Software License B, Version 1.1 (the "License"), the contents of this
+_C_ file are subject only to the provisions of the License. You may not use
+_C_ this file except in compliance with the License. You may obtain a copy
+_C_ of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
+_C_ Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
+_C_ 
+_C_ http://oss.sgi.com/projects/FreeB
+_C_ 
+_C_ Note that, as provided in the License, the Software is distributed on an
+_C_ "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
+_C_ DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
+_C_ CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
+_C_ PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+_C_ 
+_C_ Original Code. The Original Code is: OpenGL Sample Implementation,
+_C_ Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
+_C_ Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
+_C_ Copyright in any portions created by third parties is as indicated
+_C_ elsewhere herein. All Rights Reserved.
+_C_ 
+_C_ Additional Notice Provisions: The application programming interfaces
+_C_ established by SGI in conjunction with the Original Code are The
+_C_ OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
+_C_ April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
+_C_ 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
+_C_ Window System(R) (Version 1.3), released October 19, 1998. This software
+_C_ was created using the OpenGL(R) version 1.2.1 Sample Implementation
+_C_ published by SGI, but has not been independently verified as being
+_C_ compliant with the OpenGL(R) version 1.2.1 Specification.
+_C_
+_C_ The first character in this file must be an '_'!
+_C_ Anything on a line after _C_ is ignored
+_define(_filters,tbl|eqn)_C_
+_C_      eqn is automatically replaced with neqn for nroff
+_header(Get,return the value or values of a selected parameter)
+_names(GetBooleanv)
+_names(GetDoublev)
+_names(GetFloatv)
+_names(GetIntegerv)
+.EQ
+delim $$
+.EN
+.SH PARAMETERS
+_phead(_param1)
+Specifies the parameter value to be returned.
+The symbolic constants in the list below are accepted.
+_phead(_param2)
+Returns the value or values of the specified parameter.
+.SH DESCRIPTION
+These four commands return values for simple state variables in GL. 
+_param1 is a symbolic constant indicating the state variable to be returned, 
+and _param2 is a pointer to an array of the indicated type in 
+which to place the returned data.
+.P
+Type conversion is performed if _param2 has a different type than 
+the state variable value being requested.
+If _cmnd(GetBooleanv) is called,
+a floating-point (or integer) value is converted to _const(FALSE) if 
+and only if it is 0.0 (or 0).
+Otherwise,
+it is converted to _const(TRUE).
+If _cmnd(GetIntegerv) is called, boolean values are returned as
+_const(TRUE) or _const(FALSE), and most floating-point values are
+rounded to the nearest integer value. Floating-point colors and
+normals, however, are returned with a linear mapping that maps 1.0 to
+the most positive representable integer value,
+and \-1.0 to the most negative representable integer value.
+If _cmnd(GetFloatv) or _cmnd(GetDoublev) is called,
+boolean values are returned as _const(TRUE) or _const(FALSE),
+and integer values are converted to floating-point values.
+.P
+The following symbolic constants are accepted by _param1:
+.TP 25
+_const(ACCUM_ALPHA_BITS)
+_param2 returns one value,
+the number of alpha bitplanes in the accumulation buffer.
+.TP
+_const(ACCUM_BLUE_BITS)
+_param2 returns one value,
+the number of blue bitplanes in the accumulation buffer.
+.TP
+_const(ACCUM_CLEAR_VALUE)
+_param2 returns four values:
+the red, green, blue, and alpha values used to clear the accumulation buffer.
+Integer values,
+if requested,
+are linearly mapped from the internal floating-point representation such
+that 1.0 returns the most positive representable integer value,
+and \-1.0 returns the most negative representable integer
+value. The initial value is (0, 0, 0, 0). 
+See _cmnd(ClearAccum).
+.TP
+_const(ACCUM_GREEN_BITS)
+_param2 returns one value,
+the number of green bitplanes in the accumulation buffer.
+.TP
+_const(ACCUM_RED_BITS)
+_param2 returns one value,
+the number of red bitplanes in the accumulation buffer.
+.TP
+_arbconst(ACTIVE_TEXTURE)
+_param2 returns a single value indicating the active multitexture unit.
+The initial value is _arbconst(TEXTURE0).
+See _cmnd(ActiveTextureARB).
+.TP
+_const(ALIASED_POINT_SIZE_RANGE)
+_param2 returns two values, 
+the smallest and largest supported sizes for aliased points.
+.TP
+_const(ALIASED_LINE_WIDTH_RANGE)
+_param2 returns two values, 
+the smallest and largest supported widths for aliased lines.
+.TP
+_const(ALPHA_BIAS)
+_param2 returns one value,
+the alpha bias factor used during pixel transfers. The initial value is 0.
+See _cmnd(PixelTransfer).
+.TP
+_const(ALPHA_BITS)
+_param2 returns one value,
+the number of alpha bitplanes in each color buffer.
+.TP
+_const(ALPHA_SCALE)
+_param2 returns one value,
+the alpha scale factor used during pixel transfers. The initial value is 1.
+See _cmnd(PixelTransfer).
+.TP
+_const(ALPHA_TEST)
+_param2 returns a single boolean value indicating whether alpha testing
+of fragments is enabled. The initial value is _const(FALSE). 
+See _cmnd(AlphaFunc).
+.TP
+_const(ALPHA_TEST_FUNC)
+_param2 returns one value,
+the symbolic name of the alpha test function. The initial value is
+_const(ALWAYS). 
+See _cmnd(AlphaFunc).
+.TP
+_const(ALPHA_TEST_REF)
+_param2 returns one value,
+the reference value for the alpha test. The initial value is 0. 
+See _cmnd(AlphaFunc).
+An integer value,
+if requested,
+is linearly mapped from the internal floating-point representation such
+that 1.0 returns the most positive representable integer value,
+and \-1.0 returns the most negative representable integer value.
+.TP
+_const(ATTRIB_STACK_DEPTH)
+_param2 returns one value,
+the depth of the attribute stack.
+If the stack is empty,
+0 is returned. The initial value is 0. 
+See _cmnd(PushAttrib).
+.TP
+_const(AUTO_NORMAL)
+_param2 returns a single boolean value indicating whether 2D map evaluation
+automatically generates surface normals. The initial value is _const(FALSE). 
+See _cmnd(Map2).
+.TP
+_const(AUX_BUFFERS)
+_param2 returns one value,
+the number of auxiliary color buffers. The initial value is 0.
+.TP
+_const(BLEND)
+_param2 returns a single boolean value indicating whether blending is
+enabled. The initial value is _const(FALSE). 
+See _cmnd(BlendFunc).
+.TP
+_const(BLEND_COLOR)
+_param2 returns four values,
+the red, green, blue, and alpha values which are the components of
+the blend color.
+See _cmnd(BlendColor).
+.TP
+_const(BLEND_DST)
+_param2 returns one value,
+the symbolic constant identifying the destination blend
+function. The initial value is _const(ZERO). 
+See _cmnd(BlendFunc).
+.TP
+_const(BLEND_EQUATION)
+_param2 returns one value, a symbolic constant indicating whether
+the blend equation is _const(FUNC_ADD), _const(MIN) or 
+_const(MAX). See _cmnd(BlendEquation).
+.TP
+_const(BLEND_SRC)
+_param2 returns one value,
+the symbolic constant identifying the source blend function. The initial
+value is _const(ONE). 
+See _cmnd(BlendFunc).
+.TP
+_const(BLUE_BIAS)
+_param2 returns one value,
+the blue bias factor used during pixel transfers. The initial value is 0.
+See 
+_cmnd(PixelTransfer).
+.TP
+_const(BLUE_BITS)
+_param2 returns one value,
+the number of blue bitplanes in each color buffer.
+.TP
+_const(BLUE_SCALE)
+_param2 returns one value,
+the blue scale factor used during pixel transfers. The initial value is 1.
+See 
+_cmnd(PixelTransfer).
+.TP
+_arbconst(CLIENT_ACTIVE_TEXTURE)
+_param2 returns a single integer value indicating the current client active
+multitexture unit. The initial value is _arbconst(TEXTURE0).
+See _cmnd(ClientActiveTextureARB).
+.TP
+_const(CLIENT_ATTRIB_STACK_DEPTH)
+_param2 returns one value indicating the depth of the
+attribute stack. The initial value is 0.
+See _cmnd(PushClientAttrib).
+.TP
+_const(CLIP_PLANE)\f2i\fP
+_param2 returns a single boolean value indicating whether the specified
+clipping plane is enabled. The initial value is _const(FALSE). 
+See _cmnd(ClipPlane).
+.TP
+_const(COLOR_ARRAY)
+_param2 returns a single boolean value indicating whether the color array is enabled. The initial value is _const(FALSE). 
+See _cmnd(ColorPointer).
+.TP
+_const(COLOR_ARRAY_SIZE)
+_param2 returns one value,
+the number of components per color in the color array. The initial value
+is 4. See _cmnd(ColorPointer). 
+.TP
+_const(COLOR_ARRAY_STRIDE)
+_param2 returns one value,
+the byte offset between consecutive colors in the color array. The initial
+value is 0. 
+See _cmnd(ColorPointer).
+.TP
+_const(COLOR_ARRAY_TYPE)
+_param2 returns one value,
+the data type of each component in the color array. The initial value
+is _const(FLOAT). See _cmnd(ColorPointer). 
+.TP
+_const(COLOR_CLEAR_VALUE)
+_param2 returns four values:
+the red, green, blue, and alpha values used to clear the color buffers.
+Integer values,
+if requested,
+are linearly mapped from the internal floating-point representation such
+that 1.0 returns the most positive representable integer value,
+and \-1.0 returns the most negative representable integer
+value. The initial value is (0, 0, 0, 0). 
+See _cmnd(ClearColor).
+.TP
+_const(COLOR_LOGIC_OP)
+_param2 returns a single boolean value indicating whether a fragment's
+RGBA color values are merged into the framebuffer using a logical
+operation. The initial value is _const(FALSE).
+See _cmnd(LogicOp).
+.TP
+_const(COLOR_MATERIAL)
+_param2 returns a single boolean value indicating whether one or more
+material parameters are tracking the current color. The initial value
+is _const(FALSE). 
+See _cmnd(ColorMaterial).
+.TP
+_const(COLOR_MATERIAL_FACE)
+_param2 returns one value,
+a symbolic constant indicating which materials have a parameter that is
+tracking the current color. The initial value is _const(FRONT_AND_BACK). 
+See _cmnd(ColorMaterial).
+.TP
+_const(COLOR_MATERIAL_PARAMETER)
+_param2 returns one value,
+a symbolic constant indicating which material parameters are
+tracking the current color. The initial value is
+_const(AMBIENT_AND_DIFFUSE). 
+See _cmnd(ColorMaterial).
+.TP
+_const(COLOR_MATRIX)
+_param2 returns sixteen values:
+the color matrix on the top of the color matrix stack. Initially
+this matrix is the identity matrix. See _cmnd(PushMatrix).
+.TP
+_const(COLOR_MATRIX_STACK_DEPTH)
+_param2 returns one value,
+the maximum supported depth of the projection matrix stack. The value must
+be at least 2.
+See _cmnd(PushMatrix).
+.TP
+_const(COLOR_TABLE)
+_param2 returns a single boolean value indicating whether the color table
+lookup is enabled.
+See _cmnd(ColorTable).
+.TP
+_const(COLOR_WRITEMASK)
+_param2 returns four boolean values:
+the red, green, blue, and alpha write enables for the color
+buffers. The initial value is (_const(TRUE), _const(TRUE),
+_const(TRUE), _const(TRUE)). 
+See _cmnd(ColorMask).
+.TP
+_const(CONVOLUTION_1D)
+_param2 returns a single boolean value indicating whether 1D convolution
+is enabled. The initial value is _const(FALSE).
+See _cmnd(ConvolutionFilter1D).
+.TP
+_const(CONVOLUTION_2D)
+_param2 returns a single boolean value indicating whether 2D convolution
+is enabled. The initial value is _const(FALSE).
+See _cmnd(ConvolutionFilter2D).
+.TP
+_const(CULL_FACE)
+_param2 returns a single boolean value indicating whether polygon culling
+is enabled. The initial value is _const(FALSE). 
+See _cmnd(CullFace).
+.TP
+_const(CULL_FACE_MODE)
+_param2 returns one value,
+a symbolic constant indicating which polygon faces are to be
+culled. The initial value is _const(BACK). 
+See _cmnd(CullFace).
+.TP
+_const(CURRENT_COLOR)
+_param2 returns four values:
+the red, green, blue, and alpha values of the current color.
+Integer values,
+if requested,
+are linearly mapped from the internal floating-point representation such
+that 1.0 returns the most positive representable integer value,
+and \-1.0 returns the most negative representable integer value.
+See _cmnd(Color). The initial value is (1, 1, 1, 1). 
+.TP
+_const(CURRENT_INDEX)
+_param2 returns one value,
+the current color index. The initial value is 1. 
+See _cmnd(Index).
+.TP
+_const(CURRENT_NORMAL)
+_param2 returns three values:
+the \f2x\fP, \f2y\fP, and \f2z\fP values of the current normal.
+Integer values,
+if requested,
+are linearly mapped from the internal floating-point representation such
+that 1.0 returns the most positive representable integer value,
+and \-1.0 returns the most negative representable integer value.
+The initial value is (0, 0, 1). See _cmnd(Normal).
+.TP
+_const(CURRENT_RASTER_COLOR)
+_param2 returns four values:
+the red, green, blue, and alpha values of the current raster position.
+Integer values,
+if requested,
+are linearly mapped from the internal floating-point representation such
+that 1.0 returns the most positive representable integer value,
+and \-1.0 returns the most negative representable integer
+value. The initial value is (1, 1, 1, 1). 
+See _cmnd(RasterPos).
+.TP
+_const(CURRENT_RASTER_DISTANCE)
+_param2 returns one value,
+the distance from the eye to the current raster position. The initial
+value is 0.
+See _cmnd(RasterPos).
+.TP
+_const(CURRENT_RASTER_INDEX)
+_param2 returns one value,
+the color index of the current raster position. The initial value is 1. 
+See _cmnd(RasterPos).
+.TP
+_const(CURRENT_RASTER_POSITION)
+_param2 returns four values:
+the \f2x\fP, \f2y\fP, \f2z\fP, and \f2w\fP components of the current
+raster position.
+\f2x\fP, \f2y\fP, and \f2z\fP are in window coordinates,
+and \f2w\fP is in clip coordinates. The initial value is (0, 0, 0, 1). 
+See _cmnd(RasterPos).
+.TP
+_const(CURRENT_RASTER_POSITION_VALID)
+_param2 returns a single boolean value indicating whether the current
+raster position is valid. The initial value is _const(TRUE).
+See _cmnd(RasterPos).
+.TP
+_const(CURRENT_RASTER_TEXTURE_COORDS)
+_param2 returns four values:
+the \f2s\fP, \f2t\fP, \f2r\fP, and \f2q\fP
+current raster texture coordinates. The initial value is (0, 0, 0, 1).
+See _cmnd(RasterPos) and _cmnd(TexCoord).
+.TP
+_const(CURRENT_TEXTURE_COORDS)
+_param2 returns four values:
+the \f2s\fP, \f2t\fP, \f2r\fP, and \f2q\fP current texture
+coordinates. The initial value is (0, 0, 0, 1).
+See
+_cmnd(TexCoord).
+.TP
+_const(DEPTH_BIAS)
+_param2 returns one value,
+the depth bias factor used during pixel transfers. The initial value is 0.
+See _cmnd(PixelTransfer).
+.TP
+_const(DEPTH_BITS)
+_param2 returns one value,
+the number of bitplanes in the depth buffer.
+.TP
+_const(DEPTH_CLEAR_VALUE)
+_param2 returns one value,
+the value that is used to clear the depth buffer.
+Integer values,
+if requested,
+are linearly mapped from the internal floating-point representation such
+that 1.0 returns the most positive representable integer value,
+and \-1.0 returns the most negative representable integer
+value. The initial value is 1. 
+See _cmnd(ClearDepth). 
+.TP
+_const(DEPTH_FUNC)
+_param2 returns one value,
+the symbolic constant that indicates the depth comparison
+function. The initial value is _const(LESS). 
+See _cmnd(DepthFunc).
+.TP
+_const(DEPTH_RANGE)
+_param2 returns two values:
+the near and far mapping limits for the depth buffer.
+Integer values,
+if requested,
+are linearly mapped from the internal floating-point representation such
+that 1.0 returns the most positive representable integer value,
+and \-1.0 returns the most negative representable integer
+value. The initial value is (0, 1).
+See _cmnd(DepthRange).
+.TP
+_const(DEPTH_SCALE)
+_param2 returns one value,
+the depth scale factor used during pixel transfers. The initial value is 1.
+See _cmnd(PixelTransfer).
+.TP
+_const(DEPTH_TEST)
+_param2 returns a single boolean value indicating whether depth testing
+of fragments is enabled. The initial value is _const(FALSE). 
+See _cmnd(DepthFunc) and _cmnd(DepthRange).
+.TP
+_const(DEPTH_WRITEMASK)
+_param2 returns a single boolean value indicating if the depth buffer
+is enabled for writing. The initial value is _const(TRUE). 
+See _cmnd(DepthMask).
+.TP
+_const(DITHER)
+_param2 returns a single boolean value indicating whether dithering of
+fragment colors and indices is enabled. The initial value is _const(TRUE). 
+.TP
+_const(DOUBLEBUFFER)
+_param2 returns a single boolean value indicating whether double buffering
+is supported.
+.TP
+_const(DRAW_BUFFER)
+_param2 returns one value,
+a symbolic constant indicating which buffers are being drawn to. 
+See _cmnd(DrawBuffer). The initial value is _const(BACK) if there
+are back buffers, otherwise it is _const(FRONT).
+.TP
+_const(EDGE_FLAG)
+_param2 returns a single boolean value indicating whether the current
+edge flag is _const(TRUE) or _const(FALSE). The initial value is _const(TRUE). 
+See _cmnd(EdgeFlag). 
+.TP
+_const(EDGE_FLAG_ARRAY)
+_param2 returns a single boolean value indicating whether the edge
+flag array is enabled. The initial value is _const(FALSE). 
+See _cmnd(EdgeFlagPointer).
+.TP
+_const(EDGE_FLAG_ARRAY_STRIDE)
+_param2 returns one value,
+the byte offset between consecutive edge flags in the edge flag
+array. The initial value is 0.
+See _cmnd(EdgeFlagPointer).
+.TP
+_const(FEEDBACK_BUFFER_SIZE)
+_param2 returns one value, the size of the feedback buffer.  See
+_cmnd(FeedbackBuffer).
+.TP
+_const(FEEDBACK_BUFFER_TYPE)
+_param2 returns one value, the type of the feedback buffer.  See
+_cmnd(FeedbackBuffer).
+.TP
+_const(FOG)
+_param2 returns a single boolean value indicating whether fogging is
+enabled. The initial value is _const(FALSE). 
+See _cmnd(Fog).
+.TP
+_const(FOG_COLOR)
+_param2 returns four values:
+the red, green, blue, and alpha components of the fog color.
+Integer values,
+if requested,
+are linearly mapped from the internal floating-point representation such
+that 1.0 returns the most positive representable integer value,
+and \-1.0 returns the most negative representable integer
+value. The initial value is (0, 0, 0, 0). 
+See _cmnd(Fog).
+.TP
+_const(FOG_DENSITY)
+_param2 returns one value,
+the fog density parameter. The initial value is 1. 
+See _cmnd(Fog).
+.TP
+_const(FOG_END)
+_param2 returns one value,
+the end factor for the linear fog equation. The initial value is 1. 
+See _cmnd(Fog).
+.TP
+_const(FOG_HINT)
+_param2 returns one value,
+a symbolic constant indicating the mode of the fog hint. The initial value
+is _const(DONT_CARE).
+See _cmnd(Hint).
+.TP
+_const(FOG_INDEX)
+_param2 returns one value,
+the fog color index. The initial value is 0. 
+See _cmnd(Fog).
+.TP
+_const(FOG_MODE)
+_param2 returns one value,
+a symbolic constant indicating which fog equation is selected. The initial
+value is _const(EXP). 
+See _cmnd(Fog).
+.TP
+_const(FOG_START)
+_param2 returns one value,
+the start factor for the linear fog equation. The initial value is 0. 
+See _cmnd(Fog).
+.TP
+_const(FRONT_FACE)
+_param2 returns one value,
+a symbolic constant indicating whether clockwise or counterclockwise
+polygon winding is treated as front-facing. The initial value is
+_const(CCW). 
+See _cmnd(FrontFace).
+.TP
+_const(GREEN_BIAS)
+_param2 returns one value,
+the green bias factor used during pixel transfers. The initial value is 0.
+.TP
+_const(GREEN_BITS)
+_param2 returns one value,
+the number of green bitplanes in each color buffer.
+.TP
+_const(GREEN_SCALE)
+_param2 returns one value,
+the green scale factor used during pixel transfers. The initial value is 1.
+See _cmnd(PixelTransfer).
+.TP
+_const(HISTOGRAM)
+_param2 returns a single boolean value indicating whether histogram is
+enabled. The initial value is _const(FALSE).
+See _cmnd(Histogram).
+.TP
+_const(INDEX_ARRAY)
+_param2 returns a single boolean value indicating whether the color
+index array is enabled. The initial value is _const(FALSE). 
+See _cmnd(IndexPointer).
+.TP
+_const(INDEX_ARRAY_STRIDE)
+_param2 returns one value,
+the byte offset between consecutive color indexes in the color index
+array. The initial value is 0. 
+See _cmnd(IndexPointer).
+.TP
+_const(INDEX_ARRAY_TYPE)
+_param2 returns one value,
+the data type of indexes in the color index array. The initial value is
+_const(FLOAT). 
+See _cmnd(IndexPointer).
+.TP
+_const(INDEX_BITS)
+_param2 returns one value,
+the number of bitplanes in each color index buffer.
+.TP
+_const(INDEX_CLEAR_VALUE)
+_param2 returns one value,
+the color index used to clear the color index buffers. The initial value
+is 0. 
+See _cmnd(ClearIndex).
+.TP
+_const(INDEX_LOGIC_OP)
+_param2 returns a single boolean value indicating whether a fragment's index
+values are merged into the framebuffer using a logical
+operation. The initial value is _const(FALSE). 
+See _cmnd(LogicOp).
+.TP
+_const(INDEX_MODE)
+_param2 returns a single boolean value indicating whether the GL is in
+color index mode (_const(TRUE)) or RGBA mode (_const(FALSE)).
+.TP
+_const(INDEX_OFFSET)
+_param2 returns one value,
+the offset added to color and stencil indices during pixel
+transfers. The initial value is 0. 
+See _cmnd(PixelTransfer).
+.TP
+_const(INDEX_SHIFT)
+_param2 returns one value,
+the amount that color and stencil indices are shifted during pixel
+transfers. The initial value is 0. 
+See _cmnd(PixelTransfer).
+.TP
+_const(INDEX_WRITEMASK)
+_param2 returns one value,
+a mask indicating which bitplanes of each color index buffer can be
+written. The initial value is all 1's. 
+See _cmnd(IndexMask).
+.TP
+_const(LIGHT)\f2i\fP
+_param2 returns a single boolean value indicating whether the specified
+light is enabled. The initial value is _const(FALSE). 
+See _cmnd(Light) and _cmnd(LightModel).
+.TP
+_const(LIGHTING)
+_param2 returns a single boolean value indicating whether lighting is
+enabled. The initial value is _const(FALSE). 
+See _cmnd(LightModel).
+.TP
+_const(LIGHT_MODEL_AMBIENT)
+_param2 returns four values:
+the red, green, blue, and alpha components of the ambient intensity of
+the entire scene.
+Integer values,
+if requested,
+are linearly mapped from the internal floating-point representation such
+that 1.0 returns the most positive representable integer value,
+and \-1.0 returns the most negative representable integer
+value. The initial value is (0.2, 0.2, 0.2, 1.0). 
+See _cmnd(LightModel).
+.TP
+_const(LIGHT_MODEL_COLOR_CONTROL)
+_param2 returns single enumerated value indicating whether specular
+reflection calculations are separated from normal lighting computations.
+The initial value is _const(SINGLE_COLOR).
+.TP
+_const(LIGHT_MODEL_LOCAL_VIEWER)
+_param2 returns a single boolean value indicating whether specular reflection
+calculations treat the viewer as being local to the scene. The initial
+value is _const(FALSE). 
+See _cmnd(LightModel).
+.TP
+_const(LIGHT_MODEL_TWO_SIDE)
+_param2 returns a single boolean value indicating whether separate materials
+are used to compute lighting for front- and back-facing
+polygons. The initial value is _const(FALSE). 
+See _cmnd(LightModel).
+.TP
+_const(LINE_SMOOTH)
+_param2 returns a single boolean value indicating whether antialiasing of
+lines is enabled. The initial value is _const(FALSE). 
+See _cmnd(LineWidth).
+.TP
+_const(LINE_SMOOTH_HINT)
+_param2 returns one value,
+a symbolic constant indicating the mode of the line antialiasing
+hint. The initial value is _const(DONT_CARE). 
+See _cmnd(Hint).
+.TP
+_const(LINE_STIPPLE)
+_param2 returns a single boolean value indicating whether stippling of lines
+is enabled. The initial value is _const(FALSE).
+See _cmnd(LineStipple).
+.TP
+_const(LINE_STIPPLE_PATTERN)
+_param2 returns one value,
+the 16-bit line stipple pattern. The initial value is all 1's. 
+See _cmnd(LineStipple).
+.TP
+_const(LINE_STIPPLE_REPEAT)
+_param2 returns one value,
+the line stipple repeat factor. The initial value is 1. 
+See _cmnd(LineStipple).
+.TP
+_const(LINE_WIDTH)
+_param2 returns one value,
+the line width as specified with _cmnd(LineWidth). The initial value is
+1. 
+.TP
+_const(LINE_WIDTH_GRANULARITY)
+_param2 returns one value,
+the width difference between adjacent supported widths for antialiased lines.
+See _cmnd(LineWidth).
+.TP
+_const(LINE_WIDTH_RANGE)
+_param2 returns two values:
+the smallest and largest supported widths for antialiased
+lines. 
+See _cmnd(LineWidth).
+.TP
+_const(LIST_BASE)
+_param2 returns one value,
+the base offset added to all names in arrays presented to
+_cmnd(CallLists). The initial value is 0. 
+See _cmnd(ListBase).
+.TP
+_const(LIST_INDEX)
+_param2 returns one value,
+the name of the display list currently under construction.
+0 is returned if no display list is currently under
+construction. The initial value is 0.
+See _cmnd(NewList).
+.TP
+_const(LIST_MODE)
+_param2 returns one value,
+a symbolic constant indicating the construction mode of the display list
+currently under construction. The initial value is 0.
+See _cmnd(NewList).
+.TP
+_const(LOGIC_OP_MODE)
+_param2 returns one value,
+a symbolic constant indicating the selected logic operation
+mode. The initial value is _const(COPY). 
+See _cmnd(LogicOp).
+.TP
+_const(MAP1_COLOR_4)
+_param2 returns a single boolean value indicating whether
+1D evaluation generates colors. The initial value is _const(FALSE).
+See _cmnd(Map1).
+.TP
+_const(MAP1_GRID_DOMAIN)
+_param2 returns two values:
+the endpoints of the 1D map's grid domain. The initial value is (0, 1). 
+See _cmnd(MapGrid).
+.TP
+_const(MAP1_GRID_SEGMENTS)
+_param2 returns one value,
+the number of partitions in the 1D map's grid domain. The initial value
+is 1. 
+See _cmnd(MapGrid).
+.TP
+_const(MAP1_INDEX)
+_param2 returns a single boolean value indicating whether
+1D evaluation generates color indices. The initial value is _const(FALSE).
+See _cmnd(Map1).
+.TP
+_const(MAP1_NORMAL)
+_param2 returns a single boolean value indicating whether
+1D evaluation generates normals. The initial value is _const(FALSE).
+See _cmnd(Map1).
+.TP
+_const(MAP1_TEXTURE_COORD_1)
+_param2 returns a single boolean value indicating whether
+1D evaluation generates 1D texture coordinates. The initial value is
+_const(FALSE). 
+See _cmnd(Map1).
+.TP
+_const(MAP1_TEXTURE_COORD_2)
+_param2 returns a single boolean value indicating whether
+1D evaluation generates 2D texture coordinates. The initial value is
+_const(FALSE). 
+See _cmnd(Map1).
+.TP
+_const(MAP1_TEXTURE_COORD_3)
+_param2 returns a single boolean value indicating whether
+1D evaluation generates 3D texture coordinates. The initial value is
+_const(FALSE). 
+See _cmnd(Map1).
+.TP
+_const(MAP1_TEXTURE_COORD_4)
+_param2 returns a single boolean value indicating whether
+1D evaluation generates 4D texture coordinates. The initial value is
+_const(FALSE).
+See _cmnd(Map1).
+.TP
+_const(MAP1_VERTEX_3)
+_param2 returns a single boolean value indicating whether
+1D evaluation generates 3D vertex coordinates. The initial value is
+_const(FALSE). 
+See _cmnd(Map1).
+.TP
+_const(MAP1_VERTEX_4)
+_param2 returns a single boolean value indicating whether
+1D evaluation generates 4D vertex coordinates. The initial value is
+_const(FALSE). 
+See _cmnd(Map1).
+.TP
+_const(MAP2_COLOR_4)
+_param2 returns a single boolean value indicating whether
+2D evaluation generates colors. The initial value is _const(FALSE).
+See _cmnd(Map2).
+.TP
+_const(MAP2_GRID_DOMAIN)
+_param2 returns four values:
+the endpoints of the 2D map's $i$ and $j$ grid domains. The initial value
+is (0,1; 0,1). 
+See _cmnd(MapGrid).
+.TP
+_const(MAP2_GRID_SEGMENTS)
+_param2 returns two values:
+the number of partitions in the 2D map's $i$ and $j$ grid
+domains. The initial value is (1,1). 
+See _cmnd(MapGrid).
+.TP
+_const(MAP2_INDEX)
+_param2 returns a single boolean value indicating whether
+2D evaluation generates color indices. The initial value is _const(FALSE).
+See _cmnd(Map2).
+.TP
+_const(MAP2_NORMAL)
+_param2 returns a single boolean value indicating whether
+2D evaluation generates normals. The initial value is _const(FALSE).
+See _cmnd(Map2).
+.TP
+_const(MAP2_TEXTURE_COORD_1)
+_param2 returns a single boolean value indicating whether
+2D evaluation generates 1D texture coordinates. The initial value is
+_const(FALSE). 
+See _cmnd(Map2).
+.TP
+_const(MAP2_TEXTURE_COORD_2)
+_param2 returns a single boolean value indicating whether
+2D evaluation generates 2D texture coordinates. The initial value is
+_const(FALSE). 
+See _cmnd(Map2).
+.TP
+_const(MAP2_TEXTURE_COORD_3)
+_param2 returns a single boolean value indicating whether
+2D evaluation generates 3D texture coordinates. The initial value is
+_const(FALSE). 
+See _cmnd(Map2).
+.TP
+_const(MAP2_TEXTURE_COORD_4)
+_param2 returns a single boolean value indicating whether
+2D evaluation generates 4D texture coordinates. The initial value is
+_const(FALSE). 
+See _cmnd(Map2).
+.TP
+_const(MAP2_VERTEX_3)
+_param2 returns a single boolean value indicating whether
+2D evaluation generates 3D vertex coordinates. The initial value is
+_const(FALSE). 
+See _cmnd(Map2).
+.TP
+_const(MAP2_VERTEX_4)
+_param2 returns a single boolean value indicating whether
+2D evaluation generates 4D vertex coordinates. The initial value is
+_const(FALSE). 
+See _cmnd(Map2).
+.TP
+_const(MAP_COLOR)
+_param2 returns a single boolean value indicating if colors and
+color indices are to be replaced by table lookup during pixel
+transfers. The initial value is _const(FALSE). 
+See _cmnd(PixelTransfer).
+.TP
+_const(MAP_STENCIL)
+_param2 returns a single boolean value indicating if stencil indices
+are to be replaced by table lookup during pixel transfers. The initial
+value is _const(FALSE). 
+See _cmnd(PixelTransfer).
+.TP
+_const(MATRIX_MODE)
+_param2 returns one value,
+a symbolic constant indicating which matrix stack is currently the
+target of all matrix operations. The initial value is _const(MODELVIEW).
+See _cmnd(MatrixMode).
+.TP
+_const(MAX_3D_TEXTURE_SIZE)
+_param2 returns one value,
+a rough estimate of the largest 3D texture that the GL can handle.
+If the GL version is 1.2 or greater, use
+_const(PROXY_TEXTURE_3D) to determine if a texture is too large.
+See _cmnd(TexImage3D).
+.TP
+_const(MAX_CLIENT_ATTRIB_STACK_DEPTH)
+_param2 returns one value indicating the maximum supported depth
+of the client attribute stack.
+See _cmnd(PushClientAttrib).
+.TP
+_const(MAX_ATTRIB_STACK_DEPTH)
+_param2 returns one value,
+the maximum supported depth of the attribute stack. The value must be at least 16.
+See _cmnd(PushAttrib).
+.TP
+_const(MAX_CLIP_PLANES)
+_param2 returns one value,
+the maximum number of application-defined clipping planes. The value must be at least 6.
+See _cmnd(ClipPlane).
+.TP
+_const(MAX_COLOR_MATRIX_STACK_DEPTH)
+_param2 returns one value, the maximum supported depth of the color matrix
+stack.  The value must be at least 2.
+See _cmnd(PushMatrix).
+.TP
+_const(MAX_ELEMENTS_INDICES)
+_param2 returns one value,
+the recommended maximum number of vertex array indices.  See _cmnd(DrawRangeElements).
+.TP
+_const(MAX_ELEMENTS_VERTICES)
+_param2 returns one value,
+the recommended maximum number of vertex array vertices.  See _cmnd(DrawRangeElements).
+.TP
+_const(MAX_EVAL_ORDER)
+_param2 returns one value,
+the maximum equation order supported by 1D and 2D
+evaluators. The value must be at least 8.
+See _cmnd(Map1) and _cmnd(Map2).
+.TP
+_const(MAX_LIGHTS)
+_param2 returns one value,
+the maximum number of lights. The value must be at least 8.
+See _cmnd(Light).
+.TP
+_const(MAX_LIST_NESTING)
+_param2 returns one value,
+the maximum recursion depth allowed during display-list
+traversal. The value must be at least 64.
+See _cmnd(CallList).
+.TP
+_const(MAX_MODELVIEW_STACK_DEPTH)
+_param2 returns one value,
+the maximum supported depth of the modelview matrix stack. The value must
+be at least 32.
+See _cmnd(PushMatrix).
+.TP
+_const(MAX_NAME_STACK_DEPTH)
+_param2 returns one value,
+the maximum supported depth of the selection name stack. The value must be at least 64.
+See _cmnd(PushName).
+.TP
+_const(MAX_PIXEL_MAP_TABLE)
+_param2 returns one value,
+the maximum supported size of a _cmnd(PixelMap) lookup table. 
+The value must be at least 32.
+See _cmnd(PixelMap).
+.TP
+_const(MAX_PROJECTION_STACK_DEPTH)
+_param2 returns one value,
+the maximum supported depth of the projection matrix stack. The value must be at least 2.
+See _cmnd(PushMatrix).
+.TP
+_const(MAX_TEXTURE_SIZE)
+_param2 returns one value.
+The value gives a rough estimate of the largest texture that
+the GL can handle.
+If the GL version is 1.1 or greater, use
+_const(PROXY_TEXTURE_1D) or _const(PROXY_TEXTURE_2D)
+to determine if a texture is too large.
+See _cmnd(TexImage1D) and _cmnd(TexImage2D).
+.TP
+_const(MAX_TEXTURE_STACK_DEPTH)
+_param2 returns one value,
+the maximum supported depth of the texture matrix stack. The value must be at least 2.
+See _cmnd(PushMatrix).
+.TP
+_arbconst(MAX_TEXTURE_UNITS)
+_param2 returns a single value indicating the number of texture units
+supported. The value must be at least 1.
+See _cmnd(ActiveTextureARB).
+.TP
+_const(MAX_VIEWPORT_DIMS)
+_param2 returns two values:
+the maximum supported width and height of the viewport.
+These must be at least as large as the visible dimensions of the display
+being rendered to.
+See _cmnd(Viewport).
+.TP
+_const(MINMAX)
+_param2 returns a single boolean value indicating whether pixel minmax
+values are computed.  The initial value is _const(FALSE).
+See _cmnd(Minmax).
+.TP
+_const(MODELVIEW_MATRIX)
+_param2 returns sixteen values:
+the modelview matrix on the top of the modelview matrix stack. Initially
+this matrix is the identity matrix. See _cmnd(PushMatrix).
+.TP
+_const(MODELVIEW_STACK_DEPTH)
+_param2 returns one value,
+the number of matrices on the modelview matrix stack.
+The initial value is 1.
+See _cmnd(PushMatrix).
+.TP
+_const(NAME_STACK_DEPTH)
+_param2 returns one value,
+the number of names on the selection name stack. The initial value is 0. 
+See _cmnd(PushName).
+.TP
+_const(NORMAL_ARRAY)
+_param2 returns a single boolean value, indicating whether the normal
+array is enabled. The initial value is _const(FALSE). 
+See _cmnd(NormalPointer).
+.TP
+_const(NORMAL_ARRAY_STRIDE)
+_param2 returns one value,
+the byte offset between consecutive normals in the normal
+array. The initial value is 0. 
+See _cmnd(NormalPointer).
+.TP
+_const(NORMAL_ARRAY_TYPE)
+_param2 returns one value,
+the data type of each coordinate in the normal array. The initial value is
+_const(FLOAT). 
+See _cmnd(NormalPointer).
+.TP
+_const(NORMALIZE)
+_param2 returns a single boolean value indicating whether normals are
+automatically scaled to unit length after they have been transformed to
+eye coordinates. The initial value is _const(FALSE). 
+See _cmnd(Normal).
+.TP
+_const(PACK_ALIGNMENT)
+_param2 returns one value,
+the byte alignment used for writing pixel data to memory. The initial
+value is 4. 
+See _cmnd(PixelStore).
+.TP
+_const(PACK_IMAGE_HEIGHT)
+_param2 returns one value,
+the image height used for writing pixel data to memory.  The initial
+value is 0.
+See _cmnd(PixelStore).
+.TP
+_const(PACK_LSB_FIRST)
+_param2 returns a single boolean value indicating whether single-bit
+pixels being written to memory are written first to the least significant
+bit of each unsigned byte. The initial value is _const(FALSE). 
+See _cmnd(PixelStore).
+.TP
+_const(PACK_ROW_LENGTH)
+_param2 returns one value,
+the row length used for writing pixel data to memory. The initial value is
+0. 
+See _cmnd(PixelStore).
+.TP
+_const(PACK_SKIP_IMAGES)
+_param2 returns one value,
+the number of pixel images skipped before the first pixel is written
+into memory. The initial value is 0. 
+See _cmnd(PixelStore).
+.TP
+_const(PACK_SKIP_PIXELS)
+_param2 returns one value,
+the number of pixel locations skipped before the first pixel is written
+into memory. The initial value is 0. 
+See _cmnd(PixelStore).
+.TP
+_const(PACK_SKIP_ROWS)
+_param2 returns one value,
+the number of rows of pixel locations skipped before the first pixel is written
+into memory. The initial value is 0. 
+See _cmnd(PixelStore).
+.TP
+_const(PACK_SWAP_BYTES)
+_param2 returns a single boolean value indicating whether the bytes of
+two-byte and four-byte pixel indices and components are swapped before being
+written to memory. The initial value is _const(FALSE). 
+See _cmnd(PixelStore).
+.TP
+_const(PERSPECTIVE_CORRECTION_HINT)
+_param2 returns one value,
+a symbolic constant indicating the mode of the perspective correction
+hint. The initial value is _const(DONT_CARE). 
+See _cmnd(Hint).
+.TP
+_const(PIXEL_MAP_A_TO_A_SIZE)
+_param2 returns one value,
+the size of the alpha-to-alpha pixel translation table.
+The initial value is 1.
+See _cmnd(PixelMap).
+.TP
+_const(PIXEL_MAP_B_TO_B_SIZE)
+_param2 returns one value,
+the size of the blue-to-blue pixel translation table.
+The initial value is 1.
+See _cmnd(PixelMap).
+.TP
+_const(PIXEL_MAP_G_TO_G_SIZE)
+_param2 returns one value,
+the size of the green-to-green pixel translation table.
+The initial value is 1.
+See _cmnd(PixelMap).
+.TP
+_const(PIXEL_MAP_I_TO_A_SIZE)
+_param2 returns one value,
+the size of the index-to-alpha pixel translation table.
+The initial value is 1.
+See _cmnd(PixelMap).
+.TP
+_const(PIXEL_MAP_I_TO_B_SIZE)
+_param2 returns one value,
+the size of the index-to-blue pixel translation table.
+The initial value is 1.
+See _cmnd(PixelMap).
+.TP
+_const(PIXEL_MAP_I_TO_G_SIZE)
+_param2 returns one value,
+the size of the index-to-green pixel translation table.
+The initial value is 1.
+See _cmnd(PixelMap).
+.TP
+_const(PIXEL_MAP_I_TO_I_SIZE)
+_param2 returns one value,
+the size of the index-to-index pixel translation table.
+The initial value is 1.
+See _cmnd(PixelMap).
+.TP
+_const(PIXEL_MAP_I_TO_R_SIZE)
+_param2 returns one value,
+the size of the index-to-red pixel translation table.
+The initial value is 1.
+See _cmnd(PixelMap).
+.TP
+_const(PIXEL_MAP_R_TO_R_SIZE)
+_param2 returns one value,
+the size of the red-to-red pixel translation table.
+The initial value is 1.
+See _cmnd(PixelMap).
+.TP
+_const(PIXEL_MAP_S_TO_S_SIZE)
+_param2 returns one value,
+the size of the stencil-to-stencil pixel translation table.
+The initial value is 1.
+See _cmnd(PixelMap).
+.TP
+_const(POINT_SIZE)
+_param2 returns one value,
+the point size as specified by _cmnd(PointSize). The initial value is 1. 
+.TP
+_const(POINT_SIZE_GRANULARITY)
+_param2 returns one value,
+the size difference between adjacent supported sizes for antialiased points.
+See _cmnd(PointSize).
+.TP
+_const(POINT_SIZE_RANGE)
+_param2 returns two values:
+the smallest and largest supported sizes for antialiased
+points. The smallest size must be at most 1, and the largest size must
+be at least 1.
+See _cmnd(PointSize).
+.TP
+_const(POINT_SMOOTH)
+_param2 returns a single boolean value indicating whether antialiasing of
+points is enabled. The initial value is _const(FALSE). 
+See _cmnd(PointSize).
+.TP
+_const(POINT_SMOOTH_HINT)
+_param2 returns one value,
+a symbolic constant indicating the mode of the point antialiasing
+hint. The initial value is _const(DONT_CARE).
+See _cmnd(Hint).
+.TP
+_const(POLYGON_MODE)
+_param2 returns two values:
+symbolic constants indicating whether front-facing and back-facing polygons
+are rasterized as points, lines, or filled polygons. The initial value is
+_const(FILL). 
+See _cmnd(PolygonMode).
+.TP
+_const(POLYGON_OFFSET_FACTOR)
+_param2 returns one value,
+the scaling factor used to determine the variable offset that is added
+to the depth value of each fragment generated when a polygon is
+rasterized. The initial value is 0. 
+See _cmnd(PolygonOffset).
+.TP
+_const(POLYGON_OFFSET_UNITS)
+_param2 returns one value.
+This value is multiplied by an implementation-specific value and then
+added to the depth value of each fragment
+generated when a polygon is rasterized. The initial value is 0. 
+See _cmnd(PolygonOffset).
+.TP
+_const(POLYGON_OFFSET_FILL)
+_param2 returns a single boolean value indicating whether polygon offset
+is enabled for polygons in fill mode. The initial value is _const(FALSE).
+See _cmnd(PolygonOffset).
+.TP
+_const(POLYGON_OFFSET_LINE)
+_param2 returns a single boolean value indicating whether polygon offset
+is enabled for polygons in line mode. The initial value is _const(FALSE).
+See _cmnd(PolygonOffset).
+.TP
+_const(POLYGON_OFFSET_POINT)
+_param2 returns a single boolean value indicating whether polygon offset
+is enabled for polygons in point mode. The initial value is _const(FALSE). 
+See _cmnd(PolygonOffset).
+.TP
+_const(POLYGON_SMOOTH)
+_param2 returns a single boolean value indicating whether antialiasing of
+polygons is enabled. The initial value is _const(FALSE). 
+See _cmnd(PolygonMode).
+.TP
+_const(POLYGON_SMOOTH_HINT)
+_param2 returns one value,
+a symbolic constant indicating the mode of the polygon antialiasing
+hint. The initial value is _const(DONT_CARE).
+See _cmnd(Hint).
+.TP
+_const(POLYGON_STIPPLE)
+_param2 returns a single boolean value indicating whether polygon
+stippling is enabled. The initial value is _const(FALSE). 
+See _cmnd(PolygonStipple).
+.TP
+_const(POST_COLOR_MATRIX_COLOR_TABLE)
+_param2 returns a single boolean value indicating whether post color
+matrix transformation lookup is enabled. The initial value is
+_const(FALSE).
+See _cmnd(ColorTable).
+.TP
+_const(POST_COLOR_MATRIX_RED_BIAS)
+_param2 returns one value, the red bias factor applied to RGBA fragments
+after color matrix transformations. The initial value is 0.
+See _cmnd(PixelTransfer).
+.TP
+_const(POST_COLOR_MATRIX_GREEN_BIAS)
+_param2 returns one value, the green bias factor applied to RGBA fragments
+after color matrix transformations. The initial value is 0.
+See _cmnd(PixelTransfer)
+.TP
+_const(POST_COLOR_MATRIX_BLUE_BIAS)
+_param2 returns one value, the blue bias factor applied to RGBA fragments
+after color matrix transformations. The initial value is 0.
+See _cmnd(PixelTransfer).
+.TP
+_const(POST_COLOR_MATRIX_ALPHA_BIAS)
+_param2 returns one value, the alpha bias factor applied to RGBA fragments
+after color matrix transformations. The initial value is 0.
+See _cmnd(PixelTransfer).
+.TP
+_const(POST_COLOR_MATRIX_RED_SCALE)
+_param2 returns one value, the red scale factor applied to RGBA fragments
+after color matrix transformations. The initial value is 1.
+See _cmnd(PixelTransfer).
+.TP
+_const(POST_COLOR_MATRIX_GREEN_SCALE)
+_param2 returns one value, the green scale factor applied to RGBA fragments
+after color matrix transformations. The initial value is 1.
+See _cmnd(PixelTransfer).
+.TP
+_const(POST_COLOR_MATRIX_BLUE_SCALE)
+_param2 returns one value, the blue scale factor applied to RGBA fragments
+after color matrix transformations. The initial value is 1.
+See _cmnd(PixelTransfer).
+.TP
+_const(POST_COLOR_MATRIX_ALPHA_SCALE)
+_param2 returns one value, the alpha scale factor applied to RGBA fragments
+after color matrix transformations. The initial value is 1.
+See _cmnd(PixelTransfer).
+.TP
+_const(POST_CONVOLUTION_COLOR_TABLE)
+_param2 returns a single boolean value indicating whether post convolution
+lookup is enabled. The initial value is _const(FALSE).
+See _cmnd(ColorTable).
+.TP
+_const(POST_CONVOLUTION_RED_BIAS)
+_param2 returns one value, the red bias factor applied to RGBA fragments
+after convolution. The initial value is 0.
+See _cmnd(PixelTransfer).
+.TP
+_const(POST_CONVOLUTION_GREEN_BIAS)
+_param2 returns one value, the green bias factor applied to RGBA fragments
+after convolution. The initial value is 0.
+See _cmnd(PixelTransfer).
+.TP
+_const(POST_CONVOLUTION_BLUE_BIAS)
+_param2 returns one value, the blue bias factor applied to RGBA fragments
+after convolution. The initial value is 0.
+See _cmnd(PixelTransfer).
+.TP
+_const(POST_CONVOLUTION_ALPHA_BIAS)
+_param2 returns one value, the alpha bias factor applied to RGBA fragments
+after convolution. The initial value is 0.
+See _cmnd(PixelTransfer).
+.TP
+_const(POST_CONVOLUTION_RED_SCALE)
+_param2 returns one value, the red scale factor applied to RGBA fragments
+after convolution. The initial value is 1.
+See _cmnd(PixelTransfer).
+.TP
+_const(POST_CONVOLUTION_GREEN_SCALE)
+_param2 returns one value, the green scale factor applied to RGBA fragments
+after convolution. The initial value is 1.
+See _cmnd(PixelTransfer).
+.TP
+_const(POST_CONVOLUTION_BLUE_SCALE)
+_param2 returns one value, the blue scale factor applied to RGBA fragments
+after convolution. The initial value is 1.
+See _cmnd(PixelTransfer).
+.TP
+_const(POST_CONVOLUTION_ALPHA_SCALE)
+_param2 returns one value, the alpha scale factor applied to RGBA fragments
+after convolution. The initial value is 1.
+See _cmnd(PixelTransfer).
+.TP
+_const(PROJECTION_MATRIX)
+_param2 returns sixteen values:
+the projection matrix on the top of the projection matrix
+stack. Initially this matrix is the identity matrix.
+See _cmnd(PushMatrix).
+.TP
+_const(PROJECTION_STACK_DEPTH)
+_param2 returns one value,
+the number of matrices on the projection matrix stack.
+The initial value is 1.
+See _cmnd(PushMatrix).
+.TP
+_const(READ_BUFFER)
+_param2 returns one value,
+a symbolic constant indicating which color buffer is selected for
+reading. The initial value is _const(BACK) if there is a back buffer,
+otherwise it is _const(FRONT).
+See
+_cmnd(ReadPixels) and _cmnd(Accum).
+.TP
+_const(RED_BIAS)
+_param2 returns one value,
+the red bias factor used during pixel transfers. The initial value is 0.
+.TP
+_const(RED_BITS)
+_param2 returns one value,
+the number of red bitplanes in each color buffer.
+.TP
+_const(RED_SCALE)
+_param2 returns one value,
+the red scale factor used during pixel transfers. The initial value is 1. 
+See _cmnd(PixelTransfer).
+.TP
+_const(RENDER_MODE)
+_param2 returns one value,
+a symbolic constant indicating whether the GL is in render,
+select,
+or feedback mode. The initial value is _const(RENDER). 
+See _cmnd(RenderMode).
+.TP
+_const(RESCALE_NORMAL)
+_param2 returns single boolean value
+indicating whether normal rescaling is enabled.
+See _cmnd(Enable).
+.TP
+_const(RGBA_MODE)
+_param2 returns a single boolean value indicating whether the GL is in RGBA
+mode (true) or color index mode (false).
+See _cmnd(Color).
+.TP
+_const(SCISSOR_BOX)
+_param2 returns four values:
+the $x$ and $y$ window coordinates of the scissor box,
+followed by its width and height. 
+Initially the $x$ and $y$ window coordinates are both 0 and the 
+width and height are set to the size of the window.
+See _cmnd(Scissor).
+.TP
+_const(SCISSOR_TEST)
+_param2 returns a single boolean value indicating whether scissoring is
+enabled. The initial value is _const(FALSE).
+See _cmnd(Scissor).
+.TP
+_const(SELECTION_BUFFER_SIZE)
+_param2 return one value,
+the size of the selection buffer.
+See _cmnd(SelectBuffer).
+.TP
+_const(SEPARABLE_2D)
+_param2 returns a single boolean value indicating whether 2D separable
+convolution is enabled. The initial value is _const(FALSE).
+See _cmnd(SeparableFilter2D).
+.TP
+_const(SHADE_MODEL)
+_param2 returns one value,
+a symbolic constant indicating whether the shading mode is flat or
+smooth. The initial value is _const(SMOOTH). 
+See _cmnd(ShadeModel).
+.TP
+_const(SMOOTH_LINE_WIDTH_RANGE)
+_param2 returns two values,
+the smallest and largest supported widths for antialiased lines.
+See _cmnd(LineWidth).
+.TP
+_const(SMOOTH_LINE_WIDTH_GRANULARITY)
+_param2 returns one value,
+the granularity of widths for antialiased lines.
+See _cmnd(LineWidth).
+.TP
+_const(SMOOTH_POINT_SIZE_RANGE)
+_param2 returns two values,
+the smallest and largest supported widths for antialiased points.
+See _cmnd(PointSize).
+.TP
+_const(SMOOTH_POINT_SIZE_GRANULARITY)
+_param2 returns one value,
+the granularity of sizes for antialiased points.
+See _cmnd(PointSize).
+.TP
+_const(STENCIL_BITS)
+_param2 returns one value,
+the number of bitplanes in the stencil buffer.
+.TP
+_const(STENCIL_CLEAR_VALUE)
+_param2 returns one value,
+the index to which the stencil bitplanes are cleared. The initial value is
+0. 
+See _cmnd(ClearStencil).
+.TP
+_const(STENCIL_FAIL)
+_param2 returns one value,
+a symbolic constant indicating what action is taken when the stencil
+test fails. The initial value is _const(KEEP). 
+See _cmnd(StencilOp).
+.TP
+_const(STENCIL_FUNC)
+_param2 returns one value,
+a symbolic constant indicating what function is used to compare the
+stencil reference value with the stencil buffer value. The initial value
+is _const(ALWAYS). 
+See _cmnd(StencilFunc).
+.TP
+_const(STENCIL_PASS_DEPTH_FAIL)
+_param2 returns one value,
+a symbolic constant indicating what action is taken when the stencil
+test passes, 
+but the depth test fails. The initial value is _const(KEEP). 
+See _cmnd(StencilOp).
+.TP
+_const(STENCIL_PASS_DEPTH_PASS)
+_param2 returns one value,
+a symbolic constant indicating what action is taken when the stencil
+test passes and the depth test passes. The initial value is _const(KEEP). 
+See _cmnd(StencilOp).
+.TP
+_const(STENCIL_REF)
+_param2 returns one value,
+the reference value that is compared with the contents of the stencil
+buffer. The initial value is 0. 
+See _cmnd(StencilFunc).
+.TP
+_const(STENCIL_TEST)
+_param2 returns a single boolean value indicating whether stencil testing
+of fragments is enabled. The initial value is _const(FALSE).
+See _cmnd(StencilFunc) and _cmnd(StencilOp).
+.TP
+_const(STENCIL_VALUE_MASK)
+_param2 returns one value,
+the mask that is used to mask both the stencil reference value and the
+stencil buffer value before they are compared. The initial value is all 1's.
+See _cmnd(StencilFunc).
+.TP
+_const(STENCIL_WRITEMASK)
+_param2 returns one value,
+the mask that controls writing of the stencil bitplanes. The initial value
+is all 1's. See _cmnd(StencilMask).
+.TP
+_const(STEREO)
+_param2 returns a single boolean value indicating whether stereo buffers
+(left and right) are supported.
+.TP
+_const(SUBPIXEL_BITS)
+_param2 returns one value,
+an estimate of the number of bits of subpixel resolution that are used to
+position rasterized geometry in window coordinates. The initial value
+.br
+is 4.
+.TP
+_const(TEXTURE_1D)
+_param2 returns a single boolean value indicating whether 1D texture
+mapping is enabled. The initial value is _const(FALSE).
+See _cmnd(TexImage1D).
+.TP
+_const(TEXTURE_BINDING_1D)
+_param2 returns a single value, the name of the texture
+currently bound to the target _const(TEXTURE_1D). The initial value is 0.
+See _cmnd(BindTexture).
+.TP
+_const(TEXTURE_2D)
+_param2 returns a single boolean value indicating whether 2D texture
+mapping is enabled. The initial value is _const(FALSE).
+See _cmnd(TexImage2D).
+.TP
+_const(TEXTURE_BINDING_2D)
+_param2 returns a single value, the name of the texture
+currently bound to the target _const(TEXTURE_2D). The initial value is 0.
+See _cmnd(BindTexture).
+.TP
+_const(TEXTURE_3D)
+_param2 returns a single boolean value indicating whether 3D texture
+mapping is enabled. The initial value is _const(FALSE).
+See _cmnd(TexImage3D).
+.TP
+_const(TEXTURE_BINDING_3D)
+_param2 returns a single value, the name of the texture
+currently bound to the target _const(TEXTURE_3D). The initial value is 0.
+See _cmnd(BindTexture).
+.TP
+_const(TEXTURE_COORD_ARRAY)
+_param2 returns a single boolean value indicating whether the texture
+coordinate array is enabled. The initial value is _const(FALSE). 
+See _cmnd(TexCoordPointer).
+.TP
+_const(TEXTURE_COORD_ARRAY_SIZE)
+_param2 returns one value,
+the number of coordinates per element in the texture coordinate
+array. The initial value is 4. 
+See _cmnd(TexCoordPointer).
+.TP
+_const(TEXTURE_COORD_ARRAY_STRIDE)
+_param2 returns one value,
+the byte offset between consecutive elements in the texture coordinate
+array. The initial value is 0. 
+See _cmnd(TexCoordPointer).
+.TP
+_const(TEXTURE_COORD_ARRAY_TYPE)
+_param2 returns one value,
+the data type of the coordinates in the texture coordinate
+array. The initial value is _const(FLOAT). 
+See _cmnd(TexCoordPointer).
+.TP
+_const(TEXTURE_GEN_Q)
+_param2 returns a single boolean value indicating whether automatic generation
+of the \f2q\fP texture coordinate is enabled. The initial value is _const(FALSE). 
+See _cmnd(TexGen).
+.TP
+_const(TEXTURE_GEN_R)
+_param2 returns a single boolean value indicating whether automatic generation
+of the \f2r\fP texture coordinate is enabled. The initial value is _const(FALSE). 
+See _cmnd(TexGen).
+.TP
+_const(TEXTURE_GEN_S)
+_param2 returns a single boolean value indicating whether automatic generation
+of the \f2S\fP texture coordinate is enabled. The initial value is _const(FALSE). 
+See _cmnd(TexGen).
+.TP
+_const(TEXTURE_GEN_T)
+_param2 returns a single boolean value indicating whether automatic generation
+of the T texture coordinate is enabled. The initial value is _const(FALSE). 
+See _cmnd(TexGen).
+.TP
+_const(TEXTURE_MATRIX)
+_param2 returns sixteen values:
+the texture matrix on the top of the texture matrix stack. Initially this
+matrix is the identity matrix.
+See _cmnd(PushMatrix).
+.TP
+_const(TEXTURE_STACK_DEPTH)
+_param2 returns one value,
+the number of matrices on the texture matrix stack.
+The initial value is 1.
+See _cmnd(PushMatrix).
+.TP
+_const(UNPACK_ALIGNMENT)
+_param2 returns one value,
+the byte alignment used for reading pixel data from memory. The initial
+value is 4. 
+See _cmnd(PixelStore).
+.TP
+_const(UNPACK_IMAGE_HEIGHT)
+_param2 returns one value,
+the image height used for reading pixel data from memory.  The initial
+is 0.
+See _cmnd(PixelStore).
+.TP
+_const(UNPACK_LSB_FIRST)
+_param2 returns a single boolean value indicating whether single-bit
+pixels being read from memory are read first from the least significant
+bit of each unsigned byte. The initial value is _const(FALSE). 
+See _cmnd(PixelStore).
+.TP
+_const(UNPACK_ROW_LENGTH)
+_param2 returns one value,
+the row length used for reading pixel data from memory. The initial value
+is 0. 
+See _cmnd(PixelStore).
+.TP
+_const(UNPACK_SKIP_IMAGES)
+_param2 returns one value,
+the number of pixel images skipped before the first pixel is read
+from memory. The initial value is 0. 
+See _cmnd(PixelStore).
+.TP
+_const(UNPACK_SKIP_PIXELS)
+_param2 returns one value,
+the number of pixel locations skipped before the first pixel is read
+from memory. The initial value is 0. 
+See _cmnd(PixelStore).
+.TP
+_const(UNPACK_SKIP_ROWS)
+_param2 returns one value,
+the number of rows of pixel locations skipped before the first pixel is read
+from memory. The initial value is 0. 
+See _cmnd(PixelStore).
+.TP
+_const(UNPACK_SWAP_BYTES)
+_param2 returns a single boolean value indicating whether the bytes of
+two-byte and four-byte pixel indices and components are swapped after being
+read from memory. The initial value is _const(FALSE). 
+See _cmnd(PixelStore).
+.TP
+_const(VERTEX_ARRAY)
+_param2 returns a single boolean value indicating whether the vertex
+array is enabled. The initial value is _const(FALSE).
+See _cmnd(VertexPointer).
+.TP
+_const(VERTEX_ARRAY_SIZE)
+_param2 returns one value,
+the number of coordinates per vertex in the vertex array. The initial
+value is 4.
+See _cmnd(VertexPointer).
+.TP
+_const(VERTEX_ARRAY_STRIDE)
+_param2 returns one value,
+the byte offset between consecutive vertices in the vertex
+array. The initial value is 0. 
+See _cmnd(VertexPointer).
+.TP
+_const(VERTEX_ARRAY_TYPE)
+_param2 returns one value,
+the data type of each coordinate in the vertex array. The initial value is
+_const(FLOAT). 
+See _cmnd(VertexPointer).
+.TP
+_const(VIEWPORT)
+_param2 returns four values:
+the $x$ and $y$ window coordinates of the viewport,
+followed by its width and height. 
+Initially the $x$ and $y$ window coordinates are both set to 0,
+and the width and height are set to the width and height of the window into
+which the GL will do its rendering.
+See _cmnd(Viewport).
+.TP
+_const(ZOOM_X)
+_param2 returns one value,
+the $x$ pixel zoom factor. The initial value is 1. 
+See _cmnd(PixelZoom).
+.TP
+_const(ZOOM_Y)
+_param2 returns one value,
+the $y$ pixel zoom factor. The initial value is 1.
+See _cmnd(PixelZoom).
+.P
+Many of the boolean parameters can also be queried more easily using
+_cmnd(IsEnabled).
+.SH NOTES
+_const(COLOR_LOGIC_OP), 
+_const(COLOR_ARRAY),
+_const(COLOR_ARRAY_SIZE),
+_const(COLOR_ARRAY_STRIDE),
+_const(COLOR_ARRAY_TYPE),
+_const(EDGE_FLAG_ARRAY),
+_const(EDGE_FLAG_ARRAY_STRIDE),
+_const(INDEX_ARRAY),
+_const(INDEX_ARRAY_STRIDE),
+_const(INDEX_ARRAY_TYPE),
+_const(INDEX_LOGIC_OP),
+_const(NORMAL_ARRAY),
+_const(NORMAL_ARRAY_STRIDE),
+_const(NORMAL_ARRAY_TYPE),
+_const(POLYGON_OFFSET_UNITS),  
+_const(POLYGON_OFFSET_FACTOR),
+_const(POLYGON_OFFSET_FILL),  
+_const(POLYGON_OFFSET_LINE),  
+_const(POLYGON_OFFSET_POINT),
+_const(TEXTURE_COORD_ARRAY),
+_const(TEXTURE_COORD_ARRAY_SIZE),
+_const(TEXTURE_COORD_ARRAY_STRIDE),
+_const(TEXTURE_COORD_ARRAY_TYPE),
+_const(VERTEX_ARRAY),
+_const(VERTEX_ARRAY_SIZE),
+_const(VERTEX_ARRAY_STRIDE), and
+_const(VERTEX_ARRAY_TYPE)
+are available only if the GL version is 1.1 or greater.  
+.P
+_const(ALIASED_POINT_SIZE_RANGE),
+_const(ALIASED_POINT_SIZE_GRANULARITY),
+_const(FEEDBACK_BUFFER_SIZE),
+_const(FEEDBACK_BUFFER_TYPE),
+_const(LIGHT_MODEL_AMBIENT),
+_const(LIGHT_MODEL_COLOR_CONTROL),
+_const(MAX_3D_TEXTURE_SIZE),
+_const(MAX_ELEMENTS_INDICES),
+_const(MAX_ELEMENTS_VERTICES),
+_const(PACK_IMAGE_HEIGHT),
+_const(PACK_SKIP_IMAGES),
+_const(RESCALE_NORMAL),
+_const(SELECTION_BUFFER_SIZE),
+_const(SMOOTH_LINE_WIDTH_GRANULARITY),
+_const(SMOOTH_LINE_WIDTH_RANGE),
+_const(SMOOTH_POINT_SIZE_GRANULARITY),
+_const(SMOOTH_POINT_SIZE_RANGE),
+_const(TEXTURE_3D), 
+_const(TEXTURE_BINDING_3D),
+_const(UNPACK_IMAGE_HEIGHT), and
+_const(UNPACK_SKIP_IMAGES)
+are available only if the GL version is 1.2 or greater.  
+.P
+_const(LINE_WIDTH_GRANULARITY) was deprecated in GL version 1.2.  Its
+functionality was replaced by _const(SMOOTH_LINE_WIDTH_GRANULARITY).
+.P
+_const(LINE_WIDTH_RANGE) was deprecated in GL version 1.2.  Its
+functionality was replaced by _const(SMOOTH_LINE_WIDTH_RANGE).
+.P
+_const(POINT_SIZE_GRANULARITY) was deprecated in GL version 1.2.  Its
+functionality was replaced by _const(SMOOTH_POINT_SIZE_GRANULARITY).
+.P
+_const(POINT_SIZE_RANGE) was deprecated in GL version 1.2.  Its
+functionality was replaced by _const(SMOOTH_POINT_SIZE_RANGE).
+.P
+_const(BLEND_COLOR),
+_const(BLEND_EQUATION),
+_const(COLOR_MATRIX),
+_const(COLOR_MATRIX_STACK_DEPTH),
+_const(COLOR_TABLE),
+_const(CONVOLUTION_1D),
+_const(CONVOLUTION_2D),
+_const(HISTOGRAM),
+_const(MAX_COLOR_MATRIX_STACK_DEPTH),
+_const(MINMAX),
+_const(POST_COLOR_MATRIX_COLOR_TABLE),
+_const(POST_COLOR_MATRIX_RED_BIAS),
+_const(POST_COLOR_MATRIX_GREEN_BIAS),
+_const(POST_COLOR_MATRIX_BLUE_BIAS),
+_const(POST_COLOR_MATRIX_ALPHA_BIAS),
+_const(POST_COLOR_MATRIX_RED_SCALE),
+_const(POST_COLOR_MATRIX_GREEN_SCALE),
+_const(POST_COLOR_MATRIX_BLUE_SCALE),
+_const(POST_COLOR_MATRIX_ALPHA_SCALE),
+_const(POST_CONVOLUTION_COLOR_TABLE),
+_const(POST_CONVOLUTION_RED_BIAS),
+_const(POST_CONVOLUTION_GREEN_BIAS),
+_const(POST_CONVOLUTION_BLUE_BIAS),
+_const(POST_CONVOLUTION_ALPHA_BIAS),
+_const(POST_CONVOLUTION_RED_SCALE),
+_const(POST_CONVOLUTION_GREEN_SCALE),
+_const(POST_CONVOLUTION_BLUE_SCALE),
+_const(POST_CONVOLUTION_ALPHA_SCALE), and
+_const(SEPARABLE_2D)
+are available only if _arbstring(imaging) is returned from _cmnd(Get)
+when called with the argument _const(EXTENSIONS).
+.P
+_arbconst(ACTIVE_TEXTURE),
+_arbconst(CLIENT_ACTIVE_TEXTURE), and
+_arbconst(MAX_TEXTURE_UNITS) are available only if
+_arbstring(multitexture) is returned from _cmnd(Get) when called with the
+argument _const(EXTENSIONS).
+.P
+When the _arbstring(multitexture) extension is supported, the following
+parameters return the associated value for the active texture unit:
+_const(CURRENT_RASTER_TEXTURE_COORDS),
+_const(TEXTURE_1D), _const(TEXTURE_BINDING_1D),
+_const(TEXTURE_2D), _const(TEXTURE_BINDING_2D),
+_const(TEXTURE_3D), _const(TEXTURE_BINDING_3D),
+_const(TEXTURE_GEN_S),
+_const(TEXTURE_GEN_T),
+_const(TEXTURE_GEN_R),
+_const(TEXTURE_GEN_Q),
+_const(TEXTURE_MATRIX), and
+_const(TEXTURE_STACK_DEPTH).
+Likewise, the following parameters return the associated value for the
+active client texture unit:
+_const(TEXTURE_COORD_ARRAY),
+_const(TEXTURE_COORD_ARRAY_SIZE),
+_const(TEXTURE_COORD_ARRAY_STRIDE),
+_const(TEXTURE_COORD_ARRAY_TYPE).
+.SH ERRORS
+_const(INVALID_ENUM) is generated if _param1 is not an accepted value.
+.P
+_const(INVALID_OPERATION) is generated if _cmnd
+is executed between the execution of _cmnd(Begin)
+and the corresponding execution of _cmnd(End).
+.P
+.SH SEE ALSO
+_cmnd(GetClipPlane),
+_cmnd(GetColorTable),
+_cmnd(GetColorTableParameter),
+_cmnd(GetConvolutionFilter),
+_cmnd(GetConvolutionParameter),
+_cmnd(GetError),
+_cmnd(GetHistogram),
+_cmnd(GetHistogramParameter),
+_cmnd(GetLight),
+_cmnd(GetMap),
+_cmnd(GetMaterial),
+_cmnd(GetMinmax),
+_cmnd(GetMinmaxParameter),
+_cmnd(GetPixelMap),
+_cmnd(GetPointerv),
+_cmnd(GetPolygonStipple),
+_cmnd(GetSeparableFilter),
+_cmnd(GetString),
+_cmnd(GetTexEnv),
+_cmnd(GetTexGen),
+_cmnd(GetTexImage),
+_cmnd(GetTexLevelParameter),
+_cmnd(GetTexParameter),
+_cmnd(IsEnabled)

@@ -125,4 +125,5 @@ Mailman/Queue/Switchboard.py
 Mailman/Queue/VirginRunner.py
 Mailman/Queue/__init__.py
 Mailman/Queue/sbcache.py
+Mailman/Queue/RetryRunner.py
 Mailman/Defaults.py

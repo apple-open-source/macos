@@ -1,0 +1,95 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:19 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/xfs/Imakefile,v 3.23 2002/10/15 01:45:02 dawes Exp $
+
+#undef ServerDefines
+#include <Server.tmpl>
+#define	IHaveSubdirs
+
+OSDIR = os
+DIFSDIR = difs
+
+OSLIB = $(OSDIR)/LibraryTargetName(os)
+DIFSLIB = $(DIFSDIR)/LibraryTargetName(difs)
+SYSLIBS = MathLibrary
+#if GzipFontCompression
+ZLIB = GzipLibrary
+#endif
+#ifdef i386SVR3Architecture
+#ifndef i386Sco325Architecture
+BSDEMUL = $(DEPXBSDLIB)
+#endif
+#endif
+#if BuildFontCacheLib
+FONTCACHELIB = $(XFONTCACHELIB)
+#endif
+
+
+FSDIRS = $(OSDIR) $(DIFSDIR) $(PCFDIRS)
+FSLIBS = $(DIFSLIB) $(DIFSLIB) $(OSLIB) $(BSDEMUL)
+#ifdef i386IscArchitecture
+FSSYSLIBS = $(LDPRELIBS) $(FONTLIB) $(FONTCACHELIB) $(EXTRA_LIBRARIES) \
+	    $(SYSLIBS) $(ZLIB) 
+#else
+FSSYSLIBS = $(LDPRELIBS) $(FONTLIB) $(FONTCACHELIB) $(SYSLIBS) $(ZLIB)
+#endif
+
+SUBDIRS = $(FSDIRS)
+
+FSLIBDIR = $(LIBDIR)/fs
+FSERRORS = $(LOGDIRECTORY)/xfs.log
+DEFAULTFONTPATH = DefaultFSFontPath
+SITE_CONFIG = -DDEFAULTFONTPATH=$(DEFAULTFONTPATH) -DFSERRORS=$(FSERRORS)
+
+$(OSLIB):	$(OSDIR)
+
+$(DIFSLIB):	$(DIFSDIR)
+
+all:: config
+
+#if !defined(LynxOSArchitecture) && !defined(QNX4Architecture)
+ServerTarget(xfs,$(FSDIRS),NullParameter,$(FSLIBS),$(FSSYSLIBS) $(EXTRA_LIBRARIES))
+#else
+ServerTarget(xfs,$(FSDIRS),difs/main.o,$(FSLIBS),$(FSSYSLIBS) $(EXTRA_LIBRARIES))
+#endif
+
+LinkConfDirectory(fs,.,fs,.)
+
+CppFileTarget(config,config.cpp,$(SITE_CONFIG),$(ICONFIGFILES))
+
+InstallManPage(xfs,$(MANDIR))
+
+#if InstallFSConfig
+InstallNonExecFile(config,$(FSLIBDIR))
+#else
+InstallNonExecFileNoClobber(config,$(FSLIBDIR))
+#endif
+
+#if HasCodeCenter
+debug_xfs:
+	XCOMM cd difs
+	XCOMM make debug_src
+	XCOMM cd ../os
+	XCOMM make debug_src
+	XCOMM cd ../../../lib/font/bitmap
+	XCOMM make debug_src
+	XCOMM cd ../fontfile
+	XCOMM make debug_src
+	XCOMM cd ../fc
+	XCOMM make debug_src
+	XCOMM cd ../Speedo
+	XCOMM make debug_src
+	XCOMM cd ../Type1
+	XCOMM make debug_src
+	XCOMM cd ../util
+	XCOMM make debug_src
+	XCOMM unload atom.c miscutil.c
+	XCOMM cd ../../../programs/xfs
+#endif
+
+DependSubdirs($(SUBDIRS))
+
+ForceSubdirs($(SUBDIRS))

@@ -1,0 +1,14 @@
+/* $XFree86: xc/programs/dpsinfo/iwraps.psw,v 1.1 2001/03/01 01:23:59 dawes Exp $ */
+
+defineps PSproductReturn(int bufsize | char buf[bufsize])
+  product buf
+endps
+
+defineps PSfonttypes(int maxsize | int fonttypes[maxsize])
+  (*) 
+  {
+    fonttypes
+  } null /FontType resourceforall
+  -1 fonttypes
+endps
+

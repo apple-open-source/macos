@@ -1,0 +1,75 @@
+XCOMM $XFree86: xc/programs/Xserver/GL/mesa/src/X/Imakefile,v 1.16 2002/11/22 22:56:01 tsi Exp $
+
+#if DoLoadableServer
+#if !BuildModuleInSubdir
+#define IHaveModules
+#elif !defined(IHaveModules)
+#define IHaveSubdirs
+SUBDIRS = module
+#endif
+#endif
+
+#include <Server.tmpl>
+
+#define NeedAllMesaSrc
+#define NeedToLinkMesaSrc
+#define MesaXBuildDir /**/
+#define MesaInXServer
+#if !defined(IHaveModules) || !BuildModuleInSubdir
+#include "../../../../../../lib/GL/mesa/src/X/Imakefile.inc"
+#else
+#include "../../../../../../../lib/GL/mesa/src/X/Imakefile.inc"
+#endif
+
+
+LinkSourceFile(compsize.c,$(LIBSRC)/GL/glx)
+
+  DRIVER_SRCS = $(XMESA_SRCS)
+  DRIVER_OBJS = $(XMESA_OBJS)
+
+#ifndef XFree86Version
+
+/* This appears to be the quickest way to build a non-XFree86 server */
+GLXSRV_DEFINES = -DXFree86Server
+
+#endif
+
+     GLX_SRCS = xf86glx.c xf86glx_util.c compsize.c
+     GLX_OBJS = xf86glx.o xf86glx_util.o compsize.o
+
+         SRCS = $(DRIVER_SRCS) $(GLX_SRCS)
+         OBJS = $(DRIVER_OBJS) $(GLX_OBJS)
+
+     INCLUDES = -I$(SERVERSRC)/GL/mesa/src/X -I$(INCLUDESRC) -I$(XINCLUDESRC) \
+		-I$(EXTINCSRC) \
+		-I$(MESASRCDIR)/src -I$(MESASRCDIR)/src/X \
+		-I$(MESASRCDIR)/include \
+		-I$(LIBSRC)/GL/glx -I$(LIBSRC)/GL/include \
+		-I$(SERVERSRC)/include -I$(SERVERSRC)/GL/include \
+		-I$(SERVERSRC)/GL/glx
+
+      DEFINES = $(GLX_DEFINES) $(GLXSRV_DEFINES) /*-DUSE_X86_ASM*/ /*-DUSE_SPARC_ASM*/
+
+#ifdef IHaveModules
+ModuleObjectRule()
+#else
+NormalLibraryObjectRule()
+#endif
+
+SubdirLibraryRule($(OBJS))
+
+LintLibraryTarget(dri,$(SRCS))
+NormalLintTarget($(SRCS))
+
+DependTarget()
+
+#ifdef IHaveSubdirs
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif
+
+#if defined(IHaveModules) && BuildModuleInSubdir
+LinkSourceFile(xf86glx.c,..)
+LinkSourceFile(xf86glx_util.c,..)
+#endif
+

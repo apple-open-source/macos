@@ -1,0 +1,553 @@
+
+
+
+
+
+
+
+
+
+		      X Window System, Version 11
+
+			      Release 6.6
+
+			     Release Notes
+
+
+
+
+
+
+
+
+
+
+
+
+
+			     April 4, 2001
+
+
+
+
+
+
+
+Copyright (C) 1999,2000,2001 Compaq Computer Corporation
+Copyright (C) 1999,2000,2001 Hewlett-Packard Company
+Copyright (C) 1999,2000,2001 IBM Corporation
+Copyright (C) 1999,2000,2001 Hummingbird Communications Ltd.
+Copyright (C) 1999,2000,2001 Silicon Graphics, Inc.
+Copyright (C) 1999,2000,2001 Sun Microsystems, Inc.
+Copyright (C) 1999,2000,2001 The Open Group
+
+All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Soft-
+ware"), to deal in the Software without restriction, including without
+limitation the rights to use, copy, modify, merge, publish, distribute,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, provided that the above copyright
+notice(s) and this permission notice appear in all copies of the Soft-
+ware and that both the above copyright notice(s) and this permission
+notice appear in supporting documentation.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABIL-
+ITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF THIRD PARTY
+RIGHTS. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR HOLDERS INCLUDED IN
+THIS NOTICE BE LIABLE FOR ANY CLAIM, OR ANY SPECIAL INDIRECT OR CONSE-
+QUENTIAL DAMAGES, OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
+DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFOR-
+MANCE OF THIS SOFTWARE.
+
+Except as contained in this notice, the name of a copyright holder shall
+not be used in advertising or otherwise to promote the sale, use or
+other dealings in this Software without prior written authorization of
+the copyright holder.
+
+X Window System is a trademark of The Open Group.
+
+
+
+1.  Introductory Note
+
+This document is the release notes that were provided with X.Org's
+X11R6.6 release.  The XFree86-specific information in this document is
+out of date.  The XFree86-specific documentation can be found in the
+xc/programs/Xserver/hw/xfree86/doc directory, and on-line at
+http://www.xfree86.org/current/.
+
+
+2.  What Is X11
+
+
+X11, or X, is a vendor-neutral, system-architecture neutral network-
+transparent window system and user interface standard.	In other words
+it's windows for UNIX. But X is not just for UNIX -- X runs on a wide
+range of computing and graphics machines including Macintosh, OS/2,
+Microsoft's MS-Windows family of operating systems, and almost all of
+the so-called Network Computers. X can use your network -- you may run
+CPU-intensive programs on high powered workstations and display the user
+interface (the windows) on inexpensive desktop machines.
+
+
+3.  What is Release 6.6
+
+
+Release 6.6 (R6.6) is The X.Org Group's update to its Release 6.5.1
+patch 1 and all prior releases.  It is compatible with with all releases
+going back to R1 at both the source and protocol levels.
+
+
+The X Consortium was an independent, not-for-profit membership corpora-
+tion formed in 1993 as the successor to the MIT X Consortium.  It was
+dissolved at the end of 1996 and all assets such as trademarks and copy-
+rights were transferred to The Open Group.  The Open Group's X Project
+Team was formed to continue maintenance and development of X.  The X
+Project Team was disbanded after Release 6.4 patch 3.
+
+X.Org has employed the services of a third party contractor to establish
+a CVS repository of the source and a web-based interface for submit-
+ting/viewing bug reports. The CVS repository and web-based interface are
+available to X.Org members.  The contractor has been chartered to pro-
+vide quarterly update releases to the X source.
+
+Membership information for X.Org may be found at:
+      http://www.x.org/members.htm.
+
+This X.Org release addresses a portion of the backlog of bug reports
+since Release 6.4 patch 3, along with  additional fixes from the Xfree86
+community.
+
+Instructions for building and installing R6.6 can be found in the file
+INSTALL.TXT (INSTALL-X.org), available separately and also contained in
+the release.
+
+
+4.  Overview of the X.Org Release
+
+
+Like all the releases that preceded it, R6.6 is a source code release.
+In order to use the release it is necessary to first unpack the distri-
+bution, compile it, and then install it. The source contains the follow-
+ing items:
+
+
+     Documentation
+     Sample implementations
+     Fonts and bitmaps
+     Utility libraries
+     Programs
+
+
+
+5.  Supported Operating Systems
+
+
+This release was built and tested on the following reference platforms:
+
+
+     Compaq Tru64 UNIX V5.0
+     HPUX 10.20
+     Solaris 7.0
+
+
+
+
+6.  Supported Graphics Devices
+
+
+This release includes the necessary device-dependent support to build a
+native X server for the following platforms:
+
+
+     HP-UX: Xhp
+     Compaq Tru64 UNIX: Xdec on DECstation 3000/400 (Alpha) with PMAG-B
+     SunOS/Solaris: Xsun -- see the Xsun man page for supported cards
+     XFree86: See the XF_* man pages for supported cards
+
+In addition to the above, the Xvfb and Xnest servers can be built on all
+platforms.
+
+Native X servers are not built on AIX, Fujitsu UXP, IRIX, or Microsoft
+Windows NT.
+
+
+7.  The Source Tree
+
+
+The source is distributed in UNIX tar files. The source unpacks from the
+tar files into a source tree, and the name of the base directory of the
+source tree is xc. The name xc as the base of the source tree has been
+retained from the X Consortium releases.
+
+The general layout under xc/ is as follows:
+
+
+config/ 	    imake config files, imake, makedepend, etc.
+doc/		    all documentation other than per-program manual pages
+fonts/		    BDF, Speedo, Type1 fonts
+include/	    common include files
+lib/		    libraries
+nls/		    national language support files
+programs/	    all programs, including the X server and rgb,
+util/		    patch, compress, other utilities
+bug-report	    bug reporting template
+registry	    X Registry
+
+
+
+8.  X Registry
+
+
+A registry of certain X-related items is maintained to aid in avoiding
+conflicts and to aid in sharing of such items. The registry is in the
+file xc/registry.
+
+
+9.  Extensions Supported
+
+
+Release 6.6  includes source for the following extensions: BIG-REQUESTS,
+DOUBLE-BUFFER, DPMS, Extended-Visual-Information, LBX, MIT-SHM, MIT-
+SUNDRY-NONSTANDARD, Multi-Buffering, RECORD, SECURITY, SHAPE, SYNC, TOG-
+CUP, X3D-PEX, XC-APPGROUP, XC-MISC, XFree86-VidModeExtension, XIE (X
+Image Extension), XINERAMA.  XInputExtension, XKEYBOARD, XpExtension
+(printing), XTEST, and XTestExtension1,
+
+Not all of these extensions are standard; see the Standards manual page.
+Some of these extensions may not be supported on every platform.
+
+
+10.  Implementation Dependent Parameters
+
+
+Some of the specifications define some behavior as implementation-depen-
+dent. Implementations must document how those parameters are imple-
+mented.
+
+
+The default values in this release of the implementation dependent
+parameters are:
+
+
+XFILESEARCHPATH default:
+     This default can be set at build time by setting the imake vari-
+     ables XFileSearchPathDefault, XAppLoadDir, XFileSearchPathBase, and
+     ProjectRoot in xc/config/cf/site.def. See xc/config/cf/README for
+     instructions and xc/config/cf/X11.tmpl for details of how these
+     configuration variables are used.
+
+     By default the imake variable ProjectRoot is /usr/X11R6.6 and
+     XFILESEARCHPATH has these components:
+
+	  $ProjectRoot/lib/X11/%L/%T/%N%C%S
+	  $ProjectRoot/lib/X11/%l/%T/%N%C%S
+	  $ProjectRoot/lib/X11/%T/%N%C%S
+	  $ProjectRoot/lib/X11/%L/%T/%N%S
+	  $ProjectRoot/lib/X11/%l/%T/%N%S
+	  $ProjectRoot/lib/X11/%T/%N%S
+
+
+
+XUSERFILESEARCHPATH default:
+     If the environment variable XAPPLRESDIR is defined, the default
+     value of XUSERFILESEARCHPATH has the following components:
+
+	  $XAPPLRESDIR/%L/%N%C
+	  $XAPPLRESDIR/%l/%N%C
+	  $XAPPLRESDIR/%N%C
+	  $HOME/%N%C
+	  $XAPPLRESDIR/%L/%N
+	  $XAPPLRESDIR/%l/%N
+	  $XAPPLRESDIR/%N
+	  $HOME/%N
+
+     Otherwise it has these components:
+
+	  $HOME/%L/%N%C
+	  $HOME/%l/%N%C
+	  $HOME/%N%C
+	  $HOME/%L/%N
+	  $HOME/%l/%N
+	  $HOME/%N
+
+
+
+XKEYSYMDB default:
+     Defaults to $ProjectRoot/lib/X11/XKeysymDB.
+
+
+XCMSDB default:
+     Defaults to $ProjectRoot/lib/X11/Xcms.txt.
+
+
+XLOCALEDIR default:
+     Defaults to the directory $ProjectRoot/lib/X11/locale.  The XLO-
+     CALEDIR variable can contain multiple colon-separated pathnames.
+
+
+XErrorDB location
+     The Xlib error database file is $ProjectRoot/lib/X11/XErrorDB.
+
+
+XtErrorDB location
+     The Xt error database file is $ProjectRoot/lib/X11/XtErrorDB.
+
+
+Supported Locales
+     Locales supported by this implementation are in xc/nls/locale.dir.
+     The mapping between various system locale names and X locale names
+     is in xc/nls/locale.alias. Both files are installed in the default
+     XLOCALEDIR directory, i.e. $ProjectRoot/lib/X11/locale/).
+
+
+Supported Input Methods
+     This distribution does not include source for any input method
+     servers; however Xlib supplies a default built-in input method that
+     supports compose processing in 8-bit locales. Compose files are
+     provided for Latin-1 and Latin-2. The built-in input method can
+     support other locales, given suitable compose files. See
+     xc/nls/Compose/iso8859-* for the supported compositions.
+
+The Input Method Server Development Kit (IMdkit) is at
+ftp://ftp.x.org/pub/unsupported/lib/IMdkit/.
+
+
+11.  What is Unchanged in Release 6.6
+
+
+As this is an update release, there is a great deal of stability in the
+standards, libraries, and clients. No existing standards have changed in
+a material way.  All previous interfaces are unchanged.
+
+
+12.  New OS Support
+
+
+The following table shows the versions of the operating systems that
+were used to develop this and prior releases:
+
+
+System	       R6     R6.1    R6.[23]	     R6.4   R6.5R6.6
+
+AIX	       3.2.5  4.1.4   4.2    4.2     -	    -
+A/UX	       3.0.1  -       -      -	     -	    -
+BSD/386        1.0    -       -      -	     -	    -
+Compaq	       Tru64  UNIX    1.0/1.3	     3.2C   4.0A4.0A5.0
+FreeBSD        -      2.1.0   2.1.6  2.2.2   -	    -
+Fujitsu        UXP    -       -      -	     V20L10 -
+HP-UX	       9.1    10.01   10.01  10.20   10.20  10.20
+IRIX	       5.2    5.3     6.2    6.2     -	    -
+Linux	       (kernel)
+Slackware      2.3    -       1.2.11 -	     -	    -
+Slackware      3.1    -       -      2.0     -	    -
+S.u.S.E.       5.0    -       -      -	     2.0.30 -
+Mach	       2.5    -       -      -	     -	    -
+NEWS-OS        6.0    -       -      -	     -	    -
+Solaris        2.3    2.4     2.5    2.5     7.0    7.0
+SunOS	       4.1.3  4.1.3   4.1.4  4.1.4   -	    -
+Ultrix-32      4.3    4.4     -      -	     -	    -
+UNICOS	       8.0    -       -      -	     -	    -
+Unixware       SVR4.2 1.0     2.02   2.02    -	    -
+Windows        NT     3.1     3.5    4.0     3.51   -
+
+
+
+13.  Easy Resource Configuration
+
+
+Setting and changing resources in X applications can be difficult for
+both the application programmer and the end user.  Resource Configura-
+tion Management (RCM) addresses this problem by changing the X Intrin-
+sics to immediately modify a resource for a specified widget and each
+child widget in the hierarchy.	In this context, immediate means: no
+sourcing of a resource file is required; the application does not need
+to be restarted for the new resource values to take effect; and the
+change occurs immediately.
+
+The main difference between RCM and the Editres protocol is that the RCM
+customizing hooks reside in the Intrinsics and thus are linked with
+other toolkits such as Motif and the Athena widgets. However, the
+EditRes protocol requires the application to link with the EditRes rou-
+tines in the Xmu library and Xmu is not used by all applications that
+use Motif.
+
+Easy Resource Configuration is not a standard part of the X Toolkit
+Intrinsics (libXt). It is neither an X Consortium standard nor an X Pro-
+ject Team specification.
+
+
+14.  ANSIfication
+
+
+R6.1 was officially the last release that supported traditional K&R C.
+Like all releases since R6.3, R6.6 assumes a Standard C compiler and
+environment.  We have not intentionally removed any K&R C support from
+old code, and most of the release will continue to build on platforms
+without an ANSI C compiler.
+
+
+15.  VSW5
+
+
+We have tested this release with VSW5 version 5.1.1A. This release
+passes all tests in VSW5 with the following exceptions:
+
+o    tests for which a permanent waiver has been granted.
+
+o    tests for which a temporary waiver have been granted.
+
+o    tests where a defect in the test has been identified and reported.
+
+VSW licensees may obtain a list of waivers granted from
+http://www.rdg.opengroup.org/interpretations/database/.
+
+
+16.  XtAppPeekEvent() behavior - Environment variable no longer needed
+
+
+XtAppPeekEvent() has been modified in R6.5.1 to behave as it is docu-
+mented in the Xt spec.	Certain applications, including Netscape, did
+not work properly with these modifications, so the routine was changed
+so that users could set the XTAPPPEEKEVENT_SKIPTIMER environment vari-
+able in order to make XtAppPeekEvent() behave as it did prior to R6.5.1.
+
+In R6.6, the routine has been changed so that there is no need to set
+the environment variable.  Timers are handled as specified by the spec,
+but Netscape and other applications now work properly without the envi-
+ronment variable.  In R6.6, the XTAPPPEEKEVENT_SKIPTIMER variable is
+ignored, and users may unset it if they were using it in R6.5.1.
+
+
+17.  Year 2000 (Y2K) Compliance
+
+
+For a statement of compliance see http://www.camb.open-
+group.org/tech/desktop/faq/y2k.htm
+
+
+18.  Security Considerations
+
+
+On UNIX and similar operating systems there are serious security impli-
+cations associated with running suid-root programs.
+
+By default the xterm terminal emulation program is installed suid-root
+in order to be able to update utmp or utmpx entries. All the known (as
+of this writing) exploitable security holes in the X libraries have been
+eliminated -- making it theoretically safe for xterm to be suid-root.
+For additional security you may install xterm without suid-root; however
+if you do, xterm will not be able to make utmp or utmpx entries.
+
+On many Intel-based machines the X server must have root privileges in
+order to access the graphics card and open other devices. The easiest
+way to grant the requisite privileges is to use xdm to run your X
+server. Some people, who prefer not to use xdm, often work around the
+need for the X server to run with root privileges by making their X
+server a suid-root program. While all the known (as of this writing)
+exploitable security holes in the server have been eliminated, it is
+still recommended that you not make your X server suid-root. There are
+safe suid-root wrapper programs available (but not in this release) that
+you can use to start your server if you don't want to use xdm.
+
+
+19.  Filing Bug Reports
+
+
+If you find a reproducible bug in software built from the source in this
+distribution or find bugs in its documentation, please complete a bug-
+report using the form in the file xc/bug-report and send it to:
+
+     mailto:xbugs@x.org
+
+
+Please try to provide all of the information requested on the form if it
+is applicable; the little extra time you spend on the report will make
+it much easier for someone to reproduce, find, and fix the bug.
+
+Bugs in the contributed software that is available on the net are not
+handled on any official basis. Consult the documentation for the indi-
+vidual software to see where (if anywhere) to report the bug.
+
+
+20.  Acknowledgements
+
+
+The following individuals served as X.Org representatives for their
+respective companies.  These companies are Executive Members of X.Org.
+
+
+Paul Anderson of Hewlett-Packard.
+
+
+Heather Lanigan of Compaq.
+
+
+Danny Masci of Hummingbird.
+
+
+Dan McNichol of IBM.
+
+
+Richard Offer of SGI.
+
+
+Steve Swales of Sun Microsystems, Inc.
+
+
+The following individuals contributed significantly to the development
+of X11R6.6, in the form of code, testing, and support.
+
+
+Stuart Anderson of Metro Link, Inc.
+
+
+Robert W. Boone of Metro Link, Inc.
+
+
+Alan Coopersmith of Sun Microsystems, Inc.
+
+
+Glen Cornell of Metro Link, Inc.
+
+
+Ernie Coskrey of Metro Link, Inc.
+
+
+Gudrun Enger of Metro Link, Inc.
+
+
+Gemma Exton of Adacel Technologies Limited.
+
+
+Jay Hobson of Sun Microsystems, Inc.
+
+
+Steve McClure of Metro Link, Inc.
+
+
+Scott McDonald of Metro Link, Inc.
+
+
+Andrew Miller of Marconi Corporation.
+
+
+Quentin Neill of Metro Link, Inc.
+
+
+Keith Packard of The XFree86 Project.
+
+
+Simon Pickup of Adacel Technologies Limited.
+
+
+Paul Shearer of IBM.
+
+
+Hidetoshi Tajima of Sun Microsystems, Inc.
+
+

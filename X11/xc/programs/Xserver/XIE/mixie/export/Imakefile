@@ -1,0 +1,42 @@
+XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:47:35 cpqbld Exp $
+
+
+
+
+XCOMM $XFree86: xc/programs/Xserver/XIE/mixie/export/Imakefile,v 3.6 2001/01/17 22:13:01 dawes Exp $
+
+XCOMM build device dependent machine independent export element objs
+
+#define IHaveModules
+#include <Server.tmpl>
+
+SRCS1 = meclut.c mecphoto.c medraw.c medrawp.c \
+        mefax.c melut.c mephoto.c meuncomp.c schoice.c
+
+OBJS1 = meclut.o mecphoto.o medraw.o medrawp.o \
+        mefax.o melut.o mephoto.o meuncomp.o schoice.o
+
+#if BuildDIS
+DEFINES = -DXIE_DIS
+#else
+SRCS2 = mechist.c mecroi.c meroi.c mejpeg.c
+OBJS2 = mechist.o mecroi.o meroi.o mejpeg.o
+#endif
+
+       SRCS = $(SRCS1) $(SRCS2)
+
+       OBJS = $(OBJS1) $(OBJS2)
+
+   INCLUDES = -I../include -I../../include -I$(SERVERSRC)/include -I$(XINCLUDESRC) -I$(XINCLUDESRC)/extensions -I../jpeg
+   LINTLIBS = ../../dixie/export/llib-lexp.ln ../../dixie/import/llib-limp.ln \
+              ../../dixie/process/llib-lproc.ln ../../dixie/request/llib-lreq.ln \
+              ../control/llib-lctrl.ln ../export/llib-lmexp.ln ../fax/llib-lfax.ln \
+              ../import/llib-lmimp.ln ../jpeg/llib-ljpeg.ln ../process/llib-lmproc.ln
+
+ModuleObjectRule()
+
+SubdirLibraryRule($(OBJS))
+LintLibraryTarget(mexp,$(SRCS))
+NormalLintTarget($(SRCS))
+
+DependTarget()
