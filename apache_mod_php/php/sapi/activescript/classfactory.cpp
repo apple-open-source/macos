@@ -15,7 +15,7 @@
    | Authors: Wez Furlong <wez@thebrainroom.com>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: classfactory.cpp,v 1.1.1.2 2003/07/18 18:07:50 zarzycki Exp $ */
+/* $Id: classfactory.cpp,v 1.2.4.1 2003/04/24 13:52:16 wez Exp $ */
 
 /* IClassFactory Implementation, and DllXXX function implementation */
 

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.7 2003/07/18 18:07:38 zarzycki Exp $
+dnl $Id: config.m4,v 1.37.2.9 2004/02/03 14:22:34 tony2001 Exp $
 dnl
 
 AC_DEFUN(PHP_OCI_IF_DEFINED,[
@@ -23,6 +23,8 @@ AC_DEFUN(AC_OCI8_VERSION,[
   if test -s "$OCI8_DIR/orainst/unix.rgs"; then
     OCI8_VERSION=`grep '"ocommon"' $OCI8_DIR/orainst/unix.rgs | sed 's/[ ][ ]*/:/g' | cut -d: -f 6 | cut -c 2-4`
     test -z "$OCI8_VERSION" && OCI8_VERSION=7.3
+  elif test -f $OCI8_DIR/lib/libclntsh.$SHLIB_SUFFIX_NAME.10.1; then
+    OCI8_VERSION=10.1    
   elif test -f $OCI8_DIR/lib/libclntsh.$SHLIB_SUFFIX_NAME.9.0; then
     OCI8_VERSION=9.0
   elif test -f $OCI8_DIR/lib/libclntsh.$SHLIB_SUFFIX_NAME.8.0; then
@@ -42,8 +44,7 @@ AC_DEFUN(AC_OCI8_VERSION,[
 ])                                                                                                                                                                
 
 PHP_ARG_WITH(oci8, for Oracle-OCI8 support,
-[  --with-oci8[=DIR]       Include Oracle-oci8 support. Default DIR is 
-                          ORACLE_HOME.])
+[  --with-oci8[=DIR]       Include Oracle-oci8 support. Default DIR is ORACLE_HOME.])
 
 if test "$PHP_OCI8" != "no"; then
   AC_MSG_CHECKING([Oracle Install-Dir])
@@ -100,7 +101,6 @@ if test "$PHP_OCI8" != "no"; then
       PHP_ADD_LIBRARY(clntsh, 1, OCI8_SHARED_LIBADD)
       PHP_ADD_LIBPATH($OCI8_DIR/lib, OCI8_SHARED_LIBADD)
       AC_DEFINE(HAVE_OCI8_ATTR_STATEMENT,1,[ ])
-      AC_DEFINE(HAVE_OCI8_SHARED_MODE,1,[ ])
 
       dnl These functions are only available in version >= 9.2
       PHP_CHECK_LIBRARY(clntsh, OCIEnvNlsCreate,
@@ -116,7 +116,12 @@ if test "$PHP_OCI8" != "no"; then
         -L$OCI8_DIR/lib $OCI8_SHARED_LIBADD
       ])
       ;;
-
+    10.1)
+      PHP_ADD_LIBRARY(clntsh, 1, OCI8_SHARED_LIBADD)
+      PHP_ADD_LIBPATH($OCI8_DIR/lib, OCI8_SHARED_LIBADD)
+      AC_DEFINE(HAVE_OCI8_ATTR_STATEMENT,1,[ ])
+      AC_DEFINE(HAVE_OCI_9_2,1,[ ])
+      ;;
     *)
       AC_MSG_ERROR(Unsupported Oracle version!)
       ;;

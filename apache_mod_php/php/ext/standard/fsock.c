@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: fsock.c,v 1.1.1.8 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: fsock.c,v 1.106.2.13 2004/01/22 03:25:37 sniper Exp $ */
 
 /* converted to PHP Streams and moved much code to main/network.c [wez] */
 
@@ -95,10 +95,6 @@
 
 #include "php_network.h"
 
-#ifdef ZTS
-static int fsock_globals_id;
-#endif
-
 #ifdef PHP_WIN32
 #define EWOULDBLOCK WSAEWOULDBLOCK
 #elif defined(NETWARE)
@@ -156,15 +152,15 @@ static void php_fsockopen_stream(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 	}
 
 	if (persistent) {
-		spprintf(&hashkey, 0, "pfsockopen__%s:%d", host, port);
+		spprintf(&hashkey, 0, "pfsockopen__%s:%ld", host, port);
 
 		switch(php_stream_from_persistent_id(hashkey, &stream TSRMLS_CC)) {
 			case PHP_STREAM_PERSISTENT_SUCCESS:
-				if (_php_network_is_stream_alive(stream)) {
+				if (_php_network_is_stream_alive(stream TSRMLS_CC)) {
 					php_stream_to_zval(stream, return_value);
 				} else {
 					/* it died; we need to replace it */
-					php_stream_close(stream);
+					php_stream_pclose(stream);
 					break;
 				}
 				
@@ -217,7 +213,7 @@ static void php_fsockopen_stream(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				break;
 			}
 		}
-#if !HAVE_OPENSSL_EXT
+#ifndef HAVE_OPENSSL_EXT
 		if (ssl_flags != php_ssl_none) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "no SSL support in this build");
 		}
@@ -229,12 +225,12 @@ static void php_fsockopen_stream(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 		err = php_socket_errno();
 
 		if (stream == NULL) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to connect to %s:%d", host, port);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to connect to %s:%ld", host, port);
 		} else if (context) {
 			php_stream_context_set(stream, context);
 		}
 		
-#if HAVE_OPENSSL_EXT
+#ifdef HAVE_OPENSSL_EXT
 		if (stream && ssl_flags != php_ssl_none) {
 			int ssl_ret = FAILURE;
 			switch(ssl_flags)	{

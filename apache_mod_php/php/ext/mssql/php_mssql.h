@@ -12,12 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Frank M. Kromann <frank@frontbase.com>                       |
+   | Author: Frank M. Kromann <frank@kromann.info>                        |
    +----------------------------------------------------------------------+
  */
 
 
-/* $Id: php_mssql.h,v 1.1.1.8 2003/07/18 18:07:37 zarzycki Exp $ */
+/* $Id: php_mssql.h,v 1.23.4.12 2004/06/09 18:12:29 fmk Exp $ */
 
 #ifndef PHP_MSSQL_H
 #define PHP_MSSQL_H
@@ -36,6 +36,7 @@
 #include "sqlfront.h"
 #include "sqldb.h"
 
+typedef short TDS_SHORT;
 #if HAVE_FREETDS
 #define SQLTEXT SYBTEXT
 #define SQLCHAR SYBCHAR
@@ -59,6 +60,9 @@
 #define SQLIMAGE SYBIMAGE
 #define SQLBINARY SYBBINARY
 #define SQLVARBINARY SYBVARBINARY
+#ifdef SQLUNIQUE /* FreeTSD 0.61+ */
+#define SQLUNIQUE SYBUNIQUE
+#endif
 #define DBERRHANDLE(a, b) dberrhandle(b)
 #define DBMSGHANDLE(a, b) dbmsghandle(b)
 #define DBSETOPT(a, b, c) dbsetopt(a, b, c, -1)

@@ -3,12 +3,12 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2002 The PHP Group                                |
+// | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.02 of the PHP license,      |
+// | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
-// | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_02.txt.                                 |
+// | available through the world-wide-web at the following url:           |
+// | http://www.php.net/license/3_0.txt.                                  |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -18,7 +18,7 @@
 // |                                                                      |
 // +----------------------------------------------------------------------+
 //
-// $Id: pearcmd.php,v 1.1.1.1 2003/07/18 18:07:50 zarzycki Exp $
+// $Id: pearcmd.php,v 1.1.2.13 2004/06/08 17:56:45 cellog Exp $
 
 ob_end_clean();
 /**
@@ -28,12 +28,13 @@ if ('@include_path@' != '@'.'include_path'.'@') {
     ini_set('include_path', '@include_path@');
 }
 ini_set('allow_url_fopen', true);
-set_time_limit(0);
+if (!ini_get('safe_mode')) {
+    set_time_limit(0);
+}
 ob_implicit_flush(true);
 ini_set('track_errors', true);
 ini_set('html_errors', false);
 ini_set('magic_quotes_runtime', false);
-error_reporting(E_ALL & ~E_NOTICE);
 set_error_handler('error_handler');
 
 $pear_package_version = "@pear_version@";
@@ -47,8 +48,14 @@ PEAR_Command::setFrontendType('CLI');
 $all_commands = PEAR_Command::getCommands();
 
 $argv = Console_Getopt::readPHPArgv();
-$progname = basename($argv[0]);
-$options = Console_Getopt::getopt($argv, "c:C:d:D:Gh?sSqu:vV");
+/* $progname = basename($argv[0]); */
+$progname = 'pear';
+if (in_array('getopt2', get_class_methods('Console_Getopt'))) {
+    array_shift($argv);
+    $options = Console_Getopt::getopt2($argv, "c:C:d:D:Gh?sSqu:vV");
+} else {
+    $options = Console_Getopt::getopt($argv, "c:C:d:D:Gh?sSqu:vV");
+}
 if (PEAR::isError($options)) {
     usage($options);
 }
@@ -155,7 +162,13 @@ if ($fetype == 'Gtk') {
 
     $short_args = $long_args = null;
     PEAR_Command::getGetoptArgs($command, $short_args, $long_args);
-    if (PEAR::isError($tmp = Console_Getopt::getopt($options[1], $short_args, $long_args))) {
+    if (in_array('getopt2', get_class_methods('Console_Getopt'))) {
+        array_shift($options[1]);
+        $tmp = Console_Getopt::getopt2($options[1], $short_args, $long_args);
+    } else {
+        $tmp = Console_Getopt::getopt($options[1], $short_args, $long_args);
+    }
+    if (PEAR::isError($tmp)) {
         break;
     }
     list($tmpopt, $params) = $tmp;
@@ -242,7 +255,10 @@ function cmdHelp($command)
         return $ret;
 
     } elseif ($command == "version") {
-        return "PEAR Version: ".$GLOBALS['pear_package_version']."\nPHP Version: ".phpversion()."\nZend Engine Version: ".zend_version();
+        return "PEAR Version: ".$GLOBALS['pear_package_version'].
+               "\nPHP Version: ".phpversion().
+               "\nZend Engine Version: ".zend_version().
+               "\nRunning on: ".php_uname();
 
     } elseif ($help = PEAR_Command::getHelp($command)) {
         if (is_string($help)) {
@@ -254,27 +270,27 @@ function cmdHelp($command)
             return "$progname $command [options] $help[0]\n$help[1]";
         }
     }
-    return "No such command";
+    return "Command '$command' is not valid, try 'pear help'";
 }
 
 // }}}
 
 function error_handler($errno, $errmsg, $file, $line, $vars) {
-    if (error_reporting() == 0) {
+    if ((defined('E_STRICT') && $errno & E_STRICT) || !error_reporting()) {
         return; // @silenced error
     }
     $errortype = array (
-        1   =>  "Error",
-        2   =>  "Warning",
-        4   =>  "Parsing Error",
-        8   =>  "Notice",
-        16  =>  "Core Error",
-        32  =>  "Core Warning",
-        64  =>  "Compile Error",
-        128 =>  "Compile Warning",
-        256 =>  "User Error",
-        512 =>  "User Warning",
-        1024=>  "User Notice"
+        E_ERROR   =>  "Error",
+        E_WARNING   =>  "Warning",
+        E_PARSE   =>  "Parsing Error",
+        E_NOTICE   =>  "Notice",
+        E_CORE_ERROR  =>  "Core Error",
+        E_CORE_WARNING  =>  "Core Warning",
+        E_COMPILE_ERROR  =>  "Compile Error",
+        E_COMPILE_WARNING =>  "Compile Warning",
+        E_USER_ERROR =>  "User Error",
+        E_USER_WARNING =>  "User Warning",
+        E_USER_NOTICE =>  "User Notice"
     );
     $prefix = $errortype[$errno];
     $file = basename($file);

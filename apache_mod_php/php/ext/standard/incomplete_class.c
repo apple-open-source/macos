@@ -17,7 +17,7 @@
  */
 
 
-/* $Id: incomplete_class.c,v 1.1.1.7 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: incomplete_class.c,v 1.14.4.4 2004/09/24 21:57:18 helly Exp $ */
 
 #include "php.h"
 #include "basic_functions.h"
@@ -115,9 +115,6 @@ char *php_lookup_class_name(zval *object, size_t *nlen, zend_bool del TSRMLS_DC)
 
 		if (nlen)
 			*nlen = Z_STRLEN_PP(val);
-
-		if (del)
-			zend_hash_del(object_properties, MAGIC_MEMBER, sizeof(MAGIC_MEMBER));
 	}
 
 	return (retval);

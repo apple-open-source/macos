@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_scandir.c,v 1.1.1.1 2003/07/18 18:07:48 zarzycki Exp $ */
+/* $Id: php_scandir.c,v 1.2.2.6 2003/02/19 18:45:03 sniper Exp $ */
 
 #ifdef PHP_WIN32
 #include "config.w32.h"

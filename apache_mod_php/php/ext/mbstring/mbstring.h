@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mbstring.h,v 1.1.1.5 2003/07/18 18:07:35 zarzycki Exp $ */
+/* $Id: mbstring.h,v 1.40.2.12 2003/11/06 15:41:37 hirokawa Exp $ */
 
 /*
  * PHP4 Multibyte String module "mbstring" (currently only for Japanese)
@@ -66,7 +66,7 @@
 
 #if HAVE_MBSTRING
 
-#include "mbfilter.h"
+#include "libmbfl/mbfl/mbfilter.h"
 #include "SAPI.h"
 
 #define PHP_MBSTRING_API 20021024
@@ -136,6 +136,15 @@ MBSTRING_API int php_mb_check_encoding_list(const char *encoding_list TSRMLS_DC)
 MBSTRING_API size_t php_mb_mbchar_bytes_ex(const char *s, const mbfl_encoding *enc);
 MBSTRING_API size_t php_mb_mbchar_bytes(const char *s TSRMLS_DC);
 
+MBSTRING_API size_t php_mb_gpc_mbchar_bytes(const char *s TSRMLS_DC);
+
+MBSTRING_API int php_mb_encoding_detector_ex(const char *arg_string, int arg_length, char *arg_list TSRMLS_DC);
+
+MBSTRING_API int php_mb_encoding_converter_ex(char **str, int *len, const char *encoding_to, 
+											  const char *encoding_from TSRMLS_DC);
+MBSTRING_API int php_mb_gpc_encoding_converter(char **str, int *len, int num, const char *encoding_to, const char *encoding_from TSRMLS_DC);
+
+MBSTRING_API int php_mb_gpc_encoding_detector(char **arg_string, int *arg_length, int num, char *arg_list TSRMLS_DC);
 
 ZEND_BEGIN_MODULE_GLOBALS(mbstring)
 	enum mbfl_no_language language;
@@ -159,6 +168,8 @@ ZEND_BEGIN_MODULE_GLOBALS(mbstring)
 	int detect_order_list_size;
 	enum mbfl_no_encoding *current_detect_order_list;
 	int current_detect_order_list_size;
+	enum mbfl_no_encoding *default_detect_order_list;
+	int default_detect_order_list_size;
 	int filter_illegal_mode;
 	int filter_illegal_substchar;
 	int current_filter_illegal_mode;

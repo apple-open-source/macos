@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: dbx_sybasect.h,v 1.1.1.3 2003/07/18 18:07:31 zarzycki Exp $ */
+/* $Id: dbx_sybasect.h,v 1.3.2.1 2002/12/31 16:34:25 sebastian Exp $ */
 
 #ifndef ZEND_DBX_SYBASECT_H
 #define ZEND_DBX_SYBASECT_H

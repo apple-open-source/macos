@@ -15,6 +15,7 @@ Fixed:
     str_repeat (Ilia)
     imagecopyresized (Ilia)
     mhash_keygen_s2k (Ilia)
+    bundled gd (Ilia)
     mb_ereg, mb_ereg_match, mb_eregi, mb_split (Moriyoshi)
     xml_parser_create (Moriyoshi)
     ob_start (Sascha)
@@ -22,18 +23,14 @@ Fixed:
     flock (Sascha)
     register_shutdown_function (Sascha)
     mb_strcut('', [number greater than the length of first arg]) (Moriyoshi)
-    ext/exif, ext/dba (7) (Marcus)
+    ext/exif, ext/dba (Marcus)
+    php_base64_encode (Moriyoshi)
 	
 Open:
 
     the dbase extension         (1)
-    chunk_split                 (2)
-    socket_select               (3)
-    php_imagepolygon            (4)
-    imagesetstyle               (5)
-    bundled gd                  (6)
-    php_base64_encode		(8)
-    pack			(9)
+    socket_select               (2)
+    pack                        (3)
 	
 (1) heap corruption, mostly visible in malloc-related calls.  Whether you see 
     this or not might depend on your libc/compiler.  Hard to track down,
@@ -53,9 +50,7 @@ dbase_numrecords
 dbase_open
 X 
 
-(2) integer overflow in php_chunk_split
-
-(3) heap corruption, dies in efree()/execute()
+(2) heap corruption, dies in efree()/execute()
 
 Methodology
 
@@ -75,36 +70,9 @@ Methodology
 
         echo dbase_open | php do_crash.txt
 
-(4) integer overflow inside php_imagepolygon and possible subsequent 
-    integer overflows inside gdlib's gdImageFilledPolygon().
+(3) multiple integer overflows, ex. pack("d4294967297", 2);
 
-(5) integer overflow if the number of elements in the array passed as
-    second argument * sizeof(int) result in an overflow.
-    gdImageSetStyle function called by this php wrapper can die for the
-    same reason.  
-
-(6) multiple integer overflows that can occur when trying to allocate a buffer
-    for a new image. Affected functions:
-    gdImageCreateFromJpegCtx
-    readwbmp
-    gdImageCreateFromXpm
-    gdImageCreateFromPngCtx
-    gdImagePngCtx
-    gdImageCreateFromJpegCtx
-    gdImageJpegCtx
-    gdImageCreateFromGd2Ctx
-    gdImageCreateFromGd2PartCtx
-    _gdImageGd2
-    GetDataBlock (gd_gif_in.c)
-
-(7) few possible integer overflows, once safe_emalloc() or something similar
-    is implemented they can all be addressed.
-
-(8) integer overflow if the specified string is longer then ~1.1 billion bytes.
-
-(9) multiple integer overflows, ex. pack("d4294967297", 2);
-
-Ammendment 1.
+Amendment 1.
 
 CFLAGS='-O0 -g' \
 '../src/php4/configure' \

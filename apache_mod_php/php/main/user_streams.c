@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: user_streams.c,v 1.1.1.2 2003/07/18 18:07:49 zarzycki Exp $ */
+/* $Id: user_streams.c,v 1.29.2.4 2004/06/21 19:33:47 pollita Exp $ */
 
 #include "php.h"
 #include "php_globals.h"
@@ -51,7 +51,6 @@ static void stream_wrapper_dtor(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	struct php_user_stream_wrapper * uwrap = (struct php_user_stream_wrapper*)rsrc->ptr;
 
-	php_unregister_url_stream_wrapper(uwrap->protoname TSRMLS_CC);
 	efree(uwrap->protoname);
 	efree(uwrap->classname);
 	efree(uwrap);
@@ -361,7 +360,7 @@ PHP_FUNCTION(stream_register_wrapper)
 #ifdef ZEND_ENGINE_2
 		uwrap->ce = *(zend_class_entry**)uwrap->ce;
 #endif
-		if (php_register_url_stream_wrapper(protocol, &uwrap->wrapper TSRMLS_CC) == SUCCESS) {
+		if (php_register_url_stream_wrapper_volatile(protocol, &uwrap->wrapper TSRMLS_CC) == SUCCESS) {
 			RETURN_TRUE;
 		}
 	} else {
@@ -382,15 +381,15 @@ static size_t php_userstreamop_write(php_stream *stream, const char *buf, size_t
 	int call_result;
 	php_userstream_data_t *us = (php_userstream_data_t *)stream->abstract;
 	zval **args[1];
-	zval zbuff, *zbufptr;
+	zval *zbufptr;
 	size_t didwrite = 0;
 
 	assert(us != NULL);
 
 	ZVAL_STRINGL(&func_name, USERSTREAM_WRITE, sizeof(USERSTREAM_WRITE)-1, 0);
 
-	ZVAL_STRINGL(&zbuff, (char*)buf, count, 0);
-	zbufptr = &zbuff;
+	MAKE_STD_ZVAL(zbufptr);
+	ZVAL_STRINGL(zbufptr, (char*)buf, count, 1);
 	args[0] = &zbufptr;
 
 	call_result = call_user_function_ex(NULL,
@@ -400,6 +399,8 @@ static size_t php_userstreamop_write(php_stream *stream, const char *buf, size_t
 			1, args,
 			0, NULL TSRMLS_CC);
 
+	zval_ptr_dtor(&zbufptr);
+	
 	didwrite = 0;
 	if (call_result == SUCCESS && retval != NULL) {
 		convert_to_long(retval);
@@ -628,12 +629,12 @@ static int php_userstreamop_seek(php_stream *stream, off_t offset, int whence, o
  * relevant fields into the statbuf provided */
 static int statbuf_from_array(zval *array, php_stream_statbuf *ssb TSRMLS_DC)
 {
-	zval *elem;
+	zval **elem;
 
 #define STAT_PROP_ENTRY(name)                        \
 	if (SUCCESS == zend_hash_find(Z_ARRVAL_P(array), #name, sizeof(#name), (void**)&elem)) {     \
-		convert_to_long(elem);                                                                   \
-		ssb->sb.st_##name = Z_LVAL_P(elem);                                                      \
+		convert_to_long(*elem);                                                                   \
+		ssb->sb.st_##name = Z_LVAL_PP(elem);                                                      \
 	}
 
 	STAT_PROP_ENTRY(dev);

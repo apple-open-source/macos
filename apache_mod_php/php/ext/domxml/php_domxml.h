@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_domxml.h,v 1.1.1.9 2003/07/18 18:07:31 zarzycki Exp $ */
+/* $Id: php_domxml.h,v 1.72.4.6 2004/08/13 11:38:03 rrichards Exp $ */
 
 #ifndef PHP_DOMXML_H
 #define PHP_DOMXML_H
@@ -24,6 +24,7 @@
 #if HAVE_DOMXML
 #include <libxml/parser.h>
 #include <libxml/parserInternals.h>
+#include <libxml/SAX.h>
 #include <libxml/tree.h>
 #include <libxml/xmlerror.h>
 #include <libxml/xinclude.h>
@@ -74,6 +75,8 @@ PHPAPI zval *php_domobject_new(xmlNodePtr obj, int *found, zval* in TSRMLS_DC);
 /* directory functions */
 PHP_MINIT_FUNCTION(domxml);
 PHP_MSHUTDOWN_FUNCTION(domxml);
+PHP_RINIT_FUNCTION(domxml);
+PHP_RSHUTDOWN_FUNCTION(domxml);
 PHP_MINFO_FUNCTION(domxml);
 PHP_FUNCTION(domxml_version);
 PHP_FUNCTION(xmldoc);
@@ -245,4 +248,4 @@ typedef struct {
 #endif /* HAVE_DOMXML */
 #define phpext_domxml_ptr domxml_module_ptr
 
-#endif /* _PHP_DIR_H */
+#endif /* _PHP_DOMXML_H */

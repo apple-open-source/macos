@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_apache.h,v 1.1.1.1 2003/07/18 18:07:50 zarzycki Exp $ */
+/* $Id: php_apache.h,v 1.1.2.3 2003/03/10 03:17:04 sniper Exp $ */
 
 #ifndef PHP_APACHE_H
 #define PHP_APACHE_H

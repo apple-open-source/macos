@@ -1,8 +1,8 @@
 <?
 
 /* 
-    $Source: /cvs/root/apache_mod_php/php/ext/mnogosearch/index.php,v $
-    $Id: index.php,v 1.1.1.2 2003/03/11 01:09:25 zarzycki Exp $ 
+    $Source: /repository/php-src/ext/mnogosearch/index.php,v $
+    $Id: index.php,v 1.15 2002/08/03 11:34:52 gluke Exp $ 
 */
 
 /*   mnoGoSearch-php-lite v.1.4

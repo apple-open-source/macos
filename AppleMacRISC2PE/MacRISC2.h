@@ -92,7 +92,7 @@ private:
     UInt32						processorSpeedChangeFlags;
 	bool						isPortable;
 	bool						doPlatformPowerMonitor;
-    bool						hasPMon;
+    bool						hasPMon, hasPPlugin;
     bool						hasEmbededThermals;
     UInt32						pMonPlatformNumber;
     
@@ -105,6 +105,7 @@ private:
 	
 	IOService				*ioPMonNub;
 	IOPlatformMonitor		*ioPMon;
+	IOService				*ioPPlugin;
 	IOService				*plFuncNub;
     
     void determinePlatformNumber( void );
@@ -114,6 +115,7 @@ private:
     void enableUniNFireWireClock(bool enable, IOService *nub);
     void enableUniNFireWireCablePower(bool enable);
     IOReturn accessUniN15PerformanceRegister(bool write, long regNumber, unsigned long *data);
+    IOReturn platformPluginPowerMonitor(UInt32 *powerFlags);
     IOReturn platformPowerMonitor(UInt32 *powerFlags);
   
     void PMInstantiatePowerDomains ( void );
@@ -141,6 +143,7 @@ enum {
 	kEnvironmentalSpeedChange		= (1 << 5),
 	kForceDisableL3					= (1 << 6),
     kBusSlewBasedSpeedChange		= (1 << 7),
+    kSupportsPowerPlay				= (1 << 8),
 	// Hi bits reflect current state information
 	kProcessorFast					= (1 << 31),
 	kL3CacheEnabled					= (1 << 30),

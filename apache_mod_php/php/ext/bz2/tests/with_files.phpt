@@ -5,7 +5,7 @@ BZ2 with files
 --POST--
 --GET--
 --FILE--
-<?php // $Id: with_files.phpt,v 1.1.1.2 2003/03/11 01:09:17 zarzycki Exp $
+<?php // $Id: with_files.phpt,v 1.1.2.1 2003/07/01 08:08:43 edink Exp $
 
 error_reporting(E_ALL);
 

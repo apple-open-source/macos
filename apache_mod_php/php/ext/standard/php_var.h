@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_var.h,v 1.1.1.8 2003/07/18 18:07:44 zarzycki Exp $ */
+/* $Id: php_var.h,v 1.21.4.4 2004/09/24 21:57:18 helly Exp $ */
 
 #ifndef PHP_VAR_H
 #define PHP_VAR_H
@@ -46,7 +46,7 @@ struct php_unserialize_data {
 typedef struct php_unserialize_data php_unserialize_data_t;
 
 PHPAPI void php_var_serialize(smart_str *buf, zval **struc, php_serialize_data_t *var_hash TSRMLS_DC);
-PHPAPI int php_var_unserialize(zval **rval, const char **p, const char *max, php_unserialize_data_t *var_hash TSRMLS_DC);
+PHPAPI int php_var_unserialize(zval **rval, const unsigned char **p, const unsigned char *max, php_unserialize_data_t *var_hash TSRMLS_DC);
 
 #define PHP_VAR_SERIALIZE_INIT(var_hash) \
    zend_hash_init(&(var_hash), 10, NULL, NULL, 0)

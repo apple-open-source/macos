@@ -848,6 +848,8 @@ IOReturn Portable2003_PlatformMonitor::setAggressiveness(unsigned long selector,
 
         result = super::setAggressiveness(selector, newLevel);
 
+        newLevel &= 0x7FFFFFFF;		// mask off high bit... upcoming kernel change will use the high bit to indicate whether setAggressiveness call
+                                        // was user induced (Energy Saver) or not.  Currently not using this info so mask it off.
 	if (selector == kPMSetProcessorSpeed) {
             // IOLog ("Portable2003_PlatformMonitor::setAggressiveness - newLevel %ld, currentPowerState %ld\n", newLevel, currentPowerState);
             if ((newLevel != currentPowerState) && (newLevel < 2)){	// This only works if we have two power states

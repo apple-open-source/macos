@@ -543,7 +543,7 @@ IOReturn Apple02Audio::createDefaultsPorts () {
 			// Master control will be created when it's needed, which isn't normally the case, so don't make one now
 			outVolMaster = NULL;
 
-			pramVolValue = PRAMToVolumeValue ();
+			pramVolValue = ReadPRAMVol ();
 #if 1
 			pramVol = IOAudioLevelControl::create(pramVolValue, 0, 7, OutminDB, OutmaxDB,
 												kIOAudioControlChannelIDAll,

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.6 2003/03/11 01:09:18 zarzycki Exp $
+dnl $Id: config.m4,v 1.44 2002/10/30 17:42:36 helly Exp $
 dnl
 
 AC_DEFUN(PHP_DOM_CHECK_VERSION,[

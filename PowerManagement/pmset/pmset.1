@@ -21,6 +21,7 @@
 .Op powerbutton Ar 1/0
 .Op lidwake Ar 1/0
 .Op acwake Ar 1/0
+.Op ams Ar 1/0
 .Op boot
 .Nm
 .Fl u
@@ -99,6 +100,8 @@ powerbutton - sleep the machine when power button is pressed (value = 0/1)
 lidwake - wake the machine when the laptop lid(or clamshell) is opened (value = 0/1)
 .br
 acwake - wake the machine when power source (AC/battery) is changed (value = 0/1)
+.br
+ams - use AppleMotionSensor to park disk heads on sudden changes in G force (value = 0/1)
 .Sh UPS SPECIFIC ARGUMENTS
 .br
 UPS-specific arguments are only valid following the 

@@ -1,12 +1,12 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.5 2003/03/11 01:09:31 zarzycki Exp $
+dnl $Id: config.m4,v 1.10.4.1 2003/10/01 02:54:05 sniper Exp $
 dnl
 
 PHP_ARG_WITH(recode,for recode support,
 [  --with-recode[=DIR]     Include recode support.])
 
 if test "$PHP_RECODE" != "no"; then
-  RECODE_LIST="$PHP_RECODE /usr /usr/local /opt"
+  RECODE_LIST="$PHP_RECODE /usr/local /usr /opt"
 
   for i in $RECODE_LIST; do
     if test -f $i/include/recode.h; then
@@ -24,6 +24,7 @@ if test "$PHP_RECODE" != "no"; then
       RECODE_INC=include
       RECODE_LIB=lib
     fi
+    test -n "$RECODE_DIR" && break
   done
 
   if test -z "$RECODE_DIR"; then

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- $Header: /cvs/root/libxml2/libxml2/test/schemas/vdv-first4_0.xsd,v 1.1.1.1 2004/02/05 20:17:15 rbraun Exp $ -->
+<!-- $Header: /cvs/root/libxml2/libxml2/test/schemas/Attic/vdv-first4_0.xsd,v 1.1.1.1 2004/02/05 20:17:15 rbraun Exp $ -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
   <xs:simpleType name="string255">

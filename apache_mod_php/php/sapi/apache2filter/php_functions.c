@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_functions.c,v 1.1.1.6 2003/07/18 18:07:50 zarzycki Exp $ */
+/* $Id: php_functions.c,v 1.31.2.2 2003/03/25 01:38:49 sniper Exp $ */
 
 #include "php.h"
 #include "SAPI.h"

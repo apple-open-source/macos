@@ -73,6 +73,7 @@ protected:
 public:
     static IOUSBInterface *withDescriptors(const IOUSBConfigurationDescriptor *cfDesc, const IOUSBInterfaceDescriptor *ifDesc);
     static IOReturn	CallSuperOpen(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+    static IOReturn     CallSuperClose(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
     
     virtual bool 	init(	const IOUSBConfigurationDescriptor *cfDesc,
                                 const IOUSBInterfaceDescriptor *ifDesc);
@@ -130,9 +131,12 @@ public:
                                 void *		   arg = 0 );
 
     virtual bool open( 	IOService *	   forClient,
-                                IOOptionBits	   options = 0,
-                                void *		   arg = 0 );
-
+			IOOptionBits	   options = 0,
+			void *		   arg = 0 );
+    
+    virtual void close( 	IOService *	   forClient,
+			IOOptionBits	   options = 0  );
+    
     virtual void handleClose(  	IOService *	   forClient,
                                 IOOptionBits	   options = 0 );
 

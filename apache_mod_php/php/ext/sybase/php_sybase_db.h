@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_sybase_db.h,v 1.1.1.4 2003/07/18 18:07:45 zarzycki Exp $ */
+/* $Id: php_sybase_db.h,v 1.8.8.1 2002/12/31 16:35:37 sebastian Exp $ */
 
 #ifndef PHP_SYBASE_DB_H
 #define PHP_SYBASE_DB_H

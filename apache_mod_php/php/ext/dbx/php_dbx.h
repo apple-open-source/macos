@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_dbx.h,v 1.1.1.5 2003/07/18 18:07:31 zarzycki Exp $ */
+/* $Id: php_dbx.h,v 1.13.2.1 2002/12/31 16:34:25 sebastian Exp $ */
 
 #ifndef ZEND_PHP_DBX_H
 #define ZEND_PHP_DBX_H

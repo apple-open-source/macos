@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_pfpro.h,v 1.1.1.6 2003/07/18 18:07:40 zarzycki Exp $ */
+/* $Id: php_pfpro.h,v 1.12.2.2 2003/03/10 13:35:20 ddhill Exp $ */
 
 #ifndef PHP_PFPRO_H
 #define PHP_PFPRO_H

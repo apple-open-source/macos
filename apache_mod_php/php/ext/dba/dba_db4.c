@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dba_db4.c,v 1.1.1.1 2003/07/18 18:07:30 zarzycki Exp $ */
+/* $Id: dba_db4.c,v 1.6.2.6 2004/05/10 01:47:51 helly Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -62,9 +62,13 @@ DBA_OPEN_FUNC(db4)
 	struct stat check_stat;
 	int s = VCWD_STAT(info->path, &check_stat);
 
-	type =  info->mode == DBA_READER ? DB_UNKNOWN :
+	if (!s && !check_stat.st_size) {
+		info->mode = DBA_TRUNC; /* force truncate */
+	}
+
+	type = info->mode == DBA_READER ? DB_UNKNOWN :
 		info->mode == DBA_TRUNC ? DB_BTREE :
-		s? DB_BTREE : DB_UNKNOWN;
+		s ? DB_BTREE : DB_UNKNOWN;
 	  
 	gmode = info->mode == DBA_READER ? DB_RDONLY :
 		(info->mode == DBA_CREAT && s) ? DB_CREATE : 

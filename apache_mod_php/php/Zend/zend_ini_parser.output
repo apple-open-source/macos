@@ -1,32 +1,39 @@
-Conflict in state 19 between rule 16 and token '|' resolved as reduce.
-Conflict in state 19 between rule 16 and token '&' resolved as reduce.
-Conflict in state 20 between rule 17 and token '|' resolved as reduce.
-Conflict in state 20 between rule 17 and token '&' resolved as reduce.
-Conflict in state 25 between rule 14 and token '|' resolved as reduce.
-Conflict in state 25 between rule 14 and token '&' resolved as reduce.
-Conflict in state 26 between rule 15 and token '|' resolved as reduce.
-Conflict in state 26 between rule 15 and token '&' resolved as reduce.
+Conflict in state 18 between rule 16 and token '|' resolved as reduce.
+Conflict in state 18 between rule 16 and token '&' resolved as reduce.
+Conflict in state 19 between rule 17 and token '|' resolved as reduce.
+Conflict in state 19 between rule 17 and token '&' resolved as reduce.
+Conflict in state 24 between rule 14 and token '|' resolved as reduce.
+Conflict in state 24 between rule 14 and token '&' resolved as reduce.
+Conflict in state 25 between rule 15 and token '|' resolved as reduce.
+Conflict in state 25 between rule 15 and token '&' resolved as reduce.
+
+
+State 6 contains 2 shift/reduce conflicts.
+
 
 Grammar
-rule 1    statement_list -> statement_list statement
-rule 2    statement_list ->		/* empty */
-rule 3    statement -> TC_STRING '=' string_or_value
-rule 4    statement -> TC_STRING
-rule 5    statement -> SECTION
-rule 6    statement -> '\n'
-rule 7    string_or_value -> expr
-rule 8    string_or_value -> TC_ENCAPSULATED_STRING
-rule 9    string_or_value -> CFG_TRUE
-rule 10   string_or_value -> CFG_FALSE
-rule 11   string_or_value -> '\n'
-rule 12   string_or_value -> '\000'
-rule 13   expr -> constant_string
-rule 14   expr -> expr '|' expr
-rule 15   expr -> expr '&' expr
-rule 16   expr -> '~' expr
-rule 17   expr -> '!' expr
-rule 18   expr -> '(' expr ')'
-rule 19   constant_string -> TC_STRING
+
+  Number, Line, Rule
+    1 189 statement_list -> statement_list statement
+    2 191 statement_list -> /* empty */
+    3 194 statement -> TC_STRING '=' string_or_value
+    4 203 statement -> TC_STRING
+    5 204 statement -> SECTION
+    6 205 statement -> '\n'
+    7 209 string_or_value -> expr
+    8 211 string_or_value -> TC_ENCAPSULATED_STRING
+    9 212 string_or_value -> CFG_TRUE
+   10 213 string_or_value -> CFG_FALSE
+   11 214 string_or_value -> '\n'
+   12 215 string_or_value -> /* empty */
+   13 218 expr -> constant_string
+   14 220 expr -> expr '|' expr
+   15 221 expr -> expr '&' expr
+   16 222 expr -> '~' expr
+   17 223 expr -> '!' expr
+   18 224 expr -> '(' expr ')'
+   19 227 constant_string -> TC_STRING
+
 
 Terminals, with rules where they appear
 
@@ -45,19 +52,19 @@ TC_ENCAPSULATED_STRING (258) 8
 SECTION (259) 5
 CFG_TRUE (260) 9
 CFG_FALSE (261) 10
-'\000' (262) 12
+
 
 Nonterminals, with rules where they appear
 
-statement_list (17)
+statement_list (16)
     on left: 1 2, on right: 1
-statement (18)
+statement (17)
     on left: 3 4 5 6, on right: 1
-string_or_value (19)
+string_or_value (18)
     on left: 7 8 9 10 11 12, on right: 3
-expr (20)
+expr (19)
     on left: 13 14 15 16 17 18, on right: 7 14 15 16 17 18
-constant_string (21)
+constant_string (20)
     on left: 19, on right: 13
 
 
@@ -73,7 +80,7 @@ state 1
 
     statement_list  ->  statement_list . statement   (rule 1)
 
-    $   	go to state 27
+    $   	go to state 26
     TC_STRING	shift, and go to state 2
     SECTION	shift, and go to state 3
     '\n'	shift, and go to state 4
@@ -128,12 +135,15 @@ state 6
     '~' 	shift, and go to state 11
     '!' 	shift, and go to state 12
     '\n'	shift, and go to state 13
-    '\000'	shift, and go to state 14
-    '(' 	shift, and go to state 15
+    '(' 	shift, and go to state 14
 
-    string_or_value	go to state 16
-    expr	go to state 17
-    constant_string	go to state 18
+    TC_STRING	[reduce using rule 12 (string_or_value)]
+    '\n'	[reduce using rule 12 (string_or_value)]
+    $default	reduce using rule 12 (string_or_value)
+
+    string_or_value	go to state 15
+    expr	go to state 16
+    constant_string	go to state 17
 
 
 
@@ -176,10 +186,10 @@ state 11
     TC_STRING	shift, and go to state 7
     '~' 	shift, and go to state 11
     '!' 	shift, and go to state 12
-    '(' 	shift, and go to state 15
+    '(' 	shift, and go to state 14
 
-    expr	go to state 19
-    constant_string	go to state 18
+    expr	go to state 18
+    constant_string	go to state 17
 
 
 
@@ -190,10 +200,10 @@ state 12
     TC_STRING	shift, and go to state 7
     '~' 	shift, and go to state 11
     '!' 	shift, and go to state 12
-    '(' 	shift, and go to state 15
+    '(' 	shift, and go to state 14
 
-    expr	go to state 20
-    constant_string	go to state 18
+    expr	go to state 19
+    constant_string	go to state 17
 
 
 
@@ -207,27 +217,19 @@ state 13
 
 state 14
 
-    string_or_value  ->  '\000' .   (rule 12)
-
-    $default	reduce using rule 12 (string_or_value)
-
-
-
-state 15
-
     expr  ->  '(' . expr ')'   (rule 18)
 
     TC_STRING	shift, and go to state 7
     '~' 	shift, and go to state 11
     '!' 	shift, and go to state 12
-    '(' 	shift, and go to state 15
+    '(' 	shift, and go to state 14
 
-    expr	go to state 21
-    constant_string	go to state 18
+    expr	go to state 20
+    constant_string	go to state 17
 
 
 
-state 16
+state 15
 
     statement  ->  TC_STRING '=' string_or_value .   (rule 3)
 
@@ -235,20 +237,20 @@ state 16
 
 
 
-state 17
+state 16
 
     string_or_value  ->  expr .   (rule 7)
     expr  ->  expr . '|' expr   (rule 14)
     expr  ->  expr . '&' expr   (rule 15)
 
-    '|' 	shift, and go to state 22
-    '&' 	shift, and go to state 23
+    '|' 	shift, and go to state 21
+    '&' 	shift, and go to state 22
 
     $default	reduce using rule 7 (string_or_value)
 
 
 
-state 18
+state 17
 
     expr  ->  constant_string .   (rule 13)
 
@@ -256,7 +258,7 @@ state 18
 
 
 
-state 19
+state 18
 
     expr  ->  expr . '|' expr   (rule 14)
     expr  ->  expr . '&' expr   (rule 15)
@@ -267,7 +269,7 @@ state 19
 
 
 
-state 20
+state 19
 
     expr  ->  expr . '|' expr   (rule 14)
     expr  ->  expr . '&' expr   (rule 15)
@@ -278,47 +280,47 @@ state 20
 
 
 
-state 21
+state 20
 
     expr  ->  expr . '|' expr   (rule 14)
     expr  ->  expr . '&' expr   (rule 15)
     expr  ->  '(' expr . ')'   (rule 18)
 
-    '|' 	shift, and go to state 22
-    '&' 	shift, and go to state 23
-    ')' 	shift, and go to state 24
+    '|' 	shift, and go to state 21
+    '&' 	shift, and go to state 22
+    ')' 	shift, and go to state 23
 
 
 
-state 22
+state 21
 
     expr  ->  expr '|' . expr   (rule 14)
 
     TC_STRING	shift, and go to state 7
     '~' 	shift, and go to state 11
     '!' 	shift, and go to state 12
-    '(' 	shift, and go to state 15
+    '(' 	shift, and go to state 14
 
-    expr	go to state 25
-    constant_string	go to state 18
+    expr	go to state 24
+    constant_string	go to state 17
 
 
 
-state 23
+state 22
 
     expr  ->  expr '&' . expr   (rule 15)
 
     TC_STRING	shift, and go to state 7
     '~' 	shift, and go to state 11
     '!' 	shift, and go to state 12
-    '(' 	shift, and go to state 15
+    '(' 	shift, and go to state 14
 
-    expr	go to state 26
-    constant_string	go to state 18
+    expr	go to state 25
+    constant_string	go to state 17
 
 
 
-state 24
+state 23
 
     expr  ->  '(' expr ')' .   (rule 18)
 
@@ -326,7 +328,7 @@ state 24
 
 
 
-state 25
+state 24
 
     expr  ->  expr . '|' expr   (rule 14)
     expr  ->  expr '|' expr .   (rule 14)
@@ -337,7 +339,7 @@ state 25
 
 
 
-state 26
+state 25
 
     expr  ->  expr . '|' expr   (rule 14)
     expr  ->  expr . '&' expr   (rule 15)
@@ -348,12 +350,14 @@ state 26
 
 
 
+state 26
+
+    $   	go to state 27
+
+
+
 state 27
 
-    $   	go to state 28
-
-
-
-state 28
-
     $default	accept
+
+

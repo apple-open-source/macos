@@ -58,14 +58,17 @@
 #define kIOPMAppName		"Power Management configd plugin"
 #define kIOPMPrefsPath		"com.apple.PowerManagement.xml"
 
-// Global keys
-static CFStringRef	   	EnergyPrefsKey;
-static CFStringRef      	AutoWakePrefsKey;
-static CFStringRef      	ConsoleUserKey;
-static SCDynamicStoreRef   	energyDS;
+#define kApplePMUUCMagicCookie      0x0101BEEF
 
-static io_service_t		gIOResourceService;
-static io_connect_t     	_pm_ack_port = 0;
+// Global keys
+static CFStringRef          gTZNotificationNameString = NULL;
+static CFStringRef          EnergyPrefsKey = NULL;
+static CFStringRef          AutoWakePrefsKey = NULL;
+static CFStringRef          ConsoleUserKey = NULL;
+static SCDynamicStoreRef    energyDS = NULL;
+
+static io_service_t         gIOResourceService = 0;
+static io_connect_t         _pm_ack_port = 0;
 
 
 /* PMUInterestNotification
@@ -200,6 +203,68 @@ PowerSourcesHaveChanged(void *info)
     CFRelease(ps_blob);
 }
 
+
+/* timeZoneChangedCallback
+ *
+ * Receives notifications when system timezone changes.
+ * Why does power management care which timezone we're in?
+ * We don't, really. The SMU firmware needs to know for
+ * a feature which shall remain nameless. Timezone info
+ * is really only conveniently accessible from up here in 
+ * user space, so we just keep track of it and tell PMU/SMU
+ * whenever it changes. And this PM plugin was a vaguely
+ * convenient place for this code to live.
+ */
+static void timeZoneChangedCallBack(
+    CFNotificationCenterRef center, 
+    void *observer, 
+    CFStringRef notificationName, 
+    const void *object, 
+    CFDictionaryRef userInfo)
+{
+    static io_registry_entry_t  smuRegEntry = MACH_PORT_NULL;
+    static io_connect_t         smuConnect = MACH_PORT_NULL;
+    CFTimeZoneRef               tzr = NULL;
+    CFDataRef                   d = NULL;
+    int                         secondsOffset = 0;
+    
+    if(MACH_PORT_NULL == smuRegEntry)
+    {
+        // Find SMU node
+        smuRegEntry = (io_registry_entry_t)IOServiceGetMatchingService(0,
+                                    IOServiceNameMatching("AppleSMU"));
+        if(MACH_PORT_NULL == smuRegEntry) {
+            // No SMU == we are on a system without SMU and therefore don't
+            // need to know.
+            return;
+        }
+        // Open up SMU's User Client
+        IOServiceOpen(smuRegEntry, mach_task_self(), kApplePMUUCMagicCookie, &smuConnect);
+    }
+
+    CFTimeZoneResetSystem();
+    tzr = CFTimeZoneCopySystem();
+    if(!tzr) return;
+
+    if(kCFCompareEqualTo != CFStringCompare(notificationName, 
+            gTZNotificationNameString, 0) )
+    {
+        // bail unless this was the tz change note
+        goto exit;
+    }
+
+    secondsOffset = (int)CFTimeZoneGetSecondsFromGMT(tzr, 0);
+    d = CFDataCreate(0, &secondsOffset, sizeof(int));
+
+    IOConnectSetCFProperty(smuConnect, CFSTR("TimeZoneOffsetSeconds"), d);
+
+exit:
+    if(tzr) CFRelease(tzr);
+    if(d) CFRelease(d);
+}
+
+
+
 /* initializeESPrefsDynamicStore
  *
  * Registers a handler that configd calls when someone changes com.apple.PowerManagement.xml
@@ -311,6 +376,48 @@ finish:
     return;
 }
 
+/* initializeTimezoneChangeNotifications
+ *
+ * Sets up the tz notifications that we get on behalf of AppleSMU.kext & the SMU
+ */
+static void
+initializeTimezoneChangeNotifications(void)
+{
+    CFNotificationCenterRef         distNoteCenter = NULL;
+    io_registry_entry_t             smuRegEntry = MACH_PORT_NULL;
+
+    smuRegEntry = (io_registry_entry_t)IOServiceGetMatchingService(0,
+                        IOServiceNameMatching("AppleSMU"));
+    if(MACH_PORT_NULL == smuRegEntry)
+    {
+        // SMU not supported on this platform, no need to install tz handler
+        return;
+    }
+    IOObjectRelease(smuRegEntry);
+    
+    gTZNotificationNameString = CFStringCreateWithCString(
+                        kCFAllocatorDefault,
+                        "NSSystemTimeZoneDidChangeDistributedNotification",
+                        kCFStringEncodingMacRoman);
+
+
+    distNoteCenter = CFNotificationCenterGetDistributedCenter();
+    if(distNoteCenter)
+    {
+        CFNotificationCenterAddObserver(
+                       distNoteCenter, 
+                       NULL, 
+                       timeZoneChangedCallBack, 
+                       gTZNotificationNameString,
+                       NULL, 
+                       CFNotificationSuspensionBehaviorDeliverImmediately);
+    }
+
+    // And give SMU an initial reading of the timezone
+    timeZoneChangedCallBack(NULL, NULL, gTZNotificationNameString, NULL, NULL);
+}
+
+
 /* _ioupsd_exited
  *
  * Gets called (by configd) when /usr/libexec/ioupsd exits
@@ -353,7 +460,7 @@ prime()
 void
 load(CFBundleRef bundle, Boolean bundleVerbose)
 {
-    IONotificationPortRef           notify;	
+    IONotificationPortRef           notify;    
     io_object_t                     anIterator;
     
     // Install notification on Power Source changes
@@ -364,6 +471,9 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 
     // Install notification on ApplePMU&IOPMrootDomain general interest messages
     initializeInterestNotifications();
+    
+    // Install timezone change notifications
+    initializeTimezoneChangeNotifications();
 
     // Register for SystemPower notifications
     _pm_ack_port = IORegisterForSystemPower (0, &notify, SleepWakeCallback, &anIterator);
@@ -375,8 +485,7 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 
 }
 
-// cc -o pm -g pmconfigd.c PSLowPower.c PMSettings.c BatteryTimeRemaining.c AutoWakeScheduler.c RepeatingAutoWake.c PrivateLib.c -framework IOKit -framework CoreFoundation -framework SystemConfiguration -framework AppKit
-//#define STANDALONE
+// use 'make' to build standalone debuggable executable 'pm'
 
 #ifdef  STANDALONE
 int
@@ -384,9 +493,9 @@ main(int argc, char **argv)
 {
     openlog("pmcfgd", LOG_PID | LOG_NDELAY, LOG_USER);
 
-	load(CFBundleGetMainBundle(), (argc > 1) ? TRUE : FALSE);
+    load(CFBundleGetMainBundle(), (argc > 1) ? TRUE : FALSE);
 
-	prime();
+    prime();
 
 	CFRunLoopRun();
 

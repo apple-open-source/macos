@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.7 2003/07/18 18:07:42 zarzycki Exp $ -*- sh -*-
+dnl $Id: config.m4,v 1.47.2.15 2004/09/28 20:42:36 sniper Exp $ -*- sh -*-
 
 divert(3)dnl
 
@@ -6,7 +6,7 @@ dnl
 dnl Check if flush should be called explicitly after buffered io
 dnl
 AC_DEFUN(AC_FLUSH_IO,[
-  AC_CACHE_CHECK([whether flush should be called explicitly after a bufferered io], ac_cv_flush_io,[
+  AC_CACHE_CHECK([whether flush should be called explicitly after a buffered io], ac_cv_flush_io,[
   AC_TRY_RUN( [
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,6 +67,10 @@ AC_DEFUN(AC_CRYPT_CAP,[
   
   AC_CACHE_CHECK(for standard DES crypt, ac_cv_crypt_des,[
   AC_TRY_RUN([
+#if HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
 #if HAVE_CRYPT_H
 #include <crypt.h>
 #endif
@@ -94,6 +98,10 @@ main() {
 
   AC_CACHE_CHECK(for extended DES crypt, ac_cv_crypt_ext_des,[
   AC_TRY_RUN([
+#if HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
 #if HAVE_CRYPT_H
 #include <crypt.h>
 #endif
@@ -121,6 +129,10 @@ main() {
 
   AC_CACHE_CHECK(for MD5 crypt, ac_cv_crypt_md5,[
   AC_TRY_RUN([
+#if HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
 #if HAVE_CRYPT_H
 #include <crypt.h>
 #endif
@@ -160,6 +172,10 @@ main() {
 
   AC_CACHE_CHECK(for Blowfish crypt, ac_cv_crypt_blowfish,[
   AC_TRY_RUN([
+#if HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
 #if HAVE_CRYPT_H
 #include <crypt.h>
 #endif
@@ -205,7 +221,7 @@ AC_ARG_WITH(regex,
 [
   case $withval in 
     system)
-      if test "$PHP_SAPI" = "apache" || test "$PHP_SAPI" = "apache2filter"; then
+      if test "$PHP_SAPI" = "apache" || test "$PHP_SAPI" = "apache2filter" || test "$PHP_SAPI" = "apache2handler"; then
         REGEX_TYPE=php
       else
         REGEX_TYPE=system
@@ -226,6 +242,29 @@ AC_ARG_WITH(regex,
   REGEX_TYPE=php
 ])
 
+PHP_REGEX
+
+dnl
+dnl round fuzz
+dnl
+AC_MSG_CHECKING([whether rounding works as expected])
+AC_TRY_RUN([
+#include <math.h>
+  int main() {
+    return floor(0.045*pow(10,2) + 0.5)/10.0 != 0.5;
+  }
+],[
+  PHP_ROUND_FUZZ=0.5
+  AC_MSG_RESULT(yes)
+],[
+  PHP_ROUND_FUZZ=0.50000000001
+  AC_MSG_RESULT(no)
+],[
+  PHP_ROUND_FUZZ=0.50000000001
+  AC_MSG_RESULT(cross compile)
+])
+AC_DEFINE_UNQUOTED(PHP_ROUND_FUZZ, $PHP_ROUND_FUZZ, [ see #24142 ])
+
 AC_FUNC_FNMATCH	
 
 dnl getopt long options disabled for now
@@ -238,6 +277,137 @@ AC_CHECK_FUNCS(glob strfmon)
 
 if test "$PHP_SAPI" = "cgi" -o "$PHP_SAPI" = "cli" -o "$PHP_SAPI" = "embed"; then
   AC_DEFINE(ENABLE_CHROOT_FUNC, 1, [Whether to enable chroot() function])
+fi
+
+AC_CHECK_FUNCS(fpclass isinf isnan)
+
+AC_CACHE_CHECK(whether atof() accepts NAN, ac_cv_atof_accept_nan,[
+  AC_TRY_RUN([
+#include <math.h>
+#include <stdlib.h>
+
+#ifdef HAVE_ISNAN
+#define zend_isnan(a) isnan(a)
+#elif defined(HAVE_FPCLASS)
+#define zend_isnan(a) ((fpclass(a) == FP_SNAN) || (fpclass(a) == FP_QNAN))
+#else
+#define zend_isnan(a) 0
+#endif
+
+int main(int argc, char** argv)
+{
+	return zend_isnan(atof("NAN")) ? 0 : 1;
+}
+  ],[
+      ac_cv_atof_accept_nan=yes
+  ],[
+      ac_cv_atof_accept_nan=no
+  ],[
+      ac_cv_atof_accept_nan=no
+  ])
+])
+if test "$ac_cv_atof_accept_nan" = "yes"; then
+  AC_DEFINE([HAVE_ATOF_ACCEPTS_NAN], 1, [whether atof() accepts NAN])
+fi
+
+AC_CACHE_CHECK(whether atof() accepts INF, ac_cv_atof_accept_inf,[
+  AC_TRY_RUN([
+#include <math.h>
+#include <stdlib.h>
+
+#ifdef HAVE_ISINF
+#define zend_isinf(a) isinf(a)
+#elif defined(INFINITY)
+/* Might not work, but is required by ISO C99 */
+#define zend_isinf(a) (((a)==INFINITY)?1:0)
+#elif defined(HAVE_FPCLASS)
+#define zend_isinf(a) ((fpclass(a) == FP_PINF) || (fpclass(a) == FP_NINF))
+#else
+#define zend_isinf(a) 0
+#endif
+
+int main(int argc, char** argv)
+{
+	return zend_isinf(atof("INF")) && zend_isinf(atof("-INF")) ? 0 : 1;
+}
+  ],[
+      ac_cv_atof_accept_inf=yes
+  ],[
+      ac_cv_atof_accept_inf=no
+  ],[
+      ac_cv_atof_accept_inf=no
+  ])
+])
+if test "$ac_cv_atof_accept_inf" = "yes"; then
+  AC_DEFINE([HAVE_ATOF_ACCEPTS_INF], 1, [whether atof() accepts INF])
+fi
+
+AC_CACHE_CHECK(whether HUGE_VAL == INF, ac_cv_huge_val_inf,[
+  AC_TRY_RUN([
+#include <math.h>
+#include <stdlib.h>
+
+#ifdef HAVE_ISINF
+#define zend_isinf(a) isinf(a)
+#elif defined(INFINITY)
+/* Might not work, but is required by ISO C99 */
+#define zend_isinf(a) (((a)==INFINITY)?1:0)
+#elif defined(HAVE_FPCLASS)
+#define zend_isinf(a) ((fpclass(a) == FP_PINF) || (fpclass(a) == FP_NINF))
+#else
+#define zend_isinf(a) 0
+#endif
+
+int main(int argc, char** argv)
+{
+	return zend_isinf(HUGE_VAL) ? 0 : 1;
+}
+  ],[
+      ac_cv_huge_val_inf=yes
+  ],[
+      ac_cv_huge_val_inf=no
+  ],[
+      ac_cv_huge_val_inf=yes
+  ])
+])
+dnl This is the most probable fallback so we assume yes in case of cross compile.
+if test "$ac_cv_huge_val_inf" = "yes"; then
+  AC_DEFINE([HAVE_HUGE_VAL_INF], 1, [whether HUGE_VAL == INF])
+fi
+
+AC_CACHE_CHECK(whether HUGE_VAL + -HUGEVAL == NAN, ac_cv_huge_val_nan,[
+  AC_TRY_RUN([
+#include <math.h>
+#include <stdlib.h>
+
+#ifdef HAVE_ISNAN
+#define zend_isnan(a) isnan(a)
+#elif defined(HAVE_FPCLASS)
+#define zend_isnan(a) ((fpclass(a) == FP_SNAN) || (fpclass(a) == FP_QNAN))
+#else
+#define zend_isnan(a) 0
+#endif
+
+int main(int argc, char** argv)
+{
+#if defined(__sparc__) && !(__GNUC__ >= 3)
+	/* prevent bug #27830 */
+	return 1;
+#else
+	return zend_isnan(HUGE_VAL + -HUGE_VAL) ? 0 : 1;
+#endif
+}
+  ],[
+      ac_cv_huge_val_nan=yes
+  ],[
+      ac_cv_huge_val_nan=no
+  ],[
+      ac_cv_huge_val_nan=yes
+  ])
+])
+dnl This is the most probable fallback so we assume yes in case of cross compile.
+if test "$ac_cv_huge_val_nan" = "yes"; then
+  AC_DEFINE([HAVE_HUGE_VAL_NAN], 1, [whether HUGE_VAL + -HUGEVAL == NAN])
 fi
 
 PHP_NEW_EXTENSION(standard, array.c base64.c basic_functions.c browscap.c crc32.c crypt.c \

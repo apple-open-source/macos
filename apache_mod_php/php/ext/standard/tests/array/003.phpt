@@ -4,7 +4,7 @@ Test usort, uksort and uasort
 precision=14
 --FILE--
 <?php
-require('ext/standard/tests/array/data.inc');
+require(dirname(__FILE__) . '/data.inc');
 
 function cmp ($a, $b) {
     is_array ($a)
@@ -32,7 +32,7 @@ var_dump ($data);
 array(8) {
   [16777216]=>
   float(-0.33333333333333)
-  ["-1000"]=>
+  [-1000]=>
   array(2) {
     [0]=>
     string(6) "banana"
@@ -55,7 +55,7 @@ array(8) {
 
  -- Testing uksort() -- 
 array(8) {
-  ["-1000"]=>
+  [-1000]=>
   array(2) {
     [0]=>
     string(6) "banana"

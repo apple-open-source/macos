@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: hw.c,v 1.1.1.8 2003/07/18 18:07:33 zarzycki Exp $ */
+/* $Id: hw.c,v 1.111.2.7 2003/08/28 20:01:27 iliaa Exp $ */
 
 #include <stdlib.h>
 #include <errno.h>
@@ -766,7 +766,7 @@ static void php_hw_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 			list_entry new_le;
 
 			if (HwSG(max_links)!=-1 && HwSG(num_links)>=HwSG(max_links)) {
-				php_error(E_ERROR, "%s(): Too many open links (%d)", get_active_function_name(TSRMLS_C), HwSG(num_links));
+				php_error(E_ERROR, "%s(): Too many open links (%ld)", get_active_function_name(TSRMLS_C), HwSG(num_links));
 				if(host) efree(host);
 				if(username) efree(username);
 				if(password) efree(password);
@@ -774,7 +774,7 @@ static void php_hw_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent)
 				RETURN_FALSE;
 			}
 			if (HwSG(max_persistent!=-1) && HwSG(num_persistent)>=HwSG(max_persistent)) {
-				php_error(E_ERROR, "%s(): Too many open persistent links (%d)", get_active_function_name(TSRMLS_C), HwSG(num_persistent));
+				php_error(E_ERROR, "%s(): Too many open persistent links (%ld)", get_active_function_name(TSRMLS_C), HwSG(num_persistent));
 				if(host) efree(host);
 				if(username) efree(username);
 				if(password) efree(password);
@@ -1512,7 +1512,7 @@ php_printf("%s\n", ptr);
 PHP_FUNCTION(hw_dummy)
 {
 	pval **arg1, **arg2, **arg3;
-	int link, id, type, msgid;
+	int link, id, type, msg_id;
 	hw_connection *ptr;
 
 	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &arg1, &arg2, &arg3) == FAILURE) {
@@ -1523,7 +1523,7 @@ PHP_FUNCTION(hw_dummy)
 	convert_to_long_ex(arg3);
 	link=Z_LVAL_PP(arg1);
 	id=Z_LVAL_PP(arg2);
-	msgid=Z_LVAL_PP(arg3);
+	msg_id=Z_LVAL_PP(arg3);
 	ptr = zend_list_find(link, &type);
 	if(!ptr || (type!=le_socketp && type!=le_psocketp)) {
 		php_error(E_WARNING, "%s(): Unable to find file identifier %d", get_active_function_name(TSRMLS_C), id);
@@ -1533,7 +1533,7 @@ PHP_FUNCTION(hw_dummy)
 	set_swap(ptr->swap_on);
 	{
 	char *object = NULL;
-	if (0 != (ptr->lasterror = send_dummy(ptr->socket, id, msgid, &object)))
+	if (0 != (ptr->lasterror = send_dummy(ptr->socket, id, msg_id, &object)))
 		RETURN_FALSE;
 
 php_printf("%s", object);

@@ -3970,13 +3970,6 @@ IOReturn AppleTexas2Audio::SndHWSetDRC( DRCInfoPtr theDRCSettings ) {
 		regData[DRC_Integration]	= 0x60;		// 6.7 ms
 		regData[DRC_Attack]			= 0x90;		// 53 ms
 		regData[DRC_Decay]			= 0xB0;		// 212 ms
-	} else if (layoutID == layoutP73D) {
-		regData[DRC_Threshold]		= (UInt8)(kDRCUnityThreshold + (kDRC_CountsPerStep * (theDRCSettings->threshold / kDRC_ThreholdStepSize)));
-		regData[DRC_AboveThreshold]	= theDRCSettings->enable ? 0x58 : kDisableDRC;		// 3.2:1
-		regData[DRC_BelowThreshold]	= 0x22;		// 1.33:1
-		regData[DRC_Integration]	= 0x60;		// 6.7 ms
-		regData[DRC_Attack]			= 0x90;		// 53 ms
-		regData[DRC_Decay]			= 0xB0;		// 212 ms
 	} else {
 		regData[DRC_Threshold]		= (UInt8)(kDRCUnityThreshold + (kDRC_CountsPerStep * (theDRCSettings->threshold / kDRC_ThreholdStepSize)));
 		regData[DRC_AboveThreshold]	= theDRCSettings->enable ? kDRCAboveThreshold3to1 : kDisableDRC ;

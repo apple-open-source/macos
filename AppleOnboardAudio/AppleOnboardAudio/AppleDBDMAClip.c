@@ -19,6 +19,7 @@ typedef double	Float64;
 
 static const double kPI 							= 3.141592653589793116e+00;
 static const float 	kFourDotTwentyScaleFactor	 	= 1048576.0f;
+static const float  kMaxSignedFourDotTwenty         = 8.0f - 1.0f / 1048576.0f;
 static const float 	kMixingToMonoScale 				= 0.5f;
 static const float  kiSubCrossoverFrequency			= 240.0f;
 
@@ -3706,8 +3707,8 @@ void convertToFourDotTwenty(FourDotTwenty* ioFourDotTwenty, float* inFloatPtr)
     ioFourDotTwenty->fraction3 = 0;
     floatValue = *inFloatPtr;
 	
-	if(floatValue > 8.0) // clip to make sure number fits in 4.20 range
-        floatValue = 8.0;
+	if(floatValue > kMaxSignedFourDotTwenty) // clip to make sure number fits in 4.20 range
+        floatValue = kMaxSignedFourDotTwenty;
     else if(floatValue < -8.0)
         floatValue = -8.0;
 

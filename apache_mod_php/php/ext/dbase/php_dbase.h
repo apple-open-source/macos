@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_dbase.h,v 1.1.1.6 2003/07/18 18:07:31 zarzycki Exp $ */
+/* $Id: php_dbase.h,v 1.10.8.1 2002/12/31 16:34:21 sebastian Exp $ */
 
 #ifndef PHP_DBASE_H
 #define PHP_DBASE_H

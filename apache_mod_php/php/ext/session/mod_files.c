@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mod_files.c,v 1.1.1.8 2003/07/18 18:07:41 zarzycki Exp $ */
+/* $Id: mod_files.c,v 1.83.2.8 2004/03/29 21:28:47 wez Exp $ */
 
 #include "php.h"
 
@@ -46,6 +46,7 @@
 #include "php_session.h"
 #include "mod_files.h"
 #include "ext/standard/flock_compat.h"
+#include "php_open_temporary_file.h"
 
 #define FILE_PREFIX "sess_"
 
@@ -124,6 +125,11 @@ static char *ps_files_path_create(char *buf, size_t buflen, ps_files *data, cons
 static void ps_files_close(ps_files *data)
 {
 	if (data->fd != -1) {
+#ifdef PHP_WIN32 
+		/* On Win32 locked files that are closed without being explicitly unlocked
+		   will be unlocked only when "system resources become available". */
+		flock(data->fd, LOCK_UN);
+#endif
 		close(data->fd);
 		data->fd = -1;
 	}
@@ -228,6 +234,10 @@ PS_OPEN_FUNC(files)
 
 	data = ecalloc(sizeof(*data), 1);
 	PS_SET_MOD_DATA(data);
+
+	if (*save_path == '\0') {
+		save_path = php_get_temporary_directory();
+	}
 
 	data->fd = -1;
 	if ((p = strchr(save_path, ';'))) {

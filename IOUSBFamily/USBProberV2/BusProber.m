@@ -242,12 +242,12 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
                 cfgHeader.wTotalLength = 0;
                 [DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig isOtherSpeedDesc:NO];
                 
-                // Try to get the descriptor again, using the sizeof(IOUSBConfigurationDescriptor) 
+                // Try to get the descriptor again, using the sizeof(IOUSBConfigurationDescriptor)  - 1
                 //
-                bzero(&config,sizeof(config));
-                error = GetDescriptor(deviceIntf, kUSBConfDesc, iconfig, &config, sizeof(config));
+                bzero(&config,sizeof(config)-1);
+                error = GetDescriptor(deviceIntf, kUSBConfDesc, iconfig, &config, sizeof(config) - 1);
                 if (error != kIOReturnSuccess) {
-                    cfgHeader.bDescriptorType = sizeof(config);
+                    cfgHeader.bDescriptorType = sizeof(config) - 1;
                     cfgHeader.wTotalLength = 0;
                 }
                 else
@@ -308,10 +308,10 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
                     
                     // Try to get the descriptor again, using the sizeof(IOUSBConfigurationDescriptor) 
                     //
-                    bzero(&config,sizeof(config));
-                    error = GetDescriptor(deviceIntf, kUSBOtherSpeedConfDesc, iconfig, &config, sizeof(config));
+                    bzero(&config,sizeof(config)-1);
+                    error = GetDescriptor(deviceIntf, kUSBOtherSpeedConfDesc, iconfig, &config, sizeof(config)-1);
                     if (error != kIOReturnSuccess) {
-                        cfgHeader.bDescriptorType = sizeof(config);
+                        cfgHeader.bDescriptorType = sizeof(config)-1;
                         cfgHeader.wTotalLength = 0;
                     }
                     else

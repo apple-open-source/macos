@@ -16,7 +16,7 @@
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_variables.c,v 1.1.1.8 2003/07/18 18:07:49 zarzycki Exp $ */
+/* $Id: php_variables.c,v 1.45.2.8 2004/10/18 15:08:46 tony2001 Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -63,22 +63,16 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 	char *ip;		/* index pointer */
 	char *index;
 	int var_len, index_len;
-	zval *gpc_element, **gpc_element_p, **top_gpc_p=NULL;
+	zval *gpc_element, **gpc_element_p;
 	zend_bool is_array;
 	HashTable *symtable1=NULL;
-	HashTable *symtable2=NULL;
 
 	assert(var != NULL);
 	
 	if (track_vars_array) {
 		symtable1 = Z_ARRVAL_P(track_vars_array);
-	}
-	if (PG(register_globals)) {
-		if (symtable1) {
-			symtable2 = EG(active_symbol_table);
-		} else {
-			symtable1 = EG(active_symbol_table);
-		}	
+	} else if (PG(register_globals)) {
+		symtable1 = EG(active_symbol_table);
 	}
 	if (!symtable1) {
 		/* Nothing to do */
@@ -135,7 +129,11 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 				if (!ip) {
 					/* PHP variables cannot contain '[' in their names, so we replace the character with a '_' */
 					*(index_s - 1) = '_';
-					index_len = var_len = strlen(var);
+					
+					index_len = var_len = 0;
+					if (index) {
+						index_len = var_len = strlen(index);
+					}
 					goto plain_var;
 					return;
 				}
@@ -164,9 +162,6 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 					efree(escaped_index);
 				}
 			}
-			if (!top_gpc_p) {
-				top_gpc_p = gpc_element_p;
-			}
 			symtable1 = Z_ARRVAL_PP(gpc_element_p);
 			/* ip pointed to the '[' character, now obtain the key */
 			index = index_s;
@@ -187,20 +182,16 @@ plain_var:
 			if (!index) {
 				zend_hash_next_index_insert(symtable1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
 			} else {
-				zend_hash_update(symtable1, index, index_len+1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
-			}
-			if (!top_gpc_p) {
-				top_gpc_p = gpc_element_p;
+				if (PG(magic_quotes_gpc) && (index!=var)) {
+					char *escaped_index = php_addslashes(index, index_len, &index_len, 0 TSRMLS_CC);
+					zend_hash_update(symtable1, escaped_index, index_len+1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
+					efree(escaped_index);
+				} else {
+					zend_hash_update(symtable1, index, index_len+1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
+				}
 			}
 			break;
 		}
-	}
-
-	if (top_gpc_p) {
-		if (symtable2) {
-			zend_hash_update(symtable2, var, var_len+1, top_gpc_p, sizeof(zval *), NULL);
-			(*top_gpc_p)->refcount++;
-		}	
 	}
 }
 

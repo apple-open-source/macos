@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: filepro.c,v 1.1.1.8 2003/07/18 18:07:32 zarzycki Exp $ */
+/* $Id: filepro.c,v 1.47.2.2 2003/08/28 20:01:26 iliaa Exp $ */
 
 /*
   filePro 4.x support developed by Chad Robinson, chadr@brttech.com
@@ -386,7 +386,7 @@ PHP_FUNCTION(filepro_fieldname)
 	}
 
 	php_error(E_WARNING,
-				"%s(): Unable to locate field number %d.", get_active_function_name(TSRMLS_C),
+				"%s(): Unable to locate field number %ld.", get_active_function_name(TSRMLS_C),
 				Z_LVAL_P(fno));
 
 	RETVAL_FALSE;
@@ -426,7 +426,7 @@ PHP_FUNCTION(filepro_fieldtype)
 		}
 	}
 	php_error(E_WARNING,
-				"%s(): Unable to locate field number %d.", get_active_function_name(TSRMLS_C),
+				"%s(): Unable to locate field number %ld.", get_active_function_name(TSRMLS_C),
 				Z_LVAL_P(fno));
 	RETVAL_FALSE;
 }
@@ -465,7 +465,7 @@ PHP_FUNCTION(filepro_fieldwidth)
 		}
 	}
 	php_error(E_WARNING,
-				"%s(): Unable to locate field number %d.", get_active_function_name(TSRMLS_C),
+				"%s(): Unable to locate field number %ld.", get_active_function_name(TSRMLS_C),
 				Z_LVAL_P(fno));
 	RETVAL_FALSE;
 }

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.3 2003/03/11 01:09:20 zarzycki Exp $
+dnl $Id: config.m4,v 1.4 2002/03/12 16:47:14 sas Exp $
 dnl
 
 AC_MSG_CHECKING(for Hyperwave support)

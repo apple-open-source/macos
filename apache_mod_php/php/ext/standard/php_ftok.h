@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_ftok.h,v 1.1.1.3 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: php_ftok.h,v 1.5.2.1 2002/12/31 16:35:33 sebastian Exp $ */
 
 #ifndef PHP_FTOK_H
 #define PHP_FTOK_H

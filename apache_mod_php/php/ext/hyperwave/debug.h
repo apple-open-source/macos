@@ -4,22 +4,19 @@
 *              All rights reserved.
 *
 * Filename:    $RCSfile: debug.h,v $
-* Version:    $Revision: 1.1.1.3 $
+* Version:    $Revision: 1.3 $
 *
 * Language:    ANSI C
 * Environment:  any
 *
 * Description:  General header file for portable code.
 *
-* $Id: debug.h,v 1.1.1.3 2001/12/14 22:12:22 zarzycki Exp $
+* $Id: debug.h,v 1.3 2001/08/11 16:38:30 zeev Exp $
 *
 * Revision History:
 * -----------------
 *
 * $Log: debug.h,v $
-* Revision 1.1.1.3  2001/12/14 22:12:22  zarzycki
-* Import of php-4.1
-*
 * Revision 1.3  2001/08/11 16:38:30  zeev
 * Whitespace
 *

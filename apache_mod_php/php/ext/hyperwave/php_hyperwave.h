@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_hyperwave.h,v 1.1.1.7 2003/07/18 18:07:33 zarzycki Exp $ */
+/* $Id: php_hyperwave.h,v 1.18.8.1 2002/12/31 16:34:42 sebastian Exp $ */
 
 #ifndef PHP_HYPERWAVE_H
 #define PHP_HYPERWAVE_H

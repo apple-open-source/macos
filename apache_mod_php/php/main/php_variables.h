@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_variables.h,v 1.1.1.8 2003/07/18 18:07:49 zarzycki Exp $ */
+/* $Id: php_variables.h,v 1.14.2.1 2002/12/31 16:26:23 sebastian Exp $ */
 
 #ifndef PHP_VARIABLES_H
 #define PHP_VARIABLES_H

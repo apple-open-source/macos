@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.3 2003/03/11 01:09:34 zarzycki Exp $
+dnl $Id: config.m4,v 1.5 2002/03/12 16:37:01 sas Exp $
 dnl
 
 PHP_ARG_ENABLE(sysvshm,whether to enable System V shared memory support,

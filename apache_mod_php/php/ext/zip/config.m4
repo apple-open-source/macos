@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.3 2003/03/11 01:09:35 zarzycki Exp $
+dnl $Id: config.m4,v 1.5.2.1 2002/12/09 18:28:03 wez Exp $
 dnl 
 
 PHP_ARG_WITH(zip,for ZIP support, 

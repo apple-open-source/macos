@@ -47,6 +47,7 @@
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOWorkLoop.h>
+#include <IOKit/IOPlatformExpert.h>
 #include <IOKit/hidsystem/IOHIDevice.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
 #include <IOKit/hidsystem/IOHIDSystem.h>
@@ -255,14 +256,6 @@ static void notifyHIDevices(IOService *service, OSArray *hiDevices, UInt32 type)
             keyboard->IOHIKeyboard::message(kIOHIDSystem508MouseClickMessage, service);
     }
 }
-
-extern "C" { 
-    void Debugger( const char * ); 
-    void boot(int paniced, int howto, char * command);
-#define RB_BOOT        1    /* Causes reboot, not halt.  Is in xnu/bsd/sys/reboot.h */
-
-}
-
 
 #define super IOService
 OSDefineMetaClassAndStructors(IOHIDSystem, IOService);
@@ -2306,28 +2299,34 @@ void IOHIDSystem::absolutePointerEventGated(int        buttons,
 }
 
 void IOHIDSystem::_scrollWheelEvent(IOHIDSystem * self,
-                                    short    deltaAxis1,
-                                    short    deltaAxis2,
-                                    short    deltaAxis3,
+                                    short	deltaAxis1,
+                                    short	deltaAxis2,
+                                    short	deltaAxis3,
+                                    IOFixed fixedDelta1,
+                                    IOFixed fixedDelta2,
+                                    IOFixed fixedDelta3,
                  /* atTime */       AbsoluteTime ts,
                                     OSObject * sender,
                                     void *     refcon)
 {
-        self->scrollWheelEvent(deltaAxis1, deltaAxis2, deltaAxis3, ts, sender);
+        self->scrollWheelEvent(deltaAxis1, deltaAxis2, deltaAxis3, fixedDelta1, fixedDelta2, fixedDelta3, ts, sender);
 }
 
-void IOHIDSystem::scrollWheelEvent(short    deltaAxis1,
-                                   short    deltaAxis2,
-                                   short    deltaAxis3,
+void IOHIDSystem::scrollWheelEvent(short	deltaAxis1,
+                                   short	deltaAxis2,
+                                   short	deltaAxis3,
                     /* atTime */   AbsoluteTime ts)
 
 {
-    scrollWheelEvent(deltaAxis1, deltaAxis2, deltaAxis3, ts, 0);
+    scrollWheelEvent(deltaAxis1, deltaAxis2, deltaAxis3, deltaAxis1<<16, deltaAxis2<<16, deltaAxis3<<16, ts, 0);
 }
 
-void IOHIDSystem::scrollWheelEvent(short    deltaAxis1,
-                                   short    deltaAxis2,
-                                   short    deltaAxis3,
+void IOHIDSystem::scrollWheelEvent(short	deltaAxis1,
+                                   short	deltaAxis2,
+                                   short	deltaAxis3,
+                                   IOFixed  fixedDelta1,
+                                   IOFixed  fixedDelta2,
+                                   IOFixed  fixedDelta3,
                     /* atTime */   AbsoluteTime ts,
                                     OSObject *  sender)
 
@@ -2337,8 +2336,11 @@ void IOHIDSystem::scrollWheelEvent(short    deltaAxis1,
     args.arg0 = &deltaAxis1;
     args.arg1 = &deltaAxis2;
     args.arg2 = &deltaAxis3;
-    args.arg3 = &ts;
-    args.arg4 = sender;
+    args.arg3 = &fixedDelta1;
+    args.arg4 = &fixedDelta2;
+    args.arg5 = &fixedDelta3;
+    args.arg6 = &ts;
+    args.arg7 = sender;
 
     cmdGate->runAction((IOCommandGate::Action)doScrollWheelEvent, (void *)&args);
 }
@@ -2349,18 +2351,24 @@ IOReturn IOHIDSystem::doScrollWheelEvent(IOHIDSystem *self, void * args)
     short deltaAxis1 = *(short *)((IOHIDCmdGateActionArgs *)args)->arg0;
     short deltaAxis2 = *(short *)((IOHIDCmdGateActionArgs *)args)->arg1;
     short deltaAxis3 = *(short *)((IOHIDCmdGateActionArgs *)args)->arg2;
-    AbsoluteTime ts  = *(AbsoluteTime *)((IOHIDCmdGateActionArgs *)args)->arg3;
-    OSObject * sender= (OSObject *)((IOHIDCmdGateActionArgs *)args)->arg4;
+    IOFixed  fixedDelta1 = *(IOFixed *)((IOHIDCmdGateActionArgs *)args)->arg3;
+    IOFixed  fixedDelta2 = *(IOFixed *)((IOHIDCmdGateActionArgs *)args)->arg4;
+    IOFixed  fixedDelta3 = *(IOFixed *)((IOHIDCmdGateActionArgs *)args)->arg5;
+    AbsoluteTime ts  = *(AbsoluteTime *)((IOHIDCmdGateActionArgs *)args)->arg6;
+    OSObject * sender= (OSObject *)((IOHIDCmdGateActionArgs *)args)->arg7;
     
-    self->scrollWheelEventGated(deltaAxis1, deltaAxis2, deltaAxis3, ts, sender);
+    self->scrollWheelEventGated(deltaAxis1, deltaAxis2, deltaAxis3, fixedDelta1, fixedDelta2, fixedDelta3, ts, sender);
     
     return kIOReturnSuccess;
 }
 
-void IOHIDSystem::scrollWheelEventGated(short    deltaAxis1,
-                                        short    deltaAxis2,
-                                        short    deltaAxis3,
-                        /* atTime */       AbsoluteTime ts,
+void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
+                                        short	deltaAxis2,
+                                        short	deltaAxis3,
+                                       IOFixed  fixedDelta1,
+                                       IOFixed  fixedDelta2,
+                                       IOFixed  fixedDelta3,
+                        /* atTime */   	AbsoluteTime ts,
                                         OSObject * sender)
 {
     NXEventData wheelData;
@@ -2381,7 +2389,10 @@ void IOHIDSystem::scrollWheelEventGated(short    deltaAxis1,
     wheelData.scrollWheel.deltaAxis1 = deltaAxis1;
     wheelData.scrollWheel.deltaAxis2 = deltaAxis2;
     wheelData.scrollWheel.deltaAxis3 = deltaAxis3;
-    
+    wheelData.scrollWheel.fixedDeltaAxis1 = fixedDelta1;
+    wheelData.scrollWheel.fixedDeltaAxis2 = fixedDelta2;
+    wheelData.scrollWheel.fixedDeltaAxis3 = fixedDelta3;
+        
     postEvent(             NX_SCROLLWHEELMOVED,
             /* at */       (Point *)&evg->cursorLoc,
             /* atTime */   ts,
@@ -2872,7 +2883,7 @@ void IOHIDSystem::keyboardSpecialEventGated(
                     !(evg->eventFlags & NX_SHIFTMASK)   && 
                     !(evg->eventFlags & NX_ALTERNATEMASK))
                 {
-                    boot( RB_BOOT, 0, 0 );  //call to xnu/bsd/kern/kern_shutdown.c
+                    PEHaltRestart(kPERestartCPU);
                 }
                 
                 outData.compound.subType = NX_SUBTYPE_POWER_KEY;

@@ -15,7 +15,7 @@
    | Authors: Alexander Feldman                                           |
    +----------------------------------------------------------------------+
  */
-/* $Id: crack.c,v 1.1.1.4 2003/07/18 18:07:30 zarzycki Exp $ */
+/* $Id: crack.c,v 1.18.8.3 2004/01/04 20:01:07 iliaa Exp $ */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -28,6 +28,9 @@
 #if HAVE_CRACK
 
 #include <packer.h>
+
+extern char * FascistLook(PWDICT *pwp, char *instring);
+extern int PWClose(PWDICT *pwp);
 
 ZEND_DECLARE_MODULE_GLOBALS(crack)
 
@@ -69,11 +72,16 @@ long _crack_open_dict(char *dictpath TSRMLS_DC)
 	long resource;
 
 	if (CRACKG(current_id) != -1) {
-		zend_error(E_WARNING, "Can not use more than one open dictionary with this implementation of libcrack");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can not use more than one open dictionary with this implementation of libcrack");
 		return -1;
 	}
+
+	if ((PG(safe_mode) && (!php_checkuid(dictpath, NULL, CHECKUID_CHECK_FILE_AND_DIR))) || php_check_open_basedir(dictpath TSRMLS_CC)) {
+		return -1;
+	}
+
 	if (NULL == (pwdict = PWOpen(dictpath, "r"))) {
-		zend_error(E_WARNING, "Unable to open a crack dictionary");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to open a crack dictionary");
 		return -1;
 	}
 
@@ -140,7 +148,7 @@ ZEND_MODULE_INFO_D(crack)
 	DISPLAY_INI_ENTRIES();
 }
 
-/* {{{ proto string crack_opendict(string dictionary)
+/* {{{ proto resource crack_opendict(string dictionary)
    Opens a new cracklib dictionary */
 ZEND_FUNCTION(crack_opendict)
 {
@@ -156,12 +164,12 @@ ZEND_FUNCTION(crack_opendict)
 	if (-1 == (resource = _crack_open_dict(Z_STRVAL_PP(dictpath) TSRMLS_CC))) {
 		RETURN_FALSE;
 	}
-	
+
 	RETURN_RESOURCE(resource);
 }
 /* }}} */
 
-/* {{{ proto string crack_closedict([int link_identifier])
+/* {{{ proto bool crack_closedict([resource dictionary])
    Closes an open cracklib dictionary */
 ZEND_FUNCTION(crack_closedict)
 {
@@ -184,6 +192,10 @@ ZEND_FUNCTION(crack_closedict)
 			break;
 	}
 
+	if (id < 1) {
+		RETURN_FALSE;
+	}
+
 	ZEND_FETCH_RESOURCE(pwdict, PWDICT *, dictionary, id, "cracklib dictionary", le_crack);
 	if (CRACKG(current_id) == id) {
 		CRACKG(current_id) = -1;
@@ -194,7 +206,7 @@ ZEND_FUNCTION(crack_closedict)
 }
 /* }}} */
 
-/* {{{ proto string crack_check([int dictionary,] string password)
+/* {{{ proto bool crack_check([resource dictionary,] string password)
    Performs an obscure check with the given password */
 ZEND_FUNCTION(crack_check)
 {
@@ -218,7 +230,6 @@ ZEND_FUNCTION(crack_check)
 			if (zend_get_parameters_ex(2, &dictionary, &password) == FAILURE) {
 				RETURN_FALSE;
 			}
-			id = -1;
 			break;
 		default:
 			WRONG_PARAM_COUNT;
@@ -256,7 +267,7 @@ ZEND_FUNCTION(crack_getlastmessage)
 	}
 	
 	if (NULL == CRACKG(last_message)) {
-		zend_error(E_WARNING, "No obscure checks in this session");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "No obscure checks in this session");
 		RETURN_FALSE;
 	}
 

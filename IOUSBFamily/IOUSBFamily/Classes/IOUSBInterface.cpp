@@ -292,19 +292,40 @@ IOUSBInterface::CallSuperOpen(OSObject *target, void *param1, void *param2, void
     IOService *		forClient = (IOService *) param1;
     IOOptionBits 	options = (IOOptionBits ) param2;
     void *		arg = param3;
-
+    
     if (!me)
     {
         USBLog(1, "IOUSBInterface::CallSuperOpen - invalid target");
         return kIOReturnBadArgument;
     }
-
+    
     result = me->super::open(forClient, options, arg);
-
+    
     if (! result )
         ret = kIOReturnNoResources;
-
+    
     return ret;
+}
+
+
+IOReturn
+IOUSBInterface::CallSuperClose(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+    IOUSBInterface *	me = OSDynamicCast(IOUSBInterface, target);
+    bool		result;
+    IOReturn		ret = kIOReturnSuccess;
+    IOService *		forClient = (IOService *) param1;
+    IOOptionBits 	options = (IOOptionBits ) param2;
+    
+    if (!me)
+    {
+        USBLog(1, "IOUSBInterface::CallSuperClose - invalid target");
+        return kIOReturnBadArgument;
+    }
+    
+    me->super::close(forClient, options);
+ 
+    return kIOReturnSuccess;
 }
 
 
@@ -460,6 +481,37 @@ IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *ar
 
     USBLog(3, "-%s[%p]::handleOpen (device %s): successful", getName(), this, _device->getName());
     return true;
+}
+
+
+void 
+IOUSBInterface::close( IOService *forClient, IOOptionBits options)
+{
+    IOReturn	error = kIOReturnSuccess;
+    bool	useGate = false;
+    
+    // Check to see if we need to open the driver while holding the gate.  The USB Device Nub should
+    // have the kCallInterfaceOpenWithGate property set.
+    //
+    OSBoolean * boolObj = OSDynamicCast( OSBoolean, _device->getProperty(kCallInterfaceOpenWithGate) );
+    if ( boolObj && boolObj->isTrue() )
+    {
+        useGate = true;
+    }
+   
+    if ( _gate && useGate)
+    {
+        USBLog(3,"%+s[%p]::open calling super::close with gate", getName(), this);
+        (void) _gate->runAction( CallSuperClose, (void *)forClient, (void *)options);
+    }
+    else
+    {
+        USBLog(6,"%+s[%p]::close calling super::close with NO gate", getName(), this);
+        super::close(forClient, options);
+    }
+    
+    USBLog(3, "%s[%p]::close returns", getName(), this);
+    
 }
 
 

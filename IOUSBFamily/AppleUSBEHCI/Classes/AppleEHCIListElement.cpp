@@ -234,7 +234,7 @@ iTD has these possible status bits:
 
 
 IOReturn
-AppleEHCIIsochTransferDescriptor::UpdateFrameList(void)
+AppleEHCIIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 {
     UInt32 				*TransactionP, statusWord;
     IOUSBLowLatencyIsocFrame 		*FrameP;
@@ -248,11 +248,13 @@ AppleEHCIIsochTransferDescriptor::UpdateFrameList(void)
     for(i=0; i<8; i++)
     {
 	    statusWord = USBToHostLong(*(TransactionP++));
-	    frStatus = mungeEHCIStatus(statusWord, &FrameP->frActCount, 
-				    myEndpoint->maxPacketSize,  myEndpoint->direction);
+	    frStatus = mungeEHCIStatus(statusWord, &FrameP->frActCount,  myEndpoint->maxPacketSize,  myEndpoint->direction);
+	    if (lowLatency)
+		FrameP->frTimeStamp = timeStamp;
 	    
 	    if(frStatus != kIOReturnSuccess)
 	    {
+		    USBError(1, "AppleEHCIIsochTransferDescriptor::UpdateFrameList - bad status word %p gives status %p", statusWord, frStatus);
 		    if(frStatus != kIOReturnUnderrun)
 		    {
 			    ret = frStatus;
@@ -353,7 +355,7 @@ AppleEHCISplitIsochTransferDescriptor::GetPhysicalAddrWithType(void)
 
 
 IOReturn
-AppleEHCISplitIsochTransferDescriptor::UpdateFrameList(void)
+AppleEHCISplitIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 {
     UInt32					statFlags;
     IOUSBIsocFrame 				*pFrames;    
@@ -426,7 +428,7 @@ AppleEHCISplitIsochTransferDescriptor::UpdateFrameList(void)
     {
 	pLLFrames[frameIndex].frActCount = frActualCount;
 	pLLFrames[frameIndex].frStatus = frStatus;
-	clock_get_uptime(&pLLFrames[frameIndex].frTimeStamp);
+	pLLFrames[frameIndex].frTimeStamp = timeStamp;
     }
     else
     {

@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = AppleI2C ;
-export deferred SRCROOT = /Volumes/Data/sources/AppleI2CreduceDelay ;
+export deferred SRCROOT = /Network/Servers/madrid/Volumes/haza/townsle1/AppleI2C-344.0.1 ;
 
 # User-defined project-wide settings for project
 

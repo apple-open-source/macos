@@ -980,6 +980,38 @@ void AppleUSBCDCACMData::dataWriteComplete(void *obj, void *param, IOReturn rc, 
 
 /****************************************************************************************************/
 //
+//		Method:		AppleUSBCDCACMData::probe
+//
+//		Inputs:		provider - my provider
+//
+//		Outputs:	IOService - from super::probe, score - probe score
+//
+//		Desc:		Modify the probe score if necessary (we don't  at the moment)
+//
+/****************************************************************************************************/
+
+IOService* AppleUSBCDCACMData::probe( IOService *provider, SInt32 *score )
+{ 
+    IOService   *res;
+	
+		// If our IOUSBInterface has a "do not match" property, it means that we should not match and need 
+		// to bail.  See rdar://3716623
+    
+    OSBoolean *boolObj = OSDynamicCast(OSBoolean, provider->getProperty("kDoNotClassMatchThisInterface"));
+    if (boolObj && boolObj->isTrue())
+    {
+        ALERT(0, 0, "probe - provider doesn't want us to match");
+        return NULL;
+    }
+
+    res = super::probe(provider, score);
+    
+    return res;
+    
+}/* end probe */
+
+/****************************************************************************************************/
+//
 //		Method:		AppleUSBCDCACMData::start
 //
 //		Inputs:		provider - my provider
@@ -1033,16 +1065,6 @@ bool AppleUSBCDCACMData::start(IOService *provider)
     if(!fDataInterface)
     {
         ALERT(0, 0, "start - provider invalid");
-        return false;
-    }
-    
-    // If our IOUSBInterface has a "do not match" property, it means that we should not match and need 
-    // to bail.  See rdar://3716623
-    
-    OSBoolean * boolObj = OSDynamicCast( OSBoolean, provider->getProperty("kDoNotClassMatchThisInterface") );
-    if ( boolObj && boolObj->isTrue() )
-    {
-        ALERT(0, 0, "start - provider doesn't want us to match");
         return false;
     }
 
@@ -1870,12 +1892,12 @@ IOReturn AppleUSBCDCACMData::setStateGated(UInt32 state, UInt32 mask)
                 if (state & PD_RS232_S_DTR)
                 {
                     XTRACE(this, 0, 0, "setState - DTR TRUE");
-                    setControlLineState(false, true);
+                    setControlLineState(true, true);
                 } else {
                     if (!fTerminate)
                     {
                         XTRACE(this, 0, 0, "setState - DTR FALSE");
-                        setControlLineState(false, false);
+                        setControlLineState(true, false);
                     }
                 }
             }

@@ -16,7 +16,7 @@
    |          Jim Winstead <jimw@php.net>                                 |
    +----------------------------------------------------------------------+
  */
-/* $Id: fopen_wrappers.c,v 1.1.1.5 2003/07/18 18:07:47 zarzycki Exp $ */
+/* $Id: fopen_wrappers.c,v 1.153.2.9 2004/03/16 00:32:09 iliaa Exp $ */
 
 /* {{{ includes
  */
@@ -130,19 +130,21 @@ PHPAPI int php_check_specific_open_basedir(const char *basedir, const char *path
 
 	/* Resolve the real path into resolved_name */
 	if ((expand_filepath(path, resolved_name TSRMLS_CC) != NULL) && (expand_filepath(local_open_basedir, resolved_basedir TSRMLS_CC) != NULL)) {
-		/* Handler for basedirs that end with a / */		
-		if (basedir[strlen(basedir)-1] == PHP_DIR_SEPARATOR) {
-			resolved_basedir_len = strlen(resolved_basedir);
-			resolved_basedir[resolved_basedir_len] = '/';
-			resolved_basedir[++resolved_basedir_len] = '\0';
-		} else {
-			resolved_basedir_len = strlen(resolved_basedir);	
+		/* Handler for basedirs that end with a / */
+		resolved_basedir_len = strlen(resolved_basedir);
+		if (basedir[strlen(basedir) - 1] == PHP_DIR_SEPARATOR) {
+			if (resolved_basedir[resolved_basedir_len - 1] == '/') {
+				resolved_basedir[resolved_basedir_len - 1] = PHP_DIR_SEPARATOR;
+				resolved_basedir[++resolved_basedir_len] = '\0';
+			}
 		}
-		
+
 		if (path[strlen(path)-1] == PHP_DIR_SEPARATOR) {
 			resolved_name_len = strlen(resolved_name);
-			resolved_name[resolved_name_len] = '/';
-			resolved_name[++resolved_name_len] = '\0';
+			if (resolved_name[resolved_name_len - 1] != PHP_DIR_SEPARATOR) {
+				resolved_name[resolved_name_len] = PHP_DIR_SEPARATOR;
+				resolved_name[++resolved_name_len] = '\0';
+			}
 		}
 
 		/* Check the path */
@@ -163,9 +165,14 @@ PHPAPI int php_check_specific_open_basedir(const char *basedir, const char *path
 }
 /* }}} */
 
+PHPAPI int php_check_open_basedir(const char *path TSRMLS_DC)
+{
+	return php_check_open_basedir_ex(path, 1 TSRMLS_CC);
+}
+
 /* {{{ php_check_open_basedir
  */
-PHPAPI int php_check_open_basedir(const char *path TSRMLS_DC)
+PHPAPI int php_check_open_basedir_ex(const char *path, int warn TSRMLS_DC)
 {
 	/* Only check when open_basedir is available */
 	if (PG(open_basedir) && *PG(open_basedir)) {
@@ -191,8 +198,10 @@ PHPAPI int php_check_open_basedir(const char *path TSRMLS_DC)
 
 			ptr = end;
 		}
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, 
-			"open_basedir restriction in effect. File(%s) is not within the allowed path(s): (%s)", path, PG(open_basedir));
+		if (warn) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, 
+				"open_basedir restriction in effect. File(%s) is not within the allowed path(s): (%s)", path, PG(open_basedir));
+		}
 		efree(pathbuf);
 		errno = EPERM; /* we deny permission to open it */
 		return -1;
@@ -207,45 +216,44 @@ PHPAPI int php_check_open_basedir(const char *path TSRMLS_DC)
  */
 PHPAPI int php_check_safe_mode_include_dir(char *path TSRMLS_DC)
 {
-	/* Only check when safe_mode or open_basedir is on and safe_mode_include_dir is available */
-	if (((PG(open_basedir) && *PG(open_basedir)) || PG(safe_mode)) && 
-			PG(safe_mode_include_dir) && *PG(safe_mode_include_dir))
-	{
-		char *pathbuf;
-		char *ptr;
-		char *end;
-		char resolved_name[MAXPATHLEN];
+	if (PG(safe_mode)) {
+		if (PG(safe_mode_include_dir) && *PG(safe_mode_include_dir)) {
+			char *pathbuf;
+			char *ptr;
+			char *end;
+			char resolved_name[MAXPATHLEN];
 
-		/* Resolve the real path into resolved_name */
-		if (expand_filepath(path, resolved_name TSRMLS_CC) == NULL)
-			return -1;
+			/* Resolve the real path into resolved_name */
+			if (expand_filepath(path, resolved_name TSRMLS_CC) == NULL)
+				return -1;
 
-		pathbuf = estrdup(PG(safe_mode_include_dir));
+			pathbuf = estrdup(PG(safe_mode_include_dir));
 
-		ptr = pathbuf;
+			ptr = pathbuf;
 
-		while (ptr && *ptr) {
-			end = strchr(ptr, DEFAULT_DIR_SEPARATOR);
-			if (end != NULL) {
-				*end = '\0';
-				end++;
-			}
+			while (ptr && *ptr) {
+				end = strchr(ptr, DEFAULT_DIR_SEPARATOR);
+				if (end != NULL) {
+					*end = '\0';
+					end++;
+				}
 
-			/* Check the path */
+				/* Check the path */
 #ifdef PHP_WIN32
-			if (strncasecmp(ptr, resolved_name, strlen(ptr)) == 0)
+				if (strncasecmp(ptr, resolved_name, strlen(ptr)) == 0)
 #else
-			if (strncmp(ptr, resolved_name, strlen(ptr)) == 0)
+				if (strncmp(ptr, resolved_name, strlen(ptr)) == 0)
 #endif
-			{
-				/* File is in the right directory */
-				efree(pathbuf);
-				return 0;
-			}
+				{
+					/* File is in the right directory */
+					efree(pathbuf);
+					return 0;
+				}
 
-			ptr = end;
+				ptr = end;
+			}
+			efree(pathbuf);
 		}
-		efree(pathbuf);
 		return -1;
 	}
 

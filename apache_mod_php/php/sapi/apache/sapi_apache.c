@@ -19,7 +19,7 @@
    | Stig Bakken <ssb@fast.no>                                            |
    +----------------------------------------------------------------------+
  */
-/* $Id: sapi_apache.c,v 1.1.1.8 2003/07/18 18:07:50 zarzycki Exp $ */
+/* $Id: sapi_apache.c,v 1.40.4.5 2003/05/31 01:37:44 sniper Exp $ */
 
 #include "php_apache_http.h"
 
@@ -28,7 +28,7 @@
 int apache_php_module_main(request_rec *r, int display_source_mode TSRMLS_DC)
 {
 	int retval = OK;	
-	zend_file_handle file_handle;
+	zend_file_handle file_handle = {0};
 
 	if (php_request_startup(TSRMLS_C) == FAILURE) {
 		return FAILURE;

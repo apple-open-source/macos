@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: aggregation.c,v 1.1.1.3 2003/07/18 18:07:42 zarzycki Exp $ */
+/* $Id: aggregation.c,v 1.11.4.7 2003/08/01 02:17:31 iliaa Exp $ */
 
 #include "php.h"
 #include "basic_functions.h"
@@ -114,7 +114,7 @@ static void aggregate_methods(zend_class_entry *ce, zend_class_entry *from_ce, i
 
 			/* We do not aggregate:
 			 * 1. constructors */
-			if (!strncmp(func_name, from_ce->name, MIN(func_name_len-1, from_ce->name_length)) ||
+			if (!strncmp(func_name, from_ce->name, MAX(func_name_len-1, from_ce->name_length)) ||
 			/* 2. private methods (heh, like we really have them) */
 				func_name[0] == '_' ||
 			/* 3. explicitly excluded methods */
@@ -134,7 +134,7 @@ static void aggregate_methods(zend_class_entry *ce, zend_class_entry *from_ce, i
 			 */
 			if (zend_hash_add(&ce->function_table, func_name, func_name_len,
 							  (void*)function, sizeof(zend_function), NULL) == SUCCESS) {
-
+				function_add_ref(function);
 				add_next_index_stringl(aggr_methods, func_name, func_name_len-1, 1);
 			}
 
@@ -155,6 +155,7 @@ static void aggregate_methods(zend_class_entry *ce, zend_class_entry *from_ce, i
 
 			if (zend_hash_add(&ce->function_table, func_name, func_name_len,
 							  (void*)function, sizeof(zend_function), NULL) == SUCCESS) {
+				function_add_ref(function);
 				add_next_index_stringl(aggr_methods, func_name, func_name_len-1, 1);
 			}
 
@@ -402,8 +403,6 @@ static void aggregate(INTERNAL_FUNCTION_PARAMETERS, int aggr_what, int aggr_type
 		 * and stuff this where it belongs so we don't have to work so hard next
 		 * time.
 		 */
-		/* OBJECT FIXME!! won't work with non-standard objects */
-		(Z_OBJ_P(obj))->ce = new_ce;
 		aggr_info_new.new_ce = new_ce;
 		MAKE_STD_ZVAL(aggr_info_new.aggr_members);
 		array_init(aggr_info_new.aggr_members);
@@ -417,6 +416,9 @@ static void aggregate(INTERNAL_FUNCTION_PARAMETERS, int aggr_what, int aggr_type
 		 */
 		new_ce = aggr_info->new_ce;
 	}
+
+	/* OBJECT FIXME!! won't work with non-standard objects */
+	(Z_OBJ_P(obj))->ce = new_ce;
 
 	/*
 	 * This should be easy to understand. If not, ask Rasmus about it at his

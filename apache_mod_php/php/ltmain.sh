@@ -1050,10 +1050,6 @@ compiler."
 	    # These systems don't actually have a C or math library (as such)
 	    continue
 	    ;;
-	  *-*-rhapsody*)
-	    # Rhapsody C library is in the System framework
-	    deplibs="$deplibs -framework System"
-	    ;;
 	  *-*-mingw* | *-*-os2*)
 	    # These systems don't actually have a C library (as such)
 	    test "X$arg" = "X-lc" && continue
@@ -2181,18 +2177,6 @@ compiler."
 	fi
 	;;
       esac
-
-      output_objdir=`$echo "X$output" | $Xsed -e 's%/[^/]*$%%'`
-      if test "X$output_objdir" = "X$output"; then
-	output_objdir="$objdir"
-      else
-	output_objdir="$output_objdir/$objdir"
-      fi
-
-      if test -n "$objs"; then
-	$echo "$modename: cannot build libtool library \`$output' from non-libtool objects:$objs" 2>&1
-	exit 1
-      fi
 
       if test -n "$objs"; then
 	if test "$deplibs_check_method" != pass_all; then

@@ -91,6 +91,14 @@ extern const OSSymbol * gIOPPluginThermalValidConfigsKey;
 extern const OSSymbol * gIOPPluginThermalMetaStatesKey;
 extern const OSSymbol * gIOPPluginPlatformID;
 
+// These are currently portable only
+extern const OSSymbol * gIOPPluginEnvUserPowerAuto;
+extern const OSSymbol * gIOPPluginEnvACPresent;
+extern const OSSymbol * gIOPPluginEnvBatteryPresent;
+extern const OSSymbol * gIOPPluginEnvBatteryOvercurrent;
+extern const OSSymbol * gIOPPluginEnvClamshellClosed;
+extern const OSSymbol * gIOPPluginEnvPowerStatus;
+
 extern const OSNumber * gIOPPluginZero;
 extern const OSNumber * gIOPPluginOne;
 extern const OSNumber * gIOPPluginTwo;

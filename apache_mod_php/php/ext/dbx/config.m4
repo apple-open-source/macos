@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.3 2003/03/11 01:09:18 zarzycki Exp $
+dnl $Id: config.m4,v 1.3 2002/03/12 16:14:37 sas Exp $
 dnl
 
 PHP_ARG_ENABLE(dbx,whether to enable dbx support,

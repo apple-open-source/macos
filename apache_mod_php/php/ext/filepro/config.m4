@@ -1,8 +1,6 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.3 2003/03/11 01:09:19 zarzycki Exp $
+dnl $Id: config.m4,v 1.6.4.1 2003/10/03 05:25:34 sniper Exp $
 dnl
-
-AC_ARG_WITH(filepro,[],[enable_filepro=$withval])
 
 PHP_ARG_ENABLE(filepro,whether to enable the bundled filePro support,
 [  --enable-filepro        Enable the bundled read-only filePro support.])

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: fdf.c,v 1.1.1.8 2003/07/18 18:07:32 zarzycki Exp $ */
+/* $Id: fdf.c,v 1.66.2.13 2004/11/08 04:55:14 iliaa Exp $ */
 
 /* FdfTk lib 2.0 is a Complete C/C++ FDF Toolkit available from
    http://beta1.adobe.com/ada/acrosdk/forms.html. */
@@ -38,6 +38,10 @@
 #include "php_open_temporary_file.h"
 #include "php_variables.h"
 #include "php_fdf.h"
+
+#ifndef S_ISDIR
+#define S_ISDIR(m) (((m) & _S_IFDIR) == _S_IFDIR)
+#endif
 
 static int le_fdf;
 
@@ -378,13 +382,12 @@ PHP_FUNCTION(fdf_get_value)
 			} 
 			which++;
 		} while (err == FDFErcOK);
-		if(err == FDFErcNoValue) err = FDFErcOK;
 		efree(buffer); 
 		buffer = NULL;
 #endif
 	}
 
-	if(err != FDFErcOK) {
+	if ((err != FDFErcOK) && (err != FDFErcNoValue)) {
 		if(buffer) efree(buffer);
 		FDF_FAILURE(err);
 	}
@@ -718,6 +721,10 @@ PHP_FUNCTION(fdf_set_file)
 		return;
 	}
 
+	if (php_check_open_basedir(filename TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(filename, "wb+", CHECKUID_CHECK_MODE_PARAM))) {
+		RETURN_FALSE;
+	}
+
 	ZEND_FETCH_RESOURCE(fdf, FDFDoc *, &r_fdf, -1, "fdf", le_fdf);
 
 	err = FDFSetFile(fdf, filename);
@@ -860,7 +867,10 @@ PHP_FUNCTION(fdf_save_string)
 				struct stat stat;
 				char *buf;
 
-				fstat(fileno(fp), &stat);
+				if (fstat(fileno(fp), &stat) == -1) {
+					RETVAL_FALSE;
+					goto err;
+				}
 				buf = emalloc(stat.st_size +1);
 				fread(buf, stat.st_size, 1, fp);
 				buf[stat.st_size] = '\0';
@@ -878,7 +888,7 @@ PHP_FUNCTION(fdf_save_string)
 	if(err != FDFErcOK) {
 		FDF_FAILURE(err);
 	}
-
+err:
 	if(temp_filename) {
 		unlink(temp_filename);
 		efree(temp_filename);
@@ -1477,6 +1487,10 @@ PHP_FUNCTION(fdf_get_attachment) {
 	}
 	
 	ZEND_FETCH_RESOURCE(fdf, FDFDoc *, &r_fdf, -1, "fdf", le_fdf);
+
+	if (php_check_open_basedir(savepath TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(savepath, "wb+", CHECKUID_CHECK_MODE_PARAM))) {
+		RETURN_FALSE;
+	}
 
 	strncpy(pathbuf	, savepath, MAXPATHLEN-1);
 	pathbuf[MAXPATHLEN-1] = '\0';

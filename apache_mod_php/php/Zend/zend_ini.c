@@ -25,6 +25,7 @@
 #include "zend_ini.h"
 #include "zend_alloc.h"
 #include "zend_operators.h"
+#include "zend_strtod.h"
 
 static HashTable *registered_zend_ini_directives; 
 
@@ -78,6 +79,8 @@ ZEND_API int zend_ini_startup(TSRMLS_D)
 ZEND_API int zend_ini_shutdown(TSRMLS_D)
 {
 	zend_hash_destroy(EG(ini_directives));
+	free(EG(ini_directives));
+	
 	return SUCCESS;
 }
 
@@ -139,10 +142,25 @@ ZEND_API int zend_register_ini_entries(zend_ini_entry *ini_entry, int module_num
 	zend_ini_entry *p = ini_entry;
 	zend_ini_entry *hashed_ini_entry;
 	zval default_value;
+	HashTable *directives = registered_zend_ini_directives;
+
+#ifdef ZTS
+	/* if we are called during the request, eg: from dl(),
+	 * then we should not touch the global directives table,
+	 * and should update the per-(request|thread) version instead.
+	 * This solves two problems: one is that ini entries for dl()'d
+	 * extensions will now work, and the second is that updating the
+	 * global hash here from dl() is not mutex protected and can
+	 * lead to death.
+	 */
+	if (directives != EG(ini_directives)) {
+		directives = EG(ini_directives);
+	}
+#endif
 
 	while (p->name) {
 		p->module_number = module_number;
-		if (zend_hash_add(registered_zend_ini_directives, p->name, p->name_length, p, sizeof(zend_ini_entry), (void **) &hashed_ini_entry)==FAILURE) {
+		if (zend_hash_add(directives, p->name, p->name_length, p, sizeof(zend_ini_entry), (void **) &hashed_ini_entry)==FAILURE) {
 			zend_unregister_ini_entries(module_number TSRMLS_CC);
 			return FAILURE;
 		}
@@ -275,9 +293,9 @@ ZEND_API double zend_ini_double(char *name, uint name_length, int orig)
 
 	if (zend_hash_find(EG(ini_directives), name, name_length, (void **) &ini_entry)==SUCCESS) {
 		if (orig && ini_entry->modified) {
-			return (double) (ini_entry->orig_value ? strtod(ini_entry->orig_value, NULL) : 0.0);
+			return (double) (ini_entry->orig_value ? zend_strtod(ini_entry->orig_value, NULL) : 0.0);
 		} else if (ini_entry->value) {
-			return (double) strtod(ini_entry->value, NULL);
+			return (double) zend_strtod(ini_entry->value, NULL);
 		}
 	}
 
@@ -463,7 +481,7 @@ ZEND_API ZEND_INI_MH(OnUpdateReal)
 
 	p = (double *) (base+(size_t) mh_arg1);
 
-	*p = strtod(new_value, NULL);
+	*p = zend_strtod(new_value, NULL);
 	return SUCCESS;
 }
 

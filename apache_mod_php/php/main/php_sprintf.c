@@ -16,15 +16,13 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sprintf.c,v 1.1.1.6 2003/07/18 18:07:48 zarzycki Exp $ */
+/* $Id: php_sprintf.c,v 1.12.8.4 2004/11/15 23:27:26 fmk Exp $ */
 
 #include <stdio.h>
 #include <stdarg.h>
-#include "php_config.h"
+#include "php.h"
 
-#if PHP_BROKEN_SPRINTF
-
-int
+PHPAPI int
 php_sprintf (char*s, const char* format, ...)
 {
   va_list args;
@@ -38,8 +36,6 @@ php_sprintf (char*s, const char* format, ...)
     return -1;
   return strlen (s);
 }
-
-#endif /* PHP_BROKEN_SPRINTF */
 
 /*
  * Local variables:

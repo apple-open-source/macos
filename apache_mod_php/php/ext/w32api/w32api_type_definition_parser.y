@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: w32api_type_definition_parser.y,v 1.1.1.1 2003/03/11 01:09:34 zarzycki Exp $ */
+/* $Id: w32api_type_definition_parser.y,v 1.1.2.1 2002/11/27 00:40:03 fmk Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,4 +1,4 @@
-dnl     $Id: acinclude.m4,v 1.1.1.1 2003/03/11 01:09:38 zarzycki Exp $
+dnl     $Id: acinclude.m4,v 1.1.2.2 2002/12/02 05:25:55 shane Exp $
 
 AC_DEFUN(FCGI_COMMON_CHECKS, [
     AC_MSG_CHECKING([for sun_len in sys/un.h])
@@ -101,7 +101,7 @@ dnl (with help from M. Frigo), as well as ac_pthread and hb_pthread
 dnl macros posted by AFC to the autoconf macro repository.  We are also
 dnl grateful for the helpful feedback of numerous users.
 dnl
-dnl @version $Id: acinclude.m4,v 1.1.1.1 2003/03/11 01:09:38 zarzycki Exp $
+dnl @version $Id: acinclude.m4,v 1.1.2.2 2002/12/02 05:25:55 shane Exp $
 dnl @author Steven G. Johnson <stevenj@alum.mit.edu> and Alejandro Forero Cuervo <bachue@bachue.com>
 
 AC_DEFUN([ACX_PTHREAD], [
@@ -302,7 +302,7 @@ dnl Currently this macro knows about GCC, Solaris C compiler,
 dnl Digital Unix C compiler, C for AIX Compiler, HP-UX C compiler,
 dnl and IRIX C compiler.
 dnl
-dnl @version $Id: acinclude.m4,v 1.1.1.1 2003/03/11 01:09:38 zarzycki Exp $
+dnl @version $Id: acinclude.m4,v 1.1.2.2 2002/12/02 05:25:55 shane Exp $
 dnl @author Ville Laurikari <vl@iki.fi>
 dnl
 AC_DEFUN([AC_PROG_CC_WARNINGS], [

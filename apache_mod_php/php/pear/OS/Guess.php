@@ -5,10 +5,10 @@
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997-2003 The PHP Group                                |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.02 of the PHP license,      |
+// | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
-// | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_02.txt.                                 |
+// | available through the world-wide-web at the following url:           |
+// | http://www.php.net/license/3_0.txt.                                  |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -17,7 +17,7 @@
 // |                                                                      |
 // +----------------------------------------------------------------------+
 //
-// $Id: Guess.php,v 1.1.1.2 2003/07/18 18:07:49 zarzycki Exp $
+// $Id: Guess.php,v 1.3.6.10 2003/10/24 05:34:16 cellog Exp $
 
 // {{{ uname examples
 
@@ -167,7 +167,7 @@ class OS_Guess
         $cpp = popen("/usr/bin/cpp $tmpfile", "r");
         $major = $minor = 0;
         while ($line = fgets($cpp, 1024)) {
-            if ($line{0} == '#') {
+            if ($line{0} == '#' || trim($line) == '') {
                 continue;
             }
             if (list($major, $minor) = explode(' ', trim($line))) {
@@ -176,7 +176,7 @@ class OS_Guess
         }
         pclose($cpp);
         unlink($tmpfile);
-        if (!($major && $minor) && file_exists('/lib/libc.so.6')) {
+        if (!($major && $minor) && is_link('/lib/libc.so.6')) {
             // Let's try reading the libc.so.6 symlink
             if (ereg('^libc-([.*])\.so$', basename(readlink('/lib/libc.so.6')), $matches)) {
                 list($major, $minor) = explode('.', $matches);

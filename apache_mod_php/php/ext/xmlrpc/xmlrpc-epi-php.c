@@ -51,6 +51,8 @@
    +----------------------------------------------------------------------+
  */
 
+/* $Id: xmlrpc-epi-php.c,v 1.24.2.4 2003/08/28 20:01:32 iliaa Exp $ */
+
 /**********************************************************************
 * BUGS:                                                               *
 *  - when calling a php user function, there appears to be no way to  *
@@ -828,7 +830,7 @@ PHP_FUNCTION(xmlrpc_server_create)
    }
 }
 
-/* {{{ proto void xmlrpc_server_destroy(handle server)
+/* {{{ proto int xmlrpc_server_destroy(handle server)
    Destroys server resources */
 PHP_FUNCTION(xmlrpc_server_destroy)
 {
@@ -929,7 +931,7 @@ static void php_xmlrpc_introspection_callback(XMLRPC_SERVER server, void* data)
             else {
                /* could not create description */
                if(err.xml_elem_error.parser_code) {
-                  zend_error(E_WARNING, "xml parse error: [line %i, column %i, message: %s] Unable to add introspection data returned from %s()", 
+                  zend_error(E_WARNING, "xml parse error: [line %ld, column %ld, message: %s] Unable to add introspection data returned from %s()", 
                              err.xml_elem_error.column, err.xml_elem_error.line, err.xml_elem_error.parser_error, Z_STRVAL_PP(php_function));
                }
                else {
@@ -1219,7 +1221,7 @@ PHP_FUNCTION(xmlrpc_parse_method_descriptions)
       else {
          /* could not create description */
          if(err.xml_elem_error.parser_code) {
-            zend_error(E_WARNING, "xml parse error: [line %i, column %i, message: %s] Unable to create introspection data", 
+            zend_error(E_WARNING, "xml parse error: [line %ld, column %ld, message: %s] Unable to create introspection data", 
                        err.xml_elem_error.column, err.xml_elem_error.line, err.xml_elem_error.parser_error);
          }
          else {
@@ -1478,7 +1480,7 @@ PHP_FUNCTION(xmlrpc_get_type)
    RETURN_STRING((char*) xmlrpc_type_as_str(type, vtype), 1);
 }
 
-/* {{{ proto string xmlrpc_is_fault(array)
+/* {{{ proto bool xmlrpc_is_fault(array)
    Determines if an array value represents an XMLRPC fault. */
 PHP_FUNCTION(xmlrpc_is_fault)
 {

@@ -155,6 +155,7 @@ typedef struct lookup_request_msg {
 	LUDictionary *loginUser;
 	char **agentNames;
 	char **dnsSearchList;
+	char **netAddrList;
 	char *portName;
 	id *agents;
 	int agentCount;
@@ -173,6 +174,7 @@ typedef struct lookup_request_msg {
 
 - (char *)portName;
 - (char **)dnsSearchList;
+- (char **)netAddrList;
 
 - (void)serverLoop;
 - (void)lookupdMessage;

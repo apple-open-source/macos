@@ -865,29 +865,30 @@ IOUSBController::DoLowLatencyIsocTransfer(OSObject *owner, void *cmd,
 IOReturn 
 IOUSBController::IsocTransaction(IOUSBIsocCommand *command)
 {
-    IOUSBIsocCompletion	completion;
-    IOReturn		err = kIOReturnSuccess;
+    IOUSBIsocCompletion		completion;
+    IOReturn				err = kIOReturnSuccess;
 
 
     completion.target 	 = (void *)this;
     completion.action 	 = (IOUSBIsocCompletionAction) &IOUSBController::IsocCompletionHandler;
     completion.parameter = (void *)command;
 
-    err = UIMCreateIsochTransfer(
-                command->GetAddress()	/*functionAddress*/,
-                command->GetEndpoint()	/*endpointNumber*/,
-                completion  		/*completion*/,
-		command->GetDirection()	/*direction*/,
-                command->GetStartFrame()/*Start frame */,
-                command->GetBuffer()	/*buffer*/,
-                command->GetNumFrames()	/*number of frames*/,
-                command->GetFrameList()	/*transfer for each frame*/);
+    err = UIMCreateIsochTransfer(   command->GetAddress(),		// functionAddress
+									command->GetEndpoint(),		// endpointNumber
+									completion,					// completion
+									command->GetDirection(),	// direction
+									command->GetStartFrame(),   // Start frame
+									command->GetBuffer(),		// buffer
+									command->GetNumFrames(),	// number of frames
+									command->GetFrameList()		// transfer for each frame
+									);
 
     if (err) {
         USBLog(3,"IsocTransaction: error queueing isoc transfer (0x%x)", err);
     }
     return(err);
 }
+
 
 
 IOReturn 
@@ -901,16 +902,15 @@ IOUSBController::LowLatencyIsocTransaction(IOUSBIsocCommand *command)
     completion.action 	 = (IOUSBIsocCompletionAction) &IOUSBController::IsocCompletionHandler;
     completion.parameter = (void *)command;
 
-    err = UIMCreateIsochTransfer(
-                command->GetAddress()		/*functionAddress*/,
-                command->GetEndpoint()		/*endpointNumber*/,
-                completion  			/*completion*/,
-		command->GetDirection()		/*direction*/,
-                command->GetStartFrame()	/*Start frame */,
-                command->GetBuffer()		/*buffer*/,
-                command->GetNumFrames()		/*number of frames*/,
-                (IOUSBLowLatencyIsocFrame *) command->GetFrameList()		/*transfer for each frame*/,
-                command->GetUpdateFrequency()	/* How often do we update frameList*/
+    err = UIMCreateIsochTransfer(   command->GetAddress(),									// functionAddress
+									command->GetEndpoint(),									// endpointNumber
+									completion,												// completion
+									command->GetDirection(),								// direction
+									command->GetStartFrame(),								// Start frame
+									command->GetBuffer(),									// buffer
+									command->GetNumFrames(),								// number of frames
+									(IOUSBLowLatencyIsocFrame *) command->GetFrameList(),   // transfer for each frame
+									command->GetUpdateFrequency()							// How often do we update frameList
                 );
 
     if (err) {
@@ -2090,13 +2090,12 @@ ErrorExit:
 // in AppleUSBOHCI_UIM.cpp
 OSMetaClassDefineReservedUsed(IOUSBController,  16);
 IOReturn 		
-IOUSBController::UIMCreateIsochTransfer(
-                                                        short			functionAddress,
+IOUSBController::UIMCreateIsochTransfer(	short						functionAddress,
                                                         short			endpointNumber,
                                                         IOUSBIsocCompletion	completion,
                                                         UInt8			direction,
                                                         UInt64			frameStart,
-                                                        IOMemoryDescriptor *	pBuffer,
+											IOMemoryDescriptor			*pBuffer,
                                                         UInt32			frameCount,
                                                         IOUSBLowLatencyIsocFrame *pFrames,
                                                         UInt32			updateFrequency)

@@ -9,99 +9,18 @@
 #ifndef __PLATFORMINTERFACE__
 #define	__PLATFORMINTERFACE__
  
-#include <IOKit/IOService.h>
-#include <IOKit/IOInterruptEventSource.h>
-#include "AudioHardwareConstants.h"
-#include <IOKit/ppc/IODBDMA.h>
+#include	<IOKit/IOService.h>
+#include	<IOKit/IOInterruptEventSource.h>
+#include	"AudioHardwareConstants.h"
+#include	<IOKit/ppc/IODBDMA.h>
 
-typedef enum {
-	kI2C_StandardMode 			= 0,
-	kI2C_StandardSubMode		= 1,
-	kI2C_CombinedMode			= 2
-} BusMode;
+#include	"PlatformInterfaceSupportCommon.h"
 
-typedef enum {
-	kI2S_18MHz 					= 0,
-	kI2S_45MHz					= 1,
-	kI2S_49MHz					= 2
-} I2SClockFrequency;
-
-//	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
-typedef enum GpioAttributes {
-	kGPIO_Disconnected			= 0,
-	kGPIO_Connected,
-	kGPIO_Unknown,
-	kGPIO_Muted,
-	kGPIO_Unmuted,
-	kGPIO_Reset,
-	kGPIO_Run,
-	kGPIO_MuxSelectDefault,
-	kGPIO_MuxSelectAlternate,
-	kGPIO_CodecInterruptActive,
-	kGPIO_CodecInterruptInactive,
-	kGPIO_CodecIRQEnable,
-	kGPIO_CodecIRQDisable,
-	kGPIO_TypeIsAnalog,
-	kGPIO_TypeIsDigital,
-	kGPIO_IsDefault,
-	kGPIO_IsAlternate
-};
-
-//	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
-typedef enum GPIOSelector {
-	kGPIO_Selector_AnalogCodecReset	= 0,
-	kGPIO_Selector_ClockMux,
-	kGPIO_Selector_CodecInterrupt,
-	kGPIO_Selector_CodecErrorInterrupt,
-	kGPIO_Selector_ComboInJackType,
-	kGPIO_Selector_ComboOutJackType,
-	kGPIO_Selector_DigitalCodecReset,
-	kGPIO_Selector_DigitalInDetect,
-	kGPIO_Selector_DigitalOutDetect,
-	kGPIO_Selector_HeadphoneDetect,
-	kGPIO_Selector_HeadphoneMute,
-	kGPIO_Selector_InputDataMux,
-	kGPIO_Selector_InternalSpeakerID,
-	kGPIO_Selector_LineInDetect,
-	kGPIO_Selector_LineOutDetect,
-	kGPIO_Selector_LineOutMute,
-	kGPIO_Selector_SpeakerDetect,
-	kGPIO_Selector_SpeakerMute,
-	kGPIO_Selector_ExternalMicDetect,
-	kGPIO_Selector_NotAssociated
-};
-
-//	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
-typedef enum GPIOType {
-	kGPIO_Type_ConnectorType = 0,
-	kGPIO_Type_Detect,
-	kGPIO_Type_Irq,
-	kGPIO_Type_MuteL,
-	kGPIO_Type_MuteH,
-	kGPIO_Type_Mux,
-	kGPIO_Type_Reset,
-};
-
-//	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
-typedef enum {
-	kCODEC_RESET_Analog			= 0,
-	kCODEC_RESET_Digital
-} CODEC_RESET;
-
-//	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
-typedef enum {
-	kUnknownInterrupt			= 0,
-	kCodecErrorInterrupt,
-	kCodecInterrupt,
-	kDigitalInDetectInterrupt,
-	kDigitalOutDetectInterrupt,
-	kHeadphoneDetectInterrupt,
-	kLineInputDetectInterrupt,
-	kLineOutputDetectInterrupt,
-	kSpeakerDetectInterrupt,
-	kComboInDetectInterrupt,
-	kComboOutDetectInterrupt
-} PlatformInterruptSource;
+#include	"PlatformInterfaceDBDMA.h"
+#include	"PlatformInterfaceFCR.h"
+#include	"PlatformInterfaceGPIO.h"
+#include	"PlatformInterfaceI2C.h"
+#include	"PlatformInterfaceI2S.h"
 
 //	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
 typedef enum PlatformInterfaceObjectType {
@@ -289,175 +208,210 @@ class AppleOnboardAudioUserClient;
 
 class PlatformInterface : public OSObject {
 
-    OSDeclareDefaultStructors(PlatformInterface);
+    OSDeclareDefaultStructors ( PlatformInterface );
 
 public:	
 
-	virtual bool			init(IOService* device, AppleOnboardAudio* provider, UInt32 inDBDMADeviceIndex);
-	virtual void			free (void);
-	virtual bool			registerInterrupts ( IOService * device );
-	virtual void			unregisterInterrupts ( void );
-	virtual void			poll ( void ) { return; }
-	virtual IOReturn		performPlatformSleep ( void ) { return kIOReturnError; }
-	virtual IOReturn		performPlatformWake ( IOService * device ) { return kIOReturnError; }
-	virtual	void			setWorkLoop(IOWorkLoop* inWorkLoop) {return;}					
+	virtual bool						init ( IOService* device, AppleOnboardAudio* provider, UInt32 inDBDMADeviceIndex, UInt32 supportSelectors );
+	virtual void						free ( void );
+	
+	//
+	// Power Management Support
+	//
+	
+	virtual IOReturn					performPowerStateChange ( IOService * device, UInt32 currentPowerState, UInt32 pendingPowerState );
+	
+	//
+	// Interrupt Support
+	//
+	
+	virtual void						checkDetectStatus ( IOService * device );
+	virtual	IOReturn					registerInterruptHandler ( IOService * theDevice, void * interruptHandler, PlatformInterruptSource source );
+	virtual	void						setWorkLoop ( IOWorkLoop* inWorkLoop );					
+	
+	virtual bool						registerDetectInterrupts ( IOService * device );
+	virtual void						threadedMemberRegisterDetectInterrupts (IOService * device );
+	static void							threadedRegisterDetectInterrupts ( PlatformInterface *self, IOService * device );
+	
+	virtual bool						registerNonDetectInterrupts ( IOService * device );
+	virtual void						threadedMemberRegisterNonDetectInterrupts (IOService * device );
+	static void							threadedRegisterNonDetectInterrupts ( PlatformInterface *self, IOService * device );
+	
+	virtual	IOReturn					unregisterInterruptHandler ( IOService * theDevice, void * interruptHandler, PlatformInterruptSource source );
+	
+	virtual void						unregisterDetectInterrupts ( void );
+	virtual void						unregisterNonDetectInterrupts ( void );
+	
+	//
+	// Interrupt Handler Methods
+	//
+	
+	static void							codecErrorInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
+	static void							codecInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
+	static void							comboInDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
+	static void							comboOutDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
+	static void							digitalInDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
+	static void							digitalOutDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
+	static void							headphoneDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
+	static void							lineInDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
+	static void							lineOutDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
+	virtual void						poll ( void );
+	static void							speakerDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
 
-	static void				threadedRegisterInterrupts (PlatformInterface *self, IOService * device);
-	virtual void			threadedMemberRegisterInterrupts (IOService * device);
-
+	
 	//
 	// Codec Methods
 	//
-	virtual bool			readCodecRegister(UInt8 address, UInt8 subAddress, UInt8 *data, UInt16 len, BusMode mode) {return false;}
-	virtual bool			writeCodecRegister(UInt8 address, UInt8 subAddress, UInt8 *data, UInt16 len, BusMode mode) {return false;}
-
-	virtual IOReturn		setCodecReset ( CODEC_RESET target, GpioAttributes reset ) { return kIOReturnError; }
-	virtual GpioAttributes	getCodecReset ( CODEC_RESET target ) { return kGPIO_Unknown; }
-	//
-	// I2S Methods: FCR3
-	//
-	virtual IOReturn		requestI2SClockSource(I2SClockFrequency inFrequency) {return kIOReturnError;}
-	virtual IOReturn		releaseI2SClockSource(I2SClockFrequency inFrequency) {return kIOReturnError;}
-	//
-	// I2S Methods: FCR1
-	//
-	virtual IOReturn		setI2SEnable(bool enable) {return kIOReturnError;}
-	virtual bool			getI2SEnable() {return false;}
-
-	virtual IOReturn		setI2SClockEnable(bool enable) {return kIOReturnError;}
-	virtual bool			getI2SClockEnable() {return false;}
-
-	virtual IOReturn		setI2SCellEnable(bool enable) {return kIOReturnError;}
-	virtual bool			getI2SCellEnable() {return false;}
 	
-	virtual IOReturn		setI2SSWReset(bool enable) {return kIOReturnError;}
-	virtual bool			getI2SSWReset() {return false;}
+	virtual IOReturn					readCodecRegister ( UInt32 codecRef, UInt8 subAddress, UInt8 *data, UInt32 dataLength ); 
+	virtual IOReturn					writeCodecRegister ( UInt32 codecRef, UInt8 subAddress, UInt8 *data, UInt32 dataLength ); 
+	virtual UInt32						getSavedMAP ( UInt32 codecRef );
+	virtual IOReturn					setMAP ( UInt32 codecRef, UInt8 subAddress );
+
+	//
+	// FCR Methods
+	//
+	
+	virtual bool						getI2SCellEnable ();
+	virtual bool						getI2SClockEnable ();
+	virtual bool						getI2SEnable ();
+	virtual bool						getI2SSWReset ();
+	
+	virtual IOReturn					releaseI2SClockSource ( I2SClockFrequency inFrequency );
+	virtual IOReturn					requestI2SClockSource ( I2SClockFrequency inFrequency );
+	
+	virtual IOReturn					setI2SCellEnable ( bool enable );
+	virtual IOReturn					setI2SClockEnable ( bool enable );
+	virtual IOReturn					setI2SEnable ( bool enable );
+	virtual IOReturn					setI2SSWReset ( bool enable );
+
 	//
 	// I2S Methods: IOM Control
 	//
-	virtual IOReturn		setSerialFormatRegister(UInt32 serialFormat) {return kIOReturnError;}
-	virtual UInt32			getSerialFormatRegister() {return 0;}
+	
+	virtual UInt32						getDataWordSizes ();
+	virtual UInt32						getFrameCount ();
+	virtual UInt32						getI2SIOM_CodecMsgIn ();
+	virtual UInt32						getI2SIOM_CodecMsgOut ();
+	virtual UInt32						getI2SIOM_FrameMatch ();
+	virtual UInt32						getI2SIOM_PeakLevelIn0 ();
+	virtual UInt32						getI2SIOM_PeakLevelIn1 ();
+	virtual UInt32						getI2SIOM_PeakLevelSel ();
+	virtual UInt32						getI2SIOMIntControl ();
+	virtual UInt32						getPeakLevel ( UInt32 channelTarget );
+	virtual UInt32						getSerialFormatRegister ();
 
-	virtual IOReturn		setDataWordSizes(UInt32 dataWordSizes) {return kIOReturnError;}
-	virtual UInt32			getDataWordSizes() {return 0;}
-	
-	virtual IOReturn		setFrameCount(UInt32 value) {return kIOReturnError;}
-	virtual UInt32			getFrameCount() {return 0;}
+	virtual IOReturn					setDataWordSizes ( UInt32 dataWordSizes );
+	virtual IOReturn					setFrameCount ( UInt32 value );
+	virtual IOReturn					setI2SIOM_CodecMsgIn ( UInt32 value );
+	virtual IOReturn					setI2SIOM_CodecMsgOut ( UInt32 value );
+	virtual IOReturn					setI2SIOM_FrameMatch ( UInt32 value );
+	virtual IOReturn					setI2SIOM_PeakLevelIn0 ( UInt32 value );
+	virtual IOReturn					setI2SIOM_PeakLevelIn1 ( UInt32 value );
+	virtual IOReturn					setI2SIOM_PeakLevelSel ( UInt32 value );
+	virtual IOReturn					setI2SIOMIntControl ( UInt32 intCntrl );
+	virtual IOReturn					setPeakLevel ( UInt32 channelTarget, UInt32 levelMeterValue );
+	virtual IOReturn					setSerialFormatRegister ( UInt32 serialFormat );
 
-	virtual IOReturn		setI2SIOMIntControl(UInt32 intCntrl) {return kIOReturnError;}
-	virtual UInt32			getI2SIOMIntControl() {return 0;}
-	
-	virtual IOReturn		setPeakLevel ( UInt32 channelTarget, UInt32 levelMeterValue ) { return kIOReturnError; }
-	virtual UInt32			getPeakLevel ( UInt32 channelTarget ) { return 0; }
-	
 	//
 	// GPIO Methods
 	//
-	GPIOSelector			getComboInAssociation ( void );										//	[3453799]
-	void					setAssociateComboInTo ( GPIOSelector theDetectInterruptGpio );		//	[3453799]
-	GPIOSelector			getComboOutAssociation ( void );									//	[3453799]
-	void					setAssociateComboOutTo ( GPIOSelector theDetectInterruptGpio );		//	[3453799]
-	
-	GpioAttributes			getComboIn ( void );												//	[3453799]
-	void					setComboIn ( GpioAttributes jackState );							//	[3453799]
-	GpioAttributes			getComboOut ( void );												//	[3453799]
-	void					setComboOut ( GpioAttributes jackState );							//	[3453799]
-	
-	virtual IOReturn		setClockMux(GpioAttributes muxState) { return kIOReturnError; }
-	virtual GpioAttributes	getClockMux() { return kGPIO_Unknown; }
 
-	virtual GpioAttributes	getCodecErrorInterrupt() {return kGPIO_Unknown;}
-
-	virtual GpioAttributes	getCodecInterrupt() {return kGPIO_Unknown;}
-
-	virtual	GpioAttributes	getComboInJackTypeConnected() {return kGPIO_Unknown;}			//	for combo digital/analog connector
-	virtual	GpioAttributes	getComboOutJackTypeConnected() {return kGPIO_Unknown;}		//	for combo digital/analog connector
-
-	virtual	GpioAttributes	getDigitalInConnected() {return kGPIO_Unknown;}
-	virtual	GpioAttributes	getDigitalOutConnected() {return kGPIO_Unknown;}
-
-	virtual GpioAttributes	getHeadphoneConnected() {return kGPIO_Unknown;}
-
-	virtual IOReturn 		setHeadphoneMuteState( GpioAttributes muteState ) {return kIOReturnError;}
-	virtual GpioAttributes 	getHeadphoneMuteState() {return kGPIO_Unknown;}
-	
-	virtual IOReturn		setInputDataMux(GpioAttributes muxState) { return kIOReturnError; }
-	virtual GpioAttributes	getInputDataMux() { return kGPIO_Unknown; }
-
-	virtual GpioAttributes	 getInternalSpeakerID() {return kGPIO_Unknown;}
-
-	virtual	GpioAttributes	getLineInConnected() {return kGPIO_Unknown;}
-	virtual	GpioAttributes	getLineOutConnected() {return kGPIO_Unknown;}
-
-	virtual IOReturn 		setLineOutMuteState( GpioAttributes muteState ) {return kIOReturnError;}
-	virtual GpioAttributes 	getLineOutMuteState() {return kGPIO_Unknown;}
-	
-	virtual GpioAttributes	getSpeakerConnected() {return kGPIO_Unknown;}
-
-	virtual IOReturn 		setSpeakerMuteState( GpioAttributes muteState ) {return kIOReturnError;}
-	virtual GpioAttributes 	getSpeakerMuteState() {return kGPIO_Unknown;}
-	
-	virtual void			enableAmplifierMuteRelease ( void );		//	[3514762]
-
-
-	static void				comboInDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
-	static void				comboOutDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
-	static void				headphoneDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
-	static void				speakerDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
-	static void				lineInDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
-	static void				lineOutDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
-	static void				digitalInDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
-	static void				digitalOutDetectInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
-	static void				codecInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
-	static void				codecErrorInterruptHandler ( OSObject *owner, IOInterruptEventSource *source, UInt32 count, void * arg4 );
-
-	virtual  void 			logFCR1() {return;}
-	virtual  void 			logFCR3() {return;}
-
-	//
-	// Set Interrupt Handler Methods
-	//
-	virtual	IOReturn		disableInterrupt ( PlatformInterruptSource source ) { return kIOReturnError; }
-	virtual	IOReturn		enableInterrupt ( PlatformInterruptSource source ) { return kIOReturnError; }
-	virtual	IOReturn		registerInterruptHandler (IOService * theDevice, void * interruptHandler, PlatformInterruptSource source ) { return kIOReturnError; }
-	virtual	IOReturn		unregisterInterruptHandler (IOService * theDevice, void * interruptHandler, PlatformInterruptSource source ) { return kIOReturnError; }
-	virtual void			checkDetectStatus ( IOService * device );
+	virtual	IOReturn					disableInterrupt ( IOService * device, PlatformInterruptSource source );
+	virtual void						enableAmplifierMuteRelease ( void );		//	[3514762]
+	virtual	IOReturn					enableInterrupt ( IOService * device, PlatformInterruptSource source );
+	virtual GpioAttributes				getClockMux ( );
+	virtual GpioAttributes				getCodecErrorInterrupt ();
+	virtual GpioAttributes				getCodecInterrupt ();
+	virtual GpioAttributes				getCodecReset ( CODEC_RESET target );
+	GpioAttributes						getComboIn ( void );												//	[3453799]
+	GPIOSelector						getComboInAssociation ( void );										//	[3453799]
+	virtual	GpioAttributes				getComboInJackTypeConnected ();										//	for combo digital/analog connector
+	GpioAttributes						getComboOut ( void );												//	[3453799]
+	GPIOSelector						getComboOutAssociation ( void );									//	[3453799]
+	virtual	GpioAttributes				getComboOutJackTypeConnected ();		//	for combo digital/analog connector
+	virtual	GpioAttributes				getDigitalInConnected ();
+	virtual	GpioAttributes				getDigitalOutConnected ();
+	virtual GpioAttributes				getHeadphoneConnected ();
+	virtual GpioAttributes 				getHeadphoneMuteState ();
+	virtual GpioAttributes				getInputDataMux ();
+	virtual GpioAttributes				getInternalSpeakerID ();
+	virtual	GpioAttributes				getLineInConnected ();
+	virtual	GpioAttributes				getLineOutConnected ();
+	virtual GpioAttributes 				getLineOutMuteState ();
+	virtual GpioAttributes				getSpeakerConnected ();
+	virtual GpioAttributes 				getSpeakerMuteState ();
+	void								setAssociateComboInTo ( GPIOSelector theDetectInterruptGpio );		//	[3453799]
+	void								setAssociateComboOutTo ( GPIOSelector theDetectInterruptGpio );		//	[3453799]
+	virtual IOReturn					setClockMux ( GpioAttributes muxState );
+	virtual IOReturn					setCodecReset ( CODEC_RESET target, GpioAttributes reset );
+	void								setComboIn ( GpioAttributes jackState );							//	[3453799]
+	void								setComboOut ( GpioAttributes jackState );							//	[3453799]
+	virtual IOReturn 					setHeadphoneMuteState ( GpioAttributes muteState );
+	virtual IOReturn					setInputDataMux ( GpioAttributes muxState );
+	virtual IOReturn 					setLineOutMuteState ( GpioAttributes muteState );
+	virtual IOReturn 					setSpeakerMuteState ( GpioAttributes muteState );
 
 	//
 	// DBDMA Memory Address Acquisition Methods
 	//
-	virtual	IODBDMAChannelRegisters *	GetInputChannelRegistersVirtualAddress ( IOService * dbdmaProvider ) { return NULL; }
-	virtual	IODBDMAChannelRegisters *	GetOutputChannelRegistersVirtualAddress ( IOService * dbdmaProvider ) { return NULL; }
+	
+	virtual	IODBDMAChannelRegisters *	GetInputChannelRegistersVirtualAddress ( IOService * dbdmaProvider );
+	virtual	IODBDMAChannelRegisters *	GetOutputChannelRegistersVirtualAddress ( IOService * dbdmaProvider );
 
 	//	
 	//	User Client Support
 	//
-	virtual IOReturn		getPlatformState ( PlatformStateStructPtr outState ) { return kIOReturnError; }
-	virtual IOReturn		setPlatformState ( PlatformStateStructPtr inState ) { return kIOReturnError; }
 	
-	virtual void			LogFCR ( void ) { return; }
-	virtual void			LogI2S ( void ) { return; }
-	virtual void			LogGPIO ( void ) { return; }
-	virtual void			LogInterruptGPIO ( void ) { return; }
+	virtual IOReturn					getPlatformState ( PlatformStateStructPtr outState );
+	virtual IOReturn					setPlatformState ( PlatformStateStructPtr inState );
+	
 protected:
-	UInt32					mGpioMessageFlag;
-	static UInt32			sInstanceCount;
-	UInt32					mInstanceIndex;
-	bool					mEnableAmplifierMuteRelease;								//	[3514762]
-	bool					mInterruptsHaveBeenRegistered;								//	[3585556]	Don't allow multiple registrations or unregistrations of interrupts!
+
+	UInt32								mGpioMessageFlag;
+	static UInt32						sInstanceCount;
+	UInt32								mInstanceIndex;
+	Boolean								mDetectInterruptsHaveBeenRegistered;								//	[3585556]	Don't allow multiple registrations or unregistrations of interrupts!
+	Boolean								mNonDetectInterruptsHaveBeenRegistered;								//	[3585556]	Don't allow multiple registrations or unregistrations of interrupts!
 	
-	AppleOnboardAudio *		mProvider;
+	AppleOnboardAudio *					mProvider;
 
-    thread_call_t			mRegisterInterruptsThread;									//  [3517442] mpc
+    thread_call_t						mRegisterDetectInterruptsThread;									//  [3517442] mpc
+    thread_call_t						mRegisterNonDetectInterruptsThread;									//  [3517442] mpc
 
-	GPIOSelector			mComboInAssociation;										//	[3453799]
-	GPIOSelector			mComboOutAssociation;										//	[3453799]
-	GpioAttributes			mComboInJackState;											//	[3453799]
-	GpioAttributes			mComboOutJackState;											//	[3453799]
+	GPIOSelector						mComboInAssociation;										//	[3453799]
+	GPIOSelector						mComboOutAssociation;										//	[3453799]
+	GpioAttributes						mComboInJackState;											//	[3453799]
+	GpioAttributes						mComboOutJackState;											//	[3453799]
 
-	virtual void			RunComboStateMachine ( IOCommandGate * cg, PlatformInterface * platformInterface, UInt32 detectState, UInt32 typeSenseState, UInt32 analogJackType );	//	[3517297]
-	virtual bool			testIsInputJack ( UInt32 analogJackType );					//	[3564007]
-	ComboStateMachineState	mComboStateMachine[kNumberOfActionSelectors];				//	[3517297]
+	virtual void						RunComboStateMachine ( IOCommandGate * cg, PlatformInterface * platformInterface, UInt32 detectState, UInt32 typeSenseState, UInt32 analogJackType );	//	[3517297]
+	ComboStateMachineState				mComboStateMachine[kNumberOfActionSelectors];				//	[3517297]
+
+	PlatformInterfaceDBDMA *			platformInterfaceDBDMA;
+	PlatformInterfaceFCR *				platformInterfaceFCR;
+	PlatformInterfaceGPIO *				platformInterfaceGPIO;
+	PlatformInterfaceI2C *				platformInterfaceI2C;
+	PlatformInterfaceI2S *				platformInterfaceI2S;
+	
+	IOWorkLoop *						mWorkLoop;
+
+	UInt32								mSupportSelectors;
+
+	enum {
+		kPlatformSupportDBDMA_bitAddress		= 0,
+		kPlatformSupportFCR_bitAddress			= 4,
+		kPlatformSupportGPIO_bitAddress			= 8,
+		kPlatformSupportI2C_bitAddress			= 12,
+		kPlatformSupportI2S_bitAddress			= 16,
+		KPlatformSupport_bitAddress_mask		= 0x0000000F
+	} PlatformSupportSelectorBitAddress;
+
+	enum {
+		kPlatformSupport_NoIO					= 0,
+		kPlatformSupport_MAPPED					= 1,
+		kPlatformSupport_PLATFORM				= 2,
+		kPlatformSupportDBDMA_K2				= 3
+	} PlatformSupportSelectors;
 
 };
 

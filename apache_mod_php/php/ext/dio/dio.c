@@ -31,6 +31,15 @@
 #include <fcntl.h>
 #include <termios.h>
 
+/* e.g. IRIX does not have CRTSCTS */
+#ifndef CRTSCTS
+# ifdef CNEW_RTSCTS
+#  define CRTSCTS CNEW_RTSCTS
+# else
+#  define CRTSCTS 0
+# endif /* CNEW_RTSCTS */
+#endif /* !CRTSCTS */
+
 #define le_fd_name "Direct I/O File Descriptor"
 static int le_fd;
 
@@ -43,7 +52,7 @@ function_entry dio_functions[] = {
 	PHP_FE(dio_read,      NULL)
 	PHP_FE(dio_write,     NULL)
 	PHP_FE(dio_close,     NULL)
-        PHP_FE(dio_tcsetattr,     NULL)
+	PHP_FE(dio_tcsetattr,     NULL)
 	{NULL, NULL, NULL}
 };
 
@@ -70,8 +79,10 @@ ZEND_GET_MODULE(dio)
 static void _dio_close_fd(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	php_fd_t *f = (php_fd_t *) rsrc->ptr;
-	close(f->fd);
-	free(f);
+	if (f) {
+		close(f->fd);
+		free(f);
+	}
 }
 
 #define RDIOC(c) REGISTER_LONG_CONSTANT(#c, c, CONST_CS | CONST_PERSISTENT)
@@ -133,10 +144,13 @@ PHP_MINFO_FUNCTION(dio)
 	php_info_print_table_end();
 }
 
-static void new_php_fd(php_fd_t **f, int fd)
+static int new_php_fd(php_fd_t **f, int fd)
 {
-	*f = malloc(sizeof(php_fd_t));
+	if (!(*f = malloc(sizeof(php_fd_t)))) {
+		return 0;
+	}
 	(*f)->fd = fd;
+	return 1;
 }
 
 /* {{{ proto resource dio_open(string filename, int flags[, int mode])
@@ -154,6 +168,10 @@ PHP_FUNCTION(dio_open)
 		return;
 	}
 
+	if (php_check_open_basedir(file_name TSRMLS_CC) || (PG(safe_mode) && !php_checkuid(file_name, "wb+", CHECKUID_CHECK_MODE_PARAM))) {
+		RETURN_FALSE;
+	}
+
 	if (ZEND_NUM_ARGS() == 3) {
 		fd = open(file_name, flags, mode);
 	} else {
@@ -161,12 +179,15 @@ PHP_FUNCTION(dio_open)
 	}
 
 	if (fd == -1) {
-		php_error(E_WARNING, "%s(): cannot open file %s with flags %d and permissions %d: %s", 
+		php_error(E_WARNING, "%s(): cannot open file %s with flags %ld and permissions %ld: %s", 
 				  get_active_function_name(TSRMLS_C), file_name, flags, mode, strerror(errno));
 		RETURN_FALSE;
 	}
 
-	new_php_fd(&f, fd);
+	
+	if (!new_php_fd(&f, fd)) {
+		RETURN_FALSE;
+	}
 	ZEND_REGISTER_RESOURCE(return_value, f, le_fd);
 }
 /* }}} */
@@ -185,6 +206,11 @@ PHP_FUNCTION(dio_read)
 		return;
 	}
 	ZEND_FETCH_RESOURCE(f, php_fd_t *, &r_fd, -1, le_fd_name, le_fd);
+
+	if (bytes <= 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Length parameter must be greater than 0.");
+		RETURN_FALSE;
+	}
 
 	data = emalloc(bytes + 1);
 	res = read(f->fd, data, bytes);
@@ -214,6 +240,12 @@ PHP_FUNCTION(dio_write)
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs|l", &r_fd, &data, &data_len, &trunc_len) == FAILURE) {
 		return;
 	}
+
+	if (trunc_len < 0 || trunc_len > data_len) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "length must be greater or equal to zero and less then the length of the specified string.");
+		RETURN_FALSE;
+ 	}
+
 	ZEND_FETCH_RESOURCE(f, php_fd_t *, &r_fd, -1, le_fd_name, le_fd);
 
 	res = write(f->fd, data, trunc_len ? trunc_len : data_len);
@@ -240,7 +272,7 @@ PHP_FUNCTION(dio_truncate)
 	ZEND_FETCH_RESOURCE(f, php_fd_t *, &r_fd, -1, le_fd_name, le_fd);
 
 	if (ftruncate(f->fd, offset) == -1) {
-		php_error(E_WARNING, "%s(): couldn't truncate %d to %d bytes: %s",
+		php_error(E_WARNING, "%s(): couldn't truncate %d to %ld bytes: %s",
 				  get_active_function_name(TSRMLS_C), f->fd, offset, strerror(errno));
 		RETURN_FALSE;
 	}
@@ -397,7 +429,9 @@ PHP_FUNCTION(dio_fcntl)
 			RETURN_FALSE;
 		}
 
-		new_php_fd(&new_f, fcntl(f->fd, cmd, Z_LVAL_P(arg)));
+		if (!new_php_fd(&new_f, fcntl(f->fd, cmd, Z_LVAL_P(arg)))) {
+			RETURN_FALSE;
+		}
 		ZEND_REGISTER_RESOURCE(return_value, new_f, le_fd);
 		break;
 	}
@@ -426,13 +460,13 @@ PHP_FUNCTION(dio_tcsetattr)
 	long BAUD,DATABITS,STOPBITS,PARITYON,PARITY;
 	HashTable      *fh;
 	zval          **element;
-        
+
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rz", &r_fd, &arg) == FAILURE) {
 		return;
 	}
 	ZEND_FETCH_RESOURCE(f, php_fd_t *, &r_fd, -1, le_fd_name, le_fd);
 
- 
+
 	if (Z_TYPE_P(arg) != IS_ARRAY) {
 		zend_error(E_WARNING,"tcsetattr, third argument should be an associative array");
 		return;
@@ -464,8 +498,8 @@ PHP_FUNCTION(dio_tcsetattr)
 		Parity = Z_LVAL_PP(element);
 	} 
 
-    /* assign to correct values... */
-    switch (Baud_Rate)  {
+	/* assign to correct values... */
+	switch (Baud_Rate)  {
 		case 38400:            
 			BAUD = B38400;
 			break;
@@ -561,7 +595,7 @@ PHP_FUNCTION(dio_tcsetattr)
 			zend_error(E_WARNING, "invalid parity %d", Parity);
 			RETURN_FALSE;
 	}   
-        
+
 	newtio.c_cflag = BAUD | CRTSCTS | DATABITS | STOPBITS | PARITYON | PARITY | CLOCAL | CREAD;
 	newtio.c_iflag = IGNPAR;
 	newtio.c_oflag = 0;

@@ -175,7 +175,7 @@ typedef struct _zend_file_handle {
 	zend_bool free_filename;
 } zend_file_handle;
 
-
+#define ZEND_IS_VALID_FILE_HANDLE(hn)   ((((hn)->type == ZEND_HANDLE_FD || (hn)->type == ZEND_HANDLE_SOCKET_FD) && (hn)->handle.fd >= 0) || ((hn)->type == ZEND_HANDLE_FP && (hn)->handle.fp != NULL))
 
 #define IS_CONST	(1<<0)
 #define IS_TMP_VAR	(1<<1)
@@ -326,7 +326,7 @@ void zend_do_unset(znode *variable TSRMLS_DC);
 void zend_do_isset_or_isempty(int type, znode *result, znode *variable TSRMLS_DC);
 
 void zend_do_foreach_begin(znode *foreach_token, znode *array, znode *open_brackets_token, znode *as_token, int variable TSRMLS_DC);
-void zend_do_foreach_cont(znode *value, znode *key, znode *as_token TSRMLS_DC);
+void zend_do_foreach_cont(znode *value, znode *key, znode *as_token, znode *foreach_token TSRMLS_DC);
 void zend_do_foreach_end(znode *foreach_token, znode *open_brackets_token TSRMLS_DC);
 
 void zend_do_declare_begin(TSRMLS_D);
@@ -568,6 +568,7 @@ int zendlex(znode *zendlval TSRMLS_DC);
 #define ZEND_HANDLE_FP				2
 #define ZEND_HANDLE_STDIOSTREAM		3
 #define ZEND_HANDLE_FSTREAM			4
+#define ZEND_HANDLE_SOCKET_FD		5
 
 #define ZEND_DECLARE_CLASS				1
 #define ZEND_DECLARE_FUNCTION			2
@@ -575,6 +576,9 @@ int zendlex(znode *zendlval TSRMLS_DC);
 
 #define ZEND_FETCH_STANDARD		0
 #define ZEND_FETCH_ADD_LOCK		1
+
+#define ZEND_FE_FETCH_BYREF	1
+#define ZEND_FE_FETCH_WITH_KEY	2
 
 #define ZEND_MEMBER_FUNC_CALL	1<<0
 #define ZEND_CTOR_CALL			1<<1

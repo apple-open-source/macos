@@ -3,12 +3,12 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2003 The PHP Group                                |
+// | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.02 of the PHP license,      |
+// | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
-// | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_02.txt.                                 |
+// | available through the world-wide-web at the following url:           |
+// | http://www.php.net/license/3_0.txt.                                  |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -17,7 +17,7 @@
 // |                                                                      |
 // +----------------------------------------------------------------------+
 //
-// $Id: Autoloader.php,v 1.1.1.3 2003/07/18 18:07:49 zarzycki Exp $
+// $Id: Autoloader.php,v 1.4.6.12 2004/02/27 02:22:05 cellog Exp $
 
 if (!extension_loaded("overload")) {
     // die hard without ext/overload
@@ -42,6 +42,8 @@ require_once "PEAR.php";
  */
 class PEAR_Autoloader extends PEAR
 {
+    // {{{ properties
+
     /**
      * Map of methods and classes where they are defined
      *
@@ -59,6 +61,9 @@ class PEAR_Autoloader extends PEAR
      * @access private
      */
     var $_method_map = array();
+
+    // }}}
+    // {{{ addAutoload()
 
     /**
      * Add one or more autoload entries.
@@ -79,11 +84,15 @@ class PEAR_Autoloader extends PEAR
     function addAutoload($method, $classname = null)
     {
         if (is_array($method)) {
+            array_walk($method, create_function('$a,&$b', '$b = strtolower($b);'));
             $this->_autoload_map = array_merge($this->_autoload_map, $method);
         } else {
-            $this->_autoload_map[$method] = $classname;
+            $this->_autoload_map[strtolower($method)] = $classname;
         }
     }
+
+    // }}}
+    // {{{ removeAutoload()
 
     /**
      * Remove an autoload entry.
@@ -96,10 +105,14 @@ class PEAR_Autoloader extends PEAR
      */
     function removeAutoload($method)
     {
+        $method = strtolower($method);
         $ok = isset($this->_autoload_map[$method]);
         unset($this->_autoload_map[$method]);
         return $ok;
     }
+
+    // }}}
+    // {{{ addAggregateObject()
 
     /**
      * Add an aggregate object to this object.  If the specified class
@@ -131,6 +144,9 @@ class PEAR_Autoloader extends PEAR
         }
     }
 
+    // }}}
+    // {{{ removeAggregateObject()
+
     /**
      * Remove an aggregate object.
      *
@@ -146,13 +162,16 @@ class PEAR_Autoloader extends PEAR
         $classname = strtolower($classname);
         reset($this->_method_map);
         while (list($method, $obj) = each($this->_method_map)) {
-            if (get_class($obj) == $classname) {
+            if (is_a($obj, $classname)) {
                 unset($this->_method_map[$method]);
                 $ok = true;
             }
         }
         return $ok;
     }
+
+    // }}}
+    // {{{ __call()
 
     /**
      * Overloaded object call handler, called each time an
@@ -170,6 +189,7 @@ class PEAR_Autoloader extends PEAR
      */
     function __call($method, $args, &$retval)
     {
+        $method = strtolower($method);
         if (empty($this->_method_map[$method]) && isset($this->_autoload_map[$method])) {
             $this->addAggregateObject($this->_autoload_map[$method]);
         }
@@ -179,6 +199,8 @@ class PEAR_Autoloader extends PEAR
         }
         return false;
     }
+
+    // }}}
 }
 
 overload("PEAR_Autoloader");

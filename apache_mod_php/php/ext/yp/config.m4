@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.4 2003/03/11 01:09:35 zarzycki Exp $
+dnl $Id: config.m4,v 1.9 2002/10/23 16:03:52 hholzgra Exp $
 dnl
 
 PHP_ARG_ENABLE(yp,whether to include YP support,

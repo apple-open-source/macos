@@ -49,8 +49,6 @@ bool PowerMac7_3_CPUCoolingCtrlLoop::init( void )
 	tempHistory[0].sensValue = tempHistory[1].sensValue = 0;
 	tempIndex = 0;
 
-	secondsAtMaxCooling = 0;
-
 	return(true);
 }
 
@@ -306,6 +304,8 @@ IOReturn PowerMac7_3_CPUCoolingCtrlLoop::initPlatformCtrlLoop( const OSDictionar
 	}
 	slewID->release();
 #endif
+
+	tMaxAverageSampleCount = kPM73CPU_DEFAULT_slewAverageSampleCount;
 
 	//CTRLLOOP_DLOG("PowerMac7_3_CPUCoolingCtrlLoop::initPlatformCtrlLoop ENTERED\n");
 
@@ -719,10 +719,9 @@ bool PowerMac7_3_CPUCoolingCtrlLoop::updateMetaState( void )
 	}
 
 	// Check for overtemp condition
-//	if ((platformPlugin->envArrayCondIsTrue(gIOPPluginEnvInternalOvertemp)) ||
-//	    (platformPlugin->envArrayCondIsTrue(gIOPPluginEnvExternalOvertemp)))
-	if ((platformPlugin->envArrayCondIsTrue(gIOPPluginEnvExternalOvertemp)) ||
-	    (platformPlugin->getEnv(gPM72EnvSystemUncalibrated)) != NULL)
+	if ((platformPlugin->envArrayCondIsTrue(gIOPPluginEnvInternalOvertemp)) ||
+	    (platformPlugin->envArrayCondIsTrue(gIOPPluginEnvExternalOvertemp)) ||
+		(platformPlugin->getEnv(gPM72EnvSystemUncalibrated) != NULL))
 	{
 		CTRLLOOP_DLOG("PowerMac7_3_CPUCoolingCtrlLoop::updateMetaState Entering Overtemp Mode\n");
 
@@ -788,6 +787,56 @@ bool PowerMac7_3_CPUCoolingCtrlLoop::acquireSample( void )
 	curValue = getAggregateSensorValue();
 
 	tempHistory[tempIndex].sensValue = curValue.sensValue;
+
+
+	int i;
+	if (tMaxAverageHistory) // Get another sample and calculate new average...
+	{
+		tMaxAverageHistory[tMaxAverageIndex] = curValue.sensValue;
+		tMaxAverage = 0;
+		if (tMaxAverageSampleCount > 0)
+		{
+			for (i = 0; i < tMaxAverageSampleCount; i++)
+				tMaxAverage += tMaxAverageHistory[i];
+			tMaxAverage /= tMaxAverageSampleCount;
+		}
+#define fract16(x) ((((UInt32)(x)>>13)&7)*128)
+
+/*
+#ifdef kLOG_ENABLED
+		IOLog("PM73: N:%ld Avg:%ld.%03lu Temp[%ld]=%ld.%03lu\n",
+			tMaxAverageSampleCount,
+			tMaxAverage>>16,
+			fract16(tMaxAverage), tMaxAverageIndex, 
+			tMaxAverageSampleCount?tMaxAverageHistory[tMaxAverageIndex]>>16:0,
+			tMaxAverageSampleCount?fract16(tMaxAverageHistory[tMaxAverageIndex]):0);
+#endif // kLOG_ENABLED
+*/
+		if (++tMaxAverageIndex >= tMaxAverageSampleCount)
+			tMaxAverageIndex = 0;
+	}
+	else
+	if (tMaxAverageSampleCount >= 2) // Re-Initialize the sample history.
+	{
+		tMaxAverageHistory = (SInt32 *)IOMalloc(tMaxAverageSampleCount * sizeof(SInt32));
+
+		// Initialize all samples to the current value.
+		for (i = 0; i < tMaxAverageSampleCount; i++)
+			tMaxAverageHistory[i] = curValue.sensValue;
+		tMaxAverage = curValue.sensValue;
+
+		tMaxAverageIndex = 1;
+
+#ifdef kLOG_ENABLED
+		IOLog("Changing number of samples:%ld tMaxAverage:%ld.%03lu\n",
+				tMaxAverageSampleCount, tMaxAverage>>16, fract16(tMaxAverage));
+#endif // kLOG_ENABLED
+	}
+	else // No sample history? and Number of samples is less than two?
+	{
+		// Disable averaging...  average = current value.
+		tMaxAverage = curValue.sensValue;
+	}
 
 	// move the top of the power array to the next spot -- it's circular
 	if (latestSample == 0)
@@ -1146,8 +1195,15 @@ void PowerMac7_3_CPUCoolingCtrlLoop::deadlinePassed( void )
 {
 	bool deadlineAbsolute;
 	bool didSetEnv = false;
-	bool tMaxExceededNow, tMaxExceededNowCritical, tMaxExceededPreviously, maxCoolingApplied;
-	SensorValue temperatureDiff;
+	SInt32 slewOffset = kPM73CPU_DEFAULT_slewOffset;
+	SInt32 sleepOffset = kPM73CPU_DEFAULT_sleepOffset;
+	SInt32 slewAverageOffset = kPM73CPU_DEFAULT_slewAverageOffset;
+	SInt32 latestTemperature;
+	bool isSlewing;
+
+#ifdef kLOG_ENABLED
+	char log[4096], *plog = log;
+#endif // kLOG_ENABLED
 
 	deadlineAbsolute = (ctrlloopState == kIOPCtrlLoopFirstAdjustment);
 
@@ -1159,60 +1215,80 @@ void PowerMac7_3_CPUCoolingCtrlLoop::deadlinePassed( void )
 		CTRLLOOP_DLOG("PowerMac7_3_CPUCoolingCtrlLoop::deadlinePassed FAILED TO ACQUIRE INPUT SAMPLE!!!\n");
 	}
 
-	// check to see if we've exceeded the critical temperature
-	temperatureDiff.sensValue = tempHistory[tempIndex].sensValue - inputMax.sensValue;
+	// Check condition for slew...
 
+	latestTemperature = tempHistory[tempIndex].sensValue;
 
-	tMaxExceededPreviously = platformPlugin->envArrayCondIsTrueForObject(this, gIOPPluginEnvInternalOvertemp);
-	tMaxExceededNow = temperatureDiff.sensValue > 0;
+	isSlewing = platformPlugin->envArrayCondIsTrueForObject(this, gIOPPluginEnvInternalOvertemp);
 
+	// convert offset to 16.16 fixed point
+	bool overtempAverage = (tMaxAverage >= (inputMax.sensValue + (slewAverageOffset<<16)))?true:false;
+	bool overtempImmediate = (latestTemperature >= (inputMax.sensValue + (slewOffset<<16)))?true:false;
 
-	// if the CPU temperature is above T_max, then we may need to force the machine to sleep
-	if (tMaxExceededNow)
+#ifdef kLOG_ENABLED
+	sprintf(plog, "PM73: tgt:%ld %c %c Tavg:%ld.%03lu %c %ld, Tcur:%ld.%03lu %c %ld",
+		outputControl->getTargetValue(),
+		isSlewing?'S':' ',
+		fOvertempAverage?'O':' ',
+		tMaxAverage>>16, fract16(tMaxAverage),
+		overtempAverage?'*':' ',
+		(inputMax.sensValue>>16) + slewAverageOffset,
+		latestTemperature>>16, fract16(latestTemperature),
+		overtempImmediate?'*':' ',
+		(inputMax.sensValue>>16) + slewOffset);
+	plog += strlen(plog);
+#endif // kLOG_ENABLED
+
+	if ((fOvertempAverage == false) && (overtempAverage || overtempImmediate))
 	{
-		// if tMaxExceededPreviously is true, we know that the internal overtemp flag was set
-		// causing the CPU to slew slow
-		maxCoolingApplied = (tMaxExceededPreviously &&
-		                     outputControl->getTargetValue() >= outputMax);
-
-		if (maxCoolingApplied)
+		if (isSlewing == false)
 		{
-			secondsAtMaxCooling += intervalSec;
-			CTRLLOOP_DLOG("PowerMac7_3_CPUCoolingCtrlLoop::deadlinePassed secondsAtMaxCooling=%u\n",
-					secondsAtMaxCooling);
+			if (overtempAverage)
+				fOvertempAverage = true;
+#ifdef kLOG_ENABLED
+			sprintf(plog, " ->low");
+			plog += strlen(plog);
+#endif // kLOG_ENABLED
+			platformPlugin->setEnvArray(gIOPPluginEnvInternalOvertemp, this, true);
+			didSetEnv = true;
 		}
-
-		// Check for forced sleep conditions
-		// If CPU temperature is above (T_max + 8)
-		// -OR-
-		// CPU temperature is above (T_max) and max cooling has been applied for 30 seconds or more
-		tMaxExceededNowCritical = temperatureDiff.sensValue >= kPM72CPUTempCriticalOffset;
-
-		if (tMaxExceededNowCritical ||
-		    secondsAtMaxCooling >= kPM72CPUMaxCoolingLimit)
+	}
+	else
+	{
+		if (isSlewing == true)
 		{
-			IOLog("PowerMac7,3 Thermal Manager: Thermal Runaway Detected: System Will Sleep\n");
-			CTRLLOOP_DLOG("PowerMac7,3 Thermal Manager: Thermal Runaway Detected: System Will Sleep\n");
-			CTRLLOOP_DLOG("PM73 T_cur=%u, T_max=%u, tMaxExceededNowCritical=%s, secondsAtMaxCooling=%u\n",
-					tempHistory[tempIndex].sensValue >> 16, inputMax.sensValue >> 16,
-					tMaxExceededNowCritical ? "TRUE" : "FALSE", secondsAtMaxCooling);
-	
-			platformPlugin->sleepSystem();
+			// If previously slewing low because the overtempAverage limit was excceded...
+			// then slew high only after the immediate temperature falls below the average limit.
+			// otherwise slew high when (average >= aveOffset) and (immed >= immOffset).
+			if ((fOvertempAverage == false) || (latestTemperature < (inputMax.sensValue + (slewAverageOffset<<16))))
+			{
+#ifdef kLOG_ENABLED
+				sprintf(plog, " ->high");
+				plog += strlen(plog);
+#endif // kLOG_ENABLED
+				fOvertempAverage = false;
+				platformPlugin->setEnvArray(gIOPPluginEnvInternalOvertemp, this, false);
+				didSetEnv = true;
+				delayToReleaseFanAfterSlew = 1; // intervals to force fans on full after slewing
+			}
 		}
 	}
 
+#ifdef kLOG_ENABLED
+	sprintf(plog, "\n");
+	IOLog(log);
+#endif // kLOG_ENABLED
 
-	// set or clear the internal overtemp flag as needed.  If set, this causes the CPU to slew slow.
-	if (tMaxExceededPreviously && !tMaxExceededNow)
+	// Check condition for sleep...
+
+	if (latestTemperature >= (inputMax.sensValue + (sleepOffset<<16))) // convert offset to 16.16 fixed point
 	{
-		secondsAtMaxCooling = 0;
-		platformPlugin->setEnvArray(gIOPPluginEnvInternalOvertemp, this, false);
-		didSetEnv = true;
-	}
-	else if (tMaxExceededNow && !tMaxExceededPreviously)
-	{
-		platformPlugin->setEnvArray(gIOPPluginEnvInternalOvertemp, this, true);
-		didSetEnv = true;
+		IOLog("PowerMac7,3 Thermal Manager: Thermal Runaway Detected: System Will Sleep\n");
+		IOLog("PM73 T_cur=%ld >= (T_max:%ld + sleepOffset:%ld)\n",
+				latestTemperature >> 16, inputMax.sensValue >> 16, sleepOffset);
+
+		platformPlugin->coreDump();
+		platformPlugin->sleepSystem();
 	}
 
 	// If we changed the environment, the platform plugin will invoke updateMetaState()
@@ -1246,7 +1322,7 @@ void PowerMac7_3_CPUCoolingCtrlLoop::deadlinePassed( void )
                 ADD_ABSOLUTETIME(&deadline, &interval);
 	}
 
-	timerCallbackActive = false;
+//	timerCallbackActive = false; // force adjustControls() to call calculateNewTarget + sendNewTarget always!
 }
 
 void PowerMac7_3_CPUCoolingCtrlLoop::sendNewTarget( ControlValue newTarget )

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_cyrus.h,v 1.1.1.3 2003/07/18 18:07:30 zarzycki Exp $ */
+/* $Id: php_cyrus.h,v 1.3.8.1 2002/12/31 16:34:16 sebastian Exp $ */
 
 #ifndef PHP_CYRUS_H
 #define PHP_CYRUS_H

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: bz2.c,v 1.1.1.6 2003/07/18 18:07:29 zarzycki Exp $ */
+/* $Id: bz2.c,v 1.1.2.3 2004/08/25 14:22:48 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -47,8 +47,8 @@ function_entry bz2_functions[] = {
 	PHP_FE(bzopen,       NULL)
 	PHP_FE(bzread,       NULL)
 	PHP_FALIAS(bzwrite,   fwrite,		NULL)
-	PHP_FALIAS(bzflush,   fflush,     NULL)
-	PHP_FALIAS(bzclose,   fclose,     NULL)
+	PHP_FALIAS(bzflush,   fflush,		NULL)
+	PHP_FALIAS(bzclose,   fclose,		NULL)
 	PHP_FE(bzerrno,      NULL)
 	PHP_FE(bzerrstr,     NULL)
 	PHP_FE(bzerror,      NULL)
@@ -88,8 +88,9 @@ static size_t php_bz2iop_read(php_stream *stream, char *buf, size_t count TSRMLS
 	
 	ret = BZ2_bzread(self->bz_file, buf, count);
 
-	if (ret == 0)
+	if (ret == 0) {
 		stream->eof = 1;
+	}
 
 	return ret;
 }
@@ -106,14 +107,13 @@ static int php_bz2iop_close(php_stream *stream, int close_handle TSRMLS_DC)
 	struct php_bz2_stream_data_t *self = (struct php_bz2_stream_data_t *)stream->abstract;
 	int ret = EOF;
 	
-	if (close_handle)
+	if (close_handle) {
 		BZ2_bzclose(self->bz_file);
+	}
 
-	if (self->stream)
-		php_stream_free(self->stream, 
-						PHP_STREAM_FREE_CLOSE | 
-						(close_handle == 0 ? PHP_STREAM_FREE_PRESERVE_HANDLE : 0)
-			);
+	if (self->stream) {
+		php_stream_free(self->stream, PHP_STREAM_FREE_CLOSE | (close_handle == 0 ? PHP_STREAM_FREE_PRESERVE_HANDLE : 0));
+	}
 
 	efree(self);
 
@@ -139,9 +139,7 @@ php_stream_ops php_stream_bz2io_ops = {
 
 /* {{{ Bzip2 stream openers */
 PHP_BZ2_API php_stream *_php_stream_bz2open_from_BZFILE(BZFILE *bz, 
-												   char *mode, 
-												   php_stream *innerstream 
-												   STREAMS_DC TSRMLS_DC)
+														char *mode, php_stream *innerstream STREAMS_DC TSRMLS_DC)
 {
 	struct php_bz2_stream_data_t *self;
 	
@@ -154,22 +152,25 @@ PHP_BZ2_API php_stream *_php_stream_bz2open_from_BZFILE(BZFILE *bz,
 }
 
 PHP_BZ2_API php_stream *_php_stream_bz2open(php_stream_wrapper *wrapper,
-									   char *path, 
-									   char *mode, 
-									   int options, 
-									   char **opened_path,
-									   php_stream_context *context
-									   STREAMS_DC TSRMLS_DC)
+											char *path,
+											char *mode,
+											int options,
+											char **opened_path,
+											php_stream_context *context STREAMS_DC TSRMLS_DC)
 {
 	php_stream *retstream = NULL, *stream = NULL;
 	char *path_copy = NULL;
 	BZFILE *bz_file = NULL;
 
-	if (strncasecmp("compress.bzip2://", path, 17) == 0)
+	if (strncasecmp("compress.bzip2://", path, 17) == 0) {
 		path += 17;
+	}
+	if (mode[0] != 'w' && mode[0] != 'r' && mode[1] != '\0') {
+		return NULL;
+	}
 
 #ifdef VIRTUAL_DIR
-	virtual_filepath(path, &path_copy TSRMLS_CC);
+	virtual_filepath_ex(path, &path_copy, NULL TSRMLS_CC);
 #else
 	path_copy = path;
 #endif  
@@ -184,25 +185,34 @@ PHP_BZ2_API php_stream *_php_stream_bz2open(php_stream_wrapper *wrapper,
 	
 	if (bz_file == NULL) {
 		/* that didn't work, so try and get something from the network/wrapper */
-		stream = php_stream_open_wrapper(path, mode, options, opened_path);
+		stream = php_stream_open_wrapper(path, mode, options | STREAM_WILL_CAST, opened_path);
 	
 		if (stream) {
 			int fd;
-			if (SUCCESS == php_stream_cast(stream, PHP_STREAM_AS_FD, (void**) &fd, REPORT_ERRORS))
+			if (SUCCESS == php_stream_cast(stream, PHP_STREAM_AS_FD, (void **) &fd, REPORT_ERRORS)) {
 				bz_file = BZ2_bzdopen(fd, mode);
+			}
+		}
+		/* remove the file created by php_stream_open_wrapper(), it is not needed since BZ2 functions
+		 * failed.
+		 */
+		if (!bz_file && mode[0] == 'w') {
+			VCWD_UNLINK(*opened_path);
 		}
 	}
 	
 	if (bz_file) {
 		retstream = _php_stream_bz2open_from_BZFILE(bz_file, mode, stream STREAMS_REL_CC TSRMLS_CC);
-		if (retstream)
+		if (retstream) {
 			return retstream;
+		}
 
 		BZ2_bzclose(bz_file);
 	}
 
-	if (stream)
+	if (stream) {
 		php_stream_close(stream);
+	}
 
 	return NULL;
 }
@@ -263,7 +273,7 @@ PHP_FUNCTION(bzread)
 	php_stream_from_zval(stream, &bz);
 
 	if (len < 0) {
-		zend_error(E_WARNING, "%s(): length may not be negative", get_active_function_name(TSRMLS_C));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "length may not be negative");
 		RETURN_FALSE;
 	}
 
@@ -272,18 +282,19 @@ PHP_FUNCTION(bzread)
 	
 	if (Z_STRLEN_P(return_value) < 0) {
 		efree(Z_STRVAL_P(return_value));
-		zend_error(E_WARNING, "%s(): could not read valid bz2 data from stream", get_active_function_name(TSRMLS_C));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "could not read valid bz2 data from stream");
 		RETURN_FALSE;		
 	}
 	
 	Z_STRVAL_P(return_value)[Z_STRLEN_P(return_value)] = 0;
 
 	if (PG(magic_quotes_runtime)) {
-		Z_STRVAL_P(return_value) = php_addslashes(Z_STRVAL_P(return_value), 
-				Z_STRLEN_P(return_value), &Z_STRLEN_P(return_value), 1 TSRMLS_CC);
+		Z_STRVAL_P(return_value) = php_addslashes(	Z_STRVAL_P(return_value),
+													Z_STRLEN_P(return_value),
+													&Z_STRLEN_P(return_value), 1 TSRMLS_CC);
 	}
-	Z_TYPE_P(return_value) = IS_STRING;
 
+	Z_TYPE_P(return_value) = IS_STRING;
 }
 /* }}} */
 
@@ -296,19 +307,23 @@ PHP_FUNCTION(bzopen)
 	BZFILE   *bz;     /* The compressed file stream */
 	php_stream *stream = NULL;
 	
-	if (ZEND_NUM_ARGS() != 2 ||
-	    zend_get_parameters_ex(2, &file, &mode) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &file, &mode) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(mode);
-	
+
+	if (Z_STRVAL_PP(mode)[0] != 'r' && Z_STRVAL_PP(mode)[0] != 'w' && Z_STRVAL_PP(mode)[1] != '\0') {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "'%s' is not a valid mode for bzopen(). Only 'w' and 'r' are supported.", Z_STRVAL_PP(mode));
+		RETURN_FALSE;
+	}
+
 	/* If it's not a resource its a string containing the filename to open */
 	if (Z_TYPE_PP(file) != IS_RESOURCE) {
 		convert_to_string_ex(file);
 		stream = php_stream_bz2open(NULL,
 									Z_STRVAL_PP(file), 
 									Z_STRVAL_PP(mode), 
-									ENFORCE_SAFE_MODE|REPORT_ERRORS, 
+									ENFORCE_SAFE_MODE | REPORT_ERRORS, 
 									NULL);
 	} else {
 		/* If it is a resource, than its a stream resource */
@@ -316,8 +331,9 @@ PHP_FUNCTION(bzopen)
 
 		php_stream_from_zval(stream, file);
 
-		if (FAILURE == php_stream_cast(stream, PHP_STREAM_AS_FD, (void*)&fd, REPORT_ERRORS))
+		if (FAILURE == php_stream_cast(stream, PHP_STREAM_AS_FD, (void *) &fd, REPORT_ERRORS)) {
 			RETURN_FALSE;
+		}
 		
 		bz = BZ2_bzdopen(fd, Z_STRVAL_PP(mode));
 
@@ -373,10 +389,10 @@ PHP_FUNCTION(bzcompress)
 	
 	argc = ZEND_NUM_ARGS();
 
-	if (argc < 1 || argc > 3 || 
-	    zend_get_parameters_ex(argc, &source, &zblock_size, &zwork_factor) == FAILURE) {
+	if (argc < 1 || argc > 3 || zend_get_parameters_ex(argc, &source, &zblock_size, &zwork_factor) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
+
 	convert_to_string_ex(source);
 	
 	/* Assign them to easy to use variables, dest_len is initially the length of the data
@@ -387,9 +403,7 @@ PHP_FUNCTION(bzcompress)
 	dest_len   = Z_STRLEN_PP(source) + (0.01 * Z_STRLEN_PP(source)) + 600;
 	
 	/* Allocate the destination buffer */
-	if (NULL == (dest = emalloc(dest_len + 1))) {
-		RETURN_LONG(BZ_MEM_ERROR);
-	}
+	dest = emalloc(dest_len + 1);
 	
 	/* Handle the optional arguments */
 	if (argc > 1) {
@@ -402,13 +416,7 @@ PHP_FUNCTION(bzcompress)
 		work_factor = Z_LVAL_PP(zwork_factor);
 	}
 
-	error = BZ2_bzBuffToBuffCompress(dest, 
-									 &dest_len, 
-									 Z_STRVAL_PP(source), 
-									 source_len, 
-									 block_size, 
-									 0, 
-									 work_factor);
+	error = BZ2_bzBuffToBuffCompress(dest, &dest_len, Z_STRVAL_PP(source), source_len, block_size, 0, work_factor);
 	if (error != BZ_OK) {
 		efree(dest);
 		RETURN_LONG(error);
@@ -436,10 +444,10 @@ PHP_FUNCTION(bzdecompress)
 			  small    = 0,                       /* The actual small */
 			  argc     = ZEND_NUM_ARGS();         /* Argument count */
 	
-	if (argc < 1 || argc > 2 ||
-	    zend_get_parameters_ex(argc, &source, &zsmall) == FAILURE) {
+	if (argc < 1 || argc > 2 || zend_get_parameters_ex(argc, &source, &zsmall) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
+
 	convert_to_string_ex(source);
 	
 	/* optional small argument handling */
@@ -448,13 +456,10 @@ PHP_FUNCTION(bzdecompress)
 		small = Z_LVAL_PP(zsmall);
 	}
 
-	
 	/* Depending on the size of the source buffer, either allocate
 	  the length of the source buffer or the a default decompression
 	  size */
-	if (NULL == (dest = emalloc(PHP_BZ_DECOMPRESS_SIZE > Z_STRLEN_PP(source) ? PHP_BZ_DECOMPRESS_SIZE : Z_STRLEN_PP(source)))) {
-		RETURN_LONG(BZ_MEM_ERROR);
-	}
+	dest = emalloc(PHP_BZ_DECOMPRESS_SIZE > Z_STRLEN_PP(source) ? PHP_BZ_DECOMPRESS_SIZE : Z_STRLEN_PP(source));
 
 	/* (de)Compression Loop */	
 	do {
@@ -466,12 +471,7 @@ PHP_FUNCTION(bzdecompress)
 		++iter;
 
 		/* Perform the decompression */
-		error = BZ2_bzBuffToBuffDecompress(dest, 
-										   &size, 
-										   Z_STRVAL_PP(source), 
-										   Z_STRLEN_PP(source), 
-										   small, 
-										   0);
+		error = BZ2_bzBuffToBuffDecompress(dest, &size, Z_STRVAL_PP(source), Z_STRLEN_PP(source), small, 0);
 	} while (error == BZ_OUTBUFF_FULL);
 	
 	if (error != BZ_OK) {
@@ -497,10 +497,10 @@ static void php_bz2_error(INTERNAL_FUNCTION_PARAMETERS, int opt)
 	int           errnum;  /* Error number */
 	struct php_bz2_stream_data_t *self;
 	
-	if (ZEND_NUM_ARGS() != 1 ||
-	    zend_get_parameters_ex(1, &bzp) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &bzp) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
+
 	php_stream_from_zval(stream, bzp);
 
 	if (!php_stream_is(stream, PHP_STREAM_IS_BZIP2)) {
@@ -514,19 +514,18 @@ static void php_bz2_error(INTERNAL_FUNCTION_PARAMETERS, int opt)
 	
 	/* Determine what to return */
 	switch (opt) {
-	case PHP_BZ_ERRNO:
-		RETURN_LONG(errnum);
-		break;
-	case PHP_BZ_ERRSTR:
-		RETURN_STRING((char*)errstr, 1);
-		break;
-	case PHP_BZ_ERRBOTH:
-		array_init(return_value);
+		case PHP_BZ_ERRNO:
+			RETURN_LONG(errnum);
+			break;
+		case PHP_BZ_ERRSTR:
+			RETURN_STRING((char*)errstr, 1);
+			break;
+		case PHP_BZ_ERRBOTH:
+			array_init(return_value);
 		
-		add_assoc_long  (return_value, "errno",  errnum);
-		add_assoc_string(return_value, "errstr", (char*)errstr, 1);
-		
-		break;
+			add_assoc_long  (return_value, "errno",  errnum);
+			add_assoc_string(return_value, "errstr", (char*)errstr, 1);
+			break;
 	}
 }
 /* }}} */
@@ -538,6 +537,6 @@ static void php_bz2_error(INTERNAL_FUNCTION_PARAMETERS, int opt)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: noet sw=4 ts=4 fdm=marker
- * vim<600: noet sw=4 ts=4
+ * vim600: fdm=marker
+ * vim: noet sw=4 ts=4
  */

@@ -42,9 +42,12 @@ enum
 
 enum
 {
-    kIODVIPowerEnableFlag = 0x10000,
-    kIOI2CPowerEnableFlag = 0x20000
+    kIODVIPowerEnableFlag  = 0x00010000,
+    kIOI2CPowerEnableFlag  = 0x00020000,
+    kIONoncoherentTMDSFlag = 0x00040000
 };
+
+#define kIONDRVDisplayConnectFlagsKey	"display-connect-flags"
 
 enum { kIONDRVAVJackProbeDelayMS = 1000 };
 

@@ -208,7 +208,8 @@ exit:
 extern CFDictionaryRef 
 IOPMCopyUPSShutdownLevels(CFTypeRef whichUPS)
 {
-    CFDictionaryRef             ret_dict = NULL;
+    CFDictionaryRef             tmp_dict = NULL;
+    CFMutableDictionaryRef      ret_dict = NULL;
     SCPreferencesRef            prefs_file = NULL;
 
     if( !whichUPS || !_validUPSIdentifier(whichUPS) )
@@ -219,14 +220,13 @@ IOPMCopyUPSShutdownLevels(CFTypeRef whichUPS)
     prefs_file = SCPreferencesCreate( kCFAllocatorDefault, kIOPMAppName, kIOPMPrefsPath );
     if(!prefs_file) return kIOReturnError;
 
-    ret_dict = SCPreferencesGetValue(prefs_file, whichUPS);
-    if(!isA_CFDictionary(ret_dict)) {
+    tmp_dict = SCPreferencesGetValue(prefs_file, whichUPS);
+    if(!isA_CFDictionary(tmp_dict)) {
         ret_dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
             &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    } else {
+        ret_dict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, tmp_dict);
     }
-    
-    // add the extra retain for caller to release
-    CFRetain(ret_dict);
     
     // Merge in the default values
     _mergeUnspecifiedUPSThresholds(whichUPS, ret_dict);

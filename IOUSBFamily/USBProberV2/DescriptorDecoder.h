@@ -52,6 +52,7 @@ enum ClassSpecific {
 
 + (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceInterface **)deviceIntf userInfo:(void *)userInfo isOtherSpeedDesc:(BOOL)isOtherSpeedDesc;
 +(void)dumpRawDescriptor:(Byte *)p forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth;
++(void)dumpRawConfigDescriptor:(IOUSBConfigurationDescriptor*)cfg forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth;
 +(void)dump:(int)n byte:(Byte *)p forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth;
 
 @end

@@ -420,24 +420,6 @@ UInt8 AppleTopazPluginCS8420::setStopMode ( void ) {
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//	This method acquires the codec error status and updates the register
-//	cache.  It is normally invoked from the 'notifyHardwareEvent' method
-//	in the AppleTopazAudio object in response to a codec error interrupt
-//	notification from the AppleOnboardAudio object.
-IOReturn	AppleTopazPluginCS8420::getCodecErrorStatus ( UInt32 * dataPtr ) {
-	IOReturn		err = kIOReturnBadArgument;
-	UInt8			regData;
-	
-	FailIf ( NULL == dataPtr, Exit );
-	*dataPtr = 0;
-	err = CODEC_ReadRegister ( map_CS8420_RX_ERROR, &regData, 1 );
-	FailIf ( kIOReturnSuccess != err, Exit );
-	*dataPtr = (UInt32)regData;
-Exit:
-	return err;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void	AppleTopazPluginCS8420::disableReceiverError ( void ) {
 	CODEC_WriteRegister ( map_CS8420_RX_ERROR_MASK, kCS8420_RX_ERROR_MASK_DISABLE_RERR );
 }

@@ -354,7 +354,7 @@ static char *sapi_isapi_read_cookies(TSRMLS_D)
 			efree(tmp_variable_buf);
 		}
 	}
-	return NULL;
+	return estrndup("", sizeof("")-1);
 }
 
 
@@ -490,6 +490,8 @@ static void sapi_isapi_register_server_variables2(char **server_variables, LPEXT
 			} else {
 				efree(variable_buf);
 			}
+		} else { /* for compatibility with Apache SAPIs */
+			php_register_variable(*p, "", track_vars_array TSRMLS_CC);
 		}
 		p++;
 	}
@@ -717,7 +719,7 @@ BOOL exceptionhandler(LPEXCEPTION_POINTERS *e, LPEXCEPTION_POINTERS ep)
 
 DWORD WINAPI HttpExtensionProc(LPEXTENSION_CONTROL_BLOCK lpECB)
 {
-	zend_file_handle file_handle;
+	zend_file_handle file_handle = {0};
 	zend_bool stack_overflown=0;
 #ifdef PHP_ENABLE_SEH
 	LPEXCEPTION_POINTERS e;
@@ -854,6 +856,7 @@ __declspec(dllexport) BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, L
 			if (isapi_sapi_module.shutdown) {
 				isapi_sapi_module.shutdown(&sapi_module);
 			}
+			sapi_shutdown();
 			tsrm_shutdown();
 			break;
 	}

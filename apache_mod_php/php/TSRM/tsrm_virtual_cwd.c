@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_virtual_cwd.c,v 1.1.1.6 2003/07/18 18:07:25 zarzycki Exp $ */
+/* $Id: tsrm_virtual_cwd.c,v 1.41.2.8 2004/12/02 01:04:46 sesser Exp $ */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -92,7 +92,7 @@ static int php_check_dots(const char *element, int n)
 	(len >= 2 && !php_check_dots(element, len))
 
 #define IS_DIRECTORY_CURRENT(element, len) \
-	(len == 1 && ptr[0] == '.')
+	(len == 1 && element[0] == '.')
 
 #elif defined(NETWARE)
 /* NetWare has strtok() (in LibC) and allows both slashes in paths, like Windows --
@@ -111,12 +111,12 @@ static int php_check_dots(const char *element, int n)
 
 #ifndef IS_DIRECTORY_UP
 #define IS_DIRECTORY_UP(element, len) \
-	(len == 2 && memcmp(element, "..", 2) == 0)
+	(len == 2 && element[0] == '.' && element[1] == '.')
 #endif
 
 #ifndef IS_DIRECTORY_CURRENT
 #define IS_DIRECTORY_CURRENT(element, len) \
-	(len == 1 && ptr[0] == '.')
+	(len == 1 && element[0] == '.')
 #endif
 
 /* define this to check semantics */
@@ -301,15 +301,22 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 
 	if (path_length == 0) 
 		return (0);
+	if (path_length >= MAXPATHLEN)
+		return (1);
 
 #if !defined(TSRM_WIN32) && !defined(NETWARE)
 	/* cwd_length can be 0 when getcwd() fails.
 	 * This can happen under solaris when a dir does not have read permissions
 	 * but *does* have execute permissions */
 	if (IS_ABSOLUTE_PATH(path, path_length) || (state->cwd_length < 1)) {
-		if (use_realpath && realpath(path, resolved_path)) {
-			path = resolved_path;
-			path_length = strlen(path);
+		if (use_realpath) {
+			if (realpath(path, resolved_path)) {
+				path = resolved_path;
+				path_length = strlen(path);
+			} else {
+				/* disable for now
+				return 1; */
+			}
 		}
 	} else { /* Concat current directory with relative path and then run realpath() on it */
 		char *tmp;
@@ -325,9 +332,19 @@ CWD_API int virtual_file_ex(cwd_state *state, const char *path, verify_path_func
 		memcpy(ptr, path, path_length);
 		ptr += path_length;
 		*ptr = '\0';
-		if (use_realpath && realpath(tmp, resolved_path)) {
-			path = resolved_path;
-			path_length = strlen(path);
+		if (strlen(tmp) >= MAXPATHLEN) {
+			free(tmp);
+			return 1;
+		}
+		if (use_realpath) {
+			if (realpath(tmp, resolved_path)) {
+				path = resolved_path;
+				path_length = strlen(path);
+			} else {
+				/* disable for now
+				free(tmp);
+				return 1; */
+			}
 		}
 		free(tmp);
 	}
@@ -486,19 +503,23 @@ CWD_API int virtual_chdir_file(const char *path, int (*p_chdir)(const char *path
 CWD_API char *virtual_realpath(const char *path, char *real_path TSRMLS_DC)
 {
 	cwd_state new_state;
-	int retval;
+	char *retval;
 
 	CWD_STATE_COPY(&new_state, &CWDG(cwd));
-	retval = virtual_file_ex(&new_state, path, NULL, 1);
 	
-	if (!retval) {
+	if (virtual_file_ex(&new_state, path, NULL, 1)==0) {
 		int len = new_state.cwd_length>MAXPATHLEN-1?MAXPATHLEN-1:new_state.cwd_length;
+
 		memcpy(real_path, new_state.cwd, len);
 		real_path[len] = '\0';
-		return real_path;
+		retval = real_path;
+	} else {
+		retval = NULL;
 	}
 
-	return NULL;
+	CWD_STATE_FREE(&new_state);
+
+	return retval;
 }
 
 CWD_API int virtual_filepath_ex(const char *path, char **filepath, verify_path_func verify_path TSRMLS_DC)
@@ -814,13 +835,24 @@ CWD_API FILE *virtual_popen(const char *command, const char *type TSRMLS_DC)
 CWD_API FILE *virtual_popen(const char *command, const char *type TSRMLS_DC)
 {
 	int command_length;
+	int dir_length, extra = 0;
 	char *command_line;
-	char *ptr;
+	char *ptr, *dir;
 	FILE *retval;
 
 	command_length = strlen(command);
 
-	ptr = command_line = (char *) malloc(command_length + sizeof("cd  ; ") + CWDG(cwd).cwd_length+1);
+	dir_length = CWDG(cwd).cwd_length;
+	dir = CWDG(cwd).cwd;
+	while (dir_length > 0) {
+		if (*dir == '\'') extra+=3;
+		dir++;
+		dir_length--;
+	}
+	dir_length = CWDG(cwd).cwd_length;
+	dir = CWDG(cwd).cwd;
+
+	ptr = command_line = (char *) malloc(command_length + sizeof("cd '' ; ") + dir_length +1+1);
 	if (!command_line) {
 		return NULL;
 	}
@@ -830,8 +862,21 @@ CWD_API FILE *virtual_popen(const char *command, const char *type TSRMLS_DC)
 	if (CWDG(cwd).cwd_length == 0) {
 		*ptr++ = DEFAULT_SLASH;
 	} else {
-		memcpy(ptr, CWDG(cwd).cwd, CWDG(cwd).cwd_length);
-		ptr += CWDG(cwd).cwd_length;
+		*ptr++ = '\'';
+		while (dir_length > 0) {
+			switch (*dir) {
+			case '\'':
+				*ptr++ = '\'';
+				*ptr++ = '\\';
+				*ptr++ = '\'';
+				/* fall-through */
+			default:
+				*ptr++ = *dir;
+			}
+			dir++;
+			dir_length--;
+		}
+		*ptr++ = '\'';
 	}
 	
 	*ptr++ = ' ';

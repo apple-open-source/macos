@@ -116,7 +116,7 @@ protected:
     */
     UInt32 		controlID;
     /*! @var channelID 
-        The ID of the channel this control affects - may be 	kIOAudioControlChannelIDAll if it represents all channels.
+        The ID of the channel this control affects - may be kIOAudioControlChannelIDAll if it represents all channels.
     */
     UInt32		channelID;
     

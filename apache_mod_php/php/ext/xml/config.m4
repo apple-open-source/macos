@@ -1,27 +1,30 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.5 2003/03/11 01:09:34 zarzycki Exp $
+dnl $Id: config.m4,v 1.38.2.2 2003/10/03 05:25:42 sniper Exp $
 dnl
 
 AC_C_BIGENDIAN
 
 if test "$ac_cv_c_bigendian" = "yes"; then
-  order=21
+  order=4321
 else
-  order=12
+  order=1234
 fi
 
 PHP_ARG_ENABLE(xml,whether to enable XML support,
 [  --disable-xml           Disable XML support using bundled expat lib], yes)
 
 PHP_ARG_WITH(expat-dir, external libexpat install dir,
-[  --with-expat-dir=DIR    XML: external libexpat install dir], no, no)
+[  --with-expat-dir=<DIR>    XML: external libexpat install dir], no, no)
 
 if test "$PHP_XML" = "yes"; then
   AC_DEFINE(HAVE_LIBEXPAT,  1, [ ])
 
   if test "$PHP_EXPAT_DIR" = "no"; then
-    AC_DEFINE(HAVE_LIBEXPAT_BUNDLED, 1, [ ])
-    PHP_NEW_EXTENSION(xml, xml.c expat/xmlparse.c expat/xmlrole.c expat/xmltok.c, $ext_shared,,-DXML_BYTE_ORDER=$order)
+    AC_DEFINE(HAVE_LIBEXPAT_BUNDLED, 1, [Bundled libexpat is used.])
+    AC_DEFINE(XML_NS, 1, [Define to make XML Namespaces functionality available.])
+    AC_DEFINE(XML_DTD, 1, [Define to make parameter entity parsing functionality available.])
+    AC_DEFINE(XML_CONTEXT_BYTES, 1024, [Define to specify how much context to retain around the current parse point.])
+    PHP_NEW_EXTENSION(xml, xml.c expat/xmlparse.c expat/xmlrole.c expat/xmltok.c, $ext_shared,,-DBYTEORDER=$order)
     PHP_ADD_INCLUDE($ext_srcdir/expat)
     PHP_ADD_BUILD_DIR($ext_builddir/expat)
   else

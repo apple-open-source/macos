@@ -15,7 +15,7 @@
    | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
-/* $Id: url_scanner.h,v 1.1.1.7 2003/07/18 18:07:44 zarzycki Exp $ */
+/* $Id: url_scanner.h,v 1.12.8.1 2002/12/31 16:35:35 sebastian Exp $ */
 
 #ifndef URI_SCANNER_H
 #define URI_SCANNER_H

@@ -23,8 +23,8 @@ class TFoo {
 }
 
 session_id("abtest");
-session_register('o1', 'o2' );
 session_start();
+session_register('o1', 'o2' );
 
 $o1 =& new TFoo(42);
 $o2 =& $o1;
@@ -45,7 +45,7 @@ var_dump($_SESSION);
 
 session_destroy();
 ?>
---EXPECT--
+--EXPECTF--
 array(2) {
   ["o1"]=>
   &object(tfoo)(1) {

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.6 2003/07/22 19:56:26 zarzycki Exp $
+dnl $Id: config.m4,v 1.27.4.3 2003/02/25 06:56:27 nobbie Exp $
 dnl
 
 PHP_ARG_WITH(informix,for Informix support,

@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_CPUCurrentSensor.cpp,v 1.6.4.1 2004/07/22 22:56:44 dirty Exp $
+ *  File: $Id: SMU_Neo2_CPUCurrentSensor.cpp,v 1.7 2004/07/22 22:51:56 dirty Exp $
  */
 
 

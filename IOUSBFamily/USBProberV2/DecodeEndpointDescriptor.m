@@ -99,7 +99,7 @@
             sprintf(temporaryString, "0x%02X  (OUT)", endpointDescriptor.bEndpointAddress);
         else
             sprintf(temporaryString, "0x%02X  (IN)", endpointDescriptor.bEndpointAddress);
-        [thisDevice addProperty:"Attributes:" withValue:temporaryString atDepth:ENDPOINT_LEVEL];
+        [thisDevice addProperty:"Address:" withValue:temporaryString atDepth:ENDPOINT_LEVEL];
     }
     
     sprintf(str, "0x%02X", endpointDescriptor.bmAttributes);

@@ -501,7 +501,7 @@ static int zend_parse_va_args(int num_args, char *type_spec, va_list *va, int fl
 					num_args < min_num_args ? min_num_args : max_num_args,
 					(num_args < min_num_args ? min_num_args : max_num_args) == 1 ? "" : "s",
 					num_args);
-			zend_error(E_WARNING, buf);
+			zend_error(E_WARNING, "%s", buf);
 		}
 		return FAILURE;
 	}

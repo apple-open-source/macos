@@ -72,6 +72,10 @@
 
 +(void)dumpRawDescriptor:(Byte *)p forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth {
     [self dump:p[0] byte:p forDevice:thisDevice atDepth:depth];
+}    
+
++(void)dumpRawConfigDescriptor:(IOUSBConfigurationDescriptor*)cfg forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth {
+    [self dump:cfg->wTotalLength byte:(Byte* )cfg forDevice:thisDevice atDepth:depth];
     
 }
 

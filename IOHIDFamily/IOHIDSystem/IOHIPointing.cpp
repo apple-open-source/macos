@@ -44,24 +44,27 @@
 #define SCROLL_CLEAR_THRESHOLD_MS 	500
 #define SCROLL_EVENT_THRESHOLD_MS 	300
 
-#define _scrollAcceleration	((ExpansionData *)_reserved)->scrollAcceleration
-#define _scrollScaleSegments 	((ExpansionData *)_reserved)->scrollScaleSegments
-#define _scrollScaleSegCount 	((ExpansionData *)_reserved)->scrollScaleSegCount
-#define _scrollTimeDeltas1	((ExpansionData *)_reserved)->scrollTimeDeltas1
-#define _scrollTimeDeltas2	((ExpansionData *)_reserved)->scrollTimeDeltas2
-#define _scrollTimeDeltas3	((ExpansionData *)_reserved)->scrollTimeDeltas3
-#define _scrollTimeDeltaIndex1	((ExpansionData *)_reserved)->scrollTimeDeltaIndex1
-#define _scrollTimeDeltaIndex2	((ExpansionData *)_reserved)->scrollTimeDeltaIndex2
-#define _scrollTimeDeltaIndex3	((ExpansionData *)_reserved)->scrollTimeDeltaIndex3
-#define _scrollLastDeltaAxis1	((ExpansionData *)_reserved)->scrollLastDeltaAxis1
-#define _scrollLastDeltaAxis2	((ExpansionData *)_reserved)->scrollLastDeltaAxis2
-#define _scrollLastDeltaAxis3	((ExpansionData *)_reserved)->scrollLastDeltaAxis3
-#define _scrollLastEventTime1	((ExpansionData *)_reserved)->scrollLastEventTime1
-#define _scrollLastEventTime2	((ExpansionData *)_reserved)->scrollLastEventTime2
-#define _scrollLastEventTime3	((ExpansionData *)_reserved)->scrollLastEventTime3
-#define _hidPointingNub		((ExpansionData *)_reserved)->hidPointingNub
-#define _isSeized		((ExpansionData *)_reserved)->isSeized
-#define _openClient		((ExpansionData *)_reserved)->openClient
+#define _scrollAcceleration	_reserved->scrollAcceleration
+#define _scrollScaleSegments 	_reserved->scrollScaleSegments
+#define _scrollScaleSegCount 	_reserved->scrollScaleSegCount
+#define _scrollTimeDeltas1	_reserved->scrollTimeDeltas1
+#define _scrollTimeDeltas2	_reserved->scrollTimeDeltas2
+#define _scrollTimeDeltas3	_reserved->scrollTimeDeltas3
+#define _scrollTimeDeltaIndex1	_reserved->scrollTimeDeltaIndex1
+#define _scrollTimeDeltaIndex2	_reserved->scrollTimeDeltaIndex2
+#define _scrollTimeDeltaIndex3	_reserved->scrollTimeDeltaIndex3
+#define _scrollLastDeltaAxis1	_reserved->scrollLastDeltaAxis1
+#define _scrollLastDeltaAxis2	_reserved->scrollLastDeltaAxis2
+#define _scrollLastDeltaAxis3	_reserved->scrollLastDeltaAxis3
+#define _scrollFixedDeltaAxis1	_reserved->scrollFixedDeltaAxis1
+#define _scrollFixedDeltaAxis2	_reserved->scrollFixedDeltaAxis2
+#define _scrollFixedDeltaAxis3	_reserved->scrollFixedDeltaAxis3
+#define _scrollLastEventTime1	_reserved->scrollLastEventTime1
+#define _scrollLastEventTime2	_reserved->scrollLastEventTime2
+#define _scrollLastEventTime3	_reserved->scrollLastEventTime3
+#define _hidPointingNub		_reserved->hidPointingNub
+#define _isSeized		_reserved->isSeized
+#define _openClient		_reserved->openClient
 
 
 static bool GetOSDataValue (OSData * data, UInt32 * value);
@@ -112,6 +115,8 @@ bool IOHIPointing::init(OSDictionary * properties)
     _reserved = IONew(ExpansionData, 1);
    
     if (!_reserved) return false;
+
+    bzero(_reserved, sizeof(ExpansionData));
     
     // Initialize scroll wheel accel items
     _scrollScaleSegments 	= 0;
@@ -164,6 +169,9 @@ bool IOHIPointing::start(IOService * provider)
       obj->release();
     }
   }
+
+  if (!getProperty(kIOHIDScrollAccelerationTypeKey))
+    setProperty(kIOHIDScrollAccelerationTypeKey, kIOHIDMouseScrollAccelerationKey);
 
   /*
    * RY: Publish a property containing the button Count.  This will
@@ -323,12 +331,11 @@ struct CursorDeviceSegment {
 };
 typedef struct CursorDeviceSegment CursorDeviceSegment;
 
-static void AccelerateScrollAxis(int * 		axisp, 
-                                 int *		prevScrollAxis,
+static void AccelerateScrollAxis(IOFixed * 		axisp, 
+                                 IOFixed *		prevScrollAxis,
                                  UInt32 * 	prevScrollTimeDeltas,
                                  UInt8 *	prevScrollTimeDeltaIndex,
                                  AbsoluteTime 	*scrollLastEventTime,
-                                 IOFixed	resolution,
                                  void *		scaleSegments) 
 {
     IOFixed	avgIndex;
@@ -336,6 +343,7 @@ static void AccelerateScrollAxis(int * 		axisp,
     IOFixed	timeDeltaMS = 0;
     IOFixed	avgTimeDeltaMS = 0;
     IOFixed	scaledTime = 0;
+    IOFixed	resolution = (10 << 16);
     UInt64	currentTimeNS = 0;
     UInt64	lastEventTimeNS = 0;
     AbsoluteTime currentTime;
@@ -425,13 +433,17 @@ static void AccelerateScrollAxis(int * 		axisp,
             segment->intercept + IOFixedMultiply( scaledTime, segment->slope ),
             scaledTime );
     
-    scaledTime = IOFixedMultiply(scaledTime, IOFixedDivide(devScale, crsrScale)) >> 16;
+    scaledTime = IOFixedMultiply(scaledTime, IOFixedDivide(devScale, crsrScale));
 
-    *axisp *= (scaledTime && scaleSegments) ? (scaledTime) : 1;
+    if (scaleSegments)
+    {
+        *axisp = IOFixedMultiply(*axisp, scaledTime);
+    }
+    
     *prevScrollAxis = *axisp;
 }
 
-void IOHIPointing::scaleScrollAxes(int * axis1p, int * axis2p, int * axis3p)
+void IOHIPointing::scaleScrollAxes(IOFixed * axis1p, IOFixed * axis2p, IOFixed * axis3p)
 // Description:	This method was added to support scroll acceleration.
 // 		This will make use of the same accel agorithm used
 //		for pointer accel.  Since we can not ensure what
@@ -442,9 +454,7 @@ void IOHIPointing::scaleScrollAxes(int * axis1p, int * axis2p, int * axis3p)
 //		alogrithms are modified to accomidate xyz.
 // Preconditions:
 // *	_deviceLock should be held on entry
-{
-    IOFixed	resolution = scrollResolution();
-    
+{    
     // Scale axis 1
     if (*axis1p != 0)
         AccelerateScrollAxis(axis1p, 
@@ -452,7 +462,6 @@ void IOHIPointing::scaleScrollAxes(int * axis1p, int * axis2p, int * axis3p)
                          _scrollTimeDeltas1,
                          &_scrollTimeDeltaIndex1,
                          &_scrollLastEventTime1,
-                         resolution,
                          _scrollScaleSegments);
     
     // Scale axis 2
@@ -462,7 +471,6 @@ void IOHIPointing::scaleScrollAxes(int * axis1p, int * axis2p, int * axis3p)
                          _scrollTimeDeltas2,
                          &_scrollTimeDeltaIndex2,
                          &_scrollLastEventTime2,
-                         resolution,
                          _scrollScaleSegments);
 
     // Scale axis 3
@@ -472,7 +480,6 @@ void IOHIPointing::scaleScrollAxes(int * axis1p, int * axis2p, int * axis3p)
                          _scrollTimeDeltas3,
                          &_scrollTimeDeltaIndex3,
                          &_scrollLastEventTime3,
-                         resolution,
                          _scrollScaleSegments);
     
 }
@@ -735,6 +742,14 @@ void IOHIPointing::dispatchRelativePointerEvent(int        dx,
             /* atTime */  ts);
 }
 
+#define CONVERT_SCROLL_FIXED_TO_COARSE(fixedAxis, coarse)   \
+        if((fixedAxis < 0) && (fixedAxis & 0xffff))         \
+            coarse = (fixedAxis >> 16) + 1;                 \
+        else                                                \
+            coarse = (fixedAxis >> 16);                     \
+        if (!coarse && (fixedAxis & 0xffff))                \
+            coarse = (fixedAxis < 0) ? -1 : 1;
+
 void IOHIPointing::dispatchScrollWheelEvent(short deltaAxis1,
                                             short deltaAxis2,
                                             short deltaAxis3,
@@ -764,19 +779,23 @@ void IOHIPointing::dispatchScrollWheelEvent(short deltaAxis1,
     // scaleScrollAxes is expecting ints.  Since
     // shorts are smaller than ints, we cannot
     // cast a short to an int.
-    int dAxis1 = deltaAxis1;
-    int dAxis2 = deltaAxis2;
-    int dAxis3 = deltaAxis3;
+    _scrollFixedDeltaAxis1 = deltaAxis1 << 16;
+    _scrollFixedDeltaAxis2 = deltaAxis2 << 16;
+    _scrollFixedDeltaAxis3 = deltaAxis3 << 16;
     
     // Perform pointer acceleration computations
-    scaleScrollAxes(&dAxis1, &dAxis2, &dAxis3);
+    scaleScrollAxes(&_scrollFixedDeltaAxis1, &_scrollFixedDeltaAxis2, &_scrollFixedDeltaAxis3);
+    
+    CONVERT_SCROLL_FIXED_TO_COARSE(_scrollFixedDeltaAxis1, deltaAxis1);
+    CONVERT_SCROLL_FIXED_TO_COARSE(_scrollFixedDeltaAxis2, deltaAxis2);
+    CONVERT_SCROLL_FIXED_TO_COARSE(_scrollFixedDeltaAxis3, deltaAxis3);
     
     IOLockUnlock( _deviceLock);
     
     _scrollWheelEvent(	this,
-                        (short) dAxis1,
-                        (short) dAxis2,
-                        (short) dAxis3,
+                        deltaAxis1,
+                        deltaAxis2,
+                        deltaAxis3,
                         ts);
 }
 
@@ -798,22 +817,23 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
 {
     OSData *		data;
     OSNumber * 		number;
-    OSString *  	accelKey;
+    OSString *  	pointerAccelKey;
+    OSString *      scrollAccelKey;
     IOReturn		err = kIOReturnSuccess;
     bool		updated = false;
-    UInt8 *		bytes;
     UInt32		value;
 
     if( dict->getObject(kIOHIDResetPointerKey))
 	resetPointer();
 
-    accelKey = OSDynamicCast( OSString, getProperty(kIOHIDPointerAccelerationTypeKey));
+    pointerAccelKey = OSDynamicCast( OSString, getProperty(kIOHIDPointerAccelerationTypeKey));
+    scrollAccelKey = OSDynamicCast( OSString, getProperty(kIOHIDScrollAccelerationTypeKey));
 
     IOLockLock( _deviceLock);
     
-    if( accelKey && 
-        ((number = OSDynamicCast( OSNumber, dict->getObject(accelKey))) || 
-         (data = OSDynamicCast( OSData, dict->getObject(accelKey))))) 
+    if( pointerAccelKey && 
+        ((number = OSDynamicCast( OSNumber, dict->getObject(pointerAccelKey))) || 
+         (data = OSDynamicCast( OSData, dict->getObject(pointerAccelKey))))) 
     {
         value = (number) ? number->unsigned32BitValue() : 
                             *((UInt32 *) (data->getBytesNoCopy()));
@@ -830,29 +850,57 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
                             
 	setupForAcceleration( value );
 	updated = true;
-        if( accelKey) {
+        if( pointerAccelKey) {
             // If this is an OSData object, create an OSNumber to store in the registry
             if (!number)
             {
                 number = OSNumber::withNumber(value, 32);
-        	dict->setObject( accelKey, number );
+                dict->setObject( pointerAccelKey, number );
                 number->release();
             }
             else
-                dict->setObject( accelKey, number );
+                dict->setObject( pointerAccelKey, number );
         }
 
     }
     
     // Scroll accel setup
+    // use same mechanism as pointer accel setup
+    
     if( dict->getObject(kIOHIDScrollResetKey))
-	resetScroll();
-        
-    if ((number = OSDynamicCast( OSNumber, dict->getObject(kIOHIDScrollAccelerationKey))) ||
-        (data = OSDynamicCast( OSData, dict->getObject(kIOHIDScrollAccelerationKey))))
+        resetScroll();
+    
+    if( scrollAccelKey && 
+        ((number = OSDynamicCast( OSNumber, dict->getObject(scrollAccelKey))) || 
+         (data = OSDynamicCast( OSData, dict->getObject(scrollAccelKey))))) 
     {
-        value = (number) ? number->unsigned32BitValue() : *((UInt32 *) (data->getBytesNoCopy()));
+        value = (number) ? number->unsigned32BitValue() : 
+                            *((UInt32 *) (data->getBytesNoCopy()));
         setupScrollForAcceleration( value );
+        updated = true;
+    } 
+    else if( (number = OSDynamicCast( OSNumber,
+		dict->getObject(kIOHIDScrollAccelerationKey))) ||
+             (data = OSDynamicCast( OSData,
+		dict->getObject(kIOHIDScrollAccelerationKey)))) {
+
+        value = (number) ? number->unsigned32BitValue() : 
+                            *((UInt32 *) (data->getBytesNoCopy()));
+                            
+        setupScrollForAcceleration( value );
+        updated = true;
+        if( scrollAccelKey) {
+            // If this is an OSData object, create an OSNumber to store in the registry
+            if (!number)
+            {
+                number = OSNumber::withNumber(value, 32);
+                dict->setObject( scrollAccelKey, number );
+                number->release();
+            }
+            else
+                dict->setObject( scrollAccelKey, number );
+        }
+
     }
 
     IOLockUnlock( _deviceLock);
@@ -1332,6 +1380,9 @@ void IOHIPointing::_scrollWheelEvent(IOHIPointing *self,
                                 (short) deltaAxis1,
                                 (short) deltaAxis2,
                                 (short) deltaAxis3,
+                                self->_scrollFixedDeltaAxis1,
+                                self->_scrollFixedDeltaAxis2,
+                                self->_scrollFixedDeltaAxis3,
                                 ts,
                                 self,
                                 0);

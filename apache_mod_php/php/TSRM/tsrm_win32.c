@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_win32.c,v 1.1.1.5 2003/07/18 18:07:25 zarzycki Exp $ */
+/* $Id: tsrm_win32.c,v 1.14.2.2 2003/09/29 13:57:03 stas Exp $ */
 
 #include <stdio.h>
 #include <fcntl.h>
@@ -358,5 +358,14 @@ TSRM_API int shmctl(int key, int cmd, struct shmid_ds *buf) {
 		default:
 			return -1;
 	}
+}
+
+TSRM_API char *realpath(char *orig_path, char *buffer)
+{
+	int ret = GetFullPathName(orig_path, _MAX_PATH, buffer, NULL);
+	if(!ret || ret > _MAX_PATH) {
+		return NULL;
+	}
+	return buffer;
 }
 #endif

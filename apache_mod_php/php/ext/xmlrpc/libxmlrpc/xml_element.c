@@ -31,7 +31,7 @@
 */
 
 
-static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.1.1.3 2003/03/11 01:09:35 zarzycki Exp $";
+static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.3.4.3 2004/06/01 20:16:18 iliaa Exp $";
 
 
 
@@ -44,8 +44,12 @@ static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.1.1.3 2003/03/11 01:09:
  *   06/2000
  * HISTORY
  *   $Log: xml_element.c,v $
- *   Revision 1.1.1.3  2003/03/11 01:09:35  zarzycki
- *   Import of php-4.3.1
+ *   Revision 1.3.4.3  2004/06/01 20:16:18  iliaa
+ *   MFH: Fixed bug #28597 (xmlrpc_encode_request() incorrectly encodes chars in
+ *   200-210 range).
+ *
+ *   Revision 1.3.4.2  2003/12/16 21:00:35  sniper
+ *   MFH: fix compile warnings
  *
  *   Revision 1.3.4.1  2002/11/27 04:07:00  fmk
  *   MFH
@@ -101,6 +105,7 @@ static const char rcsid[] = "#(@) $Id: xml_element.c,v 1.1.1.3 2003/03/11 01:09:
 #endif
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "xml_element.h"
 #include "queue.h"
@@ -267,10 +272,9 @@ static int create_xml_escape(char *pString, unsigned char c)
     pString[counter++] = c / 100 + '0';
     c = c % 100;
   }
-  if(c >= 10) {
-    pString[counter++] = c / 10 + '0';
-    c = c % 10;
-  }
+  pString[counter++] = c / 10 + '0';
+  c = c % 10;
+
   pString[counter++] = c + '0';
   pString[counter++] = ';';
   return counter; 
@@ -474,18 +478,20 @@ static void xml_element_serialize(xml_element *el, int (*fptr)(void *data, const
 }
 
 /* print buf to file */
-static file_out_fptr(void *f, const char *text, int size)
+static int file_out_fptr(void *f, const char *text, int size)
 {
    fputs(text, (FILE *)f);
+   return 0;
 }
 
 /* print buf to simplestring */
-static simplestring_out_fptr(void *f, const char *text, int size)
+static int simplestring_out_fptr(void *f, const char *text, int size)
 {
    simplestring* buf = (simplestring*)f;
    if(buf) {
       simplestring_addn(buf, text, size);
    }
+   return 0;
 }
 
 /****f* xml_element/xml_elem_serialize_to_string
@@ -699,7 +705,7 @@ xml_element* xml_elem_parse_buf(const char* in_buf, int len, XML_ELEM_INPUT_OPTI
          if(byte_idx >= 0) {
              snprintf(buf, 
                       sizeof(buf),
-                      "\n\tdata beginning %i before byte index: %s\n",
+                      "\n\tdata beginning %ld before byte index: %s\n",
                       byte_idx > 10  ? 10 : byte_idx,
                       in_buf + (byte_idx > 10 ? byte_idx - 10 : byte_idx));
          }
@@ -708,7 +714,7 @@ xml_element* xml_elem_parse_buf(const char* in_buf, int len, XML_ELEM_INPUT_OPTI
                 "\tdescription: %s\n"
                 "\tline: %i\n"
                 "\tcolumn: %i\n"
-                "\tbyte index: %i\n"
+                "\tbyte index: %ld\n"
                 "\ttotal bytes: %i\n%s ",
                 err_code, error_str, line_num, 
                 col_num, byte_idx, byte_total, buf);

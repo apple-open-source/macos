@@ -1,5 +1,5 @@
 README FOR THTTPD MODULE (by Sascha Schumann)        
-($Date: 2003/07/18 18:07:51 $)
+($Date: 2003/02/19 11:01:38 $)
 
 	This is a SAPI module for PHP 4.x supporting thttpd, the tiny,
 	turbo, throttling HTTP server by Jef Poskanzer.

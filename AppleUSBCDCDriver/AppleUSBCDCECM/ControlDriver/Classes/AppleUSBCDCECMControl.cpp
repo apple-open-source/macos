@@ -416,6 +416,38 @@ void AppleUSBCDCECMControl::statsWriteComplete(void *obj, void *param, IOReturn 
 
 /****************************************************************************************************/
 //
+//		Method:		AppleUSBCDCECMControl::probe
+//
+//		Inputs:		provider - my provider
+//
+//		Outputs:	IOService - from super::probe, score - probe score
+//
+//		Desc:		Modify the probe score if necessary (we don't  at the moment)
+//
+/****************************************************************************************************/
+
+IOService* AppleUSBCDCECMControl::probe(IOService *provider, SInt32 *score)
+{ 
+    IOService   *res;
+	
+		// If our IOUSBInterface has a "do not match" property, it means that we should not match and need 
+		// to bail.  See rdar://3716623
+    
+    OSBoolean *boolObj = OSDynamicCast(OSBoolean, provider->getProperty("kDoNotClassMatchThisInterface"));
+    if (boolObj && boolObj->isTrue())
+    {
+        ALERT(0, 0, "probe - provider doesn't want us to match");
+        return NULL;
+    }
+
+    res = super::probe(provider, score);
+    
+    return res;
+    
+}/* end probe */
+
+/****************************************************************************************************/
+//
 //		Method:		AppleUSBCDCECMControl::start
 //
 //		Inputs:		provider - my provider
@@ -439,7 +471,7 @@ bool AppleUSBCDCECMControl::start(IOService *provider)
     fPacketFilter = kPACKET_TYPE_DIRECTED | kPACKET_TYPE_BROADCAST | kPACKET_TYPE_MULTICAST;
     fpNetStats = NULL;
     fpEtherStats = NULL;
-    
+	
 #if USE_ELG
     XTraceLogInfo	*logInfo;
     
@@ -454,7 +486,7 @@ bool AppleUSBCDCECMControl::start(IOService *provider)
         return false;
     }
 #endif
-    
+        
     if(!super::start(provider))
     {
         ALERT(0, 0, "start - super failed");
@@ -470,16 +502,6 @@ bool AppleUSBCDCECMControl::start(IOService *provider)
         return false;
     }
     
-    // If our IOUSBInterface has a "do not match" property, it means that we should not match and need 
-    // to bail.  See rdar://3716623
-    
-    OSBoolean * boolObj = OSDynamicCast( OSBoolean, provider->getProperty("kDoNotClassMatchThisInterface") );
-    if ( boolObj && boolObj->isTrue() )
-    {
-        ALERT(0, 0, "start - provider doesn't want us to match");
-        return false;
-    }
-
     if (!configureECM())
     {
         ALERT(0, 0, "start - configureECM failed");
@@ -829,8 +851,6 @@ bool AppleUSBCDCECMControl::allocateResources()
     if (!fControlInterface->open(this))
     {
         ALERT(0, 0, "allocateResources - open comm interface failed.");
-        fControlInterface->release();
-        fControlInterface = NULL;
         return false;
     }
         // Interrupt pipe
@@ -853,8 +873,6 @@ bool AppleUSBCDCECMControl::allocateResources()
         if (!fCommPipeMDP)
         {
             XTRACE(this, 0, 0, "allocateResources - Couldn't allocate MDP for interrupt pipe");
-			fControlInterface->release();
-			fControlInterface = NULL;
             return false;
         }
 
@@ -1155,7 +1173,7 @@ void AppleUSBCDCECMControl::resetDevice()
 
     XTRACE(this, 0, 0, "resetDevice");
 	
-	if (fControlInterface == NULL)
+	if ((fControlInterface == NULL) || (fTerminate))
 	{
 		return;
 	}

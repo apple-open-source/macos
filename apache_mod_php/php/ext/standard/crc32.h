@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: crc32.h,v 1.1.1.2 2003/07/18 18:07:42 zarzycki Exp $ */
+/* $Id: crc32.h,v 1.2.8.1 2002/12/31 16:35:25 sebastian Exp $ */
 
 /*
  * This code implements the AUTODIN II polynomial

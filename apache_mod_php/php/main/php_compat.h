@@ -19,6 +19,7 @@
 #define pcre_maketables			php_pcre_maketables
 #define pcre_study				php_pcre_study
 #define pcre_version			php_pcre_version
+#define pcre_fullinfo			php_pcre_fullinfo
 #endif
 
 #define lookup				php_lookup
@@ -48,7 +49,9 @@
 #define XmlGetUtf8InternalEncodingNS php_XmlGetUtf8InternalEncodingNS
 #define XmlGetUtf8InternalEncoding php_XmlGetUtf8InternalEncoding
 #define XmlInitEncoding php_XmlInitEncoding
+#define XmlInitEncodingNS php_XmlInitEncodingNS
 #define XmlInitUnknownEncoding php_XmlInitUnknownEncoding
+#define XmlInitUnknownEncodingNS php_XmlInitUnknownEncodingNS
 #define XML_ParseBuffer php_XML_ParseBuffer
 #define XML_Parse php_XML_Parse
 #define XML_ParserCreate_MM php_XML_ParserCreate_MM
@@ -56,6 +59,7 @@
 #define XML_ParserCreate php_XML_ParserCreate
 #define XML_ParserFree php_XML_ParserFree
 #define XmlParseXmlDecl php_XmlParseXmlDecl
+#define XmlParseXmlDeclNS php_XmlParseXmlDeclNS
 #define XmlPrologStateInitExternalEntity php_XmlPrologStateInitExternalEntity
 #define XmlPrologStateInit php_XmlPrologStateInit
 #define XML_SetAttlistDeclHandler php_XML_SetAttlistDeclHandler
@@ -94,7 +98,18 @@
 #define XML_UseParserAsHandlerArg php_XML_UseParserAsHandlerArg
 #define XmlUtf16Encode php_XmlUtf16Encode
 #define XmlUtf8Encode php_XmlUtf8Encode
-#define XML_CONTEXT_BYTES 1024
+#define XML_FreeContentModel php_XML_FreeContentModel
+#define XML_MemMalloc php_XML_MemMalloc
+#define XML_MemRealloc php_XML_MemRealloc
+#define XML_MemFree php_XML_MemFree
+#define XML_UseForeignDTD php_XML_UseForeignDTD
+#define XML_GetFeatureList php_XML_GetFeatureList
+#define XML_ParserReset php_XML_ParserReset
+#endif
+
+#ifdef PHP_EXPORTS
+#define PCRE_STATIC
+#define XML_STATIC
 #endif
 
 #endif

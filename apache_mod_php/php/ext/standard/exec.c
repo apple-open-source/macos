@@ -15,7 +15,7 @@
    | Author: Rasmus Lerdorf                                               |
    +----------------------------------------------------------------------+
  */
-/* $Id: exec.c,v 1.1.1.8 2003/07/18 18:07:42 zarzycki Exp $ */
+/* $Id: exec.c,v 1.84.2.15 2004/11/10 20:28:27 wez Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -401,18 +401,30 @@ PHP_FUNCTION(passthru)
 char *php_escape_shell_cmd(char *str) {
 	register int x, y, l;
 	char *cmd;
+	char *p = NULL;
 
 	l = strlen(str);
 	cmd = emalloc(2 * l + 1);
 	
 	for (x = 0, y = 0; x < l; x++) {
 		switch (str[x]) {
+			case '"':
+			case '\'':
+#ifndef PHP_WIN32
+				if (!p && (p = memchr(str + x + 1, str[x], l - x - 1))) {
+					/* noop */
+				} else if (p && *p == str[x]) {
+					p = NULL;
+				} else {
+					cmd[y++] = '\\';
+				}
+				cmd[y++] = str[x];
+				break;
+#endif
 			case '#': /* This is character-set independent */
 			case '&':
 			case ';':
 			case '`':
-			case '\'':
-			case '"':
 			case '|':
 			case '*':
 			case '?':
@@ -430,6 +442,12 @@ char *php_escape_shell_cmd(char *str) {
 			case '\\':
 			case '\x0A': /* excluding these two */
 			case '\xFF':
+#ifdef PHP_WIN32
+			/* since Windows does not allow us to escape these chars, just remove them */
+			case '%':
+				cmd[y++] = ' ';
+				break;
+#endif
 				cmd[y++] = '\\';
 				/* fall-through */
 			default:
@@ -452,21 +470,35 @@ char *php_escape_shell_arg(char *str) {
 	l = strlen(str);
 	
 	cmd = emalloc(4 * l + 3); /* worst case */
-	
+#ifdef PHP_WIN32
+	cmd[y++] = '"';
+#else
 	cmd[y++] = '\'';
+#endif
 	
 	for (x = 0; x < l; x++) {
 		switch (str[x]) {
+#ifdef PHP_WIN32
+		case '"':
+		case '%':
+			cmd[y++] = ' ';
+			break;
+#else
 		case '\'':
 			cmd[y++] = '\'';
 			cmd[y++] = '\\';
 			cmd[y++] = '\'';
+#endif
 			/* fall-through */
 		default:
 			cmd[y++] = str[x];
 		}
 	}
+#ifdef PHP_WIN32
+	cmd[y++] = '"';
+#else
 	cmd[y++] = '\'';
+#endif
 	cmd[y] = '\0';
 	return cmd;
 }
@@ -513,7 +545,7 @@ PHP_FUNCTION(escapeshellarg)
 /* }}} */
 
 /* {{{ proto string shell_exec(string cmd)
-   Use pclose() for FILE* that has been opened via popen() */
+   Execute command via shell and return complete output as string */
 PHP_FUNCTION(shell_exec)
 {
 	FILE *in;
@@ -570,6 +602,7 @@ static void proc_open_rsrc_dtor(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 	WaitForSingleObject(child, INFINITE);
 	GetExitCodeProcess(child, &wstatus);
 	FG(pclose_ret) = wstatus;
+	CloseHandle(child);
 #else
 # if HAVE_SYS_WAIT_H
 	int wstatus;
@@ -690,7 +723,7 @@ PHP_FUNCTION(proc_open)
 	pid_t child;
 #endif
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "saz/", &command,
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "saz", &command,
 				&command_len, &descriptorspec, &pipes) == FAILURE) {
 		RETURN_FALSE;
 	}
@@ -742,13 +775,13 @@ PHP_FUNCTION(proc_open)
 #ifdef PHP_WIN32
 			descriptors[ndesc].childend = dup_fd_as_handle(fd);
 			if (descriptors[ndesc].childend == NULL) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to dup File-Handle for descriptor %d", nindex);
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to dup File-Handle for descriptor %lu", nindex);
 				goto exit_fail;
 			}
 #else
 			descriptors[ndesc].childend = dup(fd);
 			if (descriptors[ndesc].childend < 0) {
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to dup File-Handle for descriptor %d - %s", nindex, strerror(errno));
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to dup File-Handle for descriptor %lu - %s", nindex, strerror(errno));
 				goto exit_fail;
 			}
 #endif
@@ -773,7 +806,7 @@ PHP_FUNCTION(proc_open)
 				if (zend_hash_index_find(Z_ARRVAL_PP(descitem), 1, (void **)&zmode) == SUCCESS) {
 					convert_to_string_ex(zmode);
 				} else {
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Missing mode parameter for 'pipe'", Z_STRVAL_PP(ztype));
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Missing mode parameter for 'pipe'");
 					goto exit_fail;
 				}
 
@@ -815,14 +848,14 @@ PHP_FUNCTION(proc_open)
 				if (zend_hash_index_find(Z_ARRVAL_PP(descitem), 1, (void **)&zfile) == SUCCESS) {
 					convert_to_string_ex(zfile);
 				} else {
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Missing file name parameter for 'file'", Z_STRVAL_PP(ztype));
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Missing file name parameter for 'file'");
 					goto exit_fail;
 				}
 
 				if (zend_hash_index_find(Z_ARRVAL_PP(descitem), 2, (void **)&zmode) == SUCCESS) {
 					convert_to_string_ex(zmode);
 				} else {
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Missing mode parameter for 'file'", Z_STRVAL_PP(ztype));
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Missing mode parameter for 'file'");
 					goto exit_fail;
 				}
 
@@ -941,6 +974,10 @@ PHP_FUNCTION(proc_open)
 	/* we forked/spawned and this is the parent */
 
 	efree(command);
+
+	if (pipes != NULL) {
+		zval_dtor(pipes);
+	}
 	array_init(pipes);
 
 	/* clean up all the child ends and then open streams on the parent

@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_PlatformPlugin.cpp,v 1.8 2004/06/03 21:53:25 eem Exp $
+ *  File: $Id: SMU_Neo2_PlatformPlugin.cpp,v 1.9 2004/12/04 01:46:37 raddog Exp $
  */
 
 
@@ -67,14 +67,11 @@ bool SMU_Neo2_PlatformPlugin::start( IOService* provider )
 	if ( thermalProfile != NULL )
 		{
 		thermalProfile->adjustThermalProfile();
-		thermalProfile = NULL;
 
-		// Tear down the nub.
-
-		thermalNub->stop( this );
-		thermalNub->detach( this );
-		thermalNub->release();
+		// Tear down the nub (which also terminates thermalProfile)
+		thermalNub->terminate();
 		thermalNub = NULL;
+		thermalProfile = NULL;
 		}
 
 	return( true );

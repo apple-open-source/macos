@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.1 2003/03/11 01:09:34 zarzycki Exp $
+dnl $Id: config.m4,v 1.5 2002/10/27 11:56:06 msopacua Exp $
 
 PHP_ARG_ENABLE(sysvmsg,whether to enable System V IPC support,
 [  --enable-sysvmsg        Enable sysvmsg support])

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.7 2003/07/18 18:07:34 zarzycki Exp $
+dnl $Id: config.m4,v 1.8.4.1 2003/01/23 05:33:17 sniper Exp $
 dnl
 
 PHP_ARG_WITH(ingres, for Ingres II support,

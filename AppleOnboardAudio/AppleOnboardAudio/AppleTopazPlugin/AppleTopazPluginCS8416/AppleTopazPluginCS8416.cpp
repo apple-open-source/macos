@@ -123,7 +123,6 @@ IOReturn	AppleTopazPluginCS8416::performDeviceSleep ( void ) {
 	result = CODEC_ReadRegister ( mapControl_4, &mShadowRegs[mapControl_4], 1 );
 	FailIf ( kIOReturnSuccess != result, Exit );
 	debugIOLog ( 4, "  mShadowRegs[mapControl_4] = 0x%0.2X", mShadowRegs[mapControl_4] );
-	FailIf ( ( ( ( 1 << baRun ) & mShadowRegs[mapControl_4] ) != ( 1 << baRun ) ), Exit );
 
 	result = CODEC_ReadRegister ( mapOMCK_RMCK_Ratio, &mShadowRegs[mapOMCK_RMCK_Ratio], 1 );
 	FailIf ( kIOReturnSuccess != result, Exit );
@@ -299,24 +298,6 @@ Exit:
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//	This method acquires the codec error status and updates the register
-//	cache.  It is normally invoked from the 'notifyHardwareEvent' method
-//	in the AppleTopazAudio object in response to a codec error interrupt
-//	notification from the AppleOnboardAudio object.
-IOReturn	AppleTopazPluginCS8416::getCodecErrorStatus ( UInt32 * dataPtr ) {
-	IOReturn		err = kIOReturnBadArgument;
-	UInt8			regData;
-	
-	FailIf ( NULL == dataPtr, Exit );
-	*dataPtr = 0;
-	err = CODEC_ReadRegister ( mapReceiverError, &regData, 1 );
-	FailIf ( kIOReturnSuccess != err, Exit );
-	*dataPtr = (UInt32)regData;
-Exit:
-	return err;
-}
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //  Never disable the receiver errors on the CS8416.  The CS8416 is an input
 //  only device with no hardware sample rate conversion so the I2S module 
 //  always operates in slave mode.  Receiver errors are used to broadcast
@@ -420,8 +401,8 @@ void AppleTopazPluginCS8416::poll ( void ) {
 //  validate the current interrupt status and clear the interrupt.
 void AppleTopazPluginCS8416::notifyHardwareEvent ( UInt32 statusSelector, UInt32 newValue ) {
 	IOReturn		error = kIOReturnError;
-	bool			unlockStatusDetected = FALSE;														//  [3678605]
-	UInt32			hwInterruptAckLoopCounter = kIRQ_HARDWARE_ACK_SEED_COUNT;							//  [3678605],[3800414]
+	bool			unlockStatusDetected = FALSE;																//  [3678605]
+	UInt32			hwInterruptAckLoopCounter = kIRQ_HARDWARE_ACK_SEED_COUNT;									//  [3678605]
 
 	switch ( statusSelector ) {
 		case kCodecErrorInterruptStatus:	debugIOLog ( 4, "+ AppleTopazPluginCS8416::notifyHardwareEvent ( %d = kCodecErrorInterruptStatus, %d ), mDelayPollAfterWakeCounter %ld", statusSelector, newValue, mDelayPollAfterWakeCounter );	break;
@@ -449,13 +430,13 @@ void AppleTopazPluginCS8416::notifyHardwareEvent ( UInt32 statusSelector, UInt32
 						error = CODEC_ReadRegister ( mapReceiverError, &mShadowRegs[mapReceiverError], 1 );
 						FailIf ( kIOReturnSuccess != error, Exit );
 						
-						debugIOLog ( 4, "  CODEC_ReadRegister ( mapReceiverError, &mShadowRegs[mapReceiverError], 1 ) returns data 0x%0.2X", mShadowRegs[mapReceiverError] );
+						debugIOLog ( 4, "  AppleTopazPluginCS8416::CODEC_ReadRegister ( mapReceiverError, &mShadowRegs[mapReceiverError], 1 ) returns data 0x%0.2X", mShadowRegs[mapReceiverError] );
 						
 						if ( ( 1 << baUNLOCK ) == ( ( 1 << baUNLOCK ) & mShadowRegs[mapReceiverError] ) ) {
 							unlockStatusDetected = TRUE;
 						}
 						//	If no interrupt occurred then a second access is not required to clear the interrupt status.
-						//	If an interrupt occurred then a second access is needed to clear the interrupt status.	[3800414]
+						//	If an interrupt occurred then a second access is needed to clear the interrupt status.
 						hwInterruptAckLoopCounter = 0 == mShadowRegs[mapReceiverError] ? 0 : hwInterruptAckLoopCounter - 1 ;
 						if ( 0 != hwInterruptAckLoopCounter )
 						{

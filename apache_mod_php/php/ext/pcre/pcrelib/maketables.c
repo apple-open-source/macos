@@ -8,7 +8,7 @@ and semantics are as close as possible to those of the Perl 5 language.
 
 Written by: Philip Hazel <ph10@cam.ac.uk>
 
-           Copyright (c) 1997-2001 University of Cambridge
+           Copyright (c) 1997-2003 University of Cambridge
 
 -----------------------------------------------------------------------------
 Permission is granted to anyone to use this software for any purpose on any
@@ -126,9 +126,13 @@ for (i = 0; i < 256; i++)
   if (isdigit(i)) x += ctype_digit;
   if (isxdigit(i)) x += ctype_xdigit;
   if (isalnum(i) || i == '_') x += ctype_word;
-  if (strchr("*+?{^.$|()[", i) != 0) x += ctype_meta;
-  *p++ = x;
-  }
+
+  /* Note: strchr includes the terminating zero in the characters it considers.
+  In this instance, that is ok because we want binary zero to be flagged as a
+  meta-character, which in this sense is any character that terminates a run
+  of data characters. */
+
+  if (strchr("*+?{^.$|()[", i) != 0) x += ctype_meta; *p++ = x; }
 
 return yield;
 }

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: curlstreams.c,v 1.1.1.2 2003/07/18 18:07:30 zarzycki Exp $ */
+/* $Id: curlstreams.c,v 1.2.2.3 2004/08/31 20:12:56 pollita Exp $ */
 
 /* This file implements cURL based wrappers.
  * NOTE: If you are implementing your own streams that are intended to
@@ -307,7 +307,7 @@ PHPAPI php_stream *php_curl_stream_opener(php_stream_wrapper *wrapper, char *fil
 	curl_easy_setopt(curlstream->curl, CURLOPT_PROGRESSDATA, stream);
 	curl_easy_setopt(curlstream->curl, CURLOPT_NOPROGRESS, 0);
 
-	curl_easy_setopt(curlstream->curl, CURLOPT_USERAGENT, "PHP/" PHP_VERSION);
+	curl_easy_setopt(curlstream->curl, CURLOPT_USERAGENT, FG(user_agent) ? FG(user_agent) : "PHP/" PHP_VERSION);
 	
 	/* TODO: read cookies and options from context */
 

@@ -45,6 +45,10 @@ modules, but which are not relevant to the outside. */
 # include "php_config.h"
 #endif
 
+#ifndef PCRE_SPY
+#define PCRE_DEFINITION       /* Win32 __declspec(export) trigger for .dll */
+#endif
+
 /* The value of NEWLINE determines the newline character. The default is to
 leave it up to the compiler, but some sites want to force a particular value.
 On Unix systems, "configure" can be used to override this default. */
@@ -52,6 +56,26 @@ On Unix systems, "configure" can be used to override this default. */
 #ifndef NEWLINE
 #define NEWLINE '\n'
 #endif
+
+/* The value of MATCH_LIMIT determines the default number of times the match()
+function can be called during a single execution of pcre_exec(). (There is a
+runtime method of setting a different limit.) The limit exists in order to
+catch runaway regular expressions that take for ever to determine that they do
+not match. The default is set very large so that it does not accidentally catch
+legitimate cases. On Unix systems, "configure" can be used to override this
+default default. */
+
+#ifndef MATCH_LIMIT
+#define MATCH_LIMIT 10000000
+#endif
+
+/* If you are compiling for a system that needs some magic to be inserted
+ * before the definition of an exported function, define this macro to contain
+ * the relevant magic. It apears at the start of every exported function. */
+                                                                                                                                
+#define EXPORT
+
+#include "pcre.h"
 
 /* When compiling for use with the Virtual Pascal compiler, these functions
 need to have their names changed. PCRE must be compiled with the -DVPCOMPAT
@@ -70,6 +94,18 @@ is set. Otherwise, include an emulating function for those systems that have
 neither (there some non-Unix environments where this is the case). This assumes
 that all calls to memmove are moving strings upwards in store, which is the
 case in PCRE. */
+
+/* Standard C headers plus the external interface definition. The only time
+setjmp and stdarg are used is when NO_RECURSE is set. */
+
+#include <ctype.h>
+#include <limits.h>
+#include <setjmp.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #if ! HAVE_MEMMOVE
 #undef  memmove        /* some systems may have a macro */
@@ -165,16 +201,6 @@ capturing parenthesis numbers in back references. */
 #define PUT2INC(a,n,d)  PUT2(a,n,d), a += 2
 
 
-/* Standard C headers plus the external interface definition */
-
-#include <ctype.h>
-#include <limits.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include "pcre.h"
-
 /* In case there is no definition of offsetof() provided - though any proper
 Standard C system should have one. */
 
@@ -192,8 +218,8 @@ with negative values. The public options defined in pcre.h start at the least
 significant end. Make sure they don't overlap, though now that we have expanded
 to four bytes there is plenty of space. */
 
-#define PCRE_FIRSTSET      0x40000000  /* first_char is set */
-#define PCRE_REQCHSET      0x20000000  /* req_char is set */
+#define PCRE_FIRSTSET      0x40000000  /* first_byte is set */
+#define PCRE_REQCHSET      0x20000000  /* req_byte is set */
 #define PCRE_STARTLINE     0x10000000  /* start after \n for multiline */
 #define PCRE_ICHANGED      0x08000000  /* i option changes within regex */
 
@@ -206,10 +232,11 @@ time, run time or study time, respectively. */
 
 #define PUBLIC_OPTIONS \
   (PCRE_CASELESS|PCRE_EXTENDED|PCRE_ANCHORED|PCRE_MULTILINE| \
-   PCRE_DOTALL|PCRE_DOLLAR_ENDONLY|PCRE_EXTRA|PCRE_UNGREEDY|PCRE_UTF8)
+   PCRE_DOTALL|PCRE_DOLLAR_ENDONLY|PCRE_EXTRA|PCRE_UNGREEDY|PCRE_UTF8| \
+   PCRE_NO_AUTO_CAPTURE|PCRE_NO_UTF8_CHECK)
 
 #define PUBLIC_EXEC_OPTIONS \
-  (PCRE_ANCHORED|PCRE_NOTBOL|PCRE_NOTEOL|PCRE_NOTEMPTY)
+  (PCRE_ANCHORED|PCRE_NOTBOL|PCRE_NOTEOL|PCRE_NOTEMPTY|PCRE_NO_UTF8_CHECK)
 
 #define PUBLIC_STUDY_OPTIONS 0   /* None defined */
 
@@ -222,9 +249,11 @@ time, run time or study time, respectively. */
 #define REQ_UNSET (-2)
 #define REQ_NONE  (-1)
 
-/* Flags added to firstchar or reqchar */
+/* Flags added to firstbyte or reqbyte; a "non-literal" item is either a
+variable-length repeat, or a anything other than literal characters. */
 
 #define REQ_CASELESS 0x0100    /* indicates caselessness */
+#define REQ_VARY     0x0200    /* reqbyte followed non-literal item */
 
 /* Miscellaneous definitions */
 
@@ -253,8 +282,11 @@ ESC_n is defined as yet another macro, which is set in config.h to either \n
 #define ESC_r '\r'
 #endif
 
-#ifndef ESC_t
-#define ESC_t '\t'
+/* We can't officially use ESC_t because it is a POSIX reserved identifier
+(presumably because of all the others like size_t). */
+
+#ifndef ESC_tee
+#define ESC_tee '\t'
 #endif
 
 /* These are escaped items that aren't just an encoding of a particular data
@@ -270,6 +302,16 @@ character, that code will have to change. */
 
 enum { ESC_A = 1, ESC_G, ESC_B, ESC_b, ESC_D, ESC_d, ESC_S, ESC_s, ESC_W,
        ESC_w, ESC_dum1, ESC_C, ESC_Z, ESC_z, ESC_E, ESC_Q, ESC_REF };
+
+/* Flag bits and data types for the extended class (OP_XCLASS) for classes that
+contain UTF-8 characters with values greater than 255. */
+
+#define XCL_NOT    0x01    /* Flag: this is a negative class */
+#define XCL_MAP    0x02    /* Flag: a 32-byte map is present */
+
+#define XCL_END       0    /* Marks end of individual items */
+#define XCL_SINGLE    1    /* Single item (one multibyte char) follows */
+#define XCL_RANGE     2    /* A range (two multibyte chars) follows */
 
 
 /* Opcode table: OP_BRA must be last, as all values >= it are used for brackets
@@ -343,41 +385,52 @@ enum {
   OP_CRRANGE,        /* 53 These are different to the three seta above. */
   OP_CRMINRANGE,     /* 54 */
 
-  OP_CLASS,          /* 55 Match a character class */
-  OP_REF,            /* 56 Match a back reference */
-  OP_RECURSE,        /* 57 Match a numbered subpattern (possibly recursive) */
-  OP_CALLOUT,        /* 58 Call out to external function if provided */
+  OP_CLASS,          /* 55 Match a character class, chars < 256 only */
+  OP_NCLASS,         /* 56 Same, but the bitmap was created from a negative
+                           class - the difference is relevant only when a UTF-8
+                           character > 255 is encountered. */
 
-  OP_ALT,            /* 59 Start of alternation */
-  OP_KET,            /* 60 End of group that doesn't have an unbounded repeat */
-  OP_KETRMAX,        /* 61 These two must remain together and in this */
-  OP_KETRMIN,        /* 62 order. They are for groups the repeat for ever. */
+  OP_XCLASS,         /* 57 Extended class for handling UTF-8 chars within the
+                           class. This does both positive and negative. */
+
+  OP_REF,            /* 58 Match a back reference */
+  OP_RECURSE,        /* 59 Match a numbered subpattern (possibly recursive) */
+  OP_CALLOUT,        /* 60 Call out to external function if provided */
+
+  OP_ALT,            /* 61 Start of alternation */
+  OP_KET,            /* 62 End of group that doesn't have an unbounded repeat */
+  OP_KETRMAX,        /* 63 These two must remain together and in this */
+  OP_KETRMIN,        /* 64 order. They are for groups the repeat for ever. */
 
   /* The assertions must come before ONCE and COND */
 
-  OP_ASSERT,         /* 63 Positive lookahead */
-  OP_ASSERT_NOT,     /* 64 Negative lookahead */
-  OP_ASSERTBACK,     /* 65 Positive lookbehind */
-  OP_ASSERTBACK_NOT, /* 66 Negative lookbehind */
-  OP_REVERSE,        /* 67 Move pointer back - used in lookbehind assertions */
+  OP_ASSERT,         /* 65 Positive lookahead */
+  OP_ASSERT_NOT,     /* 66 Negative lookahead */
+  OP_ASSERTBACK,     /* 67 Positive lookbehind */
+  OP_ASSERTBACK_NOT, /* 68 Negative lookbehind */
+  OP_REVERSE,        /* 69 Move pointer back - used in lookbehind assertions */
 
   /* ONCE and COND must come after the assertions, with ONCE first, as there's
   a test for >= ONCE for a subpattern that isn't an assertion. */
 
-  OP_ONCE,           /* 68 Once matched, don't back up into the subpattern */
-  OP_COND,           /* 69 Conditional group */
-  OP_CREF,           /* 70 Used to hold an extraction string number (cond ref) */
+  OP_ONCE,           /* 70 Once matched, don't back up into the subpattern */
+  OP_COND,           /* 71 Conditional group */
+  OP_CREF,           /* 72 Used to hold an extraction string number (cond ref) */
 
-  OP_BRAZERO,        /* 71 These two must remain together and in this */
-  OP_BRAMINZERO,     /* 72 order. */
+  OP_BRAZERO,        /* 73 These two must remain together and in this */
+  OP_BRAMINZERO,     /* 74 order. */
 
-  OP_BRANUMBER,      /* 73 Used for extracting brackets whose number is greater
+  OP_BRANUMBER,      /* 75 Used for extracting brackets whose number is greater
                            than can fit into an opcode. */
 
-  OP_BRA             /* 74 This and greater values are used for brackets that
+  OP_BRA             /* 76 This and greater values are used for brackets that
                            extract substrings up to a basic limit. After that,
                            use is made of OP_BRANUMBER. */
 };
+
+/* WARNING: There is an implicit assumption in study.c that all opcodes are
+less than 128 in value. This makes handling UTF-8 character sequences easier.
+*/
 
 
 /* This macro defines textual names for all the opcodes. There are used only
@@ -392,7 +445,7 @@ macro is referenced only in printint.c. */
   "*", "*?", "+", "+?", "?", "??", "{", "{", "{",                 \
   "*", "*?", "+", "+?", "?", "??", "{", "{", "{",                 \
   "*", "*?", "+", "+?", "?", "??", "{", "{",                      \
-  "class", "Ref", "Recurse", "Callout",                           \
+  "class", "nclass", "xclass", "Ref", "Recurse", "Callout",       \
   "Alt", "Ket", "KetRmax", "KetRmin", "Assert", "Assert not",     \
   "AssertB", "AssertB not", "Reverse", "Once", "Cond", "Cond ref",\
   "Brazero", "Braminzero", "Branumber", "Bra"
@@ -401,7 +454,11 @@ macro is referenced only in printint.c. */
 /* This macro defines the length of fixed length operations in the compiled
 regex. The lengths are used when searching for specific things, and also in the
 debugging printing of a compiled regex. We use a macro so that it can be
-incorporated both into pcre.c and pcretest.c without being publicly exposed. */
+incorporated both into pcre.c and pcretest.c without being publicly exposed.
+
+As things have been extended, some of these are no longer fixed lenths, but are
+minima instead. For example, the length of a single-character repeat may vary
+in UTF-8 mode. The code that uses this table must know about such things. */
 
 #define OP_LENGTHS \
   1,                             /* End                                    */ \
@@ -409,19 +466,22 @@ incorporated both into pcre.c and pcretest.c without being publicly exposed. */
   1, 1, 1, 1, 2, 1, 1,           /* Any, Anybyte, \Z, \z, Opt, ^, $        */ \
   2,                             /* Chars - the minimum length             */ \
   2,                             /* not                                    */ \
-  /* Positive single-char repeats                                          */ \
-  2, 2, 2, 2, 2, 2,              /* *, *?, +, +?, ?, ??                    */ \
-  4, 4, 4,                       /* upto, minupto, exact                   */ \
-  /* Negative single-char repeats                                          */ \
+  /* Positive single-char repeats                            ** These are  */ \
+  2, 2, 2, 2, 2, 2,              /* *, *?, +, +?, ?, ??      ** minima in  */ \
+  4, 4, 4,                       /* upto, minupto, exact     ** UTF-8 mode */ \
+  /* Negative single-char repeats - only for chars < 256                   */ \
   2, 2, 2, 2, 2, 2,              /* NOT *, *?, +, +?, ?, ??                */ \
   4, 4, 4,                       /* NOT upto, minupto, exact               */ \
   /* Positive type repeats                                                 */ \
   2, 2, 2, 2, 2, 2,              /* Type *, *?, +, +?, ?, ??               */ \
   4, 4, 4,                       /* Type upto, minupto, exact              */ \
-  /* Multi-char class repeats                                              */ \
+  /* Character class & ref repeats                                         */ \
   1, 1, 1, 1, 1, 1,              /* *, *?, +, +?, ?, ??                    */ \
   5, 5,                          /* CRRANGE, CRMINRANGE                    */ \
- 33, 3,                          /* CLASS, REF                             */ \
+ 33,                             /* CLASS                                  */ \
+ 33,                             /* NCLASS                                 */ \
+  0,                             /* XCLASS - variable length               */ \
+  3,                             /* REF                                    */ \
   1+LINK_SIZE,                   /* RECURSE                                */ \
   2,                             /* CALLOUT                                */ \
   1+LINK_SIZE,                   /* Alt                                    */ \
@@ -434,7 +494,7 @@ incorporated both into pcre.c and pcretest.c without being publicly exposed. */
   1+LINK_SIZE,                   /* Assert behind not                      */ \
   1+LINK_SIZE,                   /* Reverse                                */ \
   1+LINK_SIZE,                   /* Once                                   */ \
-  1,                             /* COND                                   */ \
+  1+LINK_SIZE,                   /* COND                                   */ \
   3,                             /* CREF                                   */ \
   1, 1,                          /* BRAZERO, BRAMINZERO                    */ \
   3,                             /* BRANUMBER                              */ \
@@ -490,7 +550,7 @@ just to accommodate the POSIX wrapper. */
 #define ERR30 "unknown POSIX class name"
 #define ERR31 "POSIX collating elements are not supported"
 #define ERR32 "this version of PCRE is not compiled with PCRE_UTF8 support"
-#define ERR33 "characters with values > 255 are not yet supported in classes"
+#define ERR33 "spare error"
 #define ERR34 "character value in \\x{...} sequence is too large"
 #define ERR35 "invalid condition (?(0)"
 #define ERR36 "\\C not allowed in lookbehind assertion"
@@ -501,6 +561,7 @@ just to accommodate the POSIX wrapper. */
 #define ERR41 "unrecognized character after (?P"
 #define ERR42 "syntax error after (?P"
 #define ERR43 "two named groups have the same name"
+#define ERR44 "invalid UTF-8 string"
 
 /* All character handling must be done as unsigned characters. Otherwise there
 are problems with top-bit-set characters and functions such as isspace().
@@ -521,19 +582,19 @@ typedef struct real_pcre {
   unsigned long int options;
   unsigned short int top_bracket;
   unsigned short int top_backref;
-  unsigned short int first_char;
-  unsigned short int req_char;
+  unsigned short int first_byte;
+  unsigned short int req_byte;
   unsigned short int name_entry_size; /* Size of any name items; 0 => none */
   unsigned short int name_count;      /* Number of name items */
 } real_pcre;
 
-/* The real format of the extra block returned by pcre_study(). */
+/* The format of the block used to store data from pcre_study(). */
 
-typedef struct real_pcre_extra {
+typedef struct pcre_study_data {
+  size_t size;                        /* Total that was malloced */
   uschar options;
   uschar start_bits[32];
-} real_pcre_extra;
-
+} pcre_study_data;
 
 /* Structure for passing "static" information around between the functions
 doing the compiling, so that they are thread-safe. */
@@ -547,6 +608,9 @@ typedef struct compile_data {
   uschar *name_table;           /* The name/number table */
   int  names_found;             /* Number of entries so far */
   int  name_entry_size;         /* Size of each entry */
+  int  top_backref;             /* Maximum back reference */
+  unsigned int backref_map;     /* Bitmap of low back refs */
+  int  req_varyopt;             /* "After variable item" flag for reqbyte */
 } compile_data;
 
 /* Structure for maintaining a chain of pointers to the currently incomplete
@@ -561,7 +625,7 @@ typedef struct branch_chain {
 call within the pattern. */
 
 typedef struct recursion_info {
-  struct recursion_info *prev;  /* Previous recursion record (or NULL) */
+  struct recursion_info *prevrec; /* Previous recursion record (or NULL) */
   int group_num;                /* Number of group that was called */
   const uschar *after_call;     /* "Return value": points after the call in the expr */
   const uschar *save_start;     /* Old value of md->start_match */
@@ -569,11 +633,22 @@ typedef struct recursion_info {
   int saved_max;                /* Number of saved offsets */
 } recursion_info;
 
+/* When compiling in a mode that doesn't use recursive calls to match(),
+a structure is used to remember local variables on the heap. It is defined in
+pcre.c, close to the match() function, so that it is easy to keep it in step
+with any changes of local variable. However, the pointer to the current frame
+must be saved in some "static" place over a longjmp(). We declare the
+structure here so that we can put a pointer in the match_data structure.
+NOTE: This isn't used for a "normal" compilation of pcre. */
+
+struct heapframe;
+
 /* Structure for passing "static" information around between the functions
 doing the matching, so that they are thread-safe. */
 
 typedef struct match_data {
-  int    errorcode;             /* As it says */
+  unsigned long int match_call_count; /* As it says */
+  unsigned long int match_limit;/* As it says */
   int   *offset_vector;         /* Offset vector */
   int    offset_end;            /* One past the end */
   int    offset_max;            /* The maximum usable for return data */
@@ -594,6 +669,8 @@ typedef struct match_data {
   int    capture_last;          /* Most recent capture number */
   int    start_offset;          /* The start offset value */
   recursion_info *recursive;    /* Linked list of recursion data */
+  void  *callout_data;          /* To pass back to callouts */
+  struct heapframe *thisframe;  /* Used only when compiling for no recursion */
 } match_data;
 
 /* Bit definitions for entries in the pcre_ctypes table. */

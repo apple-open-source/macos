@@ -33,6 +33,7 @@
 
 #define kPM72CPUPIDDatasetsKey		"PM72-CPU-PID-datasets"
 #define kPM72ProcessorBinKey		"processor-bin"
+#define kPM72ProcessorTypeKey		"processor-type"
 #define kPM72MaxPowerKey			"power-max"
 #define kPM72MaxPowerAdjustmentKey	"power-max-adjustment"
 #define kPM72PIDDatasetVersionKey	"pid-dataset-version"
@@ -64,6 +65,23 @@ protected:
 #ifdef CTRLLOOP_DEBUG
 	IOPlatformControl * slewControl;
 #endif
+
+	bool kGPUL_10s;
+
+	// Defaults...
+	#define kPM72CPU_DEFAULT_slewAverageSampleCount		180
+	#define kPM72CPU_DEFAULT_slewAverageOffset			10
+	#define kPM72CPU_DEFAULT_slewOffset					8
+	#define kPM72CPU_DEFAULT_sleepOffset				20
+
+	// Tmax average sample history data...
+	SInt32		*tMaxAverageHistory;
+	SInt32		tMaxAverageIndex;
+	SInt32		tMaxAverage;
+	SInt32		tMaxAverageSampleCount;
+	bool		fOvertempAverage;
+
+	UInt32		delayToReleaseFanAfterSlew;
 
 	// the index for this cpu
 	UInt32 procID;

@@ -16,7 +16,7 @@
    |          Ilia Alshanetsky <ilia@prohost.org>                         |
    +----------------------------------------------------------------------+
  */
-/* $Id: shmop.c,v 1.1.1.7 2003/07/18 18:07:41 zarzycki Exp $ */
+/* $Id: shmop.c,v 1.23.8.3 2004/11/27 18:18:19 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -316,7 +316,7 @@ PHP_FUNCTION(shmop_write)
 		RETURN_FALSE;
 	}
 
-	if (offset > shmop->size) {
+	if (offset < 0 || offset > shmop->size) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "offset out of range");
 		RETURN_FALSE;
 	}

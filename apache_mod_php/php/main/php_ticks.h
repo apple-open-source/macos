@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_ticks.h,v 1.1.1.6 2003/07/18 18:07:49 zarzycki Exp $ */
+/* $Id: php_ticks.h,v 1.8.8.1 2002/12/31 16:26:22 sebastian Exp $ */
 
 #ifndef PHP_TICKS_H
 #define PHP_TICKS_H

@@ -20,6 +20,10 @@ Install_Flags       = APXS='apxs -S LIBEXECDIR="$(DSTROOT)$(APACHE_MODULE_DIR)"	
 				 -S SYSCONFDIR="$(DSTROOT)$(APACHE_CONFIG_DIR)"'
 Install_Target      = install
 
+# Fix for perl getgrgid($gid) failure
+export APACHE_USER=www
+export APACHE_GROUP=www
+
 APACHE_MODULE_DIR := $(shell apxs -q LIBEXECDIR)
 APACHE_CONFIG_DIR := $(shell apxs -q SYSCONFDIR)
 

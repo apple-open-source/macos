@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: dbx_pgsql.h,v 1.1.1.5 2003/07/18 18:07:31 zarzycki Exp $ */
+/* $Id: dbx_pgsql.h,v 1.11.2.1 2002/12/31 16:34:24 sebastian Exp $ */
 
 #ifndef ZEND_DBX_PGSQL_H
 #define ZEND_DBX_PGSQL_H

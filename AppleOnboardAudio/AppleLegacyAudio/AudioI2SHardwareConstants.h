@@ -127,13 +127,9 @@ enum FCR3_FieldWidth {
 #define		kI2S1InterfaceEnable 	(UInt32)( 1 << kI2S1Enable )
 #define		kI2S0CellEnable 		(UInt32)( 1 << kI2S0CellEn )
 #define		kI2S1CellEnable 		(UInt32)( 1 << kI2S1CellEn )
+#define		kI2S0SwRESET			(UInt32)( 1 << kI2S0SwReset )
+#define		kI2S1SwRESET			(UInt32)( 1 << kI2S1SwReset )
 
-
-enum i2sReference {
-	kUseI2SCell0			=	0,
-	kUseI2SCell1			=	1,
-	kNoI2SCell				=	0xFFFFFFFF
-};
 
 /*
  * interrupt control register definitions

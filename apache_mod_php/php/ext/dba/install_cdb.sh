@@ -8,7 +8,7 @@
 # library which programs can link against.  This shell script fills
 # the gap.
 #
-# $Id: install_cdb.sh,v 1.1.1.1 2003/03/11 01:09:17 zarzycki Exp $
+# $Id: install_cdb.sh,v 1.2 2002/11/04 17:53:04 helly Exp $
 
 if test -r "cdb.a" && test -r "auto-str.c" && test -r "byte.a"; then
   :

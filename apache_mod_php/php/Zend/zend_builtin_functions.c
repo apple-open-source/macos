@@ -203,7 +203,7 @@ ZEND_FUNCTION(func_get_arg)
 	arg_count = (ulong) *p;
 
 	if (requested_offset>=arg_count) {
-		zend_error(E_WARNING, "func_get_arg():  Argument %d not passed to function", requested_offset);
+		zend_error(E_WARNING, "func_get_arg():  Argument %ld not passed to function", requested_offset);
 		RETURN_FALSE;
 	}
 
@@ -338,6 +338,7 @@ ZEND_FUNCTION(each)
 {
 	zval **array, *entry, **entry_ptr, *tmp;
 	char *string_key;
+	uint string_key_len;
 	ulong num_key;
 	zval **inserted_pointer;
 	HashTable *target_hash;
@@ -372,9 +373,9 @@ ZEND_FUNCTION(each)
 	entry->refcount++;
 
 	/* add the key elements */
-	switch (zend_hash_get_current_key(target_hash, &string_key, &num_key, 1)) {
+	switch (zend_hash_get_current_key_ex(target_hash, &string_key, &string_key_len, &num_key, 1, NULL)) {
 		case HASH_KEY_IS_STRING:
-			add_get_index_string(return_value, 0, string_key, (void **) &inserted_pointer, 0);
+			add_get_index_stringl(return_value, 0, string_key, string_key_len-1, (void **) &inserted_pointer, 0);
 			break;
 		case HASH_KEY_IS_LONG:
 			add_get_index_long(return_value, 0, num_key, (void **) &inserted_pointer);
@@ -489,9 +490,9 @@ ZEND_FUNCTION(defined)
 	convert_to_string_ex(var);
 	if (zend_get_constant((*var)->value.str.val, (*var)->value.str.len, &c TSRMLS_CC)) {
 		zval_dtor(&c);
-		RETURN_LONG(1);
+		RETURN_TRUE;
 	} else {
-		RETURN_LONG(0);
+		RETURN_FALSE;
 	}
 }
 /* }}} */
@@ -891,17 +892,11 @@ ZEND_FUNCTION(set_error_handler)
 	}
 	ALLOC_ZVAL(EG(user_error_handler));
 
-#ifdef JANI_0
-    /*
-     * This part would never be reached unless there is something
-     * wrong with the engine as empty string can not be valid callback.
-     * See bug #23619 for more information why this is left here.
-     * (this only applies to non-debug-builds.)
-     */
-    if (Z_STRLEN_PP(error_handler)==0) { /* unset user-defined handler */
-        zend_error(E_ERROR, "%s(): This should never happen! '%s'", get_active_function_name(TSRMLS_C), error_handler);
-    }
-#endif
+	if (!zend_is_true(*error_handler)) { /* unset user-defined handler */
+		FREE_ZVAL(EG(user_error_handler));
+		EG(user_error_handler) = NULL;
+		RETURN_TRUE;
+	}
 
 	*EG(user_error_handler) = **error_handler;
 	zval_copy_ctor(EG(user_error_handler));
@@ -1053,20 +1048,21 @@ ZEND_FUNCTION(create_function)
 	efree(eval_name);
 
 	if (retval==SUCCESS) {
-		zend_function *func;
+		zend_function *func, new_function;
 
 		if (zend_hash_find(EG(function_table), LAMBDA_TEMP_FUNCNAME, sizeof(LAMBDA_TEMP_FUNCNAME), (void **) &func)==FAILURE) {
 			zend_error(E_ERROR, "Unexpected inconsistency in create_function()");
 			RETURN_FALSE;
 		}
-		function_add_ref(func);
+		new_function = *func;
+		function_add_ref(&new_function);
 
 		function_name = (char *) emalloc(sizeof("0lambda_")+MAX_LENGTH_OF_LONG);
 
 		do {
 			sprintf(function_name, "%clambda_%d", 0, ++EG(lambda_count));
 			function_name_length = strlen(function_name+1)+1;
-		} while (zend_hash_add(EG(function_table), function_name, function_name_length+1, func, sizeof(zend_function), NULL)==FAILURE);
+		} while (zend_hash_add(EG(function_table), function_name, function_name_length+1, &new_function, sizeof(zend_function), NULL)==FAILURE);
 		zend_hash_del(EG(function_table), LAMBDA_TEMP_FUNCNAME, sizeof(LAMBDA_TEMP_FUNCNAME));
 		RETURN_STRINGL(function_name, function_name_length, 0);
 	} else {
@@ -1247,7 +1243,7 @@ ZEND_FUNCTION(debug_backtrace)
 			if (ptr->ce) {
 				class_name = ptr->ce->name;
 				call_type = "::";
-			} else if (ptr->object.ptr) {
+			} else if (ptr->object.ptr && ptr->object.ptr->type == IS_OBJECT && ptr->object.ptr->value.obj.ce) {
 				class_name = ptr->object.ptr->value.obj.ce->name;
 				call_type = "->";
 			} else {

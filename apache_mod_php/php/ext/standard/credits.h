@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: credits.h,v 1.1.1.4 2003/07/18 18:07:42 zarzycki Exp $ */
+/* $Id: credits.h,v 1.6.8.1 2002/12/31 16:35:25 sebastian Exp $ */
 
 #ifndef CREDITS_H
 #define CREDITS_H

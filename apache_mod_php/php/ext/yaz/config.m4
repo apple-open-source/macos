@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.4 2003/03/11 01:09:35 zarzycki Exp $
+dnl $Id: config.m4,v 1.11.2.2 2004/04/08 23:54:08 sniper Exp $
 dnl
 
 PHP_ARG_WITH(yaz,for YAZ support,
@@ -37,17 +37,15 @@ if test "$PHP_YAZ" != "no"; then
       case $c in
        -L*)
          dir=`echo $c|cut -c 3-|sed 's%/\.libs%%g'`
+         PHP_ADD_LIBPATH($dir,YAZ_SHARED_LIBADD)
         ;;
        -lyaz*)
         ;;
        *)
-       PHP_EVAL_LIBLINE($c, YAZ_SHARED_LIBADD)
+         PHP_EVAL_LIBLINE($c, YAZ_SHARED_LIBADD)
         ;;
       esac
     done
-    if test -n "$dir"; then
-      PHP_ADD_LIBPATH($dir,YAZ_SHARED_LIBADD)
-    fi
     PHP_ADD_LIBRARY_DEFER(yaz,1,YAZ_SHARED_LIBADD)
     PHP_EVAL_INCLINE($YAZINC)
     PHP_SUBST(YAZ_SHARED_LIBADD)

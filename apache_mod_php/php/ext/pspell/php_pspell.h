@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_pspell.h,v 1.1.1.4 2003/07/18 18:07:40 zarzycki Exp $ */
+/* $Id: php_pspell.h,v 1.10.8.1 2002/12/31 16:35:14 sebastian Exp $ */
 
 #ifndef _PSPELL_H
 #define _PSPELL_H

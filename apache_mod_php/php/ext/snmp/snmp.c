@@ -16,10 +16,11 @@
   |          Mike Jackson <mhjack@tscnet.com>                            |
   |          Steven Lawrance <slawrance@technologist.com>                |
   |          Harrie Hazewinkel <harrie@lisanza.net>                      |
+  |          Johann Hanne <jonny@nurfuerspam.de>                         |
   +----------------------------------------------------------------------+
 */
 
-/* $Id: snmp.c,v 1.1.1.8 2003/07/18 18:07:41 zarzycki Exp $ */
+/* $Id: snmp.c,v 1.70.2.15 2004/12/07 00:34:33 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -109,6 +110,12 @@
 #define SNMP_MSG_GETNEXT GETNEXT_REQ_MSG
 #endif
 
+#define SNMP_VALUE_LIBRARY	0
+#define SNMP_VALUE_PLAIN	1
+#define SNMP_VALUE_OBJECT	2
+
+ZEND_DECLARE_MODULE_GLOBALS(snmp)
+
 /* constant - can be shared among threads */
 static oid objid_mib[] = {1, 3, 6, 1, 2, 1};
 
@@ -131,6 +138,8 @@ function_entry snmp_functions[] = {
 	PHP_FE(snmp3_walk, NULL)
 	PHP_FE(snmp3_real_walk, NULL)
 	PHP_FE(snmp3_set, NULL)
+	PHP_FE(snmp_set_valueretrieval, NULL)
+	PHP_FE(snmp_get_valueretrieval, NULL)
 	{NULL,NULL,NULL}
 };
 /* }}} */
@@ -157,11 +166,39 @@ ZEND_GET_MODULE(snmp)
 
 /* THREAD_LS snmp_module php_snmp_module; - may need one of these at some point */
 
+/* {{{ php_snmp_init_globals
+ */
+static void php_snmp_init_globals(zend_snmp_globals *snmp_globals)
+{
+	snmp_globals->valueretrieval = 0;
+}
+/* }}} */
+
 /* {{{ PHP_MINIT_FUNCTION
  */
 PHP_MINIT_FUNCTION(snmp)
 {
 	init_snmp("snmpapp");
+
+	ZEND_INIT_MODULE_GLOBALS(snmp, php_snmp_init_globals, NULL);
+
+	REGISTER_LONG_CONSTANT("SNMP_VALUE_LIBRARY", SNMP_VALUE_LIBRARY, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SNMP_VALUE_PLAIN", SNMP_VALUE_PLAIN, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SNMP_VALUE_OBJECT", SNMP_VALUE_OBJECT, CONST_CS | CONST_PERSISTENT);
+
+	REGISTER_LONG_CONSTANT("SNMP_BIT_STR", ASN_BIT_STR, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SNMP_OCTET_STR", ASN_OCTET_STR, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SNMP_OPAQUE", ASN_OPAQUE, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SNMP_NULL", ASN_NULL, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SNMP_OBJECT_ID", ASN_OBJECT_ID, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SNMP_IPADDRESS", ASN_IPADDRESS, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SNMP_COUNTER", ASN_GAUGE, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SNMP_UNSIGNED", ASN_UNSIGNED, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SNMP_TIMETICKS", ASN_TIMETICKS, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SNMP_UINTEGER", ASN_UINTEGER, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SNMP_INTEGER", ASN_INTEGER, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SNMP_COUNTER64", ASN_COUNTER64, CONST_CS | CONST_PERSISTENT);
+
 	return SUCCESS;
 }
 /* }}} */
@@ -181,6 +218,97 @@ PHP_MINFO_FUNCTION(snmp)
 	php_info_print_table_end();
 }
 /* }}} */
+
+static void php_snmp_getvalue(struct variable_list *vars, zval *snmpval TSRMLS_DC)
+{
+	zval *val;
+#if I64CHARSZ > 2047
+	char buf[I64CHARSZ + 1];
+#else
+	char buf[2048];
+#endif
+
+	buf[0] = 0;
+
+	if (SNMP_G(valueretrieval) == 0) {
+#ifdef HAVE_NET_SNMP
+		snprint_value(buf, sizeof(buf), vars->name, vars->name_length, vars);
+#else
+		sprint_value(buf,vars->name, vars->name_length, vars);
+#endif
+		ZVAL_STRING(snmpval, buf, 1);
+		return;
+	}
+
+	MAKE_STD_ZVAL(val);
+
+	switch (vars->type) {
+	case ASN_BIT_STR:		/* 0x03, asn1.h */
+		ZVAL_STRINGL(val, vars->val.bitstring, vars->val_len, 1);
+		break;
+
+	case ASN_OCTET_STR:		/* 0x04, asn1.h */
+	case ASN_OPAQUE:		/* 0x44, snmp_impl.h */
+		ZVAL_STRINGL(val, vars->val.string, vars->val_len, 1);
+		break;
+
+	case ASN_NULL:			/* 0x05, asn1.h */
+		ZVAL_NULL(val);
+		break;
+
+	case ASN_OBJECT_ID:		/* 0x06, asn1.h */
+#ifdef HAVE_NET_SNMP
+		snprint_objid(buf, sizeof(buf), vars->val.objid, vars->val_len / sizeof(oid));
+#else
+		sprint_objid(buf, vars->val.objid, vars->val_len / sizeof(oid));
+#endif
+
+		ZVAL_STRING(val, buf, 1);
+		break;
+
+	case ASN_IPADDRESS:		/* 0x40, snmp_impl.h */
+		snprintf(buf, sizeof(buf)-1, "%d.%d.%d.%d",
+		         (vars->val.string)[0], (vars->val.string)[1],
+		         (vars->val.string)[2], (vars->val.string)[3]);
+		buf[sizeof(buf)-1]=0;
+		ZVAL_STRING(val, buf, 1);
+		break;
+
+	case ASN_COUNTER:		/* 0x41, snmp_impl.h */
+	case ASN_GAUGE:			/* 0x42, snmp_impl.h */
+	/* ASN_UNSIGNED is the same as ASN_GAUGE */
+	case ASN_TIMETICKS:		/* 0x43, snmp_impl.h */
+	case ASN_UINTEGER:		/* 0x47, snmp_impl.h */
+		snprintf(buf, sizeof(buf)-1, "%lu", *vars->val.integer);
+		buf[sizeof(buf)-1]=0;
+		ZVAL_STRING(val, buf, 1);
+		break;
+
+	case ASN_INTEGER:		/* 0x02, asn1.h */
+		snprintf(buf, sizeof(buf)-1, "%ld", *vars->val.integer);
+		buf[sizeof(buf)-1]=0;
+		ZVAL_STRING(val, buf, 1);
+		break;
+
+	case ASN_COUNTER64:		/* 0x46, snmp_impl.h */
+		printU64(buf, vars->val.counter64);
+		ZVAL_STRING(val, buf, 1);
+		break;
+
+	default:
+		ZVAL_STRING(val, "Unknown value type", 1);
+		break;
+	}
+
+	if (SNMP_G(valueretrieval) == 1) {
+		*snmpval = *val;
+		zval_copy_ctor(snmpval);
+	} else {
+		object_init(snmpval);
+		add_property_long(snmpval, "type", vars->type);
+		add_property_zval(snmpval, "value", val);
+	}
+}
 
 /* {{{ php_snmp_internal
 *
@@ -213,11 +341,12 @@ static void php_snmp_internal(INTERNAL_FUNCTION_PARAMETERS,
 	char buf2[2048];
 	int keepwalking=1;
 	char *err;
+	zval *snmpval = NULL;
 
 	if (st >= 2) { /* walk */
 		rootlen = MAX_NAME_LEN;
 		if (strlen(objid)) { /* on a walk, an empty string means top of tree - no error */
-			if (read_objid(objid, root, &rootlen)) {
+			if (snmp_parse_oid(objid, root, &rootlen)) {
 				gotroot = 1;
 			} else {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid object identifier: %s", objid);
@@ -291,24 +420,24 @@ retry:
 					}
 
 					if (st != 11) {
-#ifdef HAVE_NET_SNMP
-						snprint_value(buf, sizeof(buf), vars->name, vars->name_length, vars);
-#else
-						sprint_value(buf,vars->name, vars->name_length, vars);
-#endif
+						MAKE_STD_ZVAL(snmpval);
+						php_snmp_getvalue(vars, snmpval TSRMLS_CC);
 					}
 
 					if (st == 1) {
-						RETVAL_STRING(buf,1);
+						*return_value = *snmpval;
+						zval_copy_ctor(return_value);
+						snmp_close(ss);
+						return;
 					} else if (st == 2) {
-						add_next_index_string(return_value,buf,1); /* Add to returned array */
+						add_next_index_zval(return_value,snmpval); /* Add to returned array */
 					} else if (st == 3)  {
 #ifdef HAVE_NET_SNMP
 						snprint_objid(buf2, sizeof(buf2), vars->name, vars->name_length);
 #else
 						sprint_objid(buf2, vars->name, vars->name_length);
 #endif
-						add_assoc_string(return_value,buf2,buf,1);
+						add_assoc_zval(return_value,buf2,snmpval);
 					}
 					if (st >= 2 && st != 11) {
 						if (vars->type != SNMP_ENDOFMIBVIEW && 
@@ -444,10 +573,9 @@ static void php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st)
 	}
 
 	snmp_sess_init(&session);
-	strcpy (hostname, Z_STRVAL_PP(a1));
+	strlcpy(hostname, Z_STRVAL_PP(a1), sizeof(hostname));
 	if ((pptr = strchr (hostname, ':'))) {
 		remote_port = strtol (pptr + 1, NULL, 0);
-		*pptr = 0;
 	}
 
 	session.peername = hostname;
@@ -576,7 +704,7 @@ PHP_FUNCTION(snmpset)
 }
 /* }}} */
 
-/* {{{ proto int netsnmp_session_set_sec_name(struct snmp_session *s, char *name)
+/* {{{ int netsnmp_session_set_sec_name(struct snmp_session *s, char *name)
    Set the security name in the snmpv3 session */
 static int netsnmp_session_set_sec_name(struct snmp_session *s, char *name)
 {
@@ -589,7 +717,7 @@ static int netsnmp_session_set_sec_name(struct snmp_session *s, char *name)
 }
 /* }}} */
 
-/* {{{ proto int netsnmp_session_set_sec_level(struct snmp_session *s, char *level)
+/* {{{ int netsnmp_session_set_sec_level(struct snmp_session *s, char *level)
    Set the security level in the snmpv3 session */
 static int netsnmp_session_set_sec_level(struct snmp_session *s, char *level TSRMLS_DC)
 {
@@ -610,7 +738,7 @@ static int netsnmp_session_set_sec_level(struct snmp_session *s, char *level TSR
 }
 /* }}} */
 
-/* {{{ proto int netsnmp_session_set_auth_protocol(struct snmp_session *s, char *prot)
+/* {{{ int netsnmp_session_set_auth_protocol(struct snmp_session *s, char *prot)
    Set the authentication protocol in the snmpv3 session */
 static int netsnmp_session_set_auth_protocol(struct snmp_session *s, char *prot TSRMLS_DC)
 {
@@ -631,7 +759,7 @@ static int netsnmp_session_set_auth_protocol(struct snmp_session *s, char *prot 
 }
 /* }}} */
 
-/* {{{ proto int netsnmp_session_set_sec_protocol(struct snmp_session *s, char *prot)
+/* {{{ int netsnmp_session_set_sec_protocol(struct snmp_session *s, char *prot)
    Set the security protocol in the snmpv3 session */
 static int netsnmp_session_set_sec_protocol(struct snmp_session *s, char *prot TSRMLS_DC)
 {
@@ -641,7 +769,21 @@ static int netsnmp_session_set_sec_protocol(struct snmp_session *s, char *prot T
 			s->securityPrivProtoLen = OIDSIZE(usmDESPrivProtocol);
 			return (0);
 #ifdef HAVE_AES
-		} else if (!strcasecmp(prot, "AES128")) {
+		} else if (!strcasecmp(prot, "AES128")
+#ifdef SNMP_VALIDATE_ERR
+/* 
+* In Net-SNMP before 5.2, the following symbols exist:
+* usmAES128PrivProtocol, usmAES192PrivProtocol, usmAES256PrivProtocol
+* In an effort to be more standards-compliant, 5.2 removed the last two.
+* As of 5.2, the symbols are:
+* usmAESPrivProtocol, usmAES128PrivProtocol
+* 
+* As we want this extension to compile on both versions, we use the latter
+* symbol on purpose, as it's defined to be the same as the former.
+*/
+			|| !strcasecmp(prot, "AES")) {
+#else			
+		) {
 			s->securityPrivProto = usmAES128PrivProtocol;
 			s->securityPrivProtoLen = OIDSIZE(usmAES128PrivProtocol);
 			return (0);
@@ -654,6 +796,7 @@ static int netsnmp_session_set_sec_protocol(struct snmp_session *s, char *prot T
 			s->securityPrivProtoLen = OIDSIZE(usmAES256PrivProtocol);
 			return (0);
 #endif
+#endif
 		} else if (strlen(prot)) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid privacy protocol: %s", prot);
 		}
@@ -662,7 +805,7 @@ static int netsnmp_session_set_sec_protocol(struct snmp_session *s, char *prot T
 }
 /* }}} */
 
-/* {{{ proto int netsnmp_session_gen_auth_key(struct snmp_session *s, char *pass)
+/* {{{ int netsnmp_session_gen_auth_key(struct snmp_session *s, char *pass)
    Make key from pass phrase in the snmpv3 session */
 static int netsnmp_session_gen_auth_key(struct snmp_session *s, char *pass TSRMLS_DC)
 {
@@ -694,7 +837,7 @@ static int netsnmp_session_gen_auth_key(struct snmp_session *s, char *pass TSRML
 }
 /* }}} */
 
-/* {{{ proto int netsnmp_session_gen_sec_key(struct snmp_session *s, u_char *pass)
+/* {{{ int netsnmp_session_gen_sec_key(struct snmp_session *s, u_char *pass)
    Make key from pass phrase in the snmpv3 session */
 static int netsnmp_session_gen_sec_key(struct snmp_session *s, u_char *pass TSRMLS_DC)
 {
@@ -737,7 +880,8 @@ static int netsnmp_session_gen_sec_key(struct snmp_session *s, u_char *pass TSRM
 * st=11  snmp3_set() - query an agent and set a single value
 *
 */
-void php_snmpv3(INTERNAL_FUNCTION_PARAMETERS, int st) {
+static void php_snmpv3(INTERNAL_FUNCTION_PARAMETERS, int st)
+{
 	zval **a1, **a2, **a3, **a4, **a5, **a6, **a7, **a8, **a9, **a10, **a11, **a12;
 	struct snmp_session session;
 	long timeout=SNMP_DEFAULT_TIMEOUT;
@@ -760,10 +904,9 @@ void php_snmpv3(INTERNAL_FUNCTION_PARAMETERS, int st) {
 
 	/* Reading the hostname and its optional non-default port number */
 	convert_to_string_ex(a1);
-	strcpy(hostname, Z_STRVAL_PP(a1));
+	strlcpy(hostname, Z_STRVAL_PP(a1), sizeof(hostname));
 	if ((pptr = strchr (hostname, ':'))) {
 		remote_port = strtol (pptr + 1, NULL, 0);
-		*pptr = 0;
 	}
 	session.peername = hostname;
 	session.remote_port = remote_port;
@@ -778,7 +921,7 @@ void php_snmpv3(INTERNAL_FUNCTION_PARAMETERS, int st) {
 	/* Setting the security level. */
 	convert_to_string_ex(a3);
 	if (netsnmp_session_set_sec_level(&session, Z_STRVAL_PP(a3) TSRMLS_CC)) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid security level: %s", a3);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid security level: %s", Z_STRVAL_PP(a3));
 		RETURN_FALSE;
 	}
 
@@ -852,7 +995,6 @@ PHP_FUNCTION(snmp3_get)
 }
 /* }}} */
 
-
 /* {{{ proto int snmp3_walk(string host, string sec_name, string sec_level, string auth_protocol, string auth_passphrase, string priv_protocol, string priv_passphrase, string object_id [, int timeout [, int retries]])
    Fetch the value of a SNMP object */
 PHP_FUNCTION(snmp3_walk)
@@ -874,6 +1016,35 @@ PHP_FUNCTION(snmp3_real_walk)
 PHP_FUNCTION(snmp3_set)
 {
 	php_snmpv3(INTERNAL_FUNCTION_PARAM_PASSTHRU, 11);
+}
+/* }}} */
+
+/* {{{ proto int snmp_set_valueretrieval(int method)
+   Specify the method how the SNMP values will be returned */
+PHP_FUNCTION(snmp_set_valueretrieval)
+{
+	zval **method;
+
+	if (ZEND_NUM_ARGS() != 1 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &method) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	convert_to_long_ex(method);
+
+	if ((Z_LVAL_PP(method) == SNMP_VALUE_LIBRARY) ||
+	    (Z_LVAL_PP(method) == SNMP_VALUE_PLAIN) ||
+	    (Z_LVAL_PP(method) == SNMP_VALUE_OBJECT)) {
+		SNMP_G(valueretrieval) = Z_LVAL_PP(method);
+	}
+}
+/* }}} */
+
+/* {{{ proto int snmp_get_valueretrieval()
+   Return the method how the SNMP values will be returned */
+PHP_FUNCTION(snmp_get_valueretrieval)
+{
+	RETURN_LONG(SNMP_G(valueretrieval));
 }
 /* }}} */
 

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: hg_comm.c,v 1.1.1.6 2003/07/18 18:07:33 zarzycki Exp $ */
+/* $Id: hg_comm.c,v 1.52.8.5 2003/06/29 23:59:20 edink Exp $ */
 
 /* #define HW_DEBUG */
 
@@ -42,6 +42,7 @@
 # include <netdb.h>
 # include <unistd.h>
 # include <sys/param.h>
+# include <arpa/inet.h>
 #endif
 #include <fcntl.h>
 #include <errno.h>
@@ -683,7 +684,7 @@ char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char 
 	newtext = text;
 	bgstr[0] = '\0';
 #ifdef newlist
-	zend_llist_sort(pAnchorList, fnCmpAnchors TSRMLS_CC);
+	zend_llist_sort(pAnchorList, (llist_compare_func_t) fnCmpAnchors TSRMLS_CC);
 	ptr = (ANCHOR **) zend_llist_get_last(pAnchorList);
 	if(ptr)
 		cur_ptr = *ptr;
@@ -1512,7 +1513,7 @@ hg_msg *recv_command(int sockfd)
 	return(comm_msg);
 }
 
-int send_dummy(int sockfd, hw_objectID objectID, int msgid, char **attributes)
+int send_dummy(int sockfd, hw_objectID objectID, int msg_id, char **attributes)
 {
 	hg_msg msg, *retmsg;
 	int  length, error;
@@ -1520,7 +1521,7 @@ int send_dummy(int sockfd, hw_objectID objectID, int msgid, char **attributes)
 
 	length = HEADER_LENGTH + sizeof(hw_objectID);
 
-	build_msg_header(&msg, length, msgid++, msgid);
+	build_msg_header(&msg, length, msg_id++, msg_id);
 
 	if ( (msg.buf = (char *)emalloc(length-HEADER_LENGTH)) == NULL )  {
 /*		perror("send_command"); */
@@ -5034,10 +5035,8 @@ int send_pipedocument(int sockfd, char *host, hw_objectID objectID, int mode, in
 	 
 	switch(hostptr->h_addrtype) {
 		struct in_addr *ptr1;
-		char *ptr;
 		case AF_INET:
-			ptr = hostptr->h_addr_list[0];
-			ptr1 = (struct in_addr *) ptr;
+			ptr1 = (struct in_addr *) hostptr->h_addr_list[0];
 			hostip = inet_ntoa(*ptr1);
 			break;
 		default:
@@ -5221,10 +5220,8 @@ int send_pipecgi(int sockfd, char *host, hw_objectID objectID, char *cgi_env_str
 	 
 	switch(hostptr->h_addrtype) {
 		struct in_addr *ptr1;
-		char *ptr;
 		case AF_INET:
-			ptr = hostptr->h_addr_list[0];
-			ptr1 = (struct in_addr *) ptr;
+			ptr1 = (struct in_addr *) hostptr->h_addr_list[0];
 			hostip = inet_ntoa(*ptr1);
 			break;
 		default:
@@ -5403,10 +5400,8 @@ int send_putdocument(int sockfd, char *host, hw_objectID parentID, char *objectR
 	 
 	switch(hostptr->h_addrtype) {
 		struct in_addr *ptr1;
-		char *ptr;
 		case AF_INET:
-			ptr = hostptr->h_addr_list[0];
-			ptr1 = (struct in_addr *) ptr;
+			ptr1 = (struct in_addr *) hostptr->h_addr_list[0];
 			hostip = inet_ntoa(*ptr1);
 			break;
 		default:

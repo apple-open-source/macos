@@ -29,7 +29,7 @@
 #include <IOKit/IOLib.h>
 #include "IOPlatformPluginSymbols.h"
 #include "IOPlatformPlugin.h"
-#include <ppc/machine_routines.h>
+#include <machine/machine_routines.h>
 #include "PowerMac7_2_SlewCtrlLoop.h"
 
 #define super IOPlatformCtrlLoop

@@ -94,7 +94,13 @@
     
     FreeString(cstr1);
     
-    [thisDevice addNumberProperty:"Total Length of Descriptor:" value: cfg->wTotalLength size:sizeof(cfg->wTotalLength) atDepth:CONFIGURATION_DESCRIPTOR_LEVEL usingStyle:kIntegerOutputStyle];
+    // Print the Length and contents of this descriptor
+    //
+    sprintf(str, "%u", cfg->wTotalLength);
+    [thisDevice addProperty:"Length (and contents):" withValue:str atDepth:CONFIGURATION_DESCRIPTOR_LEVEL];
+    [DescriptorDecoder dumpRawConfigDescriptor:(IOUSBConfigurationDescriptor *)cfg forDevice:thisDevice atDepth:CONFIGURATION_DESCRIPTOR_LEVEL+1];
+
+    
     [thisDevice addNumberProperty:"Number of Interfaces:" value: cfg->bNumInterfaces size:sizeof(cfg->bNumInterfaces) atDepth:CONFIGURATION_DESCRIPTOR_LEVEL usingStyle:kIntegerOutputStyle];
     [thisDevice addNumberProperty:"Configuration Value:" value: cfg->bConfigurationValue size:sizeof(cfg->bConfigurationValue) atDepth:CONFIGURATION_DESCRIPTOR_LEVEL usingStyle:kIntegerOutputStyle];
     
@@ -128,6 +134,13 @@
         UInt8 descLen = p[0];
         UInt8 descType = p[1];
         
+        if ( descLen == 0 )
+        {
+            [thisDevice addProperty:"Illegal Descriptor:" withValue: "Length of 0" atDepth:CONFIGURATION_DESCRIPTOR_LEVEL];
+            break;
+        }
+        else
+        {
         //  If this is an interface descriptor, save the interface class and subclass
         //
         if ( descType == kUSBInterfaceDesc )
@@ -140,6 +153,7 @@
         
         p += descLen;
     }
+}
 }
 
 @end

@@ -414,10 +414,10 @@ IOReturn IOAudioControl::setValue(OSObject *newValue)
                 if (result == kIOReturnSuccess) {
                     result = updateValue(newValue);
                 } else {
-                    IOLog("IOAudioControl[%p]::setValue(%p) - Error 0x%x received from driver - value not set!\n", this, newValue, result);
+                    audioDebugIOLog(2, "IOAudioControl[%p]::setValue(%p) - Error 0x%x received from driver - value not set!", this, newValue, result);
                 }
             } else {
-                IOLog("IOAudioControl[%p]::setValue(%p) - Error 0x%x - invalid value.\n", this, newValue, result);
+                audioDebugIOLog(2, "IOAudioControl[%p]::setValue(%p) - Error 0x%x - invalid value.", this, newValue, result);
             }
         }
     } else {

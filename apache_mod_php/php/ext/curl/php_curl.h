@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_curl.h,v 1.1.1.7 2003/07/18 18:07:30 zarzycki Exp $ */
+/* $Id: php_curl.h,v 1.29.2.1 2002/12/31 16:34:15 sebastian Exp $ */
 
 #ifndef _PHP_CURL_H
 #define _PHP_CURL_H

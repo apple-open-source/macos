@@ -99,6 +99,14 @@ static SInt32 gCommandWriteReg16ShLtMaskDesc[] 	= { kCommandWriteReg16ShLtMaskLe
 static SInt32 gCommandWriteReg8ShLtMaskDesc[] 	= { kCommandWriteReg8ShLtMaskLength, kCommandDescTerminator };
 static SInt32 gCommandMaskandCompareDesc[] 		= { -kCommandMaskandCompareLength, 4, -1, -1,  kCommandDescTerminator };
 
+static SInt32 gCommandShiftBitStreamRightDesc[]	= { kCommandShiftBitStreamRightLength, kCommandDescTerminator };
+static SInt32 gCommandShiftBitStreamLeftDesc[]	= { kCommandShiftBitStreamLeftLength, kCommandDescTerminator };
+static SInt32 gCommandMaskByteStreamDesc[]		= { -kCommandMaskByteStreamLength, 4, -1, kCommandDescTerminator };
+static SInt32 gCommandXorByteStreamDesc[]		= { -kCommandXorByteStreamLength, 4, -1, kCommandDescTerminator };
+static SInt32 gCommandWriteI2CValueToSubAddrDesc[] = { kCommandWriteI2CValueToSubAddrLength, kCommandDescTerminator };
+static SInt32 gCommandXORValueToByteStreamDesc[]	= { kCommandXORValueToByteStreamLength, kCommandDescTerminator };
+static SInt32 gCommandImplementationSpecificDesc[] = { kCommandImplementationSpecificLength, kCommandDescTerminator };
+
 // Command array - one descriptor entry for each command, indexed by command
 static SInt32 *gCommandArray[] = {
 	gCommandCommandListDesc,			// kCommandCommandList [ 0 ]
@@ -133,7 +141,15 @@ static SInt32 *gCommandArray[] = {
 	gCommandWriteReg32ShLtMaskDesc,		// kCommandWriteReg32ShLtMask [ 29 ]
 	gCommandWriteReg16ShLtMaskDesc,		// kCommandWriteReg16ShLtMask [ 30 ]
 	gCommandWriteReg8ShLtMaskDesc,		// kCommandWriteReg8ShLtMask [ 31 ]
-	gCommandMaskandCompareDesc			// kCommandMaskandCompare [ 32 ]
+	gCommandMaskandCompareDesc,			// kCommandMaskandCompare [ 32 ]
+
+	gCommandShiftBitStreamRightDesc,	// kCommandMaskandCompare [ 33 ]
+	gCommandShiftBitStreamLeftDesc,		// kCommandMaskandCompare [ 34 ]
+	gCommandMaskByteStreamDesc,			// kCommandMaskandCompare [ 35 ]
+	gCommandXorByteStreamDesc,			// kCommandMaskandCompare [ 36 ]
+	gCommandWriteI2CValueToSubAddrDesc,	// kCommandMaskandCompare [ 37 ]
+	gCommandXORValueToByteStreamDesc,	// kCommandMaskandCompare [ 38 ]
+	gCommandImplementationSpecificDesc	// kCommandMaskandCompare [ 39 ]
 };
 
 #ifndef PFPARSE

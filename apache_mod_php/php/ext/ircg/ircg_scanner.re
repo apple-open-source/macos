@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: ircg_scanner.re,v 1.1.1.4 2003/07/18 18:07:35 zarzycki Exp $ */
+/* $Id: ircg_scanner.re,v 1.18.8.3 2003/06/04 07:01:27 sas Exp $ */
 
 #include <ext/standard/php_smart_str.h>
 #include <stdio.h>
@@ -36,19 +36,11 @@ static const char *color_list[] = {
     "teal",
     "lightcyan",
     "lightblue",
-    "pink",
-    "gray",
+    "#ff00ff",
+    "#bebebe",
     "lightgrey"
 };
 
-
-enum {
-	STATE_PLAIN,
-	STATE_URL,
-	STATE_COLOR_FG,
-	STATE_COLOR_COMMA,
-	STATE_COLOR_BG
-};
 
 typedef struct {
 	int bg_code;
@@ -57,6 +49,8 @@ typedef struct {
 	int bold_tag_open;
 	int underline_tag_open;
 	int italic_tag_open;
+	char fg_color[6];
+	char bg_color[6];
 	
 	smart_str scheme;
 	smart_str *result;
@@ -70,12 +64,14 @@ alpha = [a-zA-Z];
 alnum = [a-zA-Z0-9];
 digit = [0-9];
 scheme = alpha alnum*;
-coloresc = "";
-bold = "";
+coloresc = "\003";
+colorhex = "\004";
+bold = "\002";
 underline = "\037";
-italic = "";
+italic = "\35";
 ircnl = "\036";
 winquotes = [\204\223\224];
+hex = [a-fA-F0-9];
 */
 
 #define YYFILL(n) do { } while (0)
@@ -87,10 +83,10 @@ winquotes = [\204\223\224];
 #define STD_PARA ircg_msg_scanner *ctx, const char *start, const char *YYCURSOR
 #define STD_ARGS ctx, start, YYCURSOR
 
-static inline void passthru(STD_PARA)
-{
-	smart_str_appendl_ex(ctx->result, start, YYCURSOR - start, 1);
-}
+#define passthru() do {									\
+	size_t __len = xp - start;							\
+	smart_str_appendl_ex(mctx.result, start, __len, 1); \
+} while (0)
 
 static inline void handle_scheme(STD_PARA)
 {
@@ -129,6 +125,11 @@ static void handle_color_digit(STD_PARA, int mode)
 		case 0: ctx->fg_code = nr; break;
 		case 1: ctx->bg_code = nr; break;
 	}
+}
+
+static void handle_hex(STD_PARA, int mode)
+{
+	memcpy(mode == 0 ? ctx->fg_color : ctx->bg_color, start, 6);
 }
 
 #define IS_VALID_CODE(n) (n >= 0 && n <= 15)
@@ -195,6 +196,18 @@ static void commit_color_stuff(STD_PARA)
 	}
 }
 
+static void commit_color_hex(STD_PARA)
+{
+	finish_color_stuff(STD_ARGS);
+
+	if (ctx->fg_color[0] != 0) {
+		smart_str_appends_ex(ctx->result, "<font color=\"", 1);
+		smart_str_appendl_ex(ctx->result, ctx->fg_color, 6, 1);
+		smart_str_appends_ex(ctx->result, "\">", 1);
+		ctx->font_tag_open = 1;
+	}
+}
+
 static void add_entity(STD_PARA, const char *entity)
 {
 	smart_str_appends_ex(ctx->result, entity, 1);
@@ -219,8 +232,9 @@ state_plain:
 	if (xp >= end) goto stop;
 	start = YYCURSOR;
 /*!re2c
-	scheme "://"	{ if (auto_links) { handle_scheme(STD_ARGS); goto state_url; } else { passthru(STD_ARGS); goto state_plain; } }
+	scheme "://"	{ if (auto_links) { handle_scheme(STD_ARGS); goto state_url; } else { passthru(); goto state_plain; } }
 	coloresc 		{ mctx.fg_code = mctx.bg_code = -1; goto state_color_fg; }
+	colorhex		{ mctx.fg_color[0] = mctx.bg_color[0] = 0; goto state_color_hex; }
 	"<"				{ add_entity(STD_ARGS, "&lt;"); goto state_plain; }
 	">"				{ add_entity(STD_ARGS, "&gt;"); goto state_plain; }
 	"&"				{ add_entity(STD_ARGS, "&amp;"); goto state_plain; }
@@ -229,14 +243,38 @@ state_plain:
 	bold			{ handle_bold(STD_ARGS, 0); goto state_plain; }
 	underline		{ handle_underline(STD_ARGS, 0); goto state_plain; }
 	italic			{ handle_italic(STD_ARGS, 0); goto state_plain; }
-	anynoneof		{ passthru(STD_ARGS); goto state_plain; }
+	anynoneof		{ passthru(); goto state_plain; }
 */
 
-state_url:		
+state_color_hex:
+	start = YYCURSOR;
+/*!re2c
+  hex hex hex hex hex hex { handle_hex(STD_ARGS, 0); goto state_color_hex_bg; }
+  ","					{ goto state_color_hex_bg; }
+  any					{ finish_color_stuff(STD_ARGS); passthru(); goto state_plain; }
+*/
+
+	
+state_color_hex_comma:	
+	start = YYCURSOR;
+/*!re2c
+  ","					{ goto state_color_hex_bg; }
+  any					{ YYCURSOR--; commit_color_hex(STD_ARGS); goto state_plain; }
+*/
+
+
+state_color_hex_bg:
+	start = YYCURSOR;
+/*!re2c
+  hex hex hex hex hex hex	{ handle_hex(STD_ARGS, 1); commit_color_hex(STD_ARGS); goto state_plain; }
+  any						{ commit_color_hex(STD_ARGS); passthru(); goto state_plain; }
+*/
+
+state_url:
 	start = YYCURSOR;
 /*!re2c
   	[-a-zA-Z0-9~_?=.@&+/#:;!*'()%,$]+		{ handle_url(STD_ARGS); goto state_plain; }
-	any				{ passthru(STD_ARGS); goto state_plain; }
+	any				{ passthru(); goto state_plain; }
 */
 
 
@@ -244,23 +282,24 @@ state_color_fg:
 	start = YYCURSOR;
 /*!re2c
   	digit digit?		{ handle_color_digit(STD_ARGS, 0); goto state_color_comma; }
-	any					{ finish_color_stuff(STD_ARGS); passthru(STD_ARGS); goto state_plain; }
+	","					{ goto state_color_bg; }
+	any					{ finish_color_stuff(STD_ARGS); passthru(); goto state_plain; }
 */
 
-		
+	
 state_color_comma:	
 	start = YYCURSOR;
 /*!re2c
   ","					{ goto state_color_bg; }
   any					{ YYCURSOR--; commit_color_stuff(STD_ARGS); goto state_plain; }
 */
-
+	
 
 state_color_bg:
 	start = YYCURSOR;
 /*!re2c
   	digit digit?		{ handle_color_digit(STD_ARGS, 1); commit_color_stuff(STD_ARGS); goto state_plain; }
-	any					{ commit_color_stuff(STD_ARGS); goto state_plain; }
+	any					{ commit_color_stuff(STD_ARGS); passthru(); goto state_plain; }
 */
 
 stop:

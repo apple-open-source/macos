@@ -1,4 +1,4 @@
-/* $Id: php_oracle.h,v 1.1.1.3 2001/12/14 22:12:55 zarzycki Exp $ */
+/* $Id: php_oracle.h,v 1.8 2001/07/28 11:36:05 zeev Exp $ */
 
 /* synced with oracle.h,v 1.40 1999/06/01 08:11:04 thies Exp $ */
 

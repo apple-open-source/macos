@@ -107,6 +107,9 @@ private:
 	OSArray 				*platformFuncArray;
     IOMemoryMap				*uATABaseAddressMap;
 	volatile UInt32			*uATABaseAddress;
+	UInt32					saveDARTCntl;
+	UInt32					saveClockCntl;
+	UInt32					saveVSPSoftReset;
 	bool					hostIsMobile;
     const OSSymbol			*symGetHTLinkFrequency;
     const OSSymbol			*symSetHTLinkFrequency;

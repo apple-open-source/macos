@@ -1,3 +1,23 @@
+/*
+  +----------------------------------------------------------------------+
+  | PHP Version 4                                                        |
+  +----------------------------------------------------------------------+
+  | Copyright (c) 1997-2003 The PHP Group                                |
+  +----------------------------------------------------------------------+
+  | This source file is subject to version 2.02 of the PHP license,      |
+  | that is bundled with this package in the file LICENSE, and is        |
+  | available at through the world-wide-web at                           |
+  | http://www.php.net/license/2_02.txt.                                 |
+  | If you did not receive a copy of the PHP license and are unable to   |
+  | obtain it through the world-wide-web, please send a note to          |
+  | license@php.net so we can mail you a copy immediately.               |
+  +----------------------------------------------------------------------+
+  | Author: Jason Greene <jason@php.net>                                 |
+  +----------------------------------------------------------------------+
+*/
+
+/* $Id: win32_socket_constants.h,v 1.1.2.1 2003/07/20 10:54:03 sniper Exp $ */
+
 /* This file is to be included by sockets.c */
 
 REGISTER_LONG_CONSTANT("SOCKET_EINTR", WSAEINTR, CONST_CS | CONST_PERSISTENT);

@@ -185,10 +185,10 @@ bool AppleTAS3004Audio::preDMAEngineInit()
 
 	debugIOLog (3, "+ AppleTAS3004Audio::preDMAEngineInit");
 
-	debugIOLog (3, "ourProvider's name is %s", mAudioDeviceProvider->getName ());
+	debugIOLog (3, "  ourProvider's name is %s", mAudioDeviceProvider->getName ());
 	sound = mAudioDeviceProvider->getParentEntry (gIOServicePlane);
 	FailIf (!sound, Exit);
-	debugIOLog (3, "sound's name is %s", sound->getName ());
+	debugIOLog (3, "  sound's name is %s", sound->getName ());
 
 	//	Initialize the TAS3004 as follows:
 	//		Mode:					normal
@@ -303,8 +303,15 @@ bool AppleTAS3004Audio::preDMAEngineInit()
 
 	err = CODEC_Initialize();			//	flush the shadow contents to the HW
 	FailMessage ( kIOReturnSuccess != err );
+	
 	IOSleep (1);
-	ToggleAnalogPowerDownWake();
+	
+	err = SetAnalogPowerDownMode (kPowerDownAnalog);
+	FailMessage ( kIOReturnSuccess != err );
+	if (kIOReturnSuccess == err) {
+		err = SetAnalogPowerDownMode (kPowerNormalAnalog);
+		FailMessage ( kIOReturnSuccess != err );
+	}
 
 	// make sure that standby registers are init'd to something too
 	memcpy (&standbyTAS3004Regs, &shadowTAS3004Regs, sizeof (TAS3004_ShadowReg));
@@ -313,6 +320,7 @@ bool AppleTAS3004Audio::preDMAEngineInit()
 	maxVolume = kMaximumVolume;
 
 Exit:
+	mPluginCurrentPowerState = kIOAudioDeviceActive;
 
 	debugIOLog (3, "- AppleTAS3004Audio::preDMAEngineInit");
 	return true;
@@ -339,17 +347,6 @@ IOReturn	AppleTAS3004Audio::SetAnalogPowerDownMode( UInt8 mode )
 	return err;
 }
 
-// --------------------------------------------------------------------------
-IOReturn	AppleTAS3004Audio::ToggleAnalogPowerDownWake( void )
-{
-	IOReturn	err;
-	
-	err = SetAnalogPowerDownMode (kPowerDownAnalog);
-	if (kIOReturnSuccess == err) {
-		err = SetAnalogPowerDownMode (kPowerNormalAnalog);
-	}
-	return err;
-}
 
 #pragma mark ---------------------
 #pragma mark +HARDWARE IO ACTIVATION
@@ -714,6 +711,41 @@ Exit:
 #pragma mark +POWER MANAGEMENT
 #pragma mark ---------------------
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//	[3933529]
+IOReturn AppleTAS3004Audio::performSetPowerState ( UInt32 currentPowerState, UInt32 pendingPowerState )
+{
+	IOReturn			result = kIOReturnError;
+	
+	debugIOLog ( 6, "+ AppleTAS3004Audio::performSetPowerState ( %d, %d )", currentPowerState, pendingPowerState );
+	switch ( pendingPowerState )
+	{
+		case kIOAudioDeviceSleep:
+			result = performDeviceSleep ();
+			FailMessage ( kIOReturnSuccess != result );
+			break;
+		case kIOAudioDeviceIdle:
+			if ( kIOAudioDeviceActive == mPluginCurrentPowerState )
+			{
+				result = performDeviceSleep ();
+				FailMessage ( kIOReturnSuccess != result );
+			}
+			else
+			{
+				result = kIOReturnSuccess;
+			}
+			break;
+		case kIOAudioDeviceActive:
+			result = performDeviceWake ();
+			FailMessage ( kIOReturnSuccess != result );
+			break;
+	}
+	mPluginCurrentPowerState = pendingPowerState;
+	debugIOLog ( 6, "- AppleTAS3004Audio::performSetPowerState ( %d, %d ) returns 0x%lX", currentPowerState, pendingPowerState, result );
+	return result;
+}
+
+
 // --------------------------------------------------------------------------
 //	Set the audio hardware to sleep mode by placing the TAS3004 into
 //	analog power down mode after muting the amplifiers.  The I2S clocks
@@ -726,11 +758,14 @@ Exit:
 //	exists with a value of 'true'.  For all other cases, the original
 //	signal manipulation order exists.
 IOReturn AppleTAS3004Audio::performDeviceSleep () {
+	IOReturn			result;
+	
 	debugIOLog (3, "+ AppleTAS3004Audio::performDeviceSleep");
 
 	//	Mute all of the amplifiers
         
-    SetAnalogPowerDownMode (kPowerDownAnalog);
+    result = SetAnalogPowerDownMode (kPowerDownAnalog);
+	FailMessage ( kIOReturnSuccess != result );
  
 //	mPlatformInterface->setHeadphoneMuteState ( kGPIO_Muted );
 //	mPlatformInterface->setSpeakerMuteState ( kGPIO_Muted );
@@ -739,7 +774,7 @@ IOReturn AppleTAS3004Audio::performDeviceSleep () {
 //	IOSleep (kAmpRecoveryMuteDuration);
 
 	debugIOLog (3, "- AppleTAS3004Audio::performDeviceSleep");
-	return kIOReturnSuccess;
+	return result;
 }
 	
 // --------------------------------------------------------------------------
@@ -751,24 +786,47 @@ IOReturn AppleTAS3004Audio::performDeviceSleep () {
 //	Codec RESET by ANDing the headphone and speaker amplifier mute active states.
 //	This must be done AFTER waking the I2S clocks!
 IOReturn AppleTAS3004Audio::performDeviceWake () {
-//	IOService *							keyLargo;
-	IOReturn							err;
+	IOReturn			err;
+	IOReturn			tempErr;
 
 	debugIOLog (3, "+ AppleTAS3004Audio::performDeviceWake");
 
-	err = kIOReturnSuccess;
-
-	//	Set the TAS3004 analog control register to analog power up mode
-	SetAnalogPowerDownMode (kPowerNormalAnalog);
-    
 	// ...then bring everything back up the way it should be.
 	err = CODEC_Initialize ();			//	reset the TAS3001C and flush the shadow contents to the HW
+	FailMessage ( kIOReturnSuccess != err );
 
-	//	Mute the amplifiers as needed
+	//	Set the TAS3004 analog control register to analog power up mode
+	tempErr = SetAnalogPowerDownMode ( kPowerNormalAnalog );
+	FailMessage ( kIOReturnSuccess != tempErr );
+    
+	if ( kIOReturnSuccess == err )
+	{
+		if ( kIOReturnSuccess != tempErr )
+		{
+			err = tempErr;
+		}
+	}
 
 	debugIOLog (3,  "- AppleTAS3004Audio::performDeviceWake returns %lX", err );
 	return err;
 }
+
+// --------------------------------------------------------------------------
+//	[3787193]
+IOReturn AppleTAS3004Audio::requestSleepTime ( UInt32 * microsecondsUntilComplete )
+{
+	IOReturn		result = kIOReturnBadArgument;
+	
+	debugIOLog ( 6, "+ AppleTAS3004Audio::requestSleepTime ( %p->%ld )", microsecondsUntilComplete, *microsecondsUntilComplete );
+	if ( 0 != microsecondsUntilComplete )
+	{
+		*microsecondsUntilComplete = *microsecondsUntilComplete + kTAS3004_SLEEP_TIME_MICROSECONDS;
+		result = kIOReturnSuccess;
+	}
+	debugIOLog ( 6, "- AppleTAS3004Audio::requestSleepTime ( %p->%ld ) returns 0x%lX", microsecondsUntilComplete, *microsecondsUntilComplete, result );
+	return result;
+}
+
 
 #pragma mark ---------------------
 #pragma mark + HARDWARE MANIPULATION
@@ -879,6 +937,7 @@ IOReturn	AppleTAS3004Audio::CODEC_Initialize() {
 	UInt8		registerSize;
 	Boolean		done;
 	
+	debugIOLog ( 6, "+ AppleTAS3004Audio::CODEC_Initialize ()" );
 	err = kIOReturnError;
 	done = false;
 	oldMode = 0;
@@ -1018,17 +1077,14 @@ AttemptToRetry:
 			retryCount++;
 		} while ( !done && ( kTAS3004_MAX_RETRY_COUNT != retryCount ) );
 		mSemaphores = 0;
-		if( kTAS3004_MAX_RETRY_COUNT == retryCount ) {
+		if ( kTAS3004_MAX_RETRY_COUNT == retryCount )
+		{
 			mTAS_WasDead = true;
-			debugIOLog (5,  "\n\n\n\n          TAS3004 IS DEAD: Check %s\n\n\n", "ChooseAudio in fcr1" );
-			mPlatformInterface->LogFCR ();
-			mPlatformInterface->LogGPIO ();
-			mPlatformInterface->LogI2S ();
+			debugIOLog (5,  "\n\n\n\n          TAS3004 IS DEAD: Check %s\n\n\n", "ChooseAudio in FCR1 bit 7 s/b '0'" );
 		}
 	}
-	if( kIOReturnSuccess != err )
-		debugIOLog (7,  "[AppleTAS3004Audio] CODEC_Initialize() err = %d  ***** FATAL *****", err );
 
+	debugIOLog ( 6, "- AppleTAS3004Audio::CODEC_Initialize () returns 0x%lX", err );
     return err;
 }
 
@@ -1038,7 +1094,7 @@ AttemptToRetry:
 void	AppleTAS3004Audio::CODEC_Reset ( void ) {
 
 	mPlatformInterface->setCodecReset ( kCODEC_RESET_Analog, kGPIO_Run );
-	IOSleep ( kCodec_RESET_SETUP_TIME );	//	I2S clocks must be running prerequisite to RESET
+	IOSleep ( kCodec_RESET_SETUP_TIME );    //      I2S clocks must be running prerequisite to RESET
 	mPlatformInterface->setCodecReset ( kCODEC_RESET_Analog, kGPIO_Reset );
 	IOSleep ( kCodec_RESET_HOLD_TIME );
 	mPlatformInterface->setCodecReset ( kCODEC_RESET_Analog, kGPIO_Run );
@@ -1072,7 +1128,8 @@ IOReturn 	AppleTAS3004Audio::CODEC_ReadRegister(UInt8 regAddr, UInt8* registerDa
 			registerData[regByteIndex] = shadowPtr[regByteIndex];
 		}
 	}
-	if( kIOReturnSuccess != err ) {
+	if( kIOReturnSuccess != err )
+	{
 		debugIOLog (3,  "  AppleTAS3004Audio::CODEC_ReadRegister %d notEnoughHardware = CODEC_ReadRegister( 0x%2.0X, 0x%8.0X )", err, regAddr, (unsigned int)registerData );
 	}
 	debugIOLog ( 6, "± AppleTAS3004Audio::CODEC_ReadRegister ( 0x%0.2X, %p ) returns 0x%0.8X", regAddr, registerData, err );
@@ -1090,60 +1147,65 @@ IOReturn 	AppleTAS3004Audio::CODEC_ReadRegister(UInt8 regAddr, UInt8* registerDa
 //	load mode for the target register and then restore the previous 'load' 
 //	mode.  All biquad registers should only be loaded while in 'fast load' 
 //	mode.  All other registers should be loaded while in 'normal load' mode.
-IOReturn 	AppleTAS3004Audio::CODEC_WriteRegister(UInt8 regAddr, UInt8* registerData, UInt8 mode){
+IOReturn 	AppleTAS3004Audio::CODEC_WriteRegister( UInt8 regAddr, UInt8* registerData, UInt8 mode )
+{
 	UInt8			registerSize;
 	UInt32			regByteIndex;
 	UInt8			*shadowPtr;
 	IOReturn		err;
 	Boolean			updateRequired;
-	Boolean			success;
 	
 	err = kIOReturnSuccess;
 	updateRequired = false;
-	success = false;
 	// quiet warnings caused by a complier that can't really figure out if something is going to be used uninitialized or not.
 	registerSize = 0;
 	shadowPtr = NULL;
-	err = GetShadowRegisterInfo( &shadowTAS3004Regs, regAddr, &shadowPtr, &registerSize );
+	err = GetShadowRegisterInfo ( &shadowTAS3004Regs, regAddr, &shadowPtr, &registerSize );
 	if( kIOReturnSuccess == err )
 	{
 		//	Write through to the shadow register as a 'write through' cache would and
 		//	then write the data to the hardware;
-		if( kUPDATE_SHADOW == mode || kUPDATE_ALL == mode || kFORCE_UPDATE_ALL == mode ) {
-			success = true;
-			for( regByteIndex = 0; regByteIndex < registerSize; regByteIndex++ ) {
-				if ( shadowPtr[regByteIndex] != registerData[regByteIndex] ) {
+		if( kUPDATE_SHADOW == mode || kUPDATE_ALL == mode || kFORCE_UPDATE_ALL == mode )
+		{
+			for ( regByteIndex = 0; regByteIndex < registerSize; regByteIndex++ )
+			{
+				if ( shadowPtr[regByteIndex] != registerData[regByteIndex] )
+				{
 					shadowPtr[regByteIndex] = registerData[regByteIndex];
-					if ( kUPDATE_SHADOW != mode ) {									//  [3647247]   do not attempt to write to the hw if a cache only write is requested!
+					if ( kUPDATE_SHADOW != mode )									//  [3647247]   do not attempt to write to the hw if a cache only write is requested!
+					{
 						updateRequired = true;
 					}
 				}
 			}
 		}
-		if ( kUPDATE_HW == mode || updateRequired || kFORCE_UPDATE_ALL == mode ) {
-			success = mPlatformInterface->writeCodecRegister(kDEQAddress, regAddr, registerData, registerSize, kI2C_StandardSubMode);
-			if ( !success ) { err = kIOReturnError; }
+		if ( kUPDATE_HW == mode || updateRequired || kFORCE_UPDATE_ALL == mode )
+		{
+			err = mPlatformInterface->writeCodecRegister ( kCodec_TAS3004, regAddr, registerData, registerSize );
+			FailMessage ( kIOReturnSuccess != err );
 			//	If there was a previous failure and this transaction was successful then
 			//	reset and flush so that all registers are properly configured (i.e. the
 			//	clocks were removed and recovery was not successful previously but can 
 			//	be successful now).
-			if ( success ) {
-				if ( mTAS_WasDead ) {
+			if ( kIOReturnSuccess != err )
+			{
+				if ( mTAS_WasDead )
+				{
 					mAudioDeviceProvider->interruptEventHandler ( kRequestCodecRecoveryStatus, (UInt32)kControlBusFatalErrorRecovery );
 				}
-			}
-			if ( !success && !mSemaphores ) {			//	avoid redundant recovery
-				debugIOLog (3,  "  AppleTAS3004Audio::CODEC_WriteRegister mPlatformInterface->writeCodecRegister ( %x, %p, %x ) %d POSTS A FATAL ERROR!", regAddr, registerData, kI2C_StandardSubMode, success );
-				mAudioDeviceProvider->interruptEventHandler ( kRequestCodecRecoveryStatus, (UInt32)kControlBusFatalErrorRecovery );
+				if ( !mSemaphores )			//	avoid redundant recovery
+				{
+					debugIOLog (3,  "  AppleTAS3004Audio::CODEC_WriteRegister mPlatformInterface->writeCodecRegister ( %d, 0x%x, %p, %d ) FATAL ERROR!", kCodec_TAS3004, regAddr, registerData, registerSize );
+					mAudioDeviceProvider->interruptEventHandler ( kRequestCodecRecoveryStatus, (UInt32)kControlBusFatalErrorRecovery );
+				}
 			}
 		}
 	}
 
-	if( kIOReturnSuccess != err || !success ) {
-		debugIOLog (6, "± AppleTAS3004Audio::CODEC_WriteRegister returns 0x%X, success == %d in AppleTAS3004Audio::CODEC_WriteRegister", err, success);
+	if( kIOReturnSuccess != err )
+	{
+		debugIOLog (6, "± AppleTAS3004Audio::CODEC_WriteRegister returns 0x%X in AppleTAS3004Audio::CODEC_WriteRegister", err );
 	}
-
-
     return err;
 }
 
@@ -1185,12 +1247,14 @@ Exit:
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IORegistryEntry *AppleTAS3004Audio::FindEntryByProperty (const IORegistryEntry * start, const char * key, const char * value) {
-	OSIterator				*iterator;
+	OSIterator				*iterator = 0;
 	IORegistryEntry			*theEntry;
 	IORegistryEntry			*tmpReg;
 	OSData					*tmpData;
 
 	theEntry = NULL;
+	FailIf ( NULL == start, Exit );
+	
 	iterator = start->getChildIterator (gIODTPlane);
 	FailIf (NULL == iterator, Exit);
 
@@ -1235,6 +1299,7 @@ Exit:
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void AppleTAS3004Audio::setDRCProcessing (void * inDRCStructure, Boolean inRealtime) {
+	debugIOLog (3, "- AppleTAS3004Audio::setDRCProcessing (%p, %d)", inDRCStructure, inRealtime);
 	return;
 }
 
@@ -1294,7 +1359,8 @@ void AppleTAS3004Audio::disableProcessing ( Boolean inRealtime ) {
 		if (FALSE == inRealtime) {	
 			SetVolumeCoefficients (0, 0);						//	mute the amplifier
 			IODelay ( 70000 );									//	delay to allow mute to take place (2400 samples max)
-			SetAnalogPowerDownMode (kPowerDownAnalog);			//	[3455140]
+			err = SetAnalogPowerDownMode (kPowerDownAnalog);			//	[3455140]
+			FailMessage ( kIOReturnSuccess != err );
 			IODelay ( 10000 );
 			InitEQSerialMode ( kSetFastLoadMode );				//	and pause the DSP
 		}
@@ -1340,7 +1406,8 @@ void AppleTAS3004Audio::disableProcessing ( Boolean inRealtime ) {
 			//	[3454015]  If hardware was not muted then restore the volume setting.
 			InitEQSerialMode ( kSetNormalLoadMode );			//	and resume running the DSP
 			IODelay ( 10000 );
-			SetAnalogPowerDownMode (kPowerNormalAnalog);
+			err = SetAnalogPowerDownMode (kPowerNormalAnalog);
+			FailMessage ( kIOReturnSuccess != err );
 			IODelay ( 10000 );
 			if ( !mAnalogMuteState ) {
 				SetVolumeCoefficients (volumeTable[(UInt32)mVolLeft], volumeTable[(UInt32)mVolRight]);
@@ -1371,7 +1438,8 @@ void AppleTAS3004Audio::enableProcessing (void) {
 	
 	SetVolumeCoefficients (0, 0);						//	mute the amplifier
 	IODelay ( 70000 );									//	delay to allow mute to take place (2400 samples max)
-	SetAnalogPowerDownMode (kPowerDownAnalog);			//	[3455140]
+	err = SetAnalogPowerDownMode (kPowerDownAnalog);			//	[3455140]
+	FailMessage ( kIOReturnSuccess != err );
 	IODelay ( 10000 );
 	InitEQSerialMode ( kSetFastLoadMode );				//	and pause the DSP
 
@@ -1422,7 +1490,8 @@ void AppleTAS3004Audio::enableProcessing (void) {
 	//	[3454015]  If hardware was not muted then restore the volume setting.
 	InitEQSerialMode ( kSetNormalLoadMode );			//	and resume running the DSP
 	IODelay ( 10000 );
-	SetAnalogPowerDownMode (kPowerNormalAnalog);		//	[3455140]
+	err = SetAnalogPowerDownMode (kPowerNormalAnalog);		//	[3455140]
+	FailMessage ( kIOReturnSuccess != err );
 	IODelay ( 10000 );
 	if ( !mAnalogMuteState ) {
 		SetVolumeCoefficients (volumeTable[(UInt32)mVolLeft], volumeTable[(UInt32)mVolRight]);
@@ -1517,6 +1586,7 @@ IOReturn AppleTAS3004Audio::SetOutputBiquadCoefficients( UInt32 streamID, UInt32
 				case kStreamFrontLeft:	err = CODEC_WriteRegister( kTAS3004LeftBiquad0CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 				case kStreamFrontRight:	err = CODEC_WriteRegister( kTAS3004RightBiquad0CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 				case kStreamStereo:		err = CODEC_WriteRegister( kTAS3004LeftBiquad0CtrlReg, biquadCoefficients, kUPDATE_ALL );
+										FailMessage ( kIOReturnSuccess != err );
 										err = CODEC_WriteRegister( kTAS3004RightBiquad0CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 			}
 			break;
@@ -1526,6 +1596,7 @@ IOReturn AppleTAS3004Audio::SetOutputBiquadCoefficients( UInt32 streamID, UInt32
 				case kStreamFrontLeft:	err = CODEC_WriteRegister( kTAS3004LeftBiquad1CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 				case kStreamFrontRight:	err = CODEC_WriteRegister( kTAS3004RightBiquad1CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 				case kStreamStereo:		err = CODEC_WriteRegister( kTAS3004LeftBiquad1CtrlReg, biquadCoefficients, kUPDATE_ALL );
+										FailMessage ( kIOReturnSuccess != err );
 										err = CODEC_WriteRegister( kTAS3004RightBiquad1CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 			}
 			break;
@@ -1535,6 +1606,7 @@ IOReturn AppleTAS3004Audio::SetOutputBiquadCoefficients( UInt32 streamID, UInt32
 				case kStreamFrontLeft:	err = CODEC_WriteRegister( kTAS3004LeftBiquad2CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 				case kStreamFrontRight:	err = CODEC_WriteRegister( kTAS3004RightBiquad2CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 				case kStreamStereo:		err = CODEC_WriteRegister( kTAS3004LeftBiquad2CtrlReg, biquadCoefficients, kUPDATE_ALL );
+										FailMessage ( kIOReturnSuccess != err );
 										err = CODEC_WriteRegister( kTAS3004RightBiquad2CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 			}
 			break;
@@ -1544,6 +1616,7 @@ IOReturn AppleTAS3004Audio::SetOutputBiquadCoefficients( UInt32 streamID, UInt32
 				case kStreamFrontLeft:	err = CODEC_WriteRegister( kTAS3004LeftBiquad3CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 				case kStreamFrontRight:	err = CODEC_WriteRegister( kTAS3004RightBiquad3CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 				case kStreamStereo:		err = CODEC_WriteRegister( kTAS3004LeftBiquad3CtrlReg, biquadCoefficients, kUPDATE_ALL );
+										FailMessage ( kIOReturnSuccess != err );
 										err = CODEC_WriteRegister( kTAS3004RightBiquad3CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 			}
 			break;
@@ -1553,6 +1626,7 @@ IOReturn AppleTAS3004Audio::SetOutputBiquadCoefficients( UInt32 streamID, UInt32
 				case kStreamFrontLeft:	err = CODEC_WriteRegister( kTAS3004LeftBiquad4CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 				case kStreamFrontRight:	err = CODEC_WriteRegister( kTAS3004RightBiquad4CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 				case kStreamStereo:		err = CODEC_WriteRegister( kTAS3004LeftBiquad4CtrlReg, biquadCoefficients, kUPDATE_ALL );
+										FailMessage ( kIOReturnSuccess != err );
 										err = CODEC_WriteRegister( kTAS3004RightBiquad4CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 			}
 			break;
@@ -1562,6 +1636,7 @@ IOReturn AppleTAS3004Audio::SetOutputBiquadCoefficients( UInt32 streamID, UInt32
 				case kStreamFrontLeft:	err = CODEC_WriteRegister( kTAS3004LeftBiquad5CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 				case kStreamFrontRight:	err = CODEC_WriteRegister( kTAS3004RightBiquad5CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 				case kStreamStereo:		err = CODEC_WriteRegister( kTAS3004LeftBiquad5CtrlReg, biquadCoefficients, kUPDATE_ALL );
+										FailMessage ( kIOReturnSuccess != err );
 										err = CODEC_WriteRegister( kTAS3004RightBiquad5CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
 			}
 			break;
@@ -1572,7 +1647,7 @@ IOReturn AppleTAS3004Audio::SetOutputBiquadCoefficients( UInt32 streamID, UInt32
 		//			delayed unity all pass filter coefficient set.  The right channel is always delayed
 		//			by one sample while the left channel is not delayed.
 		case kBiquadRefNum_6:
-#if 1	// hardware phase correction
+			// hardware phase correction
 			for( index = 0; index < sizeof ( data ); index++ ) { data[index] = 0x00; }
 			data[3] = 0x10;
 			switch( streamID )
@@ -1580,18 +1655,9 @@ IOReturn AppleTAS3004Audio::SetOutputBiquadCoefficients( UInt32 streamID, UInt32
 				case kStreamFrontLeft:
 				case kStreamFrontRight:
 				case kStreamStereo:		err = CODEC_WriteRegister( kTAS3004LeftBiquad6CtrlReg, &data[3], kUPDATE_ALL );
+										FailMessage ( kIOReturnSuccess != err );
 										err = CODEC_WriteRegister( kTAS3004RightBiquad6CtrlReg, &data[0], kUPDATE_ALL );	break;
 			}
-			break;
-#else
-			switch( streamID )
-			{
-				case kStreamFrontLeft:	err = CODEC_WriteRegister( kTAS3004LeftBiquad6CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamFrontRight:	err = CODEC_WriteRegister( kTAS3004RightBiquad6CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-				case kStreamStereo:		err = CODEC_WriteRegister( kTAS3004LeftBiquad6CtrlReg, biquadCoefficients, kUPDATE_ALL );
-										err = CODEC_WriteRegister( kTAS3004RightBiquad6CtrlReg, biquadCoefficients, kUPDATE_ALL );	break;
-			}
-#endif
 			break;
 	}
 	FailMessage ( kIOReturnSuccess != err );
@@ -1676,6 +1742,7 @@ IOReturn AppleTAS3004Audio::setPluginState ( HardwarePluginDescriptorPtr inState
 				for ( UInt8 registerByteAddress = 0; registerByteAddress < registerSize; registerByteAddress++ ) {
 					if ( inStateShadowPtr[registerByteAddress] != shadowPtr[registerByteAddress] ) {
 						result = CODEC_WriteRegister ( regAddrList[index], inStateShadowPtr, kUPDATE_ALL );
+						FailMessage ( kIOReturnSuccess != result );
 						break;
 					}
 				}

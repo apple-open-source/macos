@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.9 2003/07/18 18:07:32 zarzycki Exp $
+dnl $Id: config.m4,v 1.120.2.22 2004/07/27 12:44:44 iliaa Exp $
 dnl
 
 dnl
@@ -41,7 +41,7 @@ PHP_ARG_ENABLE(gd-native-ttf, whether to enable truetype string function in GD,
 [  --enable-gd-native-ttf    GD: Enable TrueType string function.], no, no)
 
 PHP_ARG_ENABLE(gd-jis-conv, whether to enable JIS-mapped Japanese font support in GD,
-[  --enable-gd-jis-conv      GD: Enable JIS-mapped Japanese font suppert.], no, no)
+[  --enable-gd-jis-conv      GD: Enable JIS-mapped Japanese font support.], no, no)
 
 dnl  
 dnl Checks for the configure options 
@@ -50,8 +50,8 @@ dnl
 AC_DEFUN(PHP_GD_JPEG,[
   if test "$PHP_JPEG_DIR" != "no"; then
 
-    for i in /usr /usr/local $PHP_JPEG_DIR; do
-      test -f $i/lib/libjpeg.$SHLIB_SUFFIX_NAME -o -f $i/lib/libjpeg.a && GD_JPEG_DIR=$i
+    for i in $PHP_JPEG_DIR /usr/local /usr; do
+      test -f $i/lib/libjpeg.$SHLIB_SUFFIX_NAME -o -f $i/lib/libjpeg.a && GD_JPEG_DIR=$i && break
     done
 
     if test -z "$GD_JPEG_DIR"; then
@@ -75,8 +75,8 @@ AC_DEFUN(PHP_GD_JPEG,[
 AC_DEFUN(PHP_GD_PNG,[
   if test "$PHP_PNG_DIR" != "no"; then
 
-    for i in /usr /usr/local $PHP_PNG_DIR; do
-      test -f $i/lib/libpng.$SHLIB_SUFFIX_NAME -o -f $i/lib/libpng.a && GD_PNG_DIR=$i
+    for i in $PHP_PNG_DIR /usr/local /usr; do
+      test -f $i/lib/libpng.$SHLIB_SUFFIX_NAME -o -f $i/lib/libpng.a && GD_PNG_DIR=$i && break
     done
 
     if test -z "$GD_PNG_DIR"; then
@@ -110,8 +110,8 @@ AC_DEFUN(PHP_GD_PNG,[
 AC_DEFUN(PHP_GD_XPM,[
   if test "$PHP_XPM_DIR" != "no"; then
 
-    for i in /usr /usr/local /usr/X11R6 $PHP_XPM_DIR; do
-      test -f $i/lib/libXpm.$SHLIB_SUFFIX_NAME -o -f $i/lib/libXpm.a && GD_XPM_DIR=$i
+    for i in $PHP_XPM_DIR /usr/local /usr/X11R6 /usr; do
+      test -f $i/lib/libXpm.$SHLIB_SUFFIX_NAME -o -f $i/lib/libXpm.a && GD_XPM_DIR=$i && break
     done
 
     if test -z "$GD_XPM_DIR"; then
@@ -144,9 +144,9 @@ AC_DEFUN(PHP_GD_XPM,[
 AC_DEFUN(PHP_GD_FREETYPE1,[
   if test "$PHP_TTF" != "no"; then
     if test "$PHP_FREETYPE_DIR" = "no" -o "$PHP_FREETYPE_DIR" = ""; then
-      if test -n "$PHP_TTF" ; then
-        for i in /usr /usr/local $PHP_TTF; do
-          if test -f "$i/include/freetype.h" ; then
+      if test -n "$PHP_TTF"; then
+        for i in $PHP_TTF /usr/local /usr; do
+          if test -f "$i/include/freetype.h"; then
             TTF_DIR=$i
             unset TTF_INC_DIR
           fi
@@ -158,6 +158,7 @@ AC_DEFUN(PHP_GD_FREETYPE1,[
             TTF_DIR=$i
             TTF_INC_DIR=$i/include/freetype1/freetype
           fi
+          test -n "$TTF_DIR" && break
         done
       fi
       if test -n "$TTF_DIR" ; then
@@ -177,10 +178,11 @@ AC_DEFUN(PHP_GD_FREETYPE1,[
 AC_DEFUN(PHP_GD_FREETYPE2,[
   if test "$PHP_FREETYPE_DIR" != "no"; then
 
-    for i in /usr /usr/local $PHP_FREETYPE_DIR; do
+    for i in $PHP_FREETYPE_DIR /usr/local /usr; do
       if test -f "$i/include/freetype2/freetype/freetype.h"; then
         FREETYPE2_DIR=$i
         FREETYPE2_INC_DIR=$i/include/freetype2
+        break
       fi
     done
     
@@ -201,8 +203,8 @@ AC_DEFUN(PHP_GD_FREETYPE2,[
 AC_DEFUN(PHP_GD_T1LIB,[
   if test "$PHP_T1LIB" != "no"; then
 
-    for i in /usr /usr/local $PHP_T1LIB; do
-      test -f "$i/include/t1lib.h" && GD_T1_DIR=$i
+    for i in $PHP_T1LIB /usr/local /usr; do
+      test -f "$i/include/t1lib.h" && GD_T1_DIR=$i && break
     done
 
     if test -z "$GD_T1_DIR"; then
@@ -255,6 +257,8 @@ AC_DEFUN(PHP_GD_CHECK_VERSION,[
   PHP_CHECK_LIBRARY(gd, gdImageColorResolve,    [AC_DEFINE(HAVE_GDIMAGECOLORRESOLVE, 1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
   PHP_CHECK_LIBRARY(gd, gdImageGifCtx,          [AC_DEFINE(HAVE_GD_GIF_CTX,          1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
   PHP_CHECK_LIBRARY(gd, gdCacheCreate,          [AC_DEFINE(HAVE_GD_CACHE_CREATE,     1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdFontCacheShutdown,    [AC_DEFINE(HAVE_GD_THREAD_SAFE,      1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
+  PHP_CHECK_LIBRARY(gd, gdNewDynamicCtxEx,      [AC_DEFINE(HAVE_GD_DYNAMIC_CTX_EX,    1, [ ])], [], [ -L$GD_LIB $GD_SHARED_LIBADD ])
 ])
 
 dnl
@@ -268,7 +272,7 @@ if test "$PHP_GD" = "yes"; then
                  libgd/gdxpm.c libgd/gdfontt.c libgd/gdfonts.c libgd/gdfontmb.c libgd/gdfontl.c \
                  libgd/gdfontg.c libgd/gdtables.c libgd/gdft.c libgd/gdcache.c libgd/gdkanji.c \
                  libgd/wbmp.c libgd/gd_wbmp.c libgd/gdhelpers.c libgd/gd_topal.c libgd/gd_gif_in.c \
-                 libgd/xbm.c"
+                 libgd/xbm.c libgd/gd_gif_out.c "
 
 dnl check for fabsf and floorf which are available since C99
   AC_CHECK_FUNCS(fabsf floorf)
@@ -301,7 +305,10 @@ dnl These are always available with bundled library
   AC_DEFINE(HAVE_GD_PNG,              1, [ ])
   AC_DEFINE(HAVE_GD_XBM,              1, [ ])
   AC_DEFINE(HAVE_GD_BUNDLED,          1, [ ])
-  AC_DEFINE(HAVE_GD_GIF_READ,          1, [ ])
+  AC_DEFINE(HAVE_GD_GIF_READ,         1, [ ])
+  AC_DEFINE(HAVE_GD_GIF_CREATE,       1, [ ])
+  AC_DEFINE(HAVE_GD_IMAGEELLIPSE,     1, [ ])
+  AC_DEFINE(HAVE_GD_DYNAMIC_CTX_EX,   1, [ ])
 
 dnl Make sure the libgd/ is first in the include path
   GDLIB_CFLAGS="-DHAVE_LIBPNG"

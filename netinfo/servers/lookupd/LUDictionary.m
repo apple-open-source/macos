@@ -211,6 +211,21 @@ dictToDSRecord(LUDictionary *dict)
 	return YES;
 }
 
+- (LUDictionary *)copy
+{
+	int i;
+	LUDictionary *c;
+	
+	c = [[LUDictionary alloc] init];
+	
+	for (i = 0; i < count; i++)
+	{
+		[c addValues:prop[i].val forKey:prop[i].key count:prop[i].len];
+	}
+	
+	return c;
+}
+
 - (unsigned int)cacheHits
 {
 	return ((_private_data *)_data)->hits;

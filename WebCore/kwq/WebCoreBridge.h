@@ -134,6 +134,7 @@ typedef enum {
 - (NSURL *)URL;
 - (NSString *)referrer;
 - (NSString *)domain;
+- (WebCoreBridge *)opener;
 
 - (void)installInFrame:(NSView *)view;
 - (void)removeFromFrame;

@@ -54,6 +54,12 @@
 #import <unistd.h>
 #import <string.h>
 #import <libc.h>
+#import <netdb.h>
+#import <sys/socket.h>
+#import <netinet/in.h>
+#import <arpa/inet.h>
+#import <net/if.h>
+#import <ifaddrs.h>
 
 #define forever for(;;)
 
@@ -166,6 +172,9 @@ extern int _lookup_link();
 	configurationArray = [configManager config];
 	global = [configManager configGlobal:configurationArray];
 
+	parallel_gai = [configManager boolForKey:"ParallelGAI" dict:global default:parallel_gai];
+	lookup_local_interfaces = [configManager boolForKey:"LookupLocalInterfaces" dict:global default:lookup_local_interfaces];
+
 	debug_enabled = [configManager boolForKey:"Debug" dict:global default:debug_enabled];
 	if (debug_enabled)
 	{
@@ -207,6 +216,46 @@ extern int _lookup_link();
 	[configurationArray release];
 }
 
+- (void)initNetAddrList
+{
+	struct ifaddrs *ifa, *ifap;
+	sa_family_t family;
+	struct sockaddr_in6 *sin6;
+	struct sockaddr_in *sin4;
+	char buf[128];
+
+	if (getifaddrs(&ifa)) return;
+
+	for (ifap = ifa; ifap != NULL; ifap = ifap->ifa_next)
+	{
+		family = ifap->ifa_addr->sa_family;
+		if (family != AF_INET && family != AF_INET6) continue;
+		if (family == AF_INET6)
+		{
+			sin6 = (struct sockaddr_in6 *)ifap->ifa_addr;
+			if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr) || IN6_IS_ADDR_SITELOCAL(&sin6->sin6_addr))
+			{
+				sin6->sin6_scope_id = ntohs(*(u_int16_t *)&sin6->sin6_addr.s6_addr[2]);
+				sin6->sin6_addr.s6_addr[2] = 0;
+				sin6->sin6_addr.s6_addr[3] = 0;
+			}
+		}
+
+		if (family == AF_INET)
+		{
+			sin4 = (struct sockaddr_in *)(ifap->ifa_addr);
+			if (inet_ntop(AF_INET, (void *)&(sin4->sin_addr), buf, sizeof(buf)) == NULL) continue;
+		}
+		else
+		{
+			sin6 = (struct sockaddr_in6 *)(ifap->ifa_addr);
+			if (inet_ntop(AF_INET6, (void *)&(sin6->sin6_addr), buf, sizeof(buf)) == NULL) continue;
+		}
+
+		netAddrList = appendString(buf, netAddrList);
+	}
+}
+
 - (id)initWithName:(char *)name
 {
 	DNSAgent *dns;
@@ -214,6 +263,7 @@ extern int _lookup_link();
 	[super init];
 
 	dnsSearchList = NULL;
+	netAddrList = NULL;
 
 	controller = self;
 
@@ -255,6 +305,11 @@ extern int _lookup_link();
 		[dns release];
 	}
 
+	/* 
+	 * Build a list of local network addresses
+	 */
+	[self initNetAddrList];
+
 	return self;
 }
 
@@ -266,6 +321,11 @@ extern int _lookup_link();
 - (char **)dnsSearchList
 {
 	return dnsSearchList;
+}
+
+- (char **)netAddrList
+{
+	return netAddrList;
 }
 
 - (void)dealloc
@@ -297,6 +357,9 @@ extern int _lookup_link();
 	freeList(agentNames);
 	agentNames = NULL;
 	free(agents);
+
+	freeList(netAddrList);
+	netAddrList = NULL;
 
 	[super dealloc];
 }

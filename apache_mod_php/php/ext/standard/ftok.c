@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: ftok.c,v 1.1.1.3 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: ftok.c,v 1.9.2.2 2004/06/24 00:48:56 iliaa Exp $ */
 
 #include "php.h"
 
@@ -51,6 +51,10 @@ PHP_FUNCTION(ftok)
         php_error_docref(NULL TSRMLS_CC, E_WARNING, "Second argument invalid");
         RETURN_LONG(-1);
     }
+
+	if ((PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(pathname), NULL, CHECKUID_CHECK_FILE_AND_DIR))) || php_check_open_basedir(Z_STRVAL_PP(pathname) TSRMLS_CC)) {
+		RETURN_LONG(-1);
+	}
 
     k = ftok(Z_STRVAL_PP(pathname),Z_STRVAL_PP(proj)[0]);
 

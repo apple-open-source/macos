@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_pcre.h,v 1.1.1.7 2003/07/18 18:07:39 zarzycki Exp $ */
+/* $Id: php_pcre.h,v 1.33.4.1 2002/12/31 16:35:08 sebastian Exp $ */
 
 #ifndef PHP_PCRE_H
 #define PHP_PCRE_H

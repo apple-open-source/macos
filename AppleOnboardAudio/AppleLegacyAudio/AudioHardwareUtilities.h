@@ -40,6 +40,7 @@
 //	NOTE:  Use of 'LOG_FAIL' allows the fail messages to appear in the log without
 //	all of the standard logging associated with a DEBUG build (i.e. hopefully failures only).
 #define	LOG_FAIL
+#define kAUDIO_DEBUGIOLOG_TO_KPRINTF		0
 
 #ifdef DEBUG
 	#ifndef LOG_FAIL
@@ -48,8 +49,13 @@
 #endif
 
 #ifdef DEBUGLOG
+#if kAUDIO_DEBUGIOLOG_TO_KPRINTF
+	#define debugIOLog( level, message... ) \
+		do { kprintf ( message ); kprintf ( "\n" ); } while (0)
+#else
 	#define debugIOLog( level, message... ) \
 		do {USBLog( level, message );} while (0)
+#endif
 #else
 	#define debugIOLog( message... ) ;
 #endif

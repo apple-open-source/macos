@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_incomplete_class.h,v 1.1.1.7 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: php_incomplete_class.h,v 1.9.4.4 2004/09/24 21:57:18 helly Exp $ */
 
 #ifndef PHP_INCOMPLETE_CLASS_H
 #define PHP_INCOMPLETE_CLASS_H
@@ -31,6 +31,7 @@
 	if (Z_OBJCE_P(struc) == BG(incomplete_class)) {						\
 		class_name = php_lookup_class_name(struc, &name_len, 1 TSRMLS_CC);		\
 		free_class_name = 1;											\
+		incomplete_class = 1; \
 	} else {															\
 		class_name = Z_OBJCE_P(struc)->name;							\
 		name_len   = Z_OBJCE_P(struc)->name_length;						\
@@ -42,7 +43,8 @@
 #define PHP_CLASS_ATTRIBUTES											\
 	char *class_name;													\
 	size_t name_len;													\
-	zend_bool free_class_name = 0										\
+	zend_bool free_class_name = 0;										\
+	zend_bool incomplete_class = 0
 
 #define INCOMPLETE_CLASS "__PHP_Incomplete_Class"
 #define MAGIC_MEMBER "__PHP_Incomplete_Class_Name"

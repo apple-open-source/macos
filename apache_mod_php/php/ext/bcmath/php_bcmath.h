@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_bcmath.h,v 1.1.1.7 2003/07/18 18:07:29 zarzycki Exp $ */
+/* $Id: php_bcmath.h,v 1.11.4.2 2002/12/31 16:34:10 sebastian Exp $ */
 
 #ifndef PHP_BCMATH_H
 #define PHP_BCMATH_H

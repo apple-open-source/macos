@@ -663,6 +663,8 @@ public:
 
   QPtrList<KParts::ReadOnlyPart> frames() const;
 
+  KHTMLPart *childFrameNamed(const QString &name) const;
+
   /**
    * Finds a frame by name. Returns 0L if frame can't be found.
    */
@@ -1109,7 +1111,13 @@ private:
 
   KJSProxy *jScript();
 
+#if APPLE_CHANGES
+ public:
+#endif
   KHTMLPart *opener();
+#if APPLE_CHANGES
+ private:
+#endif
   long cacheId() const;
   void setOpener(KHTMLPart *_opener);
   bool openedByJS();

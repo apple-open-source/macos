@@ -1,23 +1,22 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.8 2003/07/18 18:07:33 zarzycki Exp $
+dnl $Id: config.m4,v 1.49.2.11 2004/01/17 00:01:06 sniper Exp $
 dnl
 
 AC_DEFUN(IMAP_INC_CHK,[if test -r "$i$1/c-client.h"; then
     AC_DEFINE(HAVE_IMAP2000, 1, [ ])
     IMAP_DIR=$i
     IMAP_INC_DIR=$i$1
+    break
   elif test -r "$i$1/rfc822.h"; then 
     IMAP_DIR=$i; 
     IMAP_INC_DIR=$i$1
+	break
 ])
 
 AC_DEFUN(IMAP_LIB_CHK,[
   str="$IMAP_DIR/$1/lib$lib.*"
   for i in `echo $str`; do
-    if test -r $i; then
-      IMAP_LIBDIR=$IMAP_DIR/$1
-      break 2
-    fi
+    test -r $i && IMAP_LIBDIR=$IMAP_DIR/$1 && break 2
   done
 ])
 
@@ -137,7 +136,7 @@ if test "$PHP_IMAP" != "no"; then
     PHP_NEW_EXTENSION(imap, php_imap.c, $ext_shared)
     AC_DEFINE(HAVE_IMAP,1,[ ])
 
-    for i in /usr/local /usr $PHP_IMAP; do
+    for i in $PHP_IMAP /usr/local /usr; do
       IMAP_INC_CHK()
       el[]IMAP_INC_CHK(/include/c-client)
       el[]IMAP_INC_CHK(/include/imap)
@@ -159,8 +158,17 @@ if test "$PHP_IMAP" != "no"; then
     ],[])
     CPPFLAGS=$old_CPPFLAGS
 
-    AC_CHECK_LIB(pam, pam_start) 
-    AC_CHECK_LIB(crypt, crypt)
+    PHP_CHECK_LIBRARY(pam, pam_start, 
+    [
+      PHP_ADD_LIBRARY(pam,, IMAP_SHARED_LIBADD)
+      AC_DEFINE(HAVE_LIBPAM,1,[ ])
+    ])
+
+    PHP_CHECK_LIBRARY(crypt, crypt, 
+    [
+      PHP_ADD_LIBRARY(crypt,, IMAP_SHARED_LIBADD)
+      AC_DEFINE(HAVE_LIBCRYPT,1,[ ])
+    ])
 	    
     PHP_EXPAND_PATH($IMAP_DIR, IMAP_DIR)
 

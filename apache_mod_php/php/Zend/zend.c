@@ -48,6 +48,7 @@ ZEND_API zend_class_entry zend_standard_class_def;
 ZEND_API int (*zend_printf)(const char *format, ...);
 ZEND_API zend_write_func_t zend_write;
 ZEND_API FILE *(*zend_fopen)(const char *filename, char **opened_path);
+ZEND_API zend_bool (*zend_open)(const char *filename, zend_file_handle *);
 ZEND_API void (*zend_block_interruptions)(void);
 ZEND_API void (*zend_unblock_interruptions)(void);
 ZEND_API void (*zend_ticks_function)(int ticks);
@@ -92,7 +93,7 @@ ZEND_API zval zval_used_for_init; /* True global variable */
 /* version information */
 static char *zend_version_info;
 static uint zend_version_info_length;
-#define ZEND_CORE_VERSION_INFO	"Zend Engine v" ZEND_VERSION ", Copyright (c) 1998-2003 Zend Technologies\n"
+#define ZEND_CORE_VERSION_INFO	"Zend Engine v" ZEND_VERSION ", Copyright (c) 1998-2004 Zend Technologies\n"
 
 
 #define PRINT_ZVAL_INDENT 4
@@ -119,7 +120,7 @@ static void print_hash(HashTable *ht, int indent)
 		ZEND_PUTS("[");
 		switch (zend_hash_get_current_key_ex(ht, &string_key, &str_len, &num_key, 0, &iterator)) {
 			case HASH_KEY_IS_STRING:
-				ZEND_PUTS(string_key);
+				ZEND_WRITE(string_key, str_len-1);
 				break;
 			case HASH_KEY_IS_LONG:
 				zend_printf("%ld", num_key);
@@ -255,6 +256,18 @@ ZEND_API void zend_print_zval_r_ex(zend_write_func_t write_func, zval *expr, int
 }
 
 
+static zend_bool zend_open_wrapper(const char *filename, zend_file_handle *fh)
+{
+	fh->handle.fp = zend_fopen(filename, &fh->opened_path);
+
+	if (fh->handle.fp) {
+		fh->type = ZEND_HANDLE_FP;
+		return SUCCESS;
+	}
+	return FAILURE;
+}
+
+
 static FILE *zend_fopen_wrapper(const char *filename, char **opened_path)
 {
 	if (opened_path) {
@@ -362,8 +375,13 @@ static void zend_new_thread_end_handler(THREAD_T thread_id TSRMLS_DC)
 	zend_ini_refresh_caches(ZEND_INI_STAGE_STARTUP TSRMLS_CC);
 }
 
-#endif
 
+static void alloc_globals_dtor(zend_alloc_globals *alloc_globals_p TSRMLS_DC)
+{
+	shutdown_memory_manager(0, 1 TSRMLS_CC);
+}
+
+#endif
 
 static void alloc_globals_ctor(zend_alloc_globals *alloc_globals_p TSRMLS_DC)
 {
@@ -371,14 +389,8 @@ static void alloc_globals_ctor(zend_alloc_globals *alloc_globals_p TSRMLS_DC)
 }
 
 
-static void alloc_globals_dtor(zend_alloc_globals *alloc_globals_p TSRMLS_DC)
-{
-	shutdown_memory_manager(0, 1 TSRMLS_CC);
-}
-
-
-#ifdef __FreeBSD__
-/* FreeBSD floating point precision fix */
+#if defined(__FreeBSD__) || defined(__DragonFly__)
+/* FreeBSD and DragonFly floating point precision fix */
 #include <floatingpoint.h>
 #endif
 
@@ -405,7 +417,6 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	zend_compiler_globals *compiler_globals;
 	zend_executor_globals *executor_globals;
 	void ***tsrm_ls;
-#ifdef ZTS
 	extern ZEND_API ts_rsrc_id ini_scanner_globals_id;
 	extern ZEND_API ts_rsrc_id language_scanner_globals_id;
 #else
@@ -413,13 +424,14 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	extern zend_scanner_globals language_scanner_globals;
 #endif
 
+#ifdef ZTS
 	ts_allocate_id(&alloc_globals_id, sizeof(zend_alloc_globals), (ts_allocate_ctor) alloc_globals_ctor, (ts_allocate_dtor) alloc_globals_dtor);
 #else
 	alloc_globals_ctor(&alloc_globals TSRMLS_CC);
 #endif
 
-#ifdef __FreeBSD__
-	/* FreeBSD floating point precision fix */
+#if defined(__FreeBSD__) || defined(__DragonFly__)
+	/* FreeBSD and DragonFly floating point precision fix */
 	fpsetmask(0);
 #endif
 
@@ -432,6 +444,10 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	zend_fopen = utility_functions->fopen_function;
 	if (!zend_fopen) {
 		zend_fopen = zend_fopen_wrapper;
+	}
+	zend_open = utility_functions->open_function;
+	if (!zend_open) {
+		zend_open = zend_open_wrapper;
 	}
 	zend_message_dispatcher_p = utility_functions->message_handler;
 	zend_block_interruptions = utility_functions->block_interruptions;
@@ -479,7 +495,6 @@ int zend_startup(zend_utility_functions *utility_functions, char **extensions, i
 	zend_startup_constants(tsrm_ls);
 	GLOBAL_CONSTANTS_TABLE = EG(zend_constants);
 #else
-	zend_hash_init_ex(CG(auto_globals), 8, NULL, NULL, 1, 0);
 	scanner_globals_ctor(&ini_scanner_globals TSRMLS_CC);
 	scanner_globals_ctor(&language_scanner_globals TSRMLS_CC);
 	zend_startup_constants();
@@ -537,8 +552,7 @@ void zend_shutdown(TSRMLS_D)
 #endif
 #ifndef ZTS
 	zend_destroy_rsrc_list(&EG(persistent_list) TSRMLS_CC);
-#endif
-	zend_destroy_rsrc_list_dtors();
+#endif	
 	zend_hash_graceful_reverse_destroy(&module_registry);
 	zend_hash_destroy(GLOBAL_FUNCTION_TABLE);
 	free(GLOBAL_FUNCTION_TABLE);
@@ -550,7 +564,11 @@ void zend_shutdown(TSRMLS_D)
 	free(zend_version_info);
 #ifndef ZTS
 	zend_shutdown_constants();
+#else
+	zend_hash_destroy(GLOBAL_CONSTANTS_TABLE);
+	free(GLOBAL_CONSTANTS_TABLE);
 #endif
+	zend_destroy_rsrc_list_dtors();
 }
 
 
@@ -564,7 +582,7 @@ void zend_set_utility_values(zend_utility_values *utility_values)
 /* this should be compatible with the standard zenderror */
 void zenderror(char *error)
 {
-	zend_error(E_PARSE, error);
+	zend_error(E_PARSE, "%s", error);
 }
 
 
@@ -683,6 +701,7 @@ ZEND_API int zend_get_configuration_directive(char *name, uint name_length, zval
 ZEND_API void zend_error(int type, const char *format, ...)
 {
 	va_list args;
+	va_list usr_copy;
 	zval ***params;
 	zval *retval;
 	zval *z_error_type, *z_error_message, *z_error_filename, *z_error_lineno, *z_context;
@@ -751,20 +770,28 @@ ZEND_API void zend_error(int type, const char *format, ...)
 			ALLOC_INIT_ZVAL(z_error_lineno);
 			ALLOC_INIT_ZVAL(z_context);
 			z_error_message->value.str.val = (char *) emalloc(ZEND_ERROR_BUFFER_SIZE);
+#if defined(va_copy)
+			va_copy(usr_copy, args);
+#else
+			usr_copy = args;
+#endif
 
 #ifdef HAVE_VSNPRINTF
-			vsnprintf(z_error_message->value.str.val, ZEND_ERROR_BUFFER_SIZE, format, args);
+			vsnprintf(z_error_message->value.str.val, ZEND_ERROR_BUFFER_SIZE, format, usr_copy);
 			/* this MUST be revisited, but for now handle ALL implementation 
 			 * out there correct. Since this is inside an error handler the 
 			 * performance loss by strlne is irrelevant. */
 			z_error_message->value.str.val[ZEND_ERROR_BUFFER_SIZE - 1] = '\0';
 			z_error_message->value.str.len = strlen(z_error_message->value.str.val);
 #else
-			strncpy(z_error_message->value.str.val, va_arg(format, char *), ZEND_ERROR_BUFFER_SIZE);
+			strncpy(z_error_message->value.str.val, format, ZEND_ERROR_BUFFER_SIZE);
 			z_error_message->value.str.val[ZEND_ERROR_BUFFER_SIZE - 1] = '\0';
 			z_error_message->value.str.len = strlen(z_error_message->value.str.val);
 			/* This is risky... */
 			/* z_error_message->value.str.len = vsprintf(z_error_message->value.str.val, format, args); */
+#endif
+#if defined(va_copy)
+			va_end(usr_copy);
 #endif
 			z_error_message->type = IS_STRING;
 
@@ -782,8 +809,7 @@ ZEND_API void zend_error(int type, const char *format, ...)
 
 			z_context->value.ht = EG(active_symbol_table);
 			z_context->type = IS_ARRAY;
-			z_context->is_ref = 1;
-			z_context->refcount = 2; /* we don't want this one to be freed */
+			ZVAL_ADDREF(z_context); /* we don't want this one to be freed */
 
 			params = (zval ***) emalloc(sizeof(zval **)*5);
 			params[0] = &z_error_type;
@@ -795,7 +821,12 @@ ZEND_API void zend_error(int type, const char *format, ...)
 			orig_user_error_handler = EG(user_error_handler);
 			EG(user_error_handler) = NULL;
 			if (call_user_function_ex(CG(function_table), NULL, orig_user_error_handler, &retval, 5, params, 1, NULL TSRMLS_CC)==SUCCESS) {
-				zval_ptr_dtor(&retval);
+				if (retval) {
+					if (Z_TYPE_P(retval) == IS_BOOL && Z_LVAL_P(retval) == 0) {
+						zend_error_cb(type, error_filename, error_lineno, format, args);
+					}
+					zval_ptr_dtor(&retval);
+				}
 			} else {
 				/* The user error handler failed, use built-in error handler */
 				zend_error_cb(type, error_filename, error_lineno, format, args);
@@ -867,7 +898,7 @@ ZEND_API int zend_execute_scripts(int type TSRMLS_DC, zval **retval, int file_co
 		if (EG(active_op_array)) {
 			EG(return_value_ptr_ptr) = retval ? retval : &local_retval;
 			zend_execute(EG(active_op_array) TSRMLS_CC);
-			if (!retval) {
+			if (retval == NULL && *EG(return_value_ptr_ptr) != NULL) {
 				zval_ptr_dtor(EG(return_value_ptr_ptr));
 				local_retval = NULL;
 			}

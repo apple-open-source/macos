@@ -5,25 +5,23 @@ InterBase: connect, close and pconnect
 --POST--
 --GET--
 --FILE--
-<?php /* $Id: 002.phpt,v 1.1.1.4 2003/07/18 18:07:34 zarzycki Exp $ */
+<?php /* $Id: 002.phpt,v 1.2.4.3 2004/02/15 20:47:21 abies Exp $ */
 
-	require("interbase.inc");
-    
-	$test_base = dirname(__FILE__)."/ibase_test.tmp";
+require("interbase.inc");
 
-	ibase_connect($test_base);
-	out_table("test1");
-	ibase_close();
+ibase_connect($test_base);
+out_table("test1");
+ibase_close();
 
-	$con = ibase_connect($test_base);
-	$pcon1 = ibase_pconnect($test_base);
-	$pcon2 = ibase_pconnect($test_base);
-	ibase_close($con);
-	ibase_close($pcon1);
+$con = ibase_connect($test_base);
+$pcon1 = ibase_pconnect($test_base);
+$pcon2 = ibase_pconnect($test_base);
+ibase_close($con);
+ibase_close($pcon1);
 
-	out_table("test1");
+out_table("test1");
 
-	ibase_close($pcon2);
+ibase_close($pcon2);
 ?>
 --EXPECT--
 --- test1 ---

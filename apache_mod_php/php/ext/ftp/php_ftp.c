@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_ftp.c,v 1.1.1.8 2003/07/18 18:07:32 zarzycki Exp $ */
+/* $Id: php_ftp.c,v 1.74.2.14 2003/11/04 20:56:56 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -48,7 +48,7 @@ static int	le_ftpbuf;
 
 function_entry php_ftp_functions[] = {
 	PHP_FE(ftp_connect,			NULL)
-#if HAVE_OPENSSL_EXT
+#ifdef HAVE_OPENSSL_EXT
 	PHP_FE(ftp_ssl_connect,		NULL)
 #endif	
 	PHP_FE(ftp_login,			NULL)
@@ -139,7 +139,7 @@ PHP_MINFO_FUNCTION(ftp)
 							}
 
 
-/* {{{ proto resource ftp_connect(string host [, int port [, int timeout)]])
+/* {{{ proto resource ftp_connect(string host [, int port [, int timeout]])
    Opens a FTP stream */
 PHP_FUNCTION(ftp_connect)
 {
@@ -166,7 +166,7 @@ PHP_FUNCTION(ftp_connect)
 
 	/* autoseek for resuming */
 	ftp->autoseek = FTP_DEFAULT_AUTOSEEK;
-#if HAVE_OPENSSL_EXT
+#ifdef HAVE_OPENSSL_EXT
 	/* disable ssl */
 	ftp->use_ssl = 0;
 #endif
@@ -175,8 +175,8 @@ PHP_FUNCTION(ftp_connect)
 }
 /* }}} */
 
-#if HAVE_OPENSSL_EXT
-/* {{{ proto resource ftp_ssl_connect(string host [, int port [, int timeout)]])
+#ifdef HAVE_OPENSSL_EXT
+/* {{{ proto resource ftp_ssl_connect(string host [, int port [, int timeout]])
    Opens a FTP-SSL stream */
 PHP_FUNCTION(ftp_ssl_connect)
 {
@@ -603,15 +603,15 @@ PHP_FUNCTION(ftp_get)
 	}
 
 	if (ftp->autoseek && resumepos) {
-		if (PG(safe_mode) && (!php_checkuid(local, "rb+", CHECKUID_CHECK_MODE_PARAM))) {
+		if (PG(safe_mode) && (!php_checkuid(local, mode == FTPTYPE_ASCII ? "rt+" : "rb+", CHECKUID_CHECK_MODE_PARAM))) {
 			RETURN_FALSE;
 		}
-		outstream = php_stream_fopen(local, "rb+", NULL);
+		outstream = php_stream_fopen(local, mode == FTPTYPE_ASCII ? "rt+" : "rb+", NULL);
 		if (outstream == NULL) {
-			if (PG(safe_mode) && (!php_checkuid(local, "wb", CHECKUID_CHECK_MODE_PARAM))) {
+			if (PG(safe_mode) && (!php_checkuid(local, mode == FTPTYPE_ASCII ? "wt" : "wb", CHECKUID_CHECK_MODE_PARAM))) {
 				RETURN_FALSE;
 			}
-			outstream = php_stream_fopen(local, "wb", NULL);
+			outstream = php_stream_fopen(local, mode == FTPTYPE_ASCII ? "wt" : "wb", NULL);
 		}
 		if (outstream != NULL) {
 			/* if autoresume is wanted seek to end */
@@ -623,10 +623,10 @@ PHP_FUNCTION(ftp_get)
 			}
 		}
 	} else {
-		if (PG(safe_mode) && (!php_checkuid(local, "wb", CHECKUID_CHECK_MODE_PARAM))) {
+		if (PG(safe_mode) && (!php_checkuid(local, mode == FTPTYPE_ASCII ? "wt" : "wb", CHECKUID_CHECK_MODE_PARAM))) {
 			RETURN_FALSE;
 		}
-		outstream = php_stream_fopen(local, "wb", NULL);
+		outstream = php_stream_fopen(local, mode == FTPTYPE_ASCII ? "wt" : "wb", NULL);
 	}
 
 	if (outstream == NULL)	{
@@ -636,6 +636,7 @@ PHP_FUNCTION(ftp_get)
 
 	if (!ftp_get(ftp, outstream, remote, xtype, resumepos)) {
 		php_stream_close(outstream);
+		VCWD_UNLINK(local);
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", ftp->inbuf);
 		RETURN_FALSE;
 	}
@@ -674,15 +675,15 @@ PHP_FUNCTION(ftp_nb_get)
 	}
 
 	if (ftp->autoseek && resumepos) {
-		if (PG(safe_mode) && (!php_checkuid(local, "rb+", CHECKUID_CHECK_MODE_PARAM))) {
+		if (PG(safe_mode) && (!php_checkuid(local, mode == FTPTYPE_ASCII ? "rt+" : "rb+", CHECKUID_CHECK_MODE_PARAM))) {
 			RETURN_FALSE;
 		}
-		outstream = php_stream_fopen(local, "rb+", NULL);
+		outstream = php_stream_fopen(local, mode == FTPTYPE_ASCII ? "rt+" : "rb+", NULL);
 		if (outstream == NULL) {
-			if (PG(safe_mode) && (!php_checkuid(local, "wb", CHECKUID_CHECK_MODE_PARAM))) {
+			if (PG(safe_mode) && (!php_checkuid(local, mode == FTPTYPE_ASCII ? "wt" : "wb", CHECKUID_CHECK_MODE_PARAM))) {
 				RETURN_FALSE;
 			}
-			outstream = php_stream_fopen(local, "wb", NULL);
+			outstream = php_stream_fopen(local, mode == FTPTYPE_ASCII ? "wt" : "wb", NULL);
 		}
 		if (outstream != NULL) {
 			/* if autoresume is wanted seek to end */
@@ -694,10 +695,10 @@ PHP_FUNCTION(ftp_nb_get)
 			}
 		}
 	} else {
-		if (PG(safe_mode) && (!php_checkuid(local, "wb", CHECKUID_CHECK_MODE_PARAM))) {
+		if (PG(safe_mode) && (!php_checkuid(local, mode == FTPTYPE_ASCII ? "wt" : "wb", CHECKUID_CHECK_MODE_PARAM))) {
 			RETURN_FALSE;
 		}
-		outstream = php_stream_fopen(local, "wb", NULL);
+		outstream = php_stream_fopen(local, mode == FTPTYPE_ASCII ? "wt" : "wb", NULL);
 	}
 
 	if (outstream == NULL)	{
@@ -711,6 +712,7 @@ PHP_FUNCTION(ftp_nb_get)
 
 	if ((ret = ftp_nb_get(ftp, outstream, remote, xtype, resumepos TSRMLS_CC)) == PHP_FTP_FAILED) {
 		php_stream_close(outstream);
+		VCWD_UNLINK(local);
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", ftp->inbuf);
 		RETURN_LONG(PHP_FTP_FAILED);
 	}
@@ -881,11 +883,11 @@ PHP_FUNCTION(ftp_put)
 	if (php_check_open_basedir(local TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
-	if (PG(safe_mode) && (!php_checkuid(local, "rb", CHECKUID_CHECK_MODE_PARAM))) {
+	if (PG(safe_mode) && (!php_checkuid(local, mode == FTPTYPE_ASCII ? "rt" : "rb", CHECKUID_CHECK_MODE_PARAM))) {
 		RETURN_FALSE;
 	}
 
-	instream = php_stream_fopen(local, "rb", NULL);
+	instream = php_stream_fopen(local, mode == FTPTYPE_ASCII ? "rt" : "rb", NULL);
 
 	if (instream == NULL)	{
 		RETURN_FALSE;
@@ -943,11 +945,11 @@ PHP_FUNCTION(ftp_nb_put)
 	if (php_check_open_basedir(local TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
-	if (PG(safe_mode) && (!php_checkuid(local, "rb", CHECKUID_CHECK_MODE_PARAM))) {
+	if (PG(safe_mode) && (!php_checkuid(local, mode == FTPTYPE_ASCII ? "rt" : "rb", CHECKUID_CHECK_MODE_PARAM))) {
 		RETURN_FALSE;
 	}
 
-	instream = php_stream_fopen(local, "rb", NULL);
+	instream = php_stream_fopen(local, mode == FTPTYPE_ASCII ? "rt" : "rb", NULL);
 
 	if (instream == NULL)	{
 		RETURN_FALSE;
@@ -1161,7 +1163,7 @@ PHP_FUNCTION(ftp_set_option)
 			RETURN_TRUE;
 			break;
 		default:
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown option '%d'", option);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown option '%ld'", option);
 			RETURN_FALSE;
 			break;
 	}
@@ -1190,7 +1192,7 @@ PHP_FUNCTION(ftp_get_option)
 			RETURN_BOOL(ftp->autoseek);
 			break;
 		default:
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown option '%d'", option);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown option '%ld'", option);
 			RETURN_FALSE;
 			break;
 	}

@@ -464,6 +464,7 @@ struct IOUSBVDC_MJPEGDiscreteFrameDescriptor
     UInt8	bmCapabilities;
     UInt16	wWidth;
     UInt16	wHeight;
+    UInt32	dwMinBitRate;
     UInt32	dwMaxBitRate;
     UInt32	dwMaxVideoFrameBufferSize;
     UInt32	dwDefaultFrameInterval;

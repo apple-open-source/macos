@@ -75,6 +75,21 @@ protected:
 	SensorValue tempHistory[2];
 	int tempIndex;
 
+
+	// defaults...
+	#define kPM73CPU_DEFAULT_slewAverageSampleCount		180
+	#define kPM73CPU_DEFAULT_slewAverageOffset			10
+	#define kPM73CPU_DEFAULT_slewOffset					8
+	#define kPM73CPU_DEFAULT_sleepOffset				20
+
+	// Tmax average sample history data...
+	SInt32		*tMaxAverageHistory;
+	SInt32		tMaxAverageIndex;
+	SInt32		tMaxAverage;
+	SInt32		tMaxAverageSampleCount;
+	bool		fOvertempAverage;
+	UInt32		delayToReleaseFanAfterSlew;
+
 	// Max CPU temperature at diode
 	SensorValue inputMax;
 
@@ -84,11 +99,6 @@ protected:
 	// [3751599] pump max & min RPMs
 	ControlValue outputMaxForPump;
 	ControlValue outputMinForPump;
-
-	// If we've been at max cooling for 30 seconds and are still making no progress,
-	// we have to put the machine to sleep.  This counter is used to determine how
-	// many seconds we've been at max cooling.
-	unsigned int secondsAtMaxCooling;
 
 	// overrides from OSObject superclass
 	virtual bool init( void );

@@ -1,5 +1,5 @@
 --TEST--
-pspell basic tests
+pspell basic tests (warning: may fail with pspell/aspell < GNU Aspell 0.50.3)
 --SKIPIF--
 <?php 
 	if (!extension_loaded("pspell")) print "skip"; 
@@ -10,7 +10,7 @@ pspell basic tests
 --POST--
 --GET--
 --FILE--
-<?php // $Id: 01pspell_basic.phpt,v 1.1.1.2 2003/03/11 01:09:31 zarzycki Exp $
+<?php // $Id: 01pspell_basic.phpt,v 1.2.2.2 2003/08/09 18:40:53 iliaa Exp $
 
 error_reporting(E_ALL);
 $string = "";
@@ -40,7 +40,7 @@ for($i=0,$u=count($array);$i<$u;++$i) {
         echo "true\n";
     }
 }
-
+?>
 --EXPECT--
 I : true
 will : true
@@ -96,7 +96,6 @@ Possible spelling: Secrets
 Possible spelling: Regrets
 Possible spelling: Secretes
 Possible spelling: Egrets
-Possible spelling: Serrates
 Possible spelling: Segre's
 Possible spelling: Seagate's
 Possible spelling: Regreets

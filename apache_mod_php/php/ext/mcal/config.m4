@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.5 2003/03/11 01:09:25 zarzycki Exp $
+dnl $Id: config.m4,v 1.13 2002/03/27 10:26:16 sas Exp $
 dnl
 
 PHP_ARG_WITH(mcal,for MCAL support,

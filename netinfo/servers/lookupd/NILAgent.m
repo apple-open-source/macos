@@ -106,8 +106,10 @@ static NILAgent *_sharedNILAgent = nil;
 
 	if (item == nil) return NO;
 
-	now = time(0);
 	bestBefore = [item unsignedLongForKey:"_lookup_NIL_best_before"];
+	if (bestBefore == -1) return YES;
+
+	now = time(0);
 
 	if (now > bestBefore) return NO;
 	return YES;
@@ -120,9 +122,16 @@ static NILAgent *_sharedNILAgent = nil;
 
 	[item setNegative:YES];
 
-	best_before = [item dob] + timeToLive;
-	sprintf(scratch, "%lu", best_before);
-	[item setValue:scratch forKey:"_lookup_NIL_best_before"];
+	if (timeToLive == 0)
+	{
+		[item setValue:"-1" forKey:"_lookup_NIL_best_before"];
+	}
+	else
+	{
+		best_before = [item dob] + timeToLive;
+		sprintf(scratch, "%lu", best_before);
+		[item setValue:scratch forKey:"_lookup_NIL_best_before"];
+	}
 
 	[item setValue:"NIL" forKey:"_lookup_agent"];
 	[item setValue:"NIL" forKey:"_lookup_info_system"];

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: syslog.c,v 1.1.1.7 2003/07/18 18:07:44 zarzycki Exp $ */
+/* $Id: syslog.c,v 1.40.4.2 2004/07/30 14:38:29 wez Exp $ */
 
 #include "php.h"
 
@@ -119,6 +119,9 @@ PHP_RSHUTDOWN_FUNCTION(syslog)
 	if (BG(syslog_device)) {
 		efree(BG(syslog_device));
 	}
+#ifdef PHP_WIN32
+	closelog();
+#endif
 	return SUCCESS;
 }
 

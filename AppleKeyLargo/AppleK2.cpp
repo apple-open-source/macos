@@ -117,6 +117,9 @@ bool AppleK2::start(IOService *provider)
   
 	enableCells();
 
+	// initialize for Power Management
+	initForPM(provider);
+  
 	// Make nubs for the children.
 	publishBelow(provider);
 
@@ -140,9 +143,6 @@ bool AppleK2::start(IOService *provider)
 		}
 	}
 
-	// initialize for Power Management
-	initForPM(provider);
-  
     if(keyLargoDeviceId != kShastaDeviceId4f) {
         // creates the USBPower handlers:
         for (i = 0; i < fNumUSB; i++) {

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: sysvshm.c,v 1.1.1.8 2003/07/18 18:07:46 zarzycki Exp $ */
+/* $Id: sysvshm.c,v 1.56.8.4 2004/04/21 00:11:30 iliaa Exp $ */
 
 /* This has been built and tested on Linux 2.2.14 
  *
@@ -127,25 +127,25 @@ PHP_FUNCTION(shm_attach)
 			shm_key = Z_LVAL_PP(arg_key);
 	}
 
-	if((shm_list_ptr = (sysvshm_shm *) emalloc(sizeof(sysvshm_shm)))==NULL) {
-		php_error(E_WARNING, "shm_attach() failed for key 0x%x: cannot allocate internal listelement", shm_key);
-		RETURN_FALSE;
-	}
+	shm_list_ptr = (sysvshm_shm *) emalloc(sizeof(sysvshm_shm));
 
 	/* get the id from a specified key or create new shared memory */
 	if((shm_id=shmget(shm_key,0,0))<0) {
 		if(shm_size<sizeof(sysvshm_chunk_head)) {
 			php_error(E_WARNING, "shm_attach() failed for key 0x%x: memorysize too small", shm_key);
+			efree(shm_list_ptr);
 			RETURN_FALSE;
 		}
 		if((shm_id=shmget(shm_key,shm_size,shm_flag|IPC_CREAT|IPC_EXCL))<0) {
 			php_error(E_WARNING, "shmget() failed for key 0x%x: %s", shm_key, strerror(errno));
+			efree(shm_list_ptr);
 			RETURN_FALSE;
 		}
 	}
 
 	if((shm_ptr = shmat(shm_id,NULL,0))==(void *)-1) {
 		php_error(E_WARNING, "shmget() failed for key 0x%x: %s", shm_key, strerror(errno));
+		efree(shm_list_ptr);
 		RETURN_FALSE;
 	}
 
@@ -172,18 +172,22 @@ PHP_FUNCTION(shm_attach)
    Disconnects from shared memory segment */
 PHP_FUNCTION(shm_detach)
 {
-	pval **arg_id;
-	long id;
+	zval **arg_id;
+	int type;
+	sysvshm_shm *shm_list_ptr;
 
-	if(ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg_id) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &arg_id) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
 	convert_to_long_ex(arg_id);
-	
-	id = Z_LVAL_PP(arg_id);
+	shm_list_ptr = (sysvshm_shm *) zend_list_find(Z_LVAL_PP(arg_id), &type);
+	if (!shm_list_ptr || type != php_sysvshm.le_shm) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "The parameter is not a valid shm_indentifier");
+		RETURN_FALSE;
+	}
 
-	zend_list_delete(id);
+	zend_list_delete(Z_LVAL_PP(arg_id));
 
 	RETURN_TRUE;
 }
@@ -215,7 +219,7 @@ PHP_FUNCTION(shm_remove)
 	}
 
 	if(shmctl(shm_list_ptr->id,IPC_RMID,NULL)<0) {
-		php_error(E_WARNING, "shm_remove() failed for key 0x%x, id %i: %s", shm_list_ptr->key, id,strerror(errno));
+		php_error(E_WARNING, "shm_remove() failed for key 0x%x, id %ld: %s", shm_list_ptr->key, id,strerror(errno));
 		RETURN_FALSE;
 	} 
 
@@ -246,7 +250,7 @@ PHP_FUNCTION(shm_put_var)
 
 	shm_list_ptr = (sysvshm_shm *) zend_list_find(id, &type);
 	if (type!=php_sysvshm.le_shm) {
-		php_error(E_WARNING, "%d is not a SysV shared memory index", id);
+		php_error(E_WARNING, "%ld is not a SysV shared memory index", id);
 		RETURN_FALSE;
 	}
 
@@ -293,7 +297,7 @@ PHP_FUNCTION(shm_get_var)
 
 	shm_list_ptr = (sysvshm_shm *) zend_list_find(id, &type);
 	if (type!=php_sysvshm.le_shm) {
-		php_error(E_WARNING, "%d is not a SysV shared memory index", id);
+		php_error(E_WARNING, "%ld is not a SysV shared memory index", id);
 		RETURN_FALSE;
 	}
 
@@ -302,7 +306,7 @@ PHP_FUNCTION(shm_get_var)
 	shm_varpos=php_check_shm_data((shm_list_ptr->ptr),key);
 
 	if(shm_varpos<0) {
-		php_error(E_WARNING, "variable key %d doesn't exist", key);
+		php_error(E_WARNING, "variable key %ld doesn't exist", key);
 		RETURN_FALSE;
 	}
 	shm_var=(sysvshm_chunk*)((char*)shm_list_ptr->ptr+shm_varpos);
@@ -339,14 +343,14 @@ PHP_FUNCTION(shm_remove_var)
 
 	shm_list_ptr = (sysvshm_shm *) zend_list_find(id, &type);
 	if (type!=php_sysvshm.le_shm) {
-		php_error(E_WARNING, "%d is not a SysV shared memory index", id);
+		php_error(E_WARNING, "%ld is not a SysV shared memory index", id);
 		RETURN_FALSE;
 	}
 
 	shm_varpos=php_check_shm_data((shm_list_ptr->ptr),key);
 
 	if(shm_varpos<0) {
-		php_error(E_WARNING, "variable key %d doesn't exist", key);
+		php_error(E_WARNING, "variable key %ld doesn't exist", key);
 		RETURN_FALSE;
 	}
 	php_remove_shm_data((shm_list_ptr->ptr),shm_varpos);	

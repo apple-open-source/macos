@@ -15,7 +15,7 @@
    | Author: Uwe Steinmann <Uwe.Steinmann@fernuni-hagen.de>               |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_cpdf.h,v 1.1.1.6 2003/07/18 18:07:30 zarzycki Exp $ */
+/* $Id: php_cpdf.h,v 1.12.8.2 2003/01/15 00:52:20 iliaa Exp $ */
 
 #ifndef PHP_CPDF_H
 #define PHP_CPDF_H

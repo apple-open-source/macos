@@ -3,12 +3,12 @@
 // +----------------------------------------------------------------------+
 // | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2003 The PHP Group                                |
+// | Copyright (c) 1997-2004 The PHP Group                                |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.02 of the PHP license,      |
+// | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
-// | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_02.txt.                                 |
+// | available through the world-wide-web at the following url:           |
+// | http://www.php.net/license/3_0.txt.                                  |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -17,13 +17,7 @@
 // |          Stig Bakken <ssb@php.net>                                   |
 // +----------------------------------------------------------------------+
 //
-// $Id: Dependency.php,v 1.1.1.3 2003/07/18 18:07:49 zarzycki Exp $
-
-/**
-* Methods for dependencies check. Based on Stig's dependencies RFC
-* at http://cvs.php.net/cvs.php/pearweb/rfc
-* (requires php >= 4.1)
-*/
+// $Id: Dependency.php,v 1.14.4.20 2004/01/26 01:26:46 pajoye Exp $
 
 require_once "PEAR.php";
 
@@ -32,37 +26,71 @@ define('PEAR_DEPENDENCY_CONFLICT',       -2);
 define('PEAR_DEPENDENCY_UPGRADE_MINOR',  -3);
 define('PEAR_DEPENDENCY_UPGRADE_MAJOR',  -4);
 define('PEAR_DEPENDENCY_BAD_DEPENDENCY', -5);
+define('PEAR_DEPENDENCY_MISSING_OPTIONAL', -6);
+define('PEAR_DEPENDENCY_CONFLICT_OPTIONAL',       -7);
+define('PEAR_DEPENDENCY_UPGRADE_MINOR_OPTIONAL',  -8);
+define('PEAR_DEPENDENCY_UPGRADE_MAJOR_OPTIONAL',  -9);
 
+/**
+ * Dependency check for PEAR packages
+ *
+ * The class is based on the dependency RFC that can be found at
+ * http://cvs.php.net/cvs.php/pearweb/rfc. It requires PHP >= 4.1
+ *
+ * @author Tomas V.V.Vox <cox@idecnet.com>
+ * @author Stig Bakken <ssb@php.net>
+ */
 class PEAR_Dependency
 {
+    // {{{ constructor
+    /**
+     * Constructor
+     *
+     * @access public
+     * @param  object Registry object
+     * @return void
+     */
     function PEAR_Dependency(&$registry)
     {
         $this->registry = &$registry;
     }
+
+    // }}}
+    // {{{ callCheckMethod()
+
     /**
-    * This method maps the xml dependency definition to the
-    * PEAR_dependecy one
+    * This method maps the XML dependency definition to the
+    * corresponding one from PEAR_Dependency
     *
+    * <pre>
     * $opts => Array
     *    (
     *        [type] => pkg
     *        [rel] => ge
     *        [version] => 3.4
     *        [name] => HTML_Common
+    *        [optional] => false
     *    )
+    * </pre>
+    *
+    * @param  string Error message
+    * @param  array  Options
+    * @return boolean
     */
     function callCheckMethod(&$errmsg, $opts)
     {
         $rel = isset($opts['rel']) ? $opts['rel'] : 'has';
         $req = isset($opts['version']) ? $opts['version'] : null;
         $name = isset($opts['name']) ? $opts['name'] : null;
+        $opt = (isset($opts['optional']) && $opts['optional'] == 'yes') ?
+            $opts['optional'] : null;
         $errmsg = '';
         switch ($opts['type']) {
             case 'pkg':
-                return $this->checkPackage($errmsg, $name, $req, $rel);
+                return $this->checkPackage($errmsg, $name, $req, $rel, $opt);
                 break;
             case 'ext':
-                return $this->checkExtension($errmsg, $name, $req, $rel);
+                return $this->checkExtension($errmsg, $name, $req, $rel, $opt);
                 break;
             case 'php':
                 return $this->checkPHP($errmsg, $req, $rel);
@@ -84,29 +112,39 @@ class PEAR_Dependency
         }
     }
 
+    // }}}
+    // {{{ checkPackage()
+
     /**
      * Package dependencies check method
      *
+     * @param string $errmsg    Empty string, it will be populated with an error message, if any
      * @param string $name      Name of the package to test
-     * @param string $version   The package version required
-     * @param string $relation  How to compare versions with eachother
+     * @param string $req       The package version required
+     * @param string $relation  How to compare versions with each other
+     * @param bool   $opt       Whether the relationship is optional
      *
      * @return mixed bool false if no error or the error string
      */
-    function checkPackage(&$errmsg, $name, $req = null, $relation = 'has')
+    function checkPackage(&$errmsg, $name, $req = null, $relation = 'has',
+                          $opt = false)
     {
-        if (substr($relation, 0, 2) == 'v.') {
-            $relation = substr($relation, 2);
+        if (is_string($req) && substr($req, 0, 2) == 'v.') {
+            $req = substr($req, 2);
         }
         switch ($relation) {
             case 'has':
                 if (!$this->registry->packageExists($name)) {
+                    if ($opt) {
+                        $errmsg = "package `$name' is recommended to utilize some features.";
+                        return PEAR_DEPENDENCY_MISSING_OPTIONAL;
+                    }
                     $errmsg = "requires package `$name'";
                     return PEAR_DEPENDENCY_MISSING;
                 }
                 return false;
             case 'not':
-                if (!$this->registry->packageExists($name)) {
+                if ($this->registry->packageExists($name)) {
                     $errmsg = "conflicts with package `$name'";
                     return PEAR_DEPENDENCY_CONFLICT;
                 }
@@ -121,9 +159,18 @@ class PEAR_Dependency
                 if (!$this->registry->packageExists($name)
                     || !version_compare("$version", "$req", $relation))
                 {
+                    $code = $this->codeFromRelation($relation, $version, $req, $opt);
+                    if ($opt) {
+                        $errmsg = "package `$name' version " . $this->signOperator($relation) .
+                            " $req is recommended to utilize some features.";
+                        if ($version) {
+                            $errmsg .= "  Installed version is $version";
+                        }
+                        return $code;
+                    }
                     $errmsg = "requires package `$name' " .
                         $this->signOperator($relation) . " $req";
-                    $code = $this->codeFromRelation($relation, $version, $req);
+                    return $code;
                 }
                 return false;
         }
@@ -131,19 +178,79 @@ class PEAR_Dependency
         return PEAR_DEPENDENCY_BAD_DEPENDENCY;
     }
 
+    // }}}
+    // {{{ checkPackageUninstall()
+
+    /**
+     * Check package dependencies on uninstall
+     *
+     * @param string $error     The resultant error string
+     * @param string $warning   The resultant warning string
+     * @param string $name      Name of the package to test
+     *
+     * @return bool true if there were errors
+     */
+    function checkPackageUninstall(&$error, &$warning, $package)
+    {
+        $error = null;
+        $packages = $this->registry->listPackages();
+        foreach ($packages as $pkg) {
+            if ($pkg == $package) {
+                continue;
+            }
+            $deps = $this->registry->packageInfo($pkg, 'release_deps');
+            if (empty($deps)) {
+                continue;
+            }
+            foreach ($deps as $dep) {
+                if ($dep['type'] == 'pkg' && strcasecmp($dep['name'], $package) == 0) {
+                    if ($dep['rel'] == 'ne') {
+                        continue;
+                    }
+                    if (isset($dep['optional']) && $dep['optional'] == 'yes') {
+                        $warning .= "\nWarning: Package '$pkg' optionally depends on '$package'";
+                    } else {
+                        $error .= "Package '$pkg' depends on '$package'\n";
+                    }
+                }
+            }
+        }
+        return ($error) ? true : false;
+    }
+
+    // }}}
+    // {{{ checkExtension()
+
     /**
      * Extension dependencies check method
      *
      * @param string $name        Name of the extension to test
      * @param string $req_ext_ver Required extension version to compare with
      * @param string $relation    How to compare versions with eachother
+     * @param bool   $opt         Whether the relationship is optional
      *
      * @return mixed bool false if no error or the error string
      */
-    function checkExtension(&$errmsg, $name, $req = null, $relation = 'has')
+    function checkExtension(&$errmsg, $name, $req = null, $relation = 'has',
+        $opt = false)
     {
-        // XXX (ssb): could we avoid loading the extension here?
-        if (!PEAR::loadExtension($name)) {
+        if ($relation == 'not') {
+            if (extension_loaded($name)) {
+                $errmsg = "conflicts with  PHP extension '$name'";
+                return PEAR_DEPENDENCY_CONFLICT;
+            } else {
+                return false;
+            }
+        }
+
+        if (!extension_loaded($name)) {
+            if ($relation == 'ne') {
+                return false;
+            }
+            if ($opt) {
+                $errmsg = "'$name' PHP extension is recommended to utilize some features";
+                return PEAR_DEPENDENCY_MISSING_OPTIONAL;
+            }
             $errmsg = "'$name' PHP extension is not installed";
             return PEAR_DEPENDENCY_MISSING;
         }
@@ -151,19 +258,27 @@ class PEAR_Dependency
             return false;
         }
         $code = false;
-        if (substr($relation, 0, 2) == 'v.') {
-            $ext_ver = phpversion($name);
-            $operator = substr($relation, 2);
-            // Force params to be strings, otherwise the comparation will fail (ex. 0.9==0.90)
-            settype($req, "string");
-            if (!version_compare("$ext_ver", "$req", $operator)) {
-                $retval = "'$name' PHP extension version " .
-                    $this->signOperator($operator) . " $req is required";
-                $code = $this->codeFromRelation($relation, $ext_ver, $req);
+        if (is_string($req) && substr($req, 0, 2) == 'v.') {
+            $req = substr($req, 2);
+        }
+        $ext_ver = phpversion($name);
+        $operator = $relation;
+        // Force params to be strings, otherwise the comparation will fail (ex. 0.9==0.90)
+        if (!version_compare("$ext_ver", "$req", $operator)) {
+            $errmsg = "'$name' PHP extension version " .
+                $this->signOperator($operator) . " $req is required";
+            $code = $this->codeFromRelation($relation, $ext_ver, $req, $opt);
+            if ($opt) {
+                $errmsg = "'$name' PHP extension version " . $this->signOperator($operator) .
+                    " $req is recommended to utilize some features";
+                return $code;
             }
         }
         return $code;
     }
+
+    // }}}
+    // {{{ checkOS()
 
     /**
      * Operating system  dependencies check method
@@ -189,6 +304,9 @@ class PEAR_Dependency
         return PEAR_DEPENDENCY_CONFLICT;
     }
 
+    // }}}
+    // {{{ checkPHP()
+
     /**
      * PHP version check method
      *
@@ -199,11 +317,19 @@ class PEAR_Dependency
      */
     function checkPHP(&$errmsg, $req, $relation = 'ge')
     {
+        // this would be a bit stupid, but oh well :)
+        if ($relation == 'has') {
+            return false;
+        }
+        if ($relation == 'not') {
+            $errmsg = "Invalid dependency - 'not' is allowed when specifying PHP, you must run PHP in PHP";
+            return PEAR_DEPENDENCY_BAD_DEPENDENCY;
+        }
         if (substr($req, 0, 2) == 'v.') {
             $req = substr($req,2, strlen($req) - 2);
         }
         $php_ver = phpversion();
-        $operator = substr($relation,0,2);
+        $operator = $relation;
         if (!version_compare("$php_ver", "$req", $operator)) {
             $errmsg = "PHP version " . $this->signOperator($operator) .
                 " $req is required";
@@ -211,6 +337,9 @@ class PEAR_Dependency
         }
         return false;
     }
+
+    // }}}
+    // {{{ checkProgram()
 
     /**
      * External program check method.  Looks for executable files in
@@ -223,9 +352,8 @@ class PEAR_Dependency
     function checkProgram(&$errmsg, $program)
     {
         // XXX FIXME honor safe mode
-        $path_delim = OS_WINDOWS ? ';' : ':';
         $exe_suffix = OS_WINDOWS ? '.exe' : '';
-        $path_elements = explode($path_delim, getenv('PATH'));
+        $path_elements = explode(PATH_SEPARATOR, getenv('PATH'));
         foreach ($path_elements as $dir) {
             $file = $dir . DIRECTORY_SEPARATOR . $program . $exe_suffix;
             if (@file_exists($file) && @is_executable($file)) {
@@ -235,6 +363,9 @@ class PEAR_Dependency
         $errmsg = "'$program' program is not present in the PATH";
         return PEAR_DEPENDENCY_MISSING;
     }
+
+    // }}}
+    // {{{ checkSAPI()
 
     /**
      * SAPI backend check method.  Version comparison is not yet
@@ -261,6 +392,8 @@ class PEAR_Dependency
         return PEAR_DEPENDENCY_CONFLICT;
     }
 
+    // }}}
+    // {{{ checkZend()
 
     /**
      * Zend version check method
@@ -285,9 +418,17 @@ class PEAR_Dependency
         return false;
     }
 
+    // }}}
+    // {{{ signOperator()
+
     /**
      * Converts text comparing operators to them sign equivalents
-     * ex: 'ge' to '>='
+     *
+     * Example: 'ge' to '>='
+     *
+     * @access public
+     * @param  string Operator
+     * @return string Sign equivalent
      */
     function signOperator($operator)
     {
@@ -303,8 +444,20 @@ class PEAR_Dependency
         }
     }
 
+    // }}}
+    // {{{ codeFromRelation()
 
-    function codeFromRelation($relation, $version, $req)
+    /**
+     * Convert relation into corresponding code
+     *
+     * @access public
+     * @param  string Relation
+     * @param  string Version
+     * @param  string Requirement
+     * @param  bool   Optional dependency indicator
+     * @return integer
+     */
+    function codeFromRelation($relation, $version, $req, $opt = false)
     {
         $code = PEAR_DEPENDENCY_BAD_DEPENDENCY;
         switch ($relation) {
@@ -313,17 +466,21 @@ class PEAR_Dependency
                 $have_major = preg_replace('/\D.*/', '', $version);
                 $need_major = preg_replace('/\D.*/', '', $req);
                 if ($need_major > $have_major) {
-                    $code = PEAR_DEPENDENCY_UPGRADE_MAJOR;
+                    $code = $opt ? PEAR_DEPENDENCY_UPGRADE_MAJOR_OPTIONAL :
+                                   PEAR_DEPENDENCY_UPGRADE_MAJOR;
                 } else {
-                    $code = PEAR_DEPENDENCY_UPGRADE_MINOR;
+                    $code = $opt ? PEAR_DEPENDENCY_UPGRADE_MINOR_OPTIONAL :
+                                   PEAR_DEPENDENCY_UPGRADE_MINOR;
                 }
                 break;
             case 'lt': case 'le': case 'ne':
-                $code = PEAR_DEPENDENCY_CONFLICT;
+                $code = $opt ? PEAR_DEPENDENCY_CONFLICT_OPTIONAL :
+                               PEAR_DEPENDENCY_CONFLICT;
                 break;
         }
         return $code;
     }
-}
 
+    // }}}
+}
 ?>

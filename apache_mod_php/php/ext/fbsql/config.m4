@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.4 2003/03/11 01:09:18 zarzycki Exp $
+dnl $Id: config.m4,v 1.12.2.1 2003/10/01 02:53:55 sniper Exp $
 dnl
 
 PHP_ARG_WITH(fbsql, for FrontBase SQL92 (fbsql) support,
@@ -13,7 +13,7 @@ if test "$PHP_FBSQL" != "no"; then
   FBSQL_INSTALLATION_DIR=""
   if test "$PHP_FBSQL" = "yes"; then
 
-    for i in /Local/Library /usr /usr/local /opt /Library /usr/lib; do
+    for i in /Local/Library /usr/local /usr /opt /Library /usr/lib; do
       if test -f $i/FrontBase/include/FBCAccess/FBCAccess.h; then
         FBSQL_INSTALLATION_DIR=$i/FrontBase
         break

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.3 2003/03/11 01:09:29 zarzycki Exp $
+dnl $Id: config.m4,v 1.7 2002/03/12 16:49:27 sas Exp $
 dnl
 
 dnl Process Control (pcntl) extentsion --EXPERIMENTAL--

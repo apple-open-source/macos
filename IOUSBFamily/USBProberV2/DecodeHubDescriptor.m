@@ -71,7 +71,7 @@
     if (hubDescriptor.numPorts < 8)
     {
         sprintf(temporaryString, "0x%x", hubDescriptor.removablePortFlags[0]);
-        [thisDevice addProperty:"Device Removeable (byte):" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
+        [thisDevice addProperty:"Device Removable (byte):" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
 
         sprintf(temporaryString, "0x%x", hubDescriptor.removablePortFlags[1]);
         [thisDevice addProperty:"Port Power Control Mask (byte):" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
@@ -79,10 +79,10 @@
     else if (hubDescriptor.numPorts < 16)
     {
         sprintf(temporaryString, "0x%lx", (UInt32)Swap16( &( (UInt16 *)hubDescriptor.removablePortFlags)[0]));
-        [thisDevice addProperty:"Device Removeable (byte):" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
+        [thisDevice addProperty:"Device Removable (word):" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
 
         sprintf(temporaryString, "0x%lx", (UInt32)Swap16(&((UInt16 *)hubDescriptor.removablePortFlags)[1]));
-        [thisDevice addProperty:"Port Power Control Mask (byte):" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
+        [thisDevice addProperty:"Port Power Control Mask (word):" withValue:temporaryString atDepth:HUB_DESCRIPTOR_LEVEL];
     }
 }
 

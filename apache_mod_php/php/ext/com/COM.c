@@ -18,7 +18,7 @@
    |         Wez Furlong  <wez@thebrainroom.com>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: COM.c,v 1.1.1.8 2003/07/18 18:07:29 zarzycki Exp $ */
+/* $Id: COM.c,v 1.90.2.10 2004/04/27 17:34:05 iliaa Exp $ */
 /*
  * This module implements support for COM components that support the IDispatch
  * interface.  Both local (COM) and remote (DCOM) components can be accessed.
@@ -55,7 +55,7 @@
 #ifdef PHP_WIN32
 
 #define _WIN32_DCOM
-
+#define COBJMACROS
 #include <iostream.h>
 #include <math.h>
 #include <ocidl.h>
@@ -122,24 +122,7 @@ PHPAPI HRESULT php_COM_invoke(comval *obj, DISPID dispIdMember, WORD wFlags, DIS
 	*ErrString = NULL;
 	/* @todo use DispInvoke here ? */
 	if (C_ISREFD(obj)) {
-		if (C_HASTLIB(obj)) {
-			hr = C_TYPEINFO_VT(obj)->Invoke(C_TYPEINFO(obj), C_DISPATCH(obj), dispIdMember, wFlags, pDispParams, pVarResult, &ExceptInfo, &ArgErr);
-			if (FAILED(hr) && (hr != DISP_E_EXCEPTION)) {
-				hr = C_DISPATCH_VT(obj)->Invoke(C_DISPATCH(obj), dispIdMember, &IID_NULL, LOCALE_SYSTEM_DEFAULT, wFlags, pDispParams, pVarResult, &ExceptInfo, &ArgErr);
-				if (SUCCEEDED(hr)) {
-					/*
-					 * ITypLib doesn't work
-					 * Release ITypeLib and fall back to IDispatch
-					 */
-
-					C_TYPEINFO_VT(obj)->Release(C_TYPEINFO(obj));
-					C_HASTLIB(obj) = FALSE;
-					C_TYPEINFO(obj) = NULL;
-				}
-			}
-		} else {
-			hr = C_DISPATCH_VT(obj)->Invoke(C_DISPATCH(obj), dispIdMember, &IID_NULL, LOCALE_SYSTEM_DEFAULT, wFlags, pDispParams, pVarResult, &ExceptInfo, &ArgErr);
-		}
+		hr = C_DISPATCH_VT(obj)->Invoke(C_DISPATCH(obj), dispIdMember, &IID_NULL, LOCALE_SYSTEM_DEFAULT, wFlags, pDispParams, pVarResult, &ExceptInfo, &ArgErr);
 
 		if (FAILED(hr)) {
 			switch (hr) {
@@ -1866,7 +1849,7 @@ PHPAPI pval php_COM_get_property_handler(zend_property_reference *property_refer
 
 			obj = obj_prop;
 			php_COM_set(obj, &V_DISPATCH(var_result), TRUE TSRMLS_CC);
-			VariantInit(var_result);	// to protect C_DISPATCH(obj) from being freed when var_result is destructed
+			VariantInit(var_result);	/* to protect C_DISPATCH(obj) from being freed when var_result is destructed */
 		} else {
 			php_variant_to_pval(var_result, &retval, codepage TSRMLS_CC);
 
@@ -1951,7 +1934,7 @@ PHPAPI int php_COM_set_property_handler(zend_property_reference *property_refere
 			return FAILURE;
 		}
 
-		VariantInit(var_result);	// to protect C_DISPATCH(obj) from being freed when var_result is destructed
+		VariantInit(var_result);	/* to protect C_DISPATCH(obj) from being freed when var_result is destructed */
 		zval_dtor(&overloaded_property->element);
 	}
 	FREE_VARIANT(var_result);
@@ -2224,7 +2207,6 @@ static ITypeLib *php_COM_find_typelib(char *search_string, int mode TSRMLS_DC)
 
 PHPAPI int php_COM_load_typelib(ITypeLib *TypeLib, int mode TSRMLS_DC)
 {
-	ITypeComp *TypeComp;
 	int i;
 	int interfaces;
 
@@ -2232,40 +2214,33 @@ PHPAPI int php_COM_load_typelib(ITypeLib *TypeLib, int mode TSRMLS_DC)
 		return FAILURE;
 	}
 
-	interfaces = TypeLib->lpVtbl->GetTypeInfoCount(TypeLib);
+	interfaces = ITypeLib_GetTypeInfoCount(TypeLib);
 
-	TypeLib->lpVtbl->GetTypeComp(TypeLib, &TypeComp);
 	for (i=0; i<interfaces; i++) {
 		TYPEKIND pTKind;
 
-		TypeLib->lpVtbl->GetTypeInfoType(TypeLib, i, &pTKind);
-		if (pTKind==TKIND_ENUM) {
+		ITypeLib_GetTypeInfoType(TypeLib, i, &pTKind);
+		if (pTKind == TKIND_ENUM) {
 			ITypeInfo *TypeInfo;
 			VARDESC *pVarDesc;
 			UINT NameCount;
 			int j;
-#if 0
-			BSTR bstr_EnumId;
-			char *EnumId;
 
-			TypeLib->lpVtbl->GetDocumentation(TypeLib, i, &bstr_EnumId, NULL, NULL, NULL);
-			EnumId = php_OLECHAR_to_char(bstr_EnumId, NULL, codepage);
-			printf("Enumeration %d - %s:\n", i, EnumId);
-			efree(EnumId);
-#endif
+			ITypeLib_GetTypeInfo(TypeLib, i, &TypeInfo);
 
-			TypeLib->lpVtbl->GetTypeInfo(TypeLib, i, &TypeInfo);
-
-			j=0;
-			while (SUCCEEDED(TypeInfo->lpVtbl->GetVarDesc(TypeInfo, j, &pVarDesc))) {
+			for (j = 0; ; j++) {
 				BSTR bstr_ids;
 				zend_constant c;
 				zval exists, results, value;
 				char *const_name;
 
-				TypeInfo->lpVtbl->GetNames(TypeInfo, pVarDesc->memid, &bstr_ids, 1, &NameCount);
-				if (NameCount!=1) {
-					j++;
+				if (FAILED(ITypeInfo_GetVarDesc(TypeInfo, j, &pVarDesc))) {
+					break;
+				}
+				
+				ITypeInfo_GetNames(TypeInfo, pVarDesc->memid, &bstr_ids, 1, &NameCount);
+				if (NameCount != 1) {
+					ITypeInfo_ReleaseVarDesc(TypeInfo, pVarDesc);
 					continue;
 				}
 				const_name = php_OLECHAR_to_char(bstr_ids, &c.name_len, codepage TSRMLS_CC);
@@ -2282,7 +2257,7 @@ PHPAPI int php_COM_load_typelib(ITypeLib *TypeLib, int mode TSRMLS_DC)
 						php_error(E_WARNING, "%s(): Type library value %s is already defined and has a different value", get_active_function_name(TSRMLS_C), c.name);
 					}
 					free(c.name);
-					j++;
+					ITypeInfo_ReleaseVarDesc(TypeInfo, pVarDesc);
 					continue;
 				}
 
@@ -2296,10 +2271,9 @@ PHPAPI int php_COM_load_typelib(ITypeLib *TypeLib, int mode TSRMLS_DC)
 
 					zend_register_constant(&c TSRMLS_CC);
 				}
-
-				j++;
+				ITypeInfo_ReleaseVarDesc(TypeInfo, pVarDesc);
 			}
-			TypeInfo->lpVtbl->Release(TypeInfo);
+			ITypeInfo_Release(TypeInfo);
 		}
 	}
 

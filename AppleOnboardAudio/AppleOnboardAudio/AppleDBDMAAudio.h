@@ -48,6 +48,7 @@ class IOFilterInterruptEventSource;
 //
 // DBDMA get state
 //
+//
 typedef enum {
 	kGetDMAStateAndFormat			= 0,
 	kGetDMAInputChannelCommands,
@@ -60,7 +61,9 @@ typedef enum {
 	kGetDMAInputCommands_1,
 	kGetDMAOutputCommands_0,
 	kGetDMAOutputCommands_1,
-	kSetDMAStateAndFormat
+	kSetDMAStateAndFormat,
+	kGetDMAInputChannelCommands1,
+	kGetDMAOutputChannelCommands1
 } DMA_STATE_SELECTOR;
 
 
@@ -188,7 +191,9 @@ public:
 	IOReturn			copyDMAStateAndFormat (DBDMAUserClientStructPtr outState);
 	IOReturn			setDMAStateAndFormat ( DBDMAUserClientStructPtr inState );
 	IOReturn			copyInputChannelCommands ( void * inputChannelCommands );
+	IOReturn			copyInputChannelCommands1 ( void * inputChannelCommands );
 	IOReturn			copyOutputChannelCommands ( void * outputChannelCommands );
+	IOReturn			copyOutputChannelCommands1 ( void * outputChannelCommands );
 	IOReturn			copyInputChannelRegisters (void * outState);
 	IOReturn			copyOutputChannelRegisters (void * outState);
 	IOReturn			setInputChannelRegisters (void * inState);

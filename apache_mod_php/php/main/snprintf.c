@@ -1,3 +1,23 @@
+/*
+  +----------------------------------------------------------------------+
+  | PHP Version 4                                                        |
+  +----------------------------------------------------------------------+
+  | Copyright (c) 1997-2003 The PHP Group                                |
+  +----------------------------------------------------------------------+
+  | This source file is subject to version 2.02 of the PHP license,      |
+  | that is bundled with this package in the file LICENSE, and is        |
+  | available at through the world-wide-web at                           |
+  | http://www.php.net/license/2_02.txt.                                 |
+  | If you did not receive a copy of the PHP license and are unable to   |
+  | obtain it through the world-wide-web, please send a note to          |
+  | license@php.net so we can mail you a copy immediately.               |
+  +----------------------------------------------------------------------+
+  | Author:                                                              |
+  +----------------------------------------------------------------------+
+*/
+
+/* $Id: snprintf.c,v 1.17.4.11 2004/11/15 23:27:26 fmk Exp $ */
+
 /* ====================================================================
  * Copyright (c) 1995-1998 The Apache Group.  All rights reserved.
  *
@@ -132,6 +152,8 @@ ap_php_conv_10(register wide_int num, register bool_int is_unsigned,
 	return (p);
 }
 
+/* If you change this value then also change bug24640.phpt.
+ */
 #define	NDIG	80
 
 
@@ -271,6 +293,7 @@ char *
 ap_php_cvt(double arg, int ndigits, int *decpt, int *sign, int eflag, char *buf)
 {
 	register int r2;
+	int mvl;
 	double fi, fj;
 	register char *p, *p1;
 
@@ -290,8 +313,13 @@ ap_php_cvt(double arg, int ndigits, int *decpt, int *sign, int eflag, char *buf)
 	 */
 	if (fi != 0) {
 		p1 = &buf[NDIG];
-		while (p1 > &buf[0] && fi != 0) {
+		while (fi != 0) {
 			fj = modf(fi / 10, &fi);
+			if (p1 <= &buf[0]) {
+				mvl = NDIG - ndigits;
+				memmove(&buf[mvl], &buf[0], NDIG-mvl-1);
+				p1 += mvl;
+			}
 			*--p1 = (int) ((fj + .03) * 10) + '0';
 			r2++;
 		}
@@ -314,9 +342,17 @@ ap_php_cvt(double arg, int ndigits, int *decpt, int *sign, int eflag, char *buf)
 		buf[0] = '\0';
 		return (buf);
 	}
-	while (p <= p1 && p < &buf[NDIG]) {
+	if (p <= p1 && p < &buf[NDIG]) {
 		arg = modf(arg * 10, &fj);
-		*p++ = (int) fj + '0';
+		if ((int)fj==10) {
+			*p++ = '1';
+			fj = 0;
+			*decpt = ++r2;
+		}
+		while (p <= p1 && p < &buf[NDIG]) {
+			*p++ = (int) fj + '0';
+			arg = modf(arg * 10, &fj);
+		}
 	}
 	if (p1 >= &buf[NDIG]) {
 		buf[NDIG - 1] = '\0';
@@ -384,6 +420,9 @@ ap_php_gcvt(double number, int ndigit, char *buf, boolean_e altform)
 		*p2++ = '.';
 		for (i = 1; i < ndigit; i++)
 			*p2++ = *p1++;
+		if (*(p2 - 1) == '.') {
+			*p2++ = '0';
+		}	
 		*p2++ = 'e';
 		if (decpt < 0) {
 			decpt = -decpt;
@@ -422,8 +461,6 @@ ap_php_gcvt(double number, int ndigit, char *buf, boolean_e altform)
 	*p2 = '\0';
 	return (buf);
 }
-
-#if !defined(HAVE_SNPRINTF) || !defined(HAVE_VSNPRINTF) || PHP_BROKEN_SNPRINTF || PHP_BROKEN_VSNPRINTF
 
 /*
  * NUM_BUF_SIZE is the size of the buffer used for arithmetic conversions
@@ -755,6 +792,23 @@ static int format_converter(register buffy * odp, const char *fmt,
 
 				case 'g':
 				case 'G':
+					fp_num = va_arg(ap, double);
+
+					if (zend_isnan(fp_num)) {
+						s = "NAN";
+						s_len = 3;
+						break;
+					} else if (zend_isinf(fp_num)) {
+						if (fp_num > 0) {
+							s = "INF";
+							s_len = 3;
+						} else {
+							s = "-INF";
+							s_len = 4;
+						}
+						break;
+					}
+
 					if (adjust_precision == NO)
 						precision = FLOAT_DIGITS;
 					else if (precision == 0)
@@ -762,8 +816,7 @@ static int format_converter(register buffy * odp, const char *fmt,
 					/*
 					 * * We use &num_buf[ 1 ], so that we have room for the sign
 					 */
-					s = ap_php_gcvt(va_arg(ap, double), precision, &num_buf[1],
-							alternate_form);
+					s = ap_php_gcvt(fp_num, precision, &num_buf[1], alternate_form);
 					if (*s == '-')
 						prefix_char = *s++;
 					else if (print_sign)
@@ -913,7 +966,7 @@ static void strx_printv(int *ccp, char *buf, size_t len, const char *format,
 }
 
 
-int ap_php_snprintf(char *buf, size_t len, const char *format,...)
+PHPAPI int ap_php_snprintf(char *buf, size_t len, const char *format,...)
 {
 	int cc;
 	va_list ap;
@@ -925,15 +978,13 @@ int ap_php_snprintf(char *buf, size_t len, const char *format,...)
 }
 
 
-int ap_php_vsnprintf(char *buf, size_t len, const char *format, va_list ap)
+PHPAPI int ap_php_vsnprintf(char *buf, size_t len, const char *format, va_list ap)
 {
 	int cc;
 
 	strx_printv(&cc, buf, len, format, ap);
 	return (cc);
 }
-
-#endif							/* HAVE_SNPRINTF */
 
 /*
  * Local variables:

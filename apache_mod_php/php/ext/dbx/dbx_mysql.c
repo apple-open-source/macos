@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: dbx_mysql.c,v 1.1.1.5 2003/07/18 18:07:31 zarzycki Exp $ */
+/* $Id: dbx_mysql.c,v 1.17.2.1 2002/12/31 16:34:23 sebastian Exp $ */
 
 #include "dbx.h"
 #include "dbx_mysql.h"

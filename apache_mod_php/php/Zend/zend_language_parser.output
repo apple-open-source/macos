@@ -1,15 +1,3 @@
-
-
-Terminals which are not used:
-
-   T_COMMENT
-   T_ML_COMMENT
-   T_OPEN_TAG
-   T_OPEN_TAG_WITH_ECHO
-   T_CLOSE_TAG
-   T_WHITESPACE
-
-
 Conflict in state 84 between rule 339 and token T_LOGICAL_OR resolved as shift.
 Conflict in state 84 between rule 339 and token T_LOGICAL_XOR resolved as shift.
 Conflict in state 84 between rule 339 and token T_LOGICAL_AND resolved as shift.
@@ -1385,356 +1373,372 @@ Conflict in state 536 between rule 213 and token '.' resolved as shift.
 Conflict in state 536 between rule 213 and token '*' resolved as shift.
 Conflict in state 536 between rule 213 and token '/' resolved as shift.
 Conflict in state 536 between rule 213 and token '%' resolved as shift.
+
+
+Terminals which are not used:
+
+   T_COMMENT
+   T_ML_COMMENT
+   T_OPEN_TAG
+   T_OPEN_TAG_WITH_ECHO
+   T_CLOSE_TAG
+   T_WHITESPACE
+
+
 State 251 contains 2 shift/reduce conflicts.
 State 542 contains 2 shift/reduce conflicts.
 
+
 Grammar
-rule 1    start -> top_statement_list
-rule 2    @1 ->		/* empty */
-rule 3    top_statement_list -> top_statement_list @1 top_statement
-rule 4    top_statement_list ->		/* empty */
-rule 5    top_statement -> statement
-rule 6    top_statement -> declaration_statement
-rule 7    @2 ->		/* empty */
-rule 8    inner_statement_list -> inner_statement_list @2 inner_statement
-rule 9    inner_statement_list ->		/* empty */
-rule 10   inner_statement -> statement
-rule 11   inner_statement -> declaration_statement
-rule 12   statement -> unticked_statement
-rule 13   unticked_statement -> '{' inner_statement_list '}'
-rule 14   @3 ->		/* empty */
-rule 15   @4 ->		/* empty */
-rule 16   unticked_statement -> T_IF '(' expr ')' @3 statement @4 elseif_list else_single
-rule 17   @5 ->		/* empty */
-rule 18   @6 ->		/* empty */
-rule 19   unticked_statement -> T_IF '(' expr ')' ':' @5 inner_statement_list @6 new_elseif_list new_else_single T_ENDIF ';'
-rule 20   @7 ->		/* empty */
-rule 21   @8 ->		/* empty */
-rule 22   unticked_statement -> T_WHILE '(' @7 expr ')' @8 while_statement
-rule 23   @9 ->		/* empty */
-rule 24   @10 ->		/* empty */
-rule 25   unticked_statement -> T_DO @9 statement T_WHILE '(' @10 expr ')' ';'
-rule 26   @11 ->		/* empty */
-rule 27   @12 ->		/* empty */
-rule 28   @13 ->		/* empty */
-rule 29   unticked_statement -> T_FOR '(' for_expr ';' @11 for_expr ';' @12 for_expr ')' @13 for_statement
-rule 30   @14 ->		/* empty */
-rule 31   unticked_statement -> T_SWITCH '(' expr ')' @14 switch_case_list
-rule 32   unticked_statement -> T_BREAK ';'
-rule 33   unticked_statement -> T_BREAK expr ';'
-rule 34   unticked_statement -> T_CONTINUE ';'
-rule 35   unticked_statement -> T_CONTINUE expr ';'
-rule 36   unticked_statement -> T_RETURN ';'
-rule 37   unticked_statement -> T_RETURN expr_without_variable ';'
-rule 38   unticked_statement -> T_RETURN cvar ';'
-rule 39   unticked_statement -> T_GLOBAL global_var_list ';'
-rule 40   unticked_statement -> T_STATIC static_var_list ';'
-rule 41   unticked_statement -> T_ECHO echo_expr_list ';'
-rule 42   unticked_statement -> T_INLINE_HTML
-rule 43   unticked_statement -> expr ';'
-rule 44   unticked_statement -> T_USE use_filename ';'
-rule 45   unticked_statement -> T_UNSET '(' unset_variables ')' ';'
-rule 46   @15 ->		/* empty */
-rule 47   @16 ->		/* empty */
-rule 48   unticked_statement -> T_FOREACH '(' w_cvar T_AS @15 w_cvar foreach_optional_arg ')' @16 foreach_statement
-rule 49   @17 ->		/* empty */
-rule 50   @18 ->		/* empty */
-rule 51   unticked_statement -> T_FOREACH '(' expr_without_variable T_AS @17 w_cvar foreach_optional_arg ')' @18 foreach_statement
-rule 52   @19 ->		/* empty */
-rule 53   unticked_statement -> T_DECLARE @19 '(' declare_list ')' declare_statement
-rule 54   unticked_statement -> ';'
-rule 55   unset_variables -> unset_variable
-rule 56   unset_variables -> unset_variables ',' unset_variable
-rule 57   unset_variable -> cvar
-rule 58   use_filename -> T_CONSTANT_ENCAPSED_STRING
-rule 59   use_filename -> '(' T_CONSTANT_ENCAPSED_STRING ')'
-rule 60   declaration_statement -> unticked_declaration_statement
-rule 61   @20 ->		/* empty */
-rule 62   @21 ->		/* empty */
-rule 63   unticked_declaration_statement -> T_FUNCTION @20 is_reference T_STRING @21 '(' parameter_list ')' '{' inner_statement_list '}'
-rule 64   @22 ->		/* empty */
-rule 65   @23 ->		/* empty */
-rule 66   unticked_declaration_statement -> T_OLD_FUNCTION @22 is_reference T_STRING @23 parameter_list '(' inner_statement_list ')' ';'
-rule 67   @24 ->		/* empty */
-rule 68   unticked_declaration_statement -> T_CLASS T_STRING @24 '{' class_statement_list '}'
-rule 69   @25 ->		/* empty */
-rule 70   unticked_declaration_statement -> T_CLASS T_STRING T_EXTENDS T_STRING @25 '{' class_statement_list '}'
-rule 71   foreach_optional_arg ->		/* empty */
-rule 72   foreach_optional_arg -> T_DOUBLE_ARROW w_cvar
-rule 73   for_statement -> statement
-rule 74   for_statement -> ':' inner_statement_list T_ENDFOR ';'
-rule 75   foreach_statement -> statement
-rule 76   foreach_statement -> ':' inner_statement_list T_ENDFOREACH ';'
-rule 77   declare_statement -> statement
-rule 78   declare_statement -> ':' inner_statement_list T_ENDDECLARE ';'
-rule 79   declare_list -> T_STRING '=' static_scalar
-rule 80   declare_list -> declare_list ',' T_STRING '=' static_scalar
-rule 81   switch_case_list -> '{' case_list '}'
-rule 82   switch_case_list -> '{' ';' case_list '}'
-rule 83   switch_case_list -> ':' case_list T_ENDSWITCH ';'
-rule 84   switch_case_list -> ':' ';' case_list T_ENDSWITCH ';'
-rule 85   case_list ->		/* empty */
-rule 86   @26 ->		/* empty */
-rule 87   case_list -> case_list T_CASE expr case_separator @26 inner_statement_list
-rule 88   @27 ->		/* empty */
-rule 89   case_list -> case_list T_DEFAULT case_separator @27 inner_statement_list
-rule 90   case_separator -> ':'
-rule 91   case_separator -> ';'
-rule 92   while_statement -> statement
-rule 93   while_statement -> ':' inner_statement_list T_ENDWHILE ';'
-rule 94   elseif_list ->		/* empty */
-rule 95   @28 ->		/* empty */
-rule 96   elseif_list -> elseif_list T_ELSEIF '(' expr ')' @28 statement
-rule 97   new_elseif_list ->		/* empty */
-rule 98   @29 ->		/* empty */
-rule 99   new_elseif_list -> new_elseif_list T_ELSEIF '(' expr ')' ':' @29 inner_statement_list
-rule 100  else_single ->		/* empty */
-rule 101  else_single -> T_ELSE statement
-rule 102  new_else_single ->		/* empty */
-rule 103  new_else_single -> T_ELSE ':' inner_statement_list
-rule 104  parameter_list -> non_empty_parameter_list
-rule 105  parameter_list ->		/* empty */
-rule 106  non_empty_parameter_list -> T_VARIABLE
-rule 107  non_empty_parameter_list -> '&' T_VARIABLE
-rule 108  non_empty_parameter_list -> T_CONST T_VARIABLE
-rule 109  non_empty_parameter_list -> T_VARIABLE '=' static_scalar
-rule 110  non_empty_parameter_list -> non_empty_parameter_list ',' T_VARIABLE
-rule 111  non_empty_parameter_list -> non_empty_parameter_list ',' '&' T_VARIABLE
-rule 112  non_empty_parameter_list -> non_empty_parameter_list ',' T_CONST T_VARIABLE
-rule 113  non_empty_parameter_list -> non_empty_parameter_list ',' T_VARIABLE '=' static_scalar
-rule 114  function_call_parameter_list -> non_empty_function_call_parameter_list
-rule 115  function_call_parameter_list ->		/* empty */
-rule 116  non_empty_function_call_parameter_list -> expr_without_variable
-rule 117  non_empty_function_call_parameter_list -> cvar
-rule 118  non_empty_function_call_parameter_list -> '&' w_cvar
-rule 119  non_empty_function_call_parameter_list -> non_empty_function_call_parameter_list ',' expr_without_variable
-rule 120  non_empty_function_call_parameter_list -> non_empty_function_call_parameter_list ',' cvar
-rule 121  non_empty_function_call_parameter_list -> non_empty_function_call_parameter_list ',' '&' w_cvar
-rule 122  global_var_list -> global_var_list ',' global_var
-rule 123  global_var_list -> global_var
-rule 124  global_var -> T_VARIABLE
-rule 125  global_var -> '$' r_cvar
-rule 126  global_var -> '$' '{' expr '}'
-rule 127  static_var_list -> static_var_list ',' T_VARIABLE
-rule 128  static_var_list -> static_var_list ',' T_VARIABLE '=' static_scalar
-rule 129  static_var_list -> T_VARIABLE
-rule 130  static_var_list -> T_VARIABLE '=' static_scalar
-rule 131  class_statement_list -> class_statement_list class_statement
-rule 132  class_statement_list ->		/* empty */
-rule 133  class_statement -> T_VAR class_variable_decleration ';'
-rule 134  @30 ->		/* empty */
-rule 135  @31 ->		/* empty */
-rule 136  class_statement -> T_FUNCTION @30 is_reference T_STRING @31 '(' parameter_list ')' '{' inner_statement_list '}'
-rule 137  @32 ->		/* empty */
-rule 138  @33 ->		/* empty */
-rule 139  class_statement -> T_OLD_FUNCTION @32 is_reference T_STRING @33 parameter_list '(' inner_statement_list ')' ';'
-rule 140  is_reference ->		/* empty */
-rule 141  is_reference -> '&'
-rule 142  class_variable_decleration -> class_variable_decleration ',' T_VARIABLE
-rule 143  class_variable_decleration -> class_variable_decleration ',' T_VARIABLE '=' static_scalar
-rule 144  class_variable_decleration -> T_VARIABLE
-rule 145  class_variable_decleration -> T_VARIABLE '=' static_scalar
-rule 146  echo_expr_list ->		/* empty */
-rule 147  echo_expr_list -> echo_expr_list ',' expr
-rule 148  echo_expr_list -> expr
-rule 149  for_expr ->		/* empty */
-rule 150  for_expr -> non_empty_for_expr
-rule 151  @34 ->		/* empty */
-rule 152  non_empty_for_expr -> non_empty_for_expr ',' @34 expr
-rule 153  non_empty_for_expr -> expr
-rule 154  @35 ->		/* empty */
-rule 155  expr_without_variable -> T_LIST '(' @35 assignment_list ')' '=' expr
-rule 156  expr_without_variable -> cvar '=' expr
-rule 157  expr_without_variable -> cvar '=' '&' w_cvar
-rule 158  expr_without_variable -> cvar '=' '&' function_call
-rule 159  @36 ->		/* empty */
-rule 160  expr_without_variable -> cvar '=' '&' T_NEW static_or_variable_string @36 ctor_arguments
-rule 161  @37 ->		/* empty */
-rule 162  expr_without_variable -> T_NEW static_or_variable_string @37 ctor_arguments
-rule 163  expr_without_variable -> cvar T_PLUS_EQUAL expr
-rule 164  expr_without_variable -> cvar T_MINUS_EQUAL expr
-rule 165  expr_without_variable -> cvar T_MUL_EQUAL expr
-rule 166  expr_without_variable -> cvar T_DIV_EQUAL expr
-rule 167  expr_without_variable -> cvar T_CONCAT_EQUAL expr
-rule 168  expr_without_variable -> cvar T_MOD_EQUAL expr
-rule 169  expr_without_variable -> cvar T_AND_EQUAL expr
-rule 170  expr_without_variable -> cvar T_OR_EQUAL expr
-rule 171  expr_without_variable -> cvar T_XOR_EQUAL expr
-rule 172  expr_without_variable -> cvar T_SL_EQUAL expr
-rule 173  expr_without_variable -> cvar T_SR_EQUAL expr
-rule 174  expr_without_variable -> rw_cvar T_INC
-rule 175  expr_without_variable -> T_INC rw_cvar
-rule 176  expr_without_variable -> rw_cvar T_DEC
-rule 177  expr_without_variable -> T_DEC rw_cvar
-rule 178  @38 ->		/* empty */
-rule 179  expr_without_variable -> expr T_BOOLEAN_OR @38 expr
-rule 180  @39 ->		/* empty */
-rule 181  expr_without_variable -> expr T_BOOLEAN_AND @39 expr
-rule 182  @40 ->		/* empty */
-rule 183  expr_without_variable -> expr T_LOGICAL_OR @40 expr
-rule 184  @41 ->		/* empty */
-rule 185  expr_without_variable -> expr T_LOGICAL_AND @41 expr
-rule 186  expr_without_variable -> expr T_LOGICAL_XOR expr
-rule 187  expr_without_variable -> expr '|' expr
-rule 188  expr_without_variable -> expr '&' expr
-rule 189  expr_without_variable -> expr '^' expr
-rule 190  expr_without_variable -> expr '.' expr
-rule 191  expr_without_variable -> expr '+' expr
-rule 192  expr_without_variable -> expr '-' expr
-rule 193  expr_without_variable -> expr '*' expr
-rule 194  expr_without_variable -> expr '/' expr
-rule 195  expr_without_variable -> expr '%' expr
-rule 196  expr_without_variable -> expr T_SL expr
-rule 197  expr_without_variable -> expr T_SR expr
-rule 198  expr_without_variable -> '+' expr
-rule 199  expr_without_variable -> '-' expr
-rule 200  expr_without_variable -> '!' expr
-rule 201  expr_without_variable -> '~' expr
-rule 202  expr_without_variable -> expr T_IS_IDENTICAL expr
-rule 203  expr_without_variable -> expr T_IS_NOT_IDENTICAL expr
-rule 204  expr_without_variable -> expr T_IS_EQUAL expr
-rule 205  expr_without_variable -> expr T_IS_NOT_EQUAL expr
-rule 206  expr_without_variable -> expr '<' expr
-rule 207  expr_without_variable -> expr T_IS_SMALLER_OR_EQUAL expr
-rule 208  expr_without_variable -> expr '>' expr
-rule 209  expr_without_variable -> expr T_IS_GREATER_OR_EQUAL expr
-rule 210  expr_without_variable -> '(' expr ')'
-rule 211  @42 ->		/* empty */
-rule 212  @43 ->		/* empty */
-rule 213  expr_without_variable -> expr '?' @42 expr ':' @43 expr
-rule 214  expr_without_variable -> function_call
-rule 215  expr_without_variable -> internal_functions_in_yacc
-rule 216  expr_without_variable -> T_INT_CAST expr
-rule 217  expr_without_variable -> T_DOUBLE_CAST expr
-rule 218  expr_without_variable -> T_STRING_CAST expr
-rule 219  expr_without_variable -> T_ARRAY_CAST expr
-rule 220  expr_without_variable -> T_OBJECT_CAST expr
-rule 221  expr_without_variable -> T_BOOL_CAST expr
-rule 222  expr_without_variable -> T_UNSET_CAST expr
-rule 223  expr_without_variable -> T_EXIT exit_expr
-rule 224  @44 ->		/* empty */
-rule 225  expr_without_variable -> '@' @44 expr
-rule 226  expr_without_variable -> scalar
-rule 227  expr_without_variable -> T_ARRAY '(' array_pair_list ')'
-rule 228  expr_without_variable -> '`' encaps_list '`'
-rule 229  expr_without_variable -> T_PRINT expr
-rule 230  @45 ->		/* empty */
-rule 231  function_call -> T_STRING '(' @45 function_call_parameter_list ')'
-rule 232  @46 ->		/* empty */
-rule 233  function_call -> cvar '(' @46 function_call_parameter_list ')'
-rule 234  @47 ->		/* empty */
-rule 235  function_call -> T_STRING T_PAAMAYIM_NEKUDOTAYIM static_or_variable_string '(' @47 function_call_parameter_list ')'
-rule 236  static_or_variable_string -> T_STRING
-rule 237  static_or_variable_string -> r_cvar
-rule 238  exit_expr ->		/* empty */
-rule 239  exit_expr -> '(' ')'
-rule 240  exit_expr -> '(' expr ')'
-rule 241  ctor_arguments ->		/* empty */
-rule 242  ctor_arguments -> '(' function_call_parameter_list ')'
-rule 243  common_scalar -> T_LNUMBER
-rule 244  common_scalar -> T_DNUMBER
-rule 245  common_scalar -> T_CONSTANT_ENCAPSED_STRING
-rule 246  common_scalar -> T_LINE
-rule 247  common_scalar -> T_FILE
-rule 248  common_scalar -> T_CLASS_C
-rule 249  common_scalar -> T_FUNC_C
-rule 250  static_scalar -> common_scalar
-rule 251  static_scalar -> T_STRING
-rule 252  static_scalar -> '+' static_scalar
-rule 253  static_scalar -> '-' static_scalar
-rule 254  static_scalar -> T_ARRAY '(' static_array_pair_list ')'
-rule 255  scalar -> T_STRING
-rule 256  scalar -> T_STRING_VARNAME
-rule 257  scalar -> common_scalar
-rule 258  scalar -> '\"' encaps_list '\"'
-rule 259  scalar -> '\'' encaps_list '\''
-rule 260  scalar -> T_START_HEREDOC encaps_list T_END_HEREDOC
-rule 261  static_array_pair_list ->		/* empty */
-rule 262  static_array_pair_list -> non_empty_static_array_pair_list possible_comma
-rule 263  possible_comma ->		/* empty */
-rule 264  possible_comma -> ','
-rule 265  non_empty_static_array_pair_list -> non_empty_static_array_pair_list ',' static_scalar T_DOUBLE_ARROW static_scalar
-rule 266  non_empty_static_array_pair_list -> non_empty_static_array_pair_list ',' static_scalar
-rule 267  non_empty_static_array_pair_list -> static_scalar T_DOUBLE_ARROW static_scalar
-rule 268  non_empty_static_array_pair_list -> static_scalar
-rule 269  expr -> r_cvar
-rule 270  expr -> expr_without_variable
-rule 271  r_cvar -> cvar
-rule 272  w_cvar -> cvar
-rule 273  rw_cvar -> cvar
-rule 274  cvar -> cvar_without_objects
-rule 275  @48 ->		/* empty */
-rule 276  cvar -> cvar_without_objects T_OBJECT_OPERATOR @48 ref_list
-rule 277  cvar_without_objects -> reference_variable
-rule 278  cvar_without_objects -> simple_indirect_reference reference_variable
-rule 279  reference_variable -> reference_variable '[' dim_offset ']'
-rule 280  reference_variable -> reference_variable '{' expr '}'
-rule 281  reference_variable -> compound_variable
-rule 282  compound_variable -> T_VARIABLE
-rule 283  compound_variable -> '$' '{' expr '}'
-rule 284  dim_offset ->		/* empty */
-rule 285  dim_offset -> expr
-rule 286  ref_list -> object_property
-rule 287  @49 ->		/* empty */
-rule 288  ref_list -> ref_list T_OBJECT_OPERATOR @49 object_property
-rule 289  object_property -> object_dim_list
-rule 290  @50 ->		/* empty */
-rule 291  object_property -> cvar_without_objects @50
-rule 292  object_dim_list -> object_dim_list '[' dim_offset ']'
-rule 293  object_dim_list -> object_dim_list '{' expr '}'
-rule 294  object_dim_list -> variable_name
-rule 295  variable_name -> T_STRING
-rule 296  variable_name -> '{' expr '}'
-rule 297  simple_indirect_reference -> '$'
-rule 298  simple_indirect_reference -> simple_indirect_reference '$'
-rule 299  assignment_list -> assignment_list ',' assignment_list_element
-rule 300  assignment_list -> assignment_list_element
-rule 301  assignment_list_element -> cvar
-rule 302  @51 ->		/* empty */
-rule 303  assignment_list_element -> T_LIST '(' @51 assignment_list ')'
-rule 304  assignment_list_element ->		/* empty */
-rule 305  array_pair_list ->		/* empty */
-rule 306  array_pair_list -> non_empty_array_pair_list possible_comma
-rule 307  non_empty_array_pair_list -> non_empty_array_pair_list ',' expr T_DOUBLE_ARROW expr
-rule 308  non_empty_array_pair_list -> non_empty_array_pair_list ',' expr
-rule 309  non_empty_array_pair_list -> expr T_DOUBLE_ARROW expr
-rule 310  non_empty_array_pair_list -> expr
-rule 311  non_empty_array_pair_list -> non_empty_array_pair_list ',' expr T_DOUBLE_ARROW '&' w_cvar
-rule 312  non_empty_array_pair_list -> non_empty_array_pair_list ',' '&' w_cvar
-rule 313  non_empty_array_pair_list -> expr T_DOUBLE_ARROW '&' w_cvar
-rule 314  non_empty_array_pair_list -> '&' w_cvar
-rule 315  encaps_list -> encaps_list encaps_var
-rule 316  encaps_list -> encaps_list T_STRING
-rule 317  encaps_list -> encaps_list T_NUM_STRING
-rule 318  encaps_list -> encaps_list T_ENCAPSED_AND_WHITESPACE
-rule 319  encaps_list -> encaps_list T_CHARACTER
-rule 320  encaps_list -> encaps_list T_BAD_CHARACTER
-rule 321  encaps_list -> encaps_list '['
-rule 322  encaps_list -> encaps_list ']'
-rule 323  encaps_list -> encaps_list '{'
-rule 324  encaps_list -> encaps_list '}'
-rule 325  encaps_list -> encaps_list T_OBJECT_OPERATOR
-rule 326  encaps_list ->		/* empty */
-rule 327  encaps_var -> T_VARIABLE
-rule 328  @52 ->		/* empty */
-rule 329  encaps_var -> T_VARIABLE '[' @52 encaps_var_offset ']'
-rule 330  encaps_var -> T_VARIABLE T_OBJECT_OPERATOR T_STRING
-rule 331  encaps_var -> T_DOLLAR_OPEN_CURLY_BRACES expr '}'
-rule 332  encaps_var -> T_DOLLAR_OPEN_CURLY_BRACES T_STRING_VARNAME '[' expr ']' '}'
-rule 333  encaps_var -> T_CURLY_OPEN cvar '}'
-rule 334  encaps_var_offset -> T_STRING
-rule 335  encaps_var_offset -> T_NUM_STRING
-rule 336  encaps_var_offset -> T_VARIABLE
-rule 337  internal_functions_in_yacc -> T_ISSET '(' isset_variables ')'
-rule 338  internal_functions_in_yacc -> T_EMPTY '(' cvar ')'
-rule 339  internal_functions_in_yacc -> T_INCLUDE expr
-rule 340  internal_functions_in_yacc -> T_INCLUDE_ONCE expr
-rule 341  internal_functions_in_yacc -> T_EVAL '(' expr ')'
-rule 342  internal_functions_in_yacc -> T_REQUIRE expr
-rule 343  internal_functions_in_yacc -> T_REQUIRE_ONCE expr
-rule 344  isset_variables -> cvar
-rule 345  @53 ->		/* empty */
-rule 346  isset_variables -> isset_variables ',' @53 cvar
+
+  Number, Line, Rule
+    1 139 start -> top_statement_list
+    2 143 @1 -> /* empty */
+    3 143 top_statement_list -> top_statement_list @1 top_statement
+    4 145 top_statement_list -> /* empty */
+    5 149 top_statement -> statement
+    6 151 top_statement -> declaration_statement
+    7 155 @2 -> /* empty */
+    8 155 inner_statement_list -> inner_statement_list @2 inner_statement
+    9 157 inner_statement_list -> /* empty */
+   10 161 inner_statement -> statement
+   11 163 inner_statement -> declaration_statement
+   12 167 statement -> unticked_statement
+   13 172 unticked_statement -> '{' inner_statement_list '}'
+   14 174 @3 -> /* empty */
+   15 174 @4 -> /* empty */
+   16 174 unticked_statement -> T_IF '(' expr ')' @3 statement @4 elseif_list else_single
+   17 175 @5 -> /* empty */
+   18 175 @6 -> /* empty */
+   19 175 unticked_statement -> T_IF '(' expr ')' ':' @5 inner_statement_list @6 new_elseif_list new_else_single T_ENDIF ';'
+   20 176 @7 -> /* empty */
+   21 176 @8 -> /* empty */
+   22 176 unticked_statement -> T_WHILE '(' @7 expr ')' @8 while_statement
+   23 177 @9 -> /* empty */
+   24 177 @10 -> /* empty */
+   25 177 unticked_statement -> T_DO @9 statement T_WHILE '(' @10 expr ')' ';'
+   26 178 @11 -> /* empty */
+   27 178 @12 -> /* empty */
+   28 178 @13 -> /* empty */
+   29 178 unticked_statement -> T_FOR '(' for_expr ';' @11 for_expr ';' @12 for_expr ')' @13 for_statement
+   30 187 @14 -> /* empty */
+   31 187 unticked_statement -> T_SWITCH '(' expr ')' @14 switch_case_list
+   32 188 unticked_statement -> T_BREAK ';'
+   33 189 unticked_statement -> T_BREAK expr ';'
+   34 190 unticked_statement -> T_CONTINUE ';'
+   35 191 unticked_statement -> T_CONTINUE expr ';'
+   36 192 unticked_statement -> T_RETURN ';'
+   37 193 unticked_statement -> T_RETURN expr_without_variable ';'
+   38 194 unticked_statement -> T_RETURN cvar ';'
+   39 195 unticked_statement -> T_GLOBAL global_var_list ';'
+   40 196 unticked_statement -> T_STATIC static_var_list ';'
+   41 197 unticked_statement -> T_ECHO echo_expr_list ';'
+   42 198 unticked_statement -> T_INLINE_HTML
+   43 199 unticked_statement -> expr ';'
+   44 200 unticked_statement -> T_USE use_filename ';'
+   45 201 unticked_statement -> T_UNSET '(' unset_variables ')' ';'
+   46 202 @15 -> /* empty */
+   47 202 @16 -> /* empty */
+   48 202 unticked_statement -> T_FOREACH '(' w_cvar T_AS @15 w_cvar foreach_optional_arg ')' @16 foreach_statement
+   49 203 @17 -> /* empty */
+   50 203 @18 -> /* empty */
+   51 203 unticked_statement -> T_FOREACH '(' expr_without_variable T_AS @17 w_cvar foreach_optional_arg ')' @18 foreach_statement
+   52 204 @19 -> /* empty */
+   53 204 unticked_statement -> T_DECLARE @19 '(' declare_list ')' declare_statement
+   54 205 unticked_statement -> ';'
+   55 208 unset_variables -> unset_variable
+   56 210 unset_variables -> unset_variables ',' unset_variable
+   57 213 unset_variable -> cvar
+   58 217 use_filename -> T_CONSTANT_ENCAPSED_STRING
+   59 219 use_filename -> '(' T_CONSTANT_ENCAPSED_STRING ')'
+   60 223 declaration_statement -> unticked_declaration_statement
+   61 228 @20 -> /* empty */
+   62 228 @21 -> /* empty */
+   63 228 unticked_declaration_statement -> T_FUNCTION @20 is_reference T_STRING @21 '(' parameter_list ')' '{' inner_statement_list '}'
+   64 231 @22 -> /* empty */
+   65 231 @23 -> /* empty */
+   66 231 unticked_declaration_statement -> T_OLD_FUNCTION @22 is_reference T_STRING @23 parameter_list '(' inner_statement_list ')' ';'
+   67 233 @24 -> /* empty */
+   68 233 unticked_declaration_statement -> T_CLASS T_STRING @24 '{' class_statement_list '}'
+   69 234 @25 -> /* empty */
+   70 234 unticked_declaration_statement -> T_CLASS T_STRING T_EXTENDS T_STRING @25 '{' class_statement_list '}'
+   71 238 foreach_optional_arg -> /* empty */
+   72 240 foreach_optional_arg -> T_DOUBLE_ARROW w_cvar
+   73 244 for_statement -> statement
+   74 246 for_statement -> ':' inner_statement_list T_ENDFOR ';'
+   75 250 foreach_statement -> statement
+   76 252 foreach_statement -> ':' inner_statement_list T_ENDFOREACH ';'
+   77 256 declare_statement -> statement
+   78 258 declare_statement -> ':' inner_statement_list T_ENDDECLARE ';'
+   79 262 declare_list -> T_STRING '=' static_scalar
+   80 264 declare_list -> declare_list ',' T_STRING '=' static_scalar
+   81 268 switch_case_list -> '{' case_list '}'
+   82 270 switch_case_list -> '{' ';' case_list '}'
+   83 271 switch_case_list -> ':' case_list T_ENDSWITCH ';'
+   84 272 switch_case_list -> ':' ';' case_list T_ENDSWITCH ';'
+   85 276 case_list -> /* empty */
+   86 278 @26 -> /* empty */
+   87 278 case_list -> case_list T_CASE expr case_separator @26 inner_statement_list
+   88 279 @27 -> /* empty */
+   89 279 case_list -> case_list T_DEFAULT case_separator @27 inner_statement_list
+   90 283 case_separator -> ':'
+   91 285 case_separator -> ';'
+   92 289 while_statement -> statement
+   93 291 while_statement -> ':' inner_statement_list T_ENDWHILE ';'
+   94 296 elseif_list -> /* empty */
+   95 298 @28 -> /* empty */
+   96 298 elseif_list -> elseif_list T_ELSEIF '(' expr ')' @28 statement
+   97 302 new_elseif_list -> /* empty */
+   98 304 @29 -> /* empty */
+   99 304 new_elseif_list -> new_elseif_list T_ELSEIF '(' expr ')' ':' @29 inner_statement_list
+  100 308 else_single -> /* empty */
+  101 310 else_single -> T_ELSE statement
+  102 314 new_else_single -> /* empty */
+  103 316 new_else_single -> T_ELSE ':' inner_statement_list
+  104 320 parameter_list -> non_empty_parameter_list
+  105 322 parameter_list -> /* empty */
+  106 326 non_empty_parameter_list -> T_VARIABLE
+  107 328 non_empty_parameter_list -> '&' T_VARIABLE
+  108 329 non_empty_parameter_list -> T_CONST T_VARIABLE
+  109 330 non_empty_parameter_list -> T_VARIABLE '=' static_scalar
+  110 331 non_empty_parameter_list -> non_empty_parameter_list ',' T_VARIABLE
+  111 332 non_empty_parameter_list -> non_empty_parameter_list ',' '&' T_VARIABLE
+  112 333 non_empty_parameter_list -> non_empty_parameter_list ',' T_CONST T_VARIABLE
+  113 334 non_empty_parameter_list -> non_empty_parameter_list ',' T_VARIABLE '=' static_scalar
+  114 338 function_call_parameter_list -> non_empty_function_call_parameter_list
+  115 340 function_call_parameter_list -> /* empty */
+  116 344 non_empty_function_call_parameter_list -> expr_without_variable
+  117 346 non_empty_function_call_parameter_list -> cvar
+  118 347 non_empty_function_call_parameter_list -> '&' w_cvar
+  119 348 non_empty_function_call_parameter_list -> non_empty_function_call_parameter_list ',' expr_without_variable
+  120 349 non_empty_function_call_parameter_list -> non_empty_function_call_parameter_list ',' cvar
+  121 350 non_empty_function_call_parameter_list -> non_empty_function_call_parameter_list ',' '&' w_cvar
+  122 353 global_var_list -> global_var_list ',' global_var
+  123 355 global_var_list -> global_var
+  124 359 global_var -> T_VARIABLE
+  125 361 global_var -> '$' r_cvar
+  126 362 global_var -> '$' '{' expr '}'
+  127 366 static_var_list -> static_var_list ',' T_VARIABLE
+  128 368 static_var_list -> static_var_list ',' T_VARIABLE '=' static_scalar
+  129 369 static_var_list -> T_VARIABLE
+  130 370 static_var_list -> T_VARIABLE '=' static_scalar
+  131 375 class_statement_list -> class_statement_list class_statement
+  132 377 class_statement_list -> /* empty */
+  133 381 class_statement -> T_VAR class_variable_decleration ';'
+  134 383 @30 -> /* empty */
+  135 383 @31 -> /* empty */
+  136 383 class_statement -> T_FUNCTION @30 is_reference T_STRING @31 '(' parameter_list ')' '{' inner_statement_list '}'
+  137 385 @32 -> /* empty */
+  138 385 @33 -> /* empty */
+  139 385 class_statement -> T_OLD_FUNCTION @32 is_reference T_STRING @33 parameter_list '(' inner_statement_list ')' ';'
+  140 390 is_reference -> /* empty */
+  141 392 is_reference -> '&'
+  142 395 class_variable_decleration -> class_variable_decleration ',' T_VARIABLE
+  143 397 class_variable_decleration -> class_variable_decleration ',' T_VARIABLE '=' static_scalar
+  144 398 class_variable_decleration -> T_VARIABLE
+  145 399 class_variable_decleration -> T_VARIABLE '=' static_scalar
+  146 403 echo_expr_list -> /* empty */
+  147 404 echo_expr_list -> echo_expr_list ',' expr
+  148 405 echo_expr_list -> expr
+  149 409 for_expr -> /* empty */
+  150 411 for_expr -> non_empty_for_expr
+  151 414 @34 -> /* empty */
+  152 414 non_empty_for_expr -> non_empty_for_expr ',' @34 expr
+  153 416 non_empty_for_expr -> expr
+  154 420 @35 -> /* empty */
+  155 420 expr_without_variable -> T_LIST '(' @35 assignment_list ')' '=' expr
+  156 422 expr_without_variable -> cvar '=' expr
+  157 423 expr_without_variable -> cvar '=' '&' w_cvar
+  158 424 expr_without_variable -> cvar '=' '&' function_call
+  159 425 @36 -> /* empty */
+  160 425 expr_without_variable -> cvar '=' '&' T_NEW static_or_variable_string @36 ctor_arguments
+  161 426 @37 -> /* empty */
+  162 426 expr_without_variable -> T_NEW static_or_variable_string @37 ctor_arguments
+  163 427 expr_without_variable -> cvar T_PLUS_EQUAL expr
+  164 428 expr_without_variable -> cvar T_MINUS_EQUAL expr
+  165 429 expr_without_variable -> cvar T_MUL_EQUAL expr
+  166 430 expr_without_variable -> cvar T_DIV_EQUAL expr
+  167 431 expr_without_variable -> cvar T_CONCAT_EQUAL expr
+  168 432 expr_without_variable -> cvar T_MOD_EQUAL expr
+  169 433 expr_without_variable -> cvar T_AND_EQUAL expr
+  170 434 expr_without_variable -> cvar T_OR_EQUAL expr
+  171 435 expr_without_variable -> cvar T_XOR_EQUAL expr
+  172 436 expr_without_variable -> cvar T_SL_EQUAL expr
+  173 437 expr_without_variable -> cvar T_SR_EQUAL expr
+  174 438 expr_without_variable -> rw_cvar T_INC
+  175 439 expr_without_variable -> T_INC rw_cvar
+  176 440 expr_without_variable -> rw_cvar T_DEC
+  177 441 expr_without_variable -> T_DEC rw_cvar
+  178 442 @38 -> /* empty */
+  179 442 expr_without_variable -> expr T_BOOLEAN_OR @38 expr
+  180 443 @39 -> /* empty */
+  181 443 expr_without_variable -> expr T_BOOLEAN_AND @39 expr
+  182 444 @40 -> /* empty */
+  183 444 expr_without_variable -> expr T_LOGICAL_OR @40 expr
+  184 445 @41 -> /* empty */
+  185 445 expr_without_variable -> expr T_LOGICAL_AND @41 expr
+  186 446 expr_without_variable -> expr T_LOGICAL_XOR expr
+  187 447 expr_without_variable -> expr '|' expr
+  188 448 expr_without_variable -> expr '&' expr
+  189 449 expr_without_variable -> expr '^' expr
+  190 450 expr_without_variable -> expr '.' expr
+  191 451 expr_without_variable -> expr '+' expr
+  192 452 expr_without_variable -> expr '-' expr
+  193 453 expr_without_variable -> expr '*' expr
+  194 454 expr_without_variable -> expr '/' expr
+  195 455 expr_without_variable -> expr '%' expr
+  196 456 expr_without_variable -> expr T_SL expr
+  197 457 expr_without_variable -> expr T_SR expr
+  198 458 expr_without_variable -> '+' expr
+  199 459 expr_without_variable -> '-' expr
+  200 460 expr_without_variable -> '!' expr
+  201 461 expr_without_variable -> '~' expr
+  202 462 expr_without_variable -> expr T_IS_IDENTICAL expr
+  203 463 expr_without_variable -> expr T_IS_NOT_IDENTICAL expr
+  204 464 expr_without_variable -> expr T_IS_EQUAL expr
+  205 465 expr_without_variable -> expr T_IS_NOT_EQUAL expr
+  206 466 expr_without_variable -> expr '<' expr
+  207 467 expr_without_variable -> expr T_IS_SMALLER_OR_EQUAL expr
+  208 468 expr_without_variable -> expr '>' expr
+  209 469 expr_without_variable -> expr T_IS_GREATER_OR_EQUAL expr
+  210 470 expr_without_variable -> '(' expr ')'
+  211 471 @42 -> /* empty */
+  212 471 @43 -> /* empty */
+  213 471 expr_without_variable -> expr '?' @42 expr ':' @43 expr
+  214 474 expr_without_variable -> function_call
+  215 475 expr_without_variable -> internal_functions_in_yacc
+  216 476 expr_without_variable -> T_INT_CAST expr
+  217 477 expr_without_variable -> T_DOUBLE_CAST expr
+  218 478 expr_without_variable -> T_STRING_CAST expr
+  219 479 expr_without_variable -> T_ARRAY_CAST expr
+  220 480 expr_without_variable -> T_OBJECT_CAST expr
+  221 481 expr_without_variable -> T_BOOL_CAST expr
+  222 482 expr_without_variable -> T_UNSET_CAST expr
+  223 483 expr_without_variable -> T_EXIT exit_expr
+  224 484 @44 -> /* empty */
+  225 484 expr_without_variable -> '@' @44 expr
+  226 485 expr_without_variable -> scalar
+  227 486 expr_without_variable -> T_ARRAY '(' array_pair_list ')'
+  228 487 expr_without_variable -> '`' encaps_list '`'
+  229 488 expr_without_variable -> T_PRINT expr
+  230 491 @45 -> /* empty */
+  231 491 function_call -> T_STRING '(' @45 function_call_parameter_list ')'
+  232 495 @46 -> /* empty */
+  233 495 function_call -> cvar '(' @46 function_call_parameter_list ')'
+  234 498 @47 -> /* empty */
+  235 498 function_call -> T_STRING T_PAAMAYIM_NEKUDOTAYIM static_or_variable_string '(' @47 function_call_parameter_list ')'
+  236 504 static_or_variable_string -> T_STRING
+  237 506 static_or_variable_string -> r_cvar
+  238 510 exit_expr -> /* empty */
+  239 512 exit_expr -> '(' ')'
+  240 513 exit_expr -> '(' expr ')'
+  241 517 ctor_arguments -> /* empty */
+  242 519 ctor_arguments -> '(' function_call_parameter_list ')'
+  243 523 common_scalar -> T_LNUMBER
+  244 525 common_scalar -> T_DNUMBER
+  245 526 common_scalar -> T_CONSTANT_ENCAPSED_STRING
+  246 527 common_scalar -> T_LINE
+  247 528 common_scalar -> T_FILE
+  248 529 common_scalar -> T_CLASS_C
+  249 530 common_scalar -> T_FUNC_C
+  250 534 static_scalar -> common_scalar
+  251 536 static_scalar -> T_STRING
+  252 537 static_scalar -> '+' static_scalar
+  253 538 static_scalar -> '-' static_scalar
+  254 539 static_scalar -> T_ARRAY '(' static_array_pair_list ')'
+  255 543 scalar -> T_STRING
+  256 545 scalar -> T_STRING_VARNAME
+  257 546 scalar -> common_scalar
+  258 547 scalar -> '\"' encaps_list '\"'
+  259 548 scalar -> '\'' encaps_list '\''
+  260 549 scalar -> T_START_HEREDOC encaps_list T_END_HEREDOC
+  261 553 static_array_pair_list -> /* empty */
+  262 555 static_array_pair_list -> non_empty_static_array_pair_list possible_comma
+  263 558 possible_comma -> /* empty */
+  264 560 possible_comma -> ','
+  265 563 non_empty_static_array_pair_list -> non_empty_static_array_pair_list ',' static_scalar T_DOUBLE_ARROW static_scalar
+  266 565 non_empty_static_array_pair_list -> non_empty_static_array_pair_list ',' static_scalar
+  267 566 non_empty_static_array_pair_list -> static_scalar T_DOUBLE_ARROW static_scalar
+  268 567 non_empty_static_array_pair_list -> static_scalar
+  269 570 expr -> r_cvar
+  270 572 expr -> expr_without_variable
+  271 576 r_cvar -> cvar
+  272 581 w_cvar -> cvar
+  273 586 rw_cvar -> cvar
+  274 591 cvar -> cvar_without_objects
+  275 593 @48 -> /* empty */
+  276 593 cvar -> cvar_without_objects T_OBJECT_OPERATOR @48 ref_list
+  277 597 cvar_without_objects -> reference_variable
+  278 599 cvar_without_objects -> simple_indirect_reference reference_variable
+  279 603 reference_variable -> reference_variable '[' dim_offset ']'
+  280 605 reference_variable -> reference_variable '{' expr '}'
+  281 606 reference_variable -> compound_variable
+  282 610 compound_variable -> T_VARIABLE
+  283 612 compound_variable -> '$' '{' expr '}'
+  284 615 dim_offset -> /* empty */
+  285 617 dim_offset -> expr
+  286 620 ref_list -> object_property
+  287 622 @49 -> /* empty */
+  288 622 ref_list -> ref_list T_OBJECT_OPERATOR @49 object_property
+  289 625 object_property -> object_dim_list
+  290 627 @50 -> /* empty */
+  291 627 object_property -> cvar_without_objects @50
+  292 630 object_dim_list -> object_dim_list '[' dim_offset ']'
+  293 632 object_dim_list -> object_dim_list '{' expr '}'
+  294 633 object_dim_list -> variable_name
+  295 636 variable_name -> T_STRING
+  296 638 variable_name -> '{' expr '}'
+  297 642 simple_indirect_reference -> '$'
+  298 644 simple_indirect_reference -> simple_indirect_reference '$'
+  299 647 assignment_list -> assignment_list ',' assignment_list_element
+  300 649 assignment_list -> assignment_list_element
+  301 653 assignment_list_element -> cvar
+  302 655 @51 -> /* empty */
+  303 655 assignment_list_element -> T_LIST '(' @51 assignment_list ')'
+  304 656 assignment_list_element -> /* empty */
+  305 660 array_pair_list -> /* empty */
+  306 662 array_pair_list -> non_empty_array_pair_list possible_comma
+  307 665 non_empty_array_pair_list -> non_empty_array_pair_list ',' expr T_DOUBLE_ARROW expr
+  308 667 non_empty_array_pair_list -> non_empty_array_pair_list ',' expr
+  309 668 non_empty_array_pair_list -> expr T_DOUBLE_ARROW expr
+  310 669 non_empty_array_pair_list -> expr
+  311 670 non_empty_array_pair_list -> non_empty_array_pair_list ',' expr T_DOUBLE_ARROW '&' w_cvar
+  312 671 non_empty_array_pair_list -> non_empty_array_pair_list ',' '&' w_cvar
+  313 672 non_empty_array_pair_list -> expr T_DOUBLE_ARROW '&' w_cvar
+  314 673 non_empty_array_pair_list -> '&' w_cvar
+  315 676 encaps_list -> encaps_list encaps_var
+  316 678 encaps_list -> encaps_list T_STRING
+  317 679 encaps_list -> encaps_list T_NUM_STRING
+  318 680 encaps_list -> encaps_list T_ENCAPSED_AND_WHITESPACE
+  319 681 encaps_list -> encaps_list T_CHARACTER
+  320 682 encaps_list -> encaps_list T_BAD_CHARACTER
+  321 683 encaps_list -> encaps_list '['
+  322 684 encaps_list -> encaps_list ']'
+  323 685 encaps_list -> encaps_list '{'
+  324 686 encaps_list -> encaps_list '}'
+  325 687 encaps_list -> encaps_list T_OBJECT_OPERATOR
+  326 688 encaps_list -> /* empty */
+  327 694 encaps_var -> T_VARIABLE
+  328 696 @52 -> /* empty */
+  329 696 encaps_var -> T_VARIABLE '[' @52 encaps_var_offset ']'
+  330 697 encaps_var -> T_VARIABLE T_OBJECT_OPERATOR T_STRING
+  331 698 encaps_var -> T_DOLLAR_OPEN_CURLY_BRACES expr '}'
+  332 699 encaps_var -> T_DOLLAR_OPEN_CURLY_BRACES T_STRING_VARNAME '[' expr ']' '}'
+  333 700 encaps_var -> T_CURLY_OPEN cvar '}'
+  334 704 encaps_var_offset -> T_STRING
+  335 706 encaps_var_offset -> T_NUM_STRING
+  336 707 encaps_var_offset -> T_VARIABLE
+  337 711 internal_functions_in_yacc -> T_ISSET '(' isset_variables ')'
+  338 713 internal_functions_in_yacc -> T_EMPTY '(' cvar ')'
+  339 714 internal_functions_in_yacc -> T_INCLUDE expr
+  340 715 internal_functions_in_yacc -> T_INCLUDE_ONCE expr
+  341 716 internal_functions_in_yacc -> T_EVAL '(' expr ')'
+  342 717 internal_functions_in_yacc -> T_REQUIRE expr
+  343 718 internal_functions_in_yacc -> T_REQUIRE_ONCE expr
+  344 721 isset_variables -> cvar
+  345 723 @53 -> /* empty */
+  346 723 isset_variables -> isset_variables ',' @53 cvar
+
 
 Terminals, with rules where they appear
 
@@ -1880,6 +1884,7 @@ T_END_HEREDOC (358) 260
 T_DOLLAR_OPEN_CURLY_BRACES (359) 331 332
 T_CURLY_OPEN (360) 333
 T_PAAMAYIM_NEKUDOTAYIM (361) 235
+
 
 Nonterminals, with rules where they appear
 
@@ -2171,7 +2176,6 @@ state 1
 
     $   	reduce using rule 1 (start)
     $default	reduce using rule 2 (@1)
-
     @1  	go to state 2
 
 
@@ -4192,7 +4196,6 @@ state 78
     $default	reduce using rule 271 (r_cvar)
 
 
-
 state 79
 
     cvar  ->  cvar_without_objects .   (rule 274)
@@ -5903,7 +5906,6 @@ state 131
     T_INC	reduce using rule 273 (rw_cvar)
     T_DEC	reduce using rule 273 (rw_cvar)
     $default	reduce using rule 271 (r_cvar)
-
 
 
 state 132
@@ -9258,7 +9260,6 @@ state 217
     $default	reduce using rule 271 (r_cvar)
 
 
-
 state 218
 
     unticked_statement  ->  T_DECLARE @19 '(' . declare_list ')' declare_statement   (rule 53)
@@ -12372,7 +12373,6 @@ state 323
     $default	reduce using rule 270 (expr)
 
 
-
 state 324
 
     non_empty_function_call_parameter_list  ->  cvar .   (rule 117)
@@ -12414,7 +12414,6 @@ state 324
     T_DEC	reduce using rule 273 (rw_cvar)
     ')' 	reduce using rule 117 (non_empty_function_call_parameter_list)
     $default	reduce using rule 271 (r_cvar)
-
 
 
 state 325
@@ -14954,7 +14953,6 @@ state 447
     $default	reduce using rule 270 (expr)
 
 
-
 state 448
 
     non_empty_function_call_parameter_list  ->  non_empty_function_call_parameter_list ',' cvar .   (rule 120)
@@ -14996,7 +14994,6 @@ state 448
     T_DEC	reduce using rule 273 (rw_cvar)
     ')' 	reduce using rule 120 (non_empty_function_call_parameter_list)
     $default	reduce using rule 271 (r_cvar)
-
 
 
 state 449
@@ -15922,7 +15919,6 @@ state 497
     T_ELSE	reduce using rule 18 (@6)
     T_ENDIF	reduce using rule 18 (@6)
     $default	reduce using rule 7 (@2)
-
     @2  	go to state 265
     @6  	go to state 541
 
@@ -18079,7 +18075,6 @@ state 629
     T_DEFAULT	reduce using rule 89 (case_list)
     '}' 	reduce using rule 89 (case_list)
     $default	reduce using rule 7 (@2)
-
     @2  	go to state 265
 
 
@@ -18188,7 +18183,6 @@ state 635
 
     T_ENDIF	reduce using rule 103 (new_else_single)
     $default	reduce using rule 7 (@2)
-
     @2  	go to state 265
 
 
@@ -18255,7 +18249,6 @@ state 642
     T_DEFAULT	reduce using rule 87 (case_list)
     '}' 	reduce using rule 87 (case_list)
     $default	reduce using rule 7 (@2)
-
     @2  	go to state 265
 
 
@@ -18503,7 +18496,6 @@ state 660
     T_ELSE	reduce using rule 99 (new_elseif_list)
     T_ENDIF	reduce using rule 99 (new_elseif_list)
     $default	reduce using rule 7 (@2)
-
     @2  	go to state 265
 
 
@@ -18531,3 +18523,5 @@ state 663
 state 664
 
     $default	accept
+
+

@@ -15,7 +15,7 @@
    | Authors: Wez Furlong <wez@thebrainroom.com>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: scriptengine.cpp,v 1.1.1.1 2003/03/11 01:09:37 zarzycki Exp $ */
+/* $Id: scriptengine.cpp,v 1.4 2002/05/22 00:02:35 wez Exp $ */
 
 /* Implementation Notes:
  *

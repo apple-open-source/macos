@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.6 2003/03/11 01:09:19 zarzycki Exp $
+dnl $Id: config.m4,v 1.22.2.2 2003/10/01 02:53:56 sniper Exp $
 dnl
 
 PHP_ARG_WITH(fdftk, for FDF support,
@@ -8,22 +8,22 @@ PHP_ARG_WITH(fdftk, for FDF support,
 if test "$PHP_FDFTK" != "no"; then
 
   case $host_os in
-    aix*)
+    aix*[)]
       libtype=aix
     ;;
-    solaris* )
+    solaris*[)]
       libtype=solaris
     ;;
-    linux*)
+    linux*[)]
       libtype=linux
     ;;
-    *)
+    *[)]
       AC_MSG_ERROR([The fdf toolkit is not available for $host_os.])
     ;;
   esac
 
   if test "$PHP_FDFTK" = "yes"; then 
-    PHP_FDFTK="/usr /usr/local ../FDFToolkitForUNIX ext/fdf/FDFToolkitForUNIX ../fdftk ext/fdf/fdftk"
+    PHP_FDFTK="/usr/local /usr ../FDFToolkitForUNIX ext/fdf/FDFToolkitForUNIX ../fdftk ext/fdf/fdftk"
   fi
 
   for dir in $PHP_FDFTK; do
@@ -65,9 +65,9 @@ if test "$PHP_FDFTK" != "no"; then
     AC_MSG_ERROR(no usable fdf library found)
   fi
 
-  PHP_ADD_LIBRARY_WITH_PATH($FDFLIBRARY, $FDFTK_LIB_DIR, FDFTK_SHARED_LIBADD)
+  PHP_ADD_LIBRARY_WITH_PATH($FDFLIBRARY, $FDFTK_LIB_DIR, FDF_SHARED_LIBADD)
 
   PHP_NEW_EXTENSION(fdf, fdf.c, $ext_shared)
-  PHP_SUBST(FDFTK_SHARED_LIBADD)
+  PHP_SUBST(FDF_SHARED_LIBADD)
   AC_DEFINE(HAVE_FDFLIB,1,[ ])
 fi

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_mail.h,v 1.1.1.7 2003/07/18 18:07:44 zarzycki Exp $ */
+/* $Id: php_mail.h,v 1.14.4.1 2002/12/31 16:35:33 sebastian Exp $ */
 
 #ifndef PHP_MAIL_H
 #define PHP_MAIL_H

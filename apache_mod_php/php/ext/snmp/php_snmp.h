@@ -16,10 +16,11 @@
   |          Mike Jackson <mhjack@tscnet.com>                            |
   |          Steven Lawrance <slawrance@technologist.com>                |
   |          Harrie Hazewinkel <harrie@lisanza.net>                      |
+  |          Johann Hanne <jonny@nurfuerspam.de>                         |
   +----------------------------------------------------------------------+
 */
 
-/* $Id: php_snmp.h,v 1.1.1.6 2003/07/18 18:07:41 zarzycki Exp $ */
+/* $Id: php_snmp.h,v 1.14.2.4 2003/06/21 21:50:01 harrie Exp $ */
 
 #ifndef PHP_SNMP_H
 #define PHP_SNMP_H
@@ -32,6 +33,10 @@
 
 extern zend_module_entry snmp_module_entry;
 #define snmp_module_ptr &snmp_module_entry
+
+#ifdef ZTS
+#include "TSRM.h"
+#endif
 
 PHP_MINIT_FUNCTION(snmp);
 PHP_MINFO_FUNCTION(snmp);
@@ -49,6 +54,19 @@ PHP_FUNCTION(snmp3_get);
 PHP_FUNCTION(snmp3_walk);
 PHP_FUNCTION(snmp3_real_walk);
 PHP_FUNCTION(snmp3_set);
+
+PHP_FUNCTION(snmp_set_valueretrieval);
+PHP_FUNCTION(snmp_get_valueretrieval);
+
+ZEND_BEGIN_MODULE_GLOBALS(snmp)
+      int valueretrieval;
+ZEND_END_MODULE_GLOBALS(snmp)
+
+#ifdef ZTS
+#define SNMP_G(v) TSRMG(snmp_globals_id, zend_snmp_globals *, v)
+#else
+#define SNMP_G(v) (snmp_globals.v)
+#endif
 
 #else
 

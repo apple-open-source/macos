@@ -1,0 +1,20 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>php</string>
+	<key>OpenSourceVersion</key>
+	<string>4.3.10</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.php.net/</string>
+	<key>OpenSourceURL</key>
+	<string>http://static.php.net/www.php.net/distributions/php-4.3.10.tar.bz2</string>
+	<key>OpenSourceMD5</key>
+	<string>7e56824dae9679c59a8234eb848aa542</string>
+	<key>OpenSourceImportDate</key>
+	<string>2004-12-23</string>
+	<key>OpenSourceLicense</key>
+	<string>Other</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>php.txt</string>
+</dict>
+</plist>

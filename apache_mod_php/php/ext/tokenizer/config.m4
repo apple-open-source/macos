@@ -1,4 +1,4 @@
-dnl $Id: config.m4,v 1.1.1.2 2003/03/11 01:09:34 zarzycki Exp $
+dnl $Id: config.m4,v 1.5 2002/04/16 05:37:51 ssb Exp $
 dnl config.m4 for extension tokenizer
 
 dnl Otherwise use enable:

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: image.c,v 1.1.1.7 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: image.c,v 1.72.2.15 2004/10/04 20:44:07 iliaa Exp $ */
 
 #include "php.h"
 #include <stdio.h>
@@ -143,18 +143,29 @@ static struct gfxinfo *php_handle_psd (php_stream * stream TSRMLS_DC)
 static struct gfxinfo *php_handle_bmp (php_stream * stream TSRMLS_DC)
 {
 	struct gfxinfo *result = NULL;
-	unsigned char dim[12];
+	unsigned char dim[16];
+	int size;
 
-	if (php_stream_seek(stream, 15, SEEK_CUR))
+	if (php_stream_seek(stream, 11, SEEK_CUR))
 		return NULL;
 
 	if (php_stream_read(stream, dim, sizeof(dim)) != sizeof(dim))
 		return NULL;
 
-	result = (struct gfxinfo *) ecalloc (1, sizeof(struct gfxinfo));
-	result->width    =  (((unsigned int)dim[ 3]) << 24) + (((unsigned int)dim[ 2]) << 16) + (((unsigned int)dim[ 1]) << 8) + ((unsigned int) dim[ 0]);
-	result->height   =  (((unsigned int)dim[ 7]) << 24) + (((unsigned int)dim[ 6]) << 16) + (((unsigned int)dim[ 5]) << 8) + ((unsigned int) dim[ 4]);
-	result->bits     =  (((unsigned int)dim[11]) <<  8) +  ((unsigned int)dim[10]);
+	size   = (((unsigned int)dim[ 3]) << 24) + (((unsigned int)dim[ 2]) << 16) + (((unsigned int)dim[ 1]) << 8) + ((unsigned int) dim[ 0]);
+	if (size == 12) {
+		result = (struct gfxinfo *) ecalloc (1, sizeof(struct gfxinfo));
+		result->width    =  (((unsigned int)dim[ 5]) << 8) + ((unsigned int) dim[ 4]);
+		result->height   =  (((unsigned int)dim[ 7]) << 8) + ((unsigned int) dim[ 6]);
+		result->bits     =  ((unsigned int)dim[11]);
+	} else if (size > 12 && (size <= 64 || size == 108)) {
+		result = (struct gfxinfo *) ecalloc (1, sizeof(struct gfxinfo));
+		result->width    =  (((unsigned int)dim[ 7]) << 24) + (((unsigned int)dim[ 6]) << 16) + (((unsigned int)dim[ 5]) << 8) + ((unsigned int) dim[ 4]);
+		result->height   =  (((unsigned int)dim[11]) << 24) + (((unsigned int)dim[10]) << 16) + (((unsigned int)dim[ 9]) << 8) + ((unsigned int) dim[ 8]);
+		result->bits     =  (((unsigned int)dim[15]) <<  8) +  ((unsigned int)dim[14]);
+	} else {
+		return NULL;
+	}
 
 	return result;
 }
@@ -929,6 +940,11 @@ static int php_get_wbmp(php_stream *stream, struct gfxinfo **result, int check T
 		}
 		height = (height << 7) | (i & 0x7f);
 	} while (i & 0x80);
+
+	/* maximum valid sizes for wbmp (although 127x127 may be a more accurate one) */
+	if (!height || !width || height > 2048 || width > 2048) {
+		return 0;
+	}
 	
 	if (!check) {
 		(*result)->width = width;
@@ -1026,7 +1042,7 @@ static struct gfxinfo *php_handle_xbm(php_stream * stream TSRMLS_DC)
 
 /* {{{ php_image_type_to_mime_type
  * Convert internal image_type to mime type */
-PHPAPI const char * php_image_type_to_mime_type(int image_type)
+PHPAPI char * php_image_type_to_mime_type(int image_type)
 {
 	switch( image_type) {
 		case IMAGE_FILETYPE_GIF:
@@ -1190,7 +1206,7 @@ PHP_FUNCTION(getimagesize)
 		WRONG_PARAM_COUNT;
 	}
 
-	stream = php_stream_open_wrapper(Z_STRVAL_PP(arg1), "rb", REPORT_ERRORS|IGNORE_PATH|ENFORCE_SAFE_MODE, NULL);
+	stream = php_stream_open_wrapper(Z_STRVAL_PP(arg1), "rb", STREAM_MUST_SEEK|REPORT_ERRORS|IGNORE_PATH|ENFORCE_SAFE_MODE, NULL);
 
 	if (!stream) {
 		RETURN_FALSE;

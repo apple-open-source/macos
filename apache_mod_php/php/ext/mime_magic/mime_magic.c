@@ -15,7 +15,7 @@
   | Author: Hartmut Holzgraefe  <hholzgra@php.net>                       |
   +----------------------------------------------------------------------+
 
-  $Id: mime_magic.c,v 1.1.1.2 2003/07/18 18:07:37 zarzycki Exp $ 
+  $Id: mime_magic.c,v 1.13.2.12 2004/01/15 06:09:43 sniper Exp $ 
 
   This module contains a lot of stuff taken from Apache mod_mime_magic,
   so the license section is a little bit longer than usual:
@@ -156,6 +156,7 @@
 #include "php_ini.h"
 #include "ext/standard/info.h"
 #include "php_mime_magic.h"
+#include "phpmimemagic.h"
 
 #include <fcntl.h>
 #include <sys/types.h>
@@ -925,7 +926,7 @@ static char *rsl_strdup(int start_frag, int start_pos, int len)
     req_dat =  MIME_MAGIC_G(req_dat);
 
     /* allocate the result string */
-    result = (char *) emalloc(len + 1);
+    result = (char *) emalloc(len + 2);
 
     /* loop through and collect the string */
     res_pos = 0;
@@ -1848,9 +1849,8 @@ static int magic_rsl_get(char **content_type, char **content_encoding)
     }
 
     /* detect memory allocation errors */
-    if (!content_type ||
-		(state == rsl_encoding && !*content_encoding)) {
-		return MIME_MAGIC_ERROR;
+    if (!content_type || !(*content_type) || (state == rsl_encoding && !*content_encoding)) {
+	return MIME_MAGIC_ERROR;
     }
 
     /* success! */

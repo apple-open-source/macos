@@ -83,6 +83,7 @@
 #define ARG_RING            "ring"
 #define ARG_AUTORESTART     "autorestart"
 #define ARG_WAKEONACCHANGE  "acwake"
+#define ARG_MOTIONSENSOR    "ams"
 
 // UPS options
 #define ARG_HALTLEVEL       "haltlevel"
@@ -113,7 +114,7 @@
 #define weekday_mask            (kIOPMMonday|kIOPMTuesday|kIOPMWednesday|kIOPMThursday|kIOPMFriday)
 #define weekend_mask            (kIOPMSaturday|kIOPMSunday)
 
-#define kNUM_PM_FEATURES    11
+#define kNUM_PM_FEATURES    12
 /* list of all features */
 char    *all_features[kNUM_PM_FEATURES] =
 { 
@@ -127,7 +128,8 @@ char    *all_features[kNUM_PM_FEATURES] =
     kIOPMWakeOnACChangeKey,
     kIOPMRestartOnPowerLossKey,
     kIOPMSleepOnPowerButtonKey,
-    kIOPMWakeOnClamshellKey
+    kIOPMWakeOnClamshellKey,
+    kIOPMMobileMotionModuleKey
 };
 
 enum ArgumentType {
@@ -188,7 +190,7 @@ static void usage(void)
     printf("           -a (default) adjust settings for both\n");
     printf("           <action> is one of: dim, sleep, spindown (with a minutes argument)\n");
     printf("               or: reduce, dps, womp, ring, autorestart, powerbutton,\n");
-    printf("                    lidwake, acwake (with a 1 or 0 argument)\n");
+    printf("                    lidwake, acwake, ams (with a 1 or 0 argument)\n");
     printf("               or for UPS only: haltlevel (with a percentage argument)\n");
     printf("                    haltafter, haltremain (with a minutes argument)\n");
     printf("           eg. pmset -c dim 5 sleep 15 spindown 10 autorestart 1 womp 1\n");
@@ -301,6 +303,8 @@ static void show_pm_settings_dict(CFDictionaryRef d, int indent)
                 printf(" lidwake\t");
         else if (strcmp(ps, kIOPMWakeOnACChangeKey) == 0)
                 printf(" acwake\t\t");
+        else if (strcmp(ps, kIOPMMobileMotionModuleKey) == 0)
+                printf(" ams\t\t");
         else
                 printf("Error.  Unknown setting.\t");
   
@@ -349,6 +353,8 @@ static void show_supported_pm_features(char *power_source)
             printf(" lidwake\n");
           else if (strcmp(all_features[i], kIOPMWakeOnACChangeKey) == 0)
             printf(" acwake\n");
+          else if (strcmp(all_features[i], kIOPMMobileMotionModuleKey) == 0)
+            printf(" ams\n");
           else
             printf("Error.  Unknown capability string.\n");
         }
@@ -974,6 +980,11 @@ static int parseArgs(int argc,
             } else if(0 == strcmp(argv[i], ARG_WAKEONACCHANGE))
             {
                 if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMWakeOnACChangeKey), apply, 1, ac, battery, ups))
+                    return kParseBadArgs;
+                i+=2;
+            } else if(0 == strcmp(argv[i], ARG_MOTIONSENSOR))
+            {
+                if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMMobileMotionModuleKey), apply, 1, ac, battery, ups))
                     return kParseBadArgs;
                 i+=2;
             } else if(0 == strcmp(argv[i], ARG_POWERBUTTON))

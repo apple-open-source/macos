@@ -777,35 +777,6 @@ PPCI2CInterface::start(IOService *provider)
     }
     IORecursiveLockLock(mutexLock);  //Keep clients from accessing until start is complete
 
-    // publish children for Uni-N, SMU/SPU, and K2's i2c bus only, KeyLargo will handle the others (PMU and Mac-IO).
-    if ( (i2cUniN == TRUE) || (i2cK2 == TRUE) || (i2cSMU == TRUE) )
-      {    
-        if( (iterator = provider->getChildIterator(gIODTPlane)) )
-        {
-            while( (registryEntry = (IORegistryEntry *)iterator->getNextObject()) != 0)
-            {
-                if ((nub = new PPCI2CInterface) !=0)
-				{
-					if(!nub->init(registryEntry, gIODTPlane) )   //nub is IOService ptr
-						{
-							nub->free();
-							nub = 0;
-						}
-					else
-						{
-							nub->attach(this);
-							nub->registerService();                                
-						}
-				}
-            }    
-            iterator->release();
-        }
-    }
-    else if (provider->getProperty("preserveIODeviceTree") != 0)
-		provider->callPlatformFunction("mac-io-publishChildren",0,(void*)this,
-                                                        (void*)0,(void*)0,(void*)0);
-
-
 #ifdef DEBUGMODE
     IOLog("PPCI2CInterface::start(%s)\n", provider->getName());
 #endif
@@ -883,12 +854,39 @@ PPCI2CInterface::start(IOService *provider)
 	// worst case timeout (to be optimized in setPollingMode)
 	waitTime = 15000;   
 
+	// Makes sure that other drivers can use it:
+	publishResource(getResourceName(), this );
 
-    // Makes sure that other drivers can use it:
-    publishResource(getResourceName(), this );
-    IORecursiveLockUnlock(mutexLock);
+	// publish children for Uni-N, SMU/SPU, and K2's i2c bus only, KeyLargo will handle the others (PMU and Mac-IO).
+	if ( (i2cUniN == TRUE) || (i2cK2 == TRUE) || (i2cSMU == TRUE) )
+	{    
+		if( (iterator = provider->getChildIterator(gIODTPlane)) )
+		{
+			while( (registryEntry = (IORegistryEntry *)iterator->getNextObject()) != 0)
+			{
+				if ((nub = new PPCI2CInterface) !=0)
+				{
+					if(!nub->init(registryEntry, gIODTPlane) )   //nub is IOService ptr
+					{
+						nub->free();
+						nub = 0;
+					}
+					else
+					{
+						nub->attach(this);
+						nub->registerService();                                
+					}
+				}
+			}    
+			iterator->release();
+		}
+	}
+	else if (provider->getProperty("preserveIODeviceTree") != 0)
+		provider->callPlatformFunction("mac-io-publishChildren",0,(void*)this, (void*)0,(void*)0,(void*)0);
 
-    return true;
+	IORecursiveLockUnlock(mutexLock);
+
+	return true;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////

@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: php_pgsql.h,v 1.1.1.8 2003/07/18 18:07:40 zarzycki Exp $ */
+/* $Id: php_pgsql.h,v 1.56.2.3 2003/05/31 12:59:19 helly Exp $ */
 
 #ifndef PHP_PGSQL_H
 #define PHP_PGSQL_H
@@ -236,24 +236,23 @@ typedef struct _php_pgsql_notice {
 	size_t len;
 } php_pgsql_notice;
 
-typedef struct {
+ZEND_BEGIN_MODULE_GLOBALS(pgsql)
 	long default_link; /* default link when connection is omitted */
 	long num_links,num_persistent;
 	long max_links,max_persistent;
 	long allow_persistent;
 	long auto_reset_persistent;
 	int le_lofp,le_string;
-	int ignore_notices,log_notices;
+	long ignore_notices,log_notices;
 	HashTable notices;  /* notice message for each connection */
-} php_pgsql_globals;
+ZEND_END_MODULE_GLOBALS(pgsql)
 
+ZEND_EXTERN_MODULE_GLOBALS(pgsql)
 
 #ifdef ZTS
-# define PGG(v) TSRMG(pgsql_globals_id, php_pgsql_globals *, v)
-extern int pgsql_globals_id;
+# define PGG(v) TSRMG(pgsql_globals_id, zend_pgsql_globals *, v)
 #else
 # define PGG(v) (pgsql_globals.v)
-extern php_pgsql_globals pgsql_globals;
 #endif
 
 #endif

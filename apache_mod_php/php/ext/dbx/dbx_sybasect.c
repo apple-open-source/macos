@@ -20,7 +20,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: dbx_sybasect.c,v 1.1.1.3 2003/07/18 18:07:31 zarzycki Exp $ */
+/* $Id: dbx_sybasect.c,v 1.6.2.1 2002/12/31 16:34:24 sebastian Exp $ */
 
 #include "dbx.h"
 #include "dbx_sybasect.h"

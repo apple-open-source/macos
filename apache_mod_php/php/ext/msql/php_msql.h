@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_msql.h,v 1.1.1.5 2003/07/18 18:07:37 zarzycki Exp $ */
+/* $Id: php_msql.h,v 1.9.8.1 2002/12/31 16:34:57 sebastian Exp $ */
 
 #ifndef PHP_MSQL_H
 #define PHP_MSQL_H

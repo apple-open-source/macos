@@ -5,10 +5,10 @@
 // +----------------------------------------------------------------------+
 // | Copyright (c) 1997-2003 The PHP Group                                |
 // +----------------------------------------------------------------------+
-// | This source file is subject to version 2.02 of the PHP license,      |
+// | This source file is subject to version 3.0 of the PHP license,       |
 // | that is bundled with this package in the file LICENSE, and is        |
-// | available at through the world-wide-web at                           |
-// | http://www.php.net/license/2_02.txt.                                 |
+// | available through the world-wide-web at the following url:           |
+// | http://www.php.net/license/3_0.txt.                                  |
 // | If you did not receive a copy of the PHP license and are unable to   |
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
@@ -17,7 +17,7 @@
 // |          Tomas V.V.Cox <cox@idecnet.com>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: Common.php,v 1.1.1.5 2003/07/18 18:07:49 zarzycki Exp $
+// $Id: Common.php,v 1.81.2.18 2004/06/12 06:16:17 cellog Exp $
 
 require_once 'PEAR.php';
 require_once 'Archive/Tar.php';
@@ -26,7 +26,19 @@ require_once 'PEAR/Config.php';
 
 // {{{ constants and globals
 
-define('PEAR_COMMON_PACKAGE_NAME_PREG', '/^([A-Z][a-zA-Z0-9_]+|[a-z][a-z0-9_]+)$/');
+/**
+ * PEAR_Common error when an invalid PHP file is passed to PEAR_Common::analyzeSourceCode()
+ */
+define('PEAR_COMMON_ERROR_INVALIDPHP', 1);
+define('_PEAR_COMMON_PACKAGE_NAME_PREG', '[A-Za-z][a-zA-Z0-9_]+');
+define('PEAR_COMMON_PACKAGE_NAME_PREG', '/^' . _PEAR_COMMON_PACKAGE_NAME_PREG . '$/');
+
+// this should allow: 1, 1.0, 1.0RC1, 1.0dev, 1.0dev123234234234, 1.0a1, 1.0b1, 1.0pl1
+define('_PEAR_COMMON_PACKAGE_VERSION_PREG', '\d+(?:\.\d+)*(?:[a-z]+\d*)?');
+define('PEAR_COMMON_PACKAGE_VERSION_PREG', '/^' . _PEAR_COMMON_PACKAGE_VERSION_PREG . '$/i');
+
+// XXX far from perfect :-)
+define('PEAR_COMMON_PACKAGE_DOWNLOAD_PREG', '/^(' . _PEAR_COMMON_PACKAGE_NAME_PREG . ')(-([.0-9a-zA-Z]+))?$/');
 
 /**
  * List of temporary files and directories registered by
@@ -57,7 +69,7 @@ $GLOBALS['_PEAR_Common_dependency_types'] = array('pkg','ext','php','prog','ldli
  * Valid dependency relations
  * @var array
  */
-$GLOBALS['_PEAR_Common_dependency_relations'] = array('has','eq','lt','le','gt','ge');
+$GLOBALS['_PEAR_Common_dependency_relations'] = array('has','eq','lt','le','gt','ge','not');
 
 /**
  * Valid file roles
@@ -124,6 +136,18 @@ class PEAR_Common extends PEAR
      * @var object
      */
     var $source_analyzer = null;
+    /**
+     * Flag variable used to mark a valid package file
+     * @var boolean
+     * @access private
+     */
+    var $_validPackageFile;
+    /**
+     * Temporary variable used in sorting packages by dependency in {@link sortPkgDeps()}
+     * @var array
+     * @access private
+     */
+    var $_packageSortTree;
 
     // }}}
 
@@ -156,7 +180,7 @@ class PEAR_Common extends PEAR
         $tempfiles =& $GLOBALS['_PEAR_Common_tempfiles'];
         while ($file = array_shift($tempfiles)) {
             if (@is_dir($file)) {
-                System::rm("-rf $file");
+                System::rm(array('-rf', $file));
             } elseif (file_exists($file)) {
                 unlink($file);
             }
@@ -198,7 +222,7 @@ class PEAR_Common extends PEAR
     function mkDirHier($dir)
     {
         $this->log(2, "+ create dir $dir");
-        return System::mkDir("-p $dir");
+        return System::mkDir(array('-p', $dir));
     }
 
     // }}}
@@ -214,11 +238,11 @@ class PEAR_Common extends PEAR
      *
      * @access public
      */
-    function log($level, $msg)
+    function log($level, $msg, $append_crlf = true)
     {
         if ($this->debug >= $level) {
             if (is_object($this->ui)) {
-                $this->ui->log($msg);
+                $this->ui->log($msg, $append_crlf);
             } else {
                 print "$msg\n";
             }
@@ -242,11 +266,12 @@ class PEAR_Common extends PEAR
     function mkTempDir($tmpdir = '')
     {
         if ($tmpdir) {
-            $topt = "-t $tmpdir ";
+            $topt = array('-t', $tmpdir);
         } else {
-            $topt = '';
+            $topt = array();
         }
-        if (!$tmpdir = System::mktemp($topt . '-d pear')) {
+        $topt = array_merge($topt, array('-d', 'pear'));
+        if (!$tmpdir = System::mktemp($topt)) {
             return false;
         }
         $this->addTempFile($tmpdir);
@@ -320,6 +345,7 @@ class PEAR_Common extends PEAR
         $this->current_attributes = $attribs;
         switch ($name) {
             case 'package': {
+                $this->_validPackageFile = true;
                 if (isset($attribs['version'])) {
                     $vs = preg_replace('/[^0-9a-z]/', '_', $attribs['version']);
                 } else {
@@ -328,6 +354,12 @@ class PEAR_Common extends PEAR
                 $elem_start = '_element_start_'. $vs;
                 $elem_end = '_element_end_'. $vs;
                 $cdata = '_pkginfo_cdata_'. $vs;
+                if (!method_exists($this, $elem_start) ||
+                      !method_exists($this, $elem_end) ||
+                      !method_exists($this, $cdata)) {
+                    $this->raiseError("No handlers for package.xml version $attribs[version]");
+                    return;
+                }
                 xml_set_element_handler($xp, $elem_start, $elem_end);
                 xml_set_character_data_handler($xp, $cdata);
                 break;
@@ -567,7 +599,11 @@ class PEAR_Common extends PEAR
                 }
                 break;
             case 'license':
-                $this->pkginfo['release_license'] = $data;
+                if ($this->in_changelog) {
+                    $this->current_release['release_license'] = $data;
+                } else {
+                    $this->pkginfo['release_license'] = $data;
+                }
                 break;
             case 'dep':
                 if ($data && !$this->in_changelog) {
@@ -619,9 +655,6 @@ class PEAR_Common extends PEAR
             case 'changelog':
                 $this->in_changelog = false;
                 break;
-            case 'summary':
-                $this->pkginfo['summary'] = $data;
-                break;
         }
         array_pop($this->element_stack);
         $spos = sizeof($this->element_stack) - 1;
@@ -671,9 +704,17 @@ class PEAR_Common extends PEAR
             return $this->raiseError("could not open file \"$file\"");
         }
         $tar = new Archive_Tar($file);
+        if ($this->debug <= 1) {
+            $tar->pushErrorHandling(PEAR_ERROR_RETURN);
+        }
         $content = $tar->listContent();
+        if ($this->debug <= 1) {
+            $tar->popErrorHandling();
+        }
         if (!is_array($content)) {
-            return $this->raiseError("could not get contents of package \"$file\"");
+            $file = realpath($file);
+            return $this->raiseError("Could not get contents of package \"$file\"".
+                                     '. Invalid tgz file.');
         }
         $xml = null;
         foreach ($content as $file) {
@@ -686,9 +727,9 @@ class PEAR_Common extends PEAR
                 break;
             }
         }
-        $tmpdir = System::mkTemp('-d pear');
+        $tmpdir = System::mkTemp(array('-d', 'pear'));
         $this->addTempFile($tmpdir);
-        if (!$xml || !$tar->extractList($xml, $tmpdir)) {
+        if (!$xml || !$tar->extractList(array($xml), $tmpdir)) {
             return $this->raiseError('could not extract the package.xml file');
         }
         return $this->infoFromDescriptionFile("$tmpdir/$xml");
@@ -760,6 +801,7 @@ class PEAR_Common extends PEAR
         $this->in_changelog = false;
         $this->d_i = 0;
         $this->cdata = '';
+        $this->_validPackageFile = false;
 
         if (!xml_parse($xp, $data, 1)) {
             $code = xml_get_error_code($xp);
@@ -772,6 +814,9 @@ class PEAR_Common extends PEAR
 
         xml_parser_free($xp);
 
+        if (!$this->_validPackageFile) {
+            return $this->raiseError('Invalid Package File, no <package> tag');
+        }
         foreach ($this->pkginfo as $k => $v) {
             if (!is_array($v)) {
                 $this->pkginfo[$k] = trim($v);
@@ -839,7 +884,7 @@ class PEAR_Common extends PEAR
             "role" => "role",
             );
         $ret = "<?xml version=\"1.0\" encoding=\"ISO-8859-1\" ?>\n";
-        //$ret .= "<!DOCTYPE package SYSTEM \"http://pear.php.net/package10.dtd\">\n";
+        $ret .= "<!DOCTYPE package SYSTEM \"http://pear.php.net/dtd/package-1.0\">\n";
         $ret .= "<package version=\"1.0\">
   <name>$pkginfo[package]</name>
   <summary>".htmlspecialchars($pkginfo['summary'])."</summary>
@@ -911,6 +956,9 @@ class PEAR_Common extends PEAR
                 if (isset($dep['version'])) {
                     $ret .= " version=\"$dep[version]\"";
                 }
+                if (isset($dep['optional'])) {
+                    $ret .= " optional=\"$dep[optional]\"";
+                }
                 if (isset($dep['name'])) {
                     $ret .= ">$dep[name]</dep>\n";
                 } else {
@@ -935,7 +983,11 @@ class PEAR_Common extends PEAR
         if (isset($pkginfo['provides'])) {
             foreach ($pkginfo['provides'] as $key => $what) {
                 $ret .= "$indent    <provides type=\"$what[type]\" ";
-                $ret .= "name=\"$what[name]\" />\n";
+                $ret .= "name=\"$what[name]\" ";
+                if (isset($what['extends'])) {
+                    $ret .= "extends=\"$what[extends]\" ";
+                }
+                $ret .= "/>\n";
             }
         }
         if (isset($pkginfo['filelist'])) {
@@ -994,23 +1046,22 @@ class PEAR_Common extends PEAR
      */
     function validatePackageInfo($info, &$errors, &$warnings, $dir_prefix = '')
     {
-        global $_PEAR_Common_maintainer_roles,
-               $_PEAR_Common_release_states,
-               $_PEAR_Common_dependency_types,
-               $_PEAR_Common_dependency_relations,
-               $_PEAR_Common_file_roles,
-               $_PEAR_Common_replacement_types;
         if (PEAR::isError($info = $this->infoFromAny($info))) {
             return $this->raiseError($info);
         }
         if (!is_array($info)) {
             return false;
         }
+
         $errors = array();
         $warnings = array();
-        if (empty($info['package'])) {
+        if (!isset($info['package'])) {
             $errors[] = 'missing package name';
+        } elseif (!$this->validPackageName($info['package'])) {
+            $errors[] = 'invalid package name';
         }
+        $this->_packageName = $pn = $info['package'];
+
         if (empty($info['summary'])) {
             $errors[] = 'missing summary';
         } elseif (strpos(trim($info['summary']), "\n") !== false) {
@@ -1022,13 +1073,16 @@ class PEAR_Common extends PEAR
         if (empty($info['release_license'])) {
             $errors[] = 'missing license';
         }
-        if (empty($info['version'])) {
+        if (!isset($info['version'])) {
             $errors[] = 'missing version';
+        } elseif (!$this->validPackageVersion($info['version'])) {
+            $errors[] = 'invalid package release version';
         }
         if (empty($info['release_state'])) {
             $errors[] = 'missing release state';
-        } elseif (!in_array($info['release_state'], $_PEAR_Common_release_states)) {
-            $errors[] = "invalid release state `$info[release_state]', should be one of: ".implode(' ', $_PEAR_Common_release_states);
+        } elseif (!in_array($info['release_state'], PEAR_Common::getReleaseStates())) {
+            $errors[] = "invalid release state `$info[release_state]', should be one of: "
+                . implode(' ', PEAR_Common::getReleaseStates());
         }
         if (empty($info['release_date'])) {
             $errors[] = 'missing release date';
@@ -1048,8 +1102,9 @@ class PEAR_Common extends PEAR
                 }
                 if (empty($m['role'])) {
                     $errors[] = "maintainer $i: missing role";
-                } elseif (!in_array($m['role'], $_PEAR_Common_maintainer_roles)) {
-                    $errors[] = "maintainer $i: invalid role `$m[role]', should be one of: ".implode(' ', $_PEAR_Common_maintainer_roles);
+                } elseif (!in_array($m['role'], PEAR_Common::getUserRoles())) {
+                    $errors[] = "maintainer $i: invalid role `$m[role]', should be one of: "
+                        . implode(' ', PEAR_Common::getUserRoles());
                 }
                 if (empty($m['name'])) {
                     $errors[] = "maintainer $i: missing name";
@@ -1060,18 +1115,25 @@ class PEAR_Common extends PEAR
                 $i++;
             }
         }
-        if (!empty($info['deps'])) {
+        if (!empty($info['release_deps'])) {
             $i = 1;
-            foreach ($info['deps'] as $d) {
+            foreach ($info['release_deps'] as $d) {
                 if (empty($d['type'])) {
-                    $errors[] = "depenency $i: missing type";
-                } elseif (!in_array($d['type'], $_PEAR_Common_dependency_types)) {
-                    $errors[] = "dependency $i: invalid type, should be one of: ".implode(' ', $_PEAR_Common_depenency_types);
+                    $errors[] = "dependency $i: missing type";
+                } elseif (!in_array($d['type'], PEAR_Common::getDependencyTypes())) {
+                    $errors[] = "dependency $i: invalid type '$d[type]', should be one of: " .
+                        implode(' ', PEAR_Common::getDependencyTypes());
                 }
                 if (empty($d['rel'])) {
                     $errors[] = "dependency $i: missing relation";
-                } elseif (!in_array($d['rel'], $_PEAR_Common_dependency_relations)) {
-                    $errors[] = "dependency $i: invalid relation, should be one of: ".implode(' ', $_PEAR_Common_dependency_relations);
+                } elseif (!in_array($d['rel'], PEAR_Common::getDependencyRelations())) {
+                    $errors[] = "dependency $i: invalid relation '$d[rel]', should be one of: "
+                        . implode(' ', PEAR_Common::getDependencyRelations());
+                }
+                if (!empty($d['optional'])) {
+                    if (!in_array($d['optional'], array('yes', 'no'))) {
+                        $errors[] = "dependency $i: invalid relation optional attribute '$d[optional]', should be one of: yes no";
+                    }
                 }
                 if ($d['rel'] != 'has' && empty($d['version'])) {
                     $warnings[] = "dependency $i: missing version";
@@ -1095,6 +1157,7 @@ class PEAR_Common extends PEAR
                 if (empty($c['prompt'])) {
                     $errors[] = "configure option $i: missing prompt";
                 }
+                $i++;
             }
         }
         if (empty($info['filelist'])) {
@@ -1104,8 +1167,9 @@ class PEAR_Common extends PEAR
                 if (empty($fa['role'])) {
                     $errors[] = "file $file: missing role";
                     continue;
-                } elseif (!in_array($fa['role'], $_PEAR_Common_file_roles)) {
-                    $errors[] = "file $file: invalid role, should be one of: ".implode(' ', $_PEAR_Common_file_roles);
+                } elseif (!in_array($fa['role'], PEAR_Common::getFileRoles())) {
+                    $errors[] = "file $file: invalid role, should be one of: "
+                        . implode(' ', PEAR_Common::getFileRoles());
                 }
                 if ($fa['role'] == 'php' && $dir_prefix) {
                     $this->log(1, "Analyzing $file");
@@ -1114,12 +1178,13 @@ class PEAR_Common extends PEAR
                         $this->buildProvidesArray($srcinfo);
                     }
                 }
+
                 // (ssb) Any checks we can do for baseinstalldir?
                 // (cox) Perhaps checks that either the target dir and
                 //       baseInstall doesn't cointain "../../"
             }
         }
-        $pn = $info['package'];
+        $this->_packageName = $pn = $info['package'];
         $pnl = strlen($pn);
         foreach ((array)$this->pkginfo['provides'] as $key => $what) {
             if (isset($what['explicit'])) {
@@ -1139,8 +1204,9 @@ class PEAR_Common extends PEAR
                 }
                 $warnings[] = "in $file: function \"$name\" not prefixed with package name \"$pn\"";
             }
-            //print "$file: provides $what[type] $what[name]\n";
         }
+
+
         return true;
     }
 
@@ -1151,7 +1217,7 @@ class PEAR_Common extends PEAR
      * Build a "provides" array from data returned by
      * analyzeSourceCode().  The format of the built array is like
      * this:
-     * 
+     *
      *  array(
      *    'class;MyClass' => 'array('type' => 'class', 'name' => 'MyClass'),
      *    ...
@@ -1164,17 +1230,27 @@ class PEAR_Common extends PEAR
      * @return void
      *
      * @access public
-     * 
+     *
      */
     function buildProvidesArray($srcinfo)
     {
+        $file = basename($srcinfo['source_file']);
+        $pn = '';
+        if (isset($this->_packageName)) {
+            $pn = $this->_packageName;
+        }
+        $pnl = strlen($pn);
         foreach ($srcinfo['declared_classes'] as $class) {
             $key = "class;$class";
             if (isset($this->pkginfo['provides'][$key])) {
                 continue;
             }
             $this->pkginfo['provides'][$key] =
-                array('type' => 'class', 'name' => $class);
+                array('file'=> $file, 'type' => 'class', 'name' => $class);
+            if (isset($srcinfo['inheritance'][$class])) {
+                $this->pkginfo['provides'][$key]['extends'] =
+                    $srcinfo['inheritance'][$class];
+            }
         }
         foreach ($srcinfo['declared_methods'] as $class => $methods) {
             foreach ($methods as $method) {
@@ -1185,16 +1261,20 @@ class PEAR_Common extends PEAR
                     continue;
                 }
                 $this->pkginfo['provides'][$key] =
-                    array('type' => 'function', 'name' => $function);
+                    array('file'=> $file, 'type' => 'function', 'name' => $function);
             }
         }
+
         foreach ($srcinfo['declared_functions'] as $function) {
             $key = "function;$function";
             if ($function{0} == '_' || isset($this->pkginfo['provides'][$key])) {
                 continue;
             }
+            if (!strstr($function, '::') && strncasecmp($function, $pn, $pnl)) {
+                $warnings[] = "in1 " . $file . ": function \"$function\" not prefixed with package name \"$pn\"";
+            }
             $this->pkginfo['provides'][$key] =
-                array('type' => 'function', 'name' => $function);
+                array('file'=> $file, 'type' => 'function', 'name' => $function);
         }
     }
 
@@ -1243,7 +1323,9 @@ class PEAR_Common extends PEAR
         $declared_methods = array();
         $used_classes = array();
         $used_functions = array();
+        $extends = array();
         $nodeps = array();
+        $inquote = false;
         for ($i = 0; $i < sizeof($tokens); $i++) {
             if (is_array($tokens[$i])) {
                 list($token, $data) = $tokens[$i];
@@ -1251,7 +1333,17 @@ class PEAR_Common extends PEAR
                 $token = $tokens[$i];
                 $data = '';
             }
+            if ($inquote) {
+                if ($token != '"') {
+                    continue;
+                } else {
+                    $inquote = false;
+                }
+            }
             switch ($token) {
+                case '"':
+                    $inquote = true;
+                    break;
                 case T_CURLY_OPEN:
                 case T_DOLLAR_OPEN_CURLY_BRACES:
                 case '{': $brace_level++; continue 2;
@@ -1271,8 +1363,14 @@ class PEAR_Common extends PEAR
                 case '(': $paren_level++;   continue 2;
                 case ')': $paren_level--;   continue 2;
                 case T_CLASS:
+                    if (($current_class_level != -1) || ($current_function_level != -1)) {
+                        PEAR::raiseError("Parser error: Invalid PHP file $file",
+                            PEAR_COMMON_ERROR_INVALIDPHP);
+                        return false;
+                    }
                 case T_FUNCTION:
                 case T_NEW:
+                case T_EXTENDS:
                     $look_for = $token;
                     continue 2;
                 case T_STRING:
@@ -1280,6 +1378,8 @@ class PEAR_Common extends PEAR
                         $current_class = $data;
                         $current_class_level = $brace_level;
                         $declared_classes[] = $current_class;
+                    } elseif ($look_for == T_EXTENDS) {
+                        $extends[$current_class] = $data;
                     } elseif ($look_for == T_FUNCTION) {
                         if ($current_class) {
                             $current_function = "$current_class::$data";
@@ -1307,6 +1407,11 @@ class PEAR_Common extends PEAR
                     }
                     continue 2;
                 case T_DOUBLE_COLON:
+                    if (!($tokens[$i - 1][0] == T_WHITESPACE || $tokens[$i - 1][0] == T_STRING)) {
+                        PEAR::raiseError("Parser error: Invalid PHP file $file",
+                            PEAR_COMMON_ERROR_INVALIDPHP);
+                        return false;
+                    }
                     $class = $tokens[$i - 1][1];
                     if (strtolower($class) != 'parent') {
                         $used_classes[$class] = true;
@@ -1315,11 +1420,37 @@ class PEAR_Common extends PEAR
             }
         }
         return array(
+            "source_file" => $file,
             "declared_classes" => $declared_classes,
             "declared_methods" => $declared_methods,
             "declared_functions" => $declared_functions,
             "used_classes" => array_diff(array_keys($used_classes), $nodeps),
+            "inheritance" => $extends,
             );
+    }
+
+    // }}}
+    // {{{  betterStates()
+
+    /**
+     * Return an array containing all of the states that are more stable than
+     * or equal to the passed in state
+     *
+     * @param string Release state
+     * @param boolean Determines whether to include $state in the list
+     * @return false|array False if $state is not a valid release state
+     */
+    function betterStates($state, $include = false)
+    {
+        static $states = array('snapshot', 'devel', 'alpha', 'beta', 'stable');
+        $i = array_search($state, $states);
+        if ($i === false) {
+            return false;
+        }
+        if ($include) {
+            $i--;
+        }
+        return array_slice($states, $i + 1);
     }
 
     // }}}
@@ -1344,6 +1475,7 @@ class PEAR_Common extends PEAR
             $decl_c = @array_merge($decl_c, $tmp['declared_classes']);
             $decl_f = @array_merge($decl_f, $tmp['declared_functions']);
             $decl_m = @array_merge($decl_m, $tmp['declared_methods']);
+            $inheri = @array_merge($inheri, $tmp['inheritance']);
         }
         $used_c = array_unique($used_c);
         $decl_c = array_unique($decl_c);
@@ -1353,6 +1485,7 @@ class PEAR_Common extends PEAR
                      'declared_methods' => $decl_m,
                      'declared_functions' => $decl_f,
                      'undeclared_classes' => $undecl_c,
+                     'inheritance' => $inheri,
                      );
     }
 
@@ -1487,6 +1620,24 @@ class PEAR_Common extends PEAR
 
 
     // }}}
+    // {{{ validPackageVersion()
+
+    /**
+     * Test whether a string contains a valid package version.
+     *
+     * @param string $ver the package version to test
+     *
+     * @return bool
+     *
+     * @access public
+     */
+    function validPackageVersion($ver)
+    {
+        return (bool)preg_match(PEAR_COMMON_PACKAGE_VERSION_PREG, $ver);
+    }
+
+
+    // }}}
 
     // {{{ downloadHttp()
 
@@ -1582,7 +1733,7 @@ class PEAR_Common extends PEAR
                                                                   $errno, $errstr));
                 }
                 return PEAR::raiseError("Connection to `$host:$port' failed: $errstr", $errno);
-            }            
+            }
             $request = "GET $path HTTP/1.0\r\n";
         }
         $request .= "Host: $host:$port\r\n".
@@ -1630,7 +1781,7 @@ class PEAR_Common extends PEAR
         }
         $bytes = 0;
         if ($callback) {
-            call_user_func($callback, 'start', $length);
+            call_user_func($callback, 'start', array(basename($dest_file), $length));
         }
         while ($data = @fread($fp, 1024)) {
             $bytes += strlen($data);
@@ -1651,6 +1802,236 @@ class PEAR_Common extends PEAR
             call_user_func($callback, 'done', $bytes);
         }
         return $dest_file;
+    }
+
+    // }}}
+    // {{{ sortPkgDeps()
+
+    /**
+     * Sort a list of arrays of array(downloaded packagefilename) by dependency.
+     *
+     * It also removes duplicate dependencies
+     * @param array
+     * @param boolean Sort packages in reverse order if true
+     * @return array array of array(packagefilename, package.xml contents)
+     */
+    function sortPkgDeps(&$packages, $uninstall = false)
+    {
+        $ret = array();
+        if ($uninstall) {
+            foreach($packages as $packageinfo) {
+                $ret[] = array('info' => $packageinfo);
+            }
+        } else {
+            foreach($packages as $packagefile) {
+                if (!is_array($packagefile)) {
+                    $ret[] = array('file' => $packagefile,
+                                   'info' => $a = $this->infoFromAny($packagefile),
+                                   'pkg' => $a['package']);
+                } else {
+                    $ret[] = $packagefile;
+                }
+            }
+        }
+        $checkdupes = array();
+        $newret = array();
+        foreach($ret as $i => $p) {
+            if (!isset($checkdupes[$p['info']['package']])) {
+                $checkdupes[$p['info']['package']][] = $i;
+                $newret[] = $p;
+            }
+        }
+        $this->_packageSortTree = $this->_getPkgDepTree($newret);
+
+        $func = $uninstall ? '_sortPkgDepsRev' : '_sortPkgDeps';
+        usort($newret, array(&$this, $func));
+        $this->_packageSortTree = null;
+        $packages = $newret;
+    }
+
+    // }}}
+    // {{{ _sortPkgDeps()
+
+    /**
+     * Compare two package's package.xml, and sort
+     * so that dependencies are installed first
+     *
+     * This is a crude compare, real dependency checking is done on install.
+     * The only purpose this serves is to make the command-line
+     * order-independent (you can list a dependent package first, and
+     * installation occurs in the order required)
+     * @access private
+     */
+    function _sortPkgDeps($p1, $p2)
+    {
+        $p1name = $p1['info']['package'];
+        $p2name = $p2['info']['package'];
+        $p1deps = $this->_getPkgDeps($p1);
+        $p2deps = $this->_getPkgDeps($p2);
+        if (!count($p1deps) && !count($p2deps)) {
+            return 0; // order makes no difference
+        }
+        if (!count($p1deps)) {
+            return -1; // package 2 has dependencies, package 1 doesn't
+        }
+        if (!count($p2deps)) {
+            return 1; // package 1 has dependencies, package 2 doesn't
+        }
+        // both have dependencies
+        if (in_array($p1name, $p2deps)) {
+            return -1; // put package 1 first: package 2 depends on package 1
+        }
+        if (in_array($p2name, $p1deps)) {
+            return 1; // put package 2 first: package 1 depends on package 2
+        }
+        if ($this->_removedDependency($p1name, $p2name)) {
+            return -1; // put package 1 first: package 2 depends on packages that depend on package 1
+        }
+        if ($this->_removedDependency($p2name, $p1name)) {
+            return 1; // put package 2 first: package 1 depends on packages that depend on package 2
+        }
+        // doesn't really matter if neither depends on the other
+        return 0;
+    }
+
+    // }}}
+    // {{{ _sortPkgDepsRev()
+
+    /**
+     * Compare two package's package.xml, and sort
+     * so that dependencies are uninstalled last
+     *
+     * This is a crude compare, real dependency checking is done on uninstall.
+     * The only purpose this serves is to make the command-line
+     * order-independent (you can list a dependency first, and
+     * uninstallation occurs in the order required)
+     * @access private
+     */
+    function _sortPkgDepsRev($p1, $p2)
+    {
+        $p1name = $p1['info']['package'];
+        $p2name = $p2['info']['package'];
+        $p1deps = $this->_getRevPkgDeps($p1);
+        $p2deps = $this->_getRevPkgDeps($p2);
+        if (!count($p1deps) && !count($p2deps)) {
+            return 0; // order makes no difference
+        }
+        if (!count($p1deps)) {
+            return 1; // package 2 has dependencies, package 1 doesn't
+        }
+        if (!count($p2deps)) {
+            return -1; // package 2 has dependencies, package 1 doesn't
+        }
+        // both have dependencies
+        if (in_array($p1name, $p2deps)) {
+            return 1; // put package 1 last
+        }
+        if (in_array($p2name, $p1deps)) {
+            return -1; // put package 2 last
+        }
+        if ($this->_removedDependency($p1name, $p2name)) {
+            return 1; // put package 1 last: package 2 depends on packages that depend on package 1
+        }
+        if ($this->_removedDependency($p2name, $p1name)) {
+            return -1; // put package 2 last: package 1 depends on packages that depend on package 2
+        }
+        // doesn't really matter if neither depends on the other
+        return 0;
+    }
+
+    // }}}
+    // {{{ _getPkgDeps()
+
+    /**
+     * get an array of package dependency names
+     * @param array
+     * @return array
+     * @access private
+     */
+    function _getPkgDeps($p)
+    {
+        if (!isset($p['info']['releases'])) {
+            return $this->_getRevPkgDeps($p);
+        }
+        $rel = array_shift($p['info']['releases']);
+        if (!isset($rel['deps'])) {
+            return array();
+        }
+        $ret = array();
+        foreach($rel['deps'] as $dep) {
+            if ($dep['type'] == 'pkg') {
+                $ret[] = $dep['name'];
+            }
+        }
+        return $ret;
+    }
+
+    // }}}
+    // {{{ _getPkgDeps()
+
+    /**
+     * get an array representation of the package dependency tree
+     * @return array
+     * @access private
+     */
+    function _getPkgDepTree($packages)
+    {
+        $tree = array();
+        foreach ($packages as $p) {
+            $package = $p['info']['package'];
+            $deps = $this->_getPkgDeps($p);
+            $tree[$package] = $deps;
+        }
+        return $tree;
+    }
+
+    // }}}
+    // {{{ _removedDependency($p1, $p2)
+
+    /**
+     * get an array of package dependency names for uninstall
+     * @param string package 1 name
+     * @param string package 2 name
+     * @return bool
+     * @access private
+     */
+    function _removedDependency($p1, $p2)
+    {
+        if (empty($this->_packageSortTree[$p2])) {
+            return false;
+        }
+        if (!in_array($p1, $this->_packageSortTree[$p2])) {
+            foreach ($this->_packageSortTree[$p2] as $potential) {
+                if ($this->_removedDependency($p1, $potential)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return true;
+    }
+
+    // }}}
+    // {{{ _getRevPkgDeps()
+
+    /**
+     * get an array of package dependency names for uninstall
+     * @param array
+     * @return array
+     * @access private
+     */
+    function _getRevPkgDeps($p)
+    {
+        if (!isset($p['info']['release_deps'])) {
+            return array();
+        }
+        $ret = array();
+        foreach($p['info']['release_deps'] as $dep) {
+            if ($dep['type'] == 'pkg') {
+                $ret[] = $dep['name'];
+            }
+        }
+        return $ret;
     }
 
     // }}}

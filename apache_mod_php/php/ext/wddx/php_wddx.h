@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_wddx.h,v 1.1.1.8 2003/07/18 18:07:46 zarzycki Exp $ */
+/* $Id: php_wddx.h,v 1.13.2.1 2002/12/31 16:35:42 sebastian Exp $ */
 
 #ifndef PHP_WDDX_H
 #define PHP_WDDX_H

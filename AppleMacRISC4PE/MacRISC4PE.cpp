@@ -31,7 +31,6 @@
 
 __BEGIN_DECLS
 #include <ppc/proc_reg.h>
-#include <ppc/machine_routines.h>
 
 /* Map memory map IO space */
 #include <mach/mach_types.h>
@@ -52,6 +51,10 @@ static unsigned long macRISC4Speed[] = { 0, 1 };
 #include <pexpert/pexpert.h>
 
 extern char *gIOMacRISC4PMTree;
+
+#ifndef kIOHibernateFeatureKey
+#define kIOHibernateFeatureKey	"Hibernation"
+#endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -150,36 +153,36 @@ bool MacRISC4PE::start(IOService *provider)
 		uniNRegEntry = provider->childFromPath("u3", gIODTPlane);
 		if ((uniNRegEntry) && 
 			(tmpData = OSDynamicCast(OSData, uniNRegEntry->getProperty("device-rev")))) {
-   				uniNVersion = ((unsigned long *)tmpData->getBytesNoCopy())[0];
+    	uniNVersion = ((unsigned long *)tmpData->getBytesNoCopy())[0];
 
-			IORegistryEntry *cpuRegEntry = NULL;
-			OSData *cpu0FreqData = NULL;
-			UInt32 cpu0Freq = 0;
-			int cpuCount;
-   			const UInt32 one_eight_ghz_freq = 1800000000;
-    
-			// Count the CPUs
-			cpuRegEntry = fromPath ("/cpus/@1", gIODTPlane);
-			if (cpuRegEntry) {
-				cpuCount = 2;
-				cpuRegEntry->release();
-			} else
-				cpuCount = 1;
-				
-			cpuRegEntry = fromPath ("/cpus/@0", gIODTPlane);
-			if(cpuRegEntry) {
-				// get the cpu clock frequency
-				cpu0FreqData = OSDynamicCast (OSData, cpuRegEntry->getProperty ("clock-frequency"));
-				if(cpu0FreqData) 
-					cpu0Freq = *(UInt32 *)cpu0FreqData->getBytesNoCopy();
-				cpuRegEntry->release();
-   			}
+		IORegistryEntry *cpuRegEntry = NULL;
+		OSData *cpu0FreqData = NULL;
+		UInt32 cpu0Freq = 0;
+		int cpuCount;
+		const UInt32 one_eight_ghz_freq = 1800000000;
+
+		// Count the CPUs
+		cpuRegEntry = fromPath ("/cpus/@1", gIODTPlane);
+		if (cpuRegEntry) {
+			cpuCount = 2;
+			cpuRegEntry->release();
+		} else
+			cpuCount = 1;
+			
+		cpuRegEntry = fromPath ("/cpus/@0", gIODTPlane);
+		if(cpuRegEntry) {
+			// get the cpu clock frequency
+			cpu0FreqData = OSDynamicCast (OSData, cpuRegEntry->getProperty ("clock-frequency"));
+			if(cpu0FreqData) 
+				cpu0Freq = *(UInt32 *)cpu0FreqData->getBytesNoCopy();
+			cpuRegEntry->release();
+    	}
     
 			cannotSleep = ((0 == strncmp(provider_name, "PowerMac7,2", strlen("PowerMac7,2")))     // check model
-				&& (kUniNRevision3_2_1 == uniNVersion)                      // check U3 version 2.1
-				&& (cpuCount == 1)                                     		// check uniprocessor
-				&& (one_eight_ghz_freq == cpu0Freq) );						// check CPU0 speed = 1.8ghz
-
+				&& (kUniNRevision3_2_1 == uniNVersion)		// check U3 version 2.1
+				&& (cpuCount == 1)							// check uniprocessor
+				&& (one_eight_ghz_freq == cpu0Freq) );		// check CPU0 speed = 1.8ghz
+		
 			if (cannotSleep) setProperty ("PlatformCannotSleep", true);
 
 			uniNRegEntry->release();
@@ -432,6 +435,29 @@ bool MacRISC4PE::platformAdjustService(IOService *service)
         return true;
     }
 
+    if ( !strcmp( service->getName(), "pci80211" ) )
+    {
+    	//
+    	// [3843806] For original iMac G5, we need to tell the AirPort driver to handle channel 1 special.
+		// If this property already exists, then do not do anything.
+		//
+		if ( !strcmp( provider_name, "PowerMac8,1" ) )
+		{
+			if ( service->getProperty( "NCWI" ) == NULL )
+			{
+				//
+				// The first byte is the count, and the remaining data indicates which channel.
+				//
+
+				static const unsigned char				NcwiPropertyData[ 2 ] = { 0x01, 0x01 };
+
+				service->setProperty( "NCWI", ( void * ) NcwiPropertyData, sizeof( NcwiPropertyData ) );
+
+				return( true );
+			}
+		}
+    }  
+
     if (!strcmp(service->getName(), "programmer-switch"))
     {
         // Set property to tell AppleNMI to mask/unmask NMI @ sleep/wake
@@ -533,7 +559,9 @@ void MacRISC4PE::getDefaultBusSpeeds(long *numSpeeds, unsigned long **speedList)
 
 void MacRISC4PE::PMInstantiatePowerDomains ( void )
 {    
-    IOPMUSBMacRISC4 * usbMacRISC4;
+    IOPMUSBMacRISC4		*usbMacRISC4;
+	UInt32				hibEnable;
+
 	const OSSymbol *desc = OSSymbol::withCString("powertreedesc");
 
 	// Move our power tree description from our driver (where it's a property in the driver)
@@ -564,12 +592,16 @@ void MacRISC4PE::PMInstantiatePowerDomains ( void )
     } else {
    		root->setSleepSupported(kRootDomainSleepSupported);
     }
-// End of hack
    
     if (NULL == root)
     {
         kprintf ("PMInstantiatePowerDomains - null ROOT\n");
         return;
+    }
+
+    if (PE_parse_boot_arg("hib", &hibEnable) && hibEnable)
+    {
+        root->publishFeature(kIOHibernateFeatureKey);
     }
 
     PMRegisterDevice (NULL, root);

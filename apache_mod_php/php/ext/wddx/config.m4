@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.4 2003/03/11 01:09:34 zarzycki Exp $
+dnl $Id: config.m4,v 1.10 2002/03/12 16:37:42 sas Exp $
 dnl
 
 PHP_ARG_ENABLE(wddx,whether to enable WDDX support,

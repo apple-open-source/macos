@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_win32.h,v 1.1.1.5 2003/07/18 18:07:25 zarzycki Exp $ */
+/* $Id: tsrm_win32.h,v 1.9.2.2 2003/09/29 13:57:03 stas Exp $ */
 
 #ifndef TSRM_WIN32_H
 #define TSRM_WIN32_H
@@ -101,4 +101,5 @@ TSRM_API void *shmat(int key, const void *shmaddr, int flags);
 TSRM_API int shmdt(const void *shmaddr);
 TSRM_API int shmctl(int key, int cmd, struct shmid_ds *buf);
 
+TSRM_API char *realpath(char *orig_path, char *buffer);
 #endif

@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: thttpd.c,v 1.1.1.8 2003/07/18 18:07:51 zarzycki Exp $ */
+/* $Id: thttpd.c,v 1.77.2.15 2003/07/01 05:28:53 sas Exp $ */
 
 #include "php.h"
 #include "SAPI.h"
@@ -44,10 +44,13 @@ typedef struct {
 	httpd_conn *hc;
 	void (*on_close)(int);
 
+	size_t unconsumed_length;
 	smart_str sbuf;
 	int seen_cl;
 	int seen_cn;
 } php_thttpd_globals;
+
+#define PHP_SYS_CALL(x) do { x } while (n == -1 && errno == EINTR)
 
 #ifdef PREMIUM_THTTPD
 # define do_keep_alive persistent
@@ -72,7 +75,7 @@ static int sapi_thttpd_ub_write(const char *str, uint str_length TSRMLS_DC)
 	}
 	
 	while (str_length > 0) {
-		n = send(TG(hc)->conn_fd, str, str_length, 0);
+		PHP_SYS_CALL(n = send(TG(hc)->conn_fd, str, str_length, 0););
 
 		if (n == -1) {
 			if (errno == EAGAIN) {
@@ -92,24 +95,22 @@ static int sapi_thttpd_ub_write(const char *str, uint str_length TSRMLS_DC)
 	return sent;
 }
 
-#define ADD_VEC(str,l) vec[n].iov_base=str;len += (vec[n].iov_len=l); n++
-#define ADD_VEC_S(str) ADD_VEC((str), sizeof(str)-1)
-#define COMBINE_HEADERS 30
+#define COMBINE_HEADERS 64
+
+#if defined(IOV_MAX)
+# if IOV_MAX - 64 <= 0
+#  define SERIALIZE_HEADERS
+# endif
+#endif
 
 static int do_writev(struct iovec *vec, int nvec, int len TSRMLS_DC)
 {
 	int n;
 
-	/*
-	 * XXX: partial writevs are not handled
-	 * This can only cause problems, if the user tries to send
-	 * huge headers, so I consider this a void issue right now.
-	 * The maximum size depends on SO_SNDBUF and is usually
-	 * at least 16KB from my experience.
-	 */
-	
+	assert(nvec <= IOV_MAX);
+
 	if (TG(sbuf).c == 0) {
-		n = writev(TG(hc)->conn_fd, vec, nvec);
+		PHP_SYS_CALL(n = writev(TG(hc)->conn_fd, vec, nvec););
 
 		if (n == -1) {
 			if (errno == EAGAIN) {
@@ -121,8 +122,9 @@ static int do_writev(struct iovec *vec, int nvec, int len TSRMLS_DC)
 
 
 		TG(hc)->bytes_sent += n;
-	} else
+	} else {
 		n = 0;
+	}
 
 	if (n < len) {
 		int i;
@@ -150,6 +152,18 @@ static int do_writev(struct iovec *vec, int nvec, int len TSRMLS_DC)
 	return 0;
 }
 
+#ifdef SERIALIZE_HEADERS
+# define ADD_VEC(str,l) smart_str_appendl(&vec_str, (str), (l))
+# define VEC_BASE() smart_str vec_str = {0}
+# define VEC_FREE() smart_str_free(&vec_str)
+#else
+# define ADD_VEC(str,l) vec[n].iov_base=str;len += (vec[n].iov_len=l); n++
+# define VEC_BASE() struct iovec vec[COMBINE_HEADERS]
+# define VEC_FREE() do {} while (0)
+#endif
+
+#define ADD_VEC_S(str) ADD_VEC((str), sizeof(str)-1)
+
 #define CL_TOKEN "Content-length: "
 #define CN_TOKEN "Connection: "
 #define KA_DO "Connection: keep-alive\r\n"
@@ -159,8 +173,7 @@ static int do_writev(struct iovec *vec, int nvec, int len TSRMLS_DC)
 static int sapi_thttpd_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 {
 	char buf[1024], *p;
-	struct iovec vec[COMBINE_HEADERS];
-	
+	VEC_BASE();
 	int n = 0;
 	zend_llist_position pos;
 	sapi_header_struct *h;
@@ -196,10 +209,12 @@ static int sapi_thttpd_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 		}
 
 		ADD_VEC(h->header, h->header_len);
+#ifndef SERIALIZE_HEADERS
 		if (n >= COMBINE_HEADERS - 1) {
 			len = do_writev(vec, n, len TSRMLS_CC);
 			n = 0;
 		}
+#endif
 		ADD_VEC("\r\n", 2);
 		
 		h = zend_llist_get_next_ex(&sapi_headers->headers, &pos);
@@ -213,8 +228,14 @@ static int sapi_thttpd_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 	}
 		
 	ADD_VEC("\r\n", 2);
-			
+
+#ifdef SERIALIZE_HEADERS
+	sapi_thttpd_ub_write(vec_str.c, vec_str.len TSRMLS_CC);
+#else			
 	do_writev(vec, n, len TSRMLS_CC);
+#endif
+
+	VEC_FREE();
 
 	return SAPI_HEADER_SENT_SUCCESSFULLY;
 }
@@ -227,14 +248,12 @@ static int sapi_thttpd_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 static int sapi_thttpd_read_post(char *buffer, uint count_bytes TSRMLS_DC)
 {
 	size_t read_bytes = 0;
-	int c;
 
-	c = SIZEOF_UNCONSUMED_BYTES();
-	if (c > 0) {
-		read_bytes = MIN(c, count_bytes);
+	if (TG(unconsumed_length) > 0) {
+		read_bytes = MIN(TG(unconsumed_length), count_bytes);
 		memcpy(buffer, TG(hc)->read_buf + TG(hc)->checked_idx, read_bytes);
+		TG(unconsumed_length) -= read_bytes;
 		CONSUME_BYTES(read_bytes);
-		count_bytes -= read_bytes;
 	}
 	
 	return read_bytes;
@@ -388,7 +407,7 @@ static sapi_module_struct thttpd_sapi_module = {
 
 static void thttpd_module_main(int show_source TSRMLS_DC)
 {
-	zend_file_handle file_handle;
+	zend_file_handle file_handle = {0};
 
 	if (php_request_startup(TSRMLS_C) == FAILURE) {
 		return;
@@ -436,6 +455,8 @@ static void thttpd_request_ctor(TSRMLS_D)
 		SG(request_info).content_type = strdup(TG(hc)->contenttype);
 	SG(request_info).content_length = TG(hc)->contentlength == -1 ? 0
 		: TG(hc)->contentlength;
+
+	TG(unconsumed_length) = SG(request_info).content_length;
 	
 	php_handle_auth_data(TG(hc)->authorization TSRMLS_CC);
 }

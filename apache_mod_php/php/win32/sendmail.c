@@ -17,7 +17,7 @@
  *
  */
 
-/* $Id: sendmail.c,v 1.1.1.6 2003/07/18 18:07:52 zarzycki Exp $ */
+/* $Id: sendmail.c,v 1.47.2.8 2003/09/08 22:37:51 iliaa Exp $ */
 
 #include "php.h"				/*php specific */
 #include <stdio.h>
@@ -25,6 +25,7 @@
 #include <winsock.h>
 #include "time.h"
 #include <string.h>
+#include <math.h>
 #include <malloc.h>
 #include <memory.h>
 #include <winbase.h>
@@ -34,6 +35,8 @@
 #if HAVE_PCRE || HAVE_BUNDLED_PCRE
 #include "ext/pcre/php_pcre.h"
 #endif
+
+#include "ext/standard/php_string.h"
 
 /*
    extern int _daylight;
@@ -63,6 +66,8 @@ static char *months[] =
 												efree(response); \
 											} \
 										}
+#define SMTP_SKIP_SPACE(str)	{ while (isspace(*str)) { str++; } }
+
 
 #ifndef THREAD_SAFE
 char Buffer[MAIL_BUFFER_SIZE];
@@ -124,6 +129,13 @@ static char *ErrorMessages[] =
  * occurences of \r\n between lines to a single \r\n) */
 #define PHP_WIN32_MAIL_RMVDBL_PATTERN	"/^\r\n|(\r\n)+$/m"
 #define PHP_WIN32_MAIL_RMVDBL_REPLACE	""
+
+/* This pattern escapes \n. inside the message body. It prevents
+ * premature end of message if \n.\n or \r\n.\r\n is encountered
+ * and ensures that \n. sequences are properly displayed in the
+ * message body. */
+#define PHP_WIN32_MAIL_DOT_PATTERN	"\n."
+#define PHP_WIN32_MAIL_DOT_REPLACE	"\n.."
 
 /* This function is meant to unify the headers passed to to mail()
  * This means, use PCRE to transform single occurences of \n or \r in \r\n
@@ -350,11 +362,13 @@ char *GetSMErrorText(int index)
 int SendText(char *RPath, char *Subject, char *mailTo, char *mailCc, char *mailBcc, char *data, 
 			 char *headers, char *headers_lc, char **error_message)
 {
-	int res, i;
+	int res;
 	char *p;
 	char *tempMailTo, *token, *pos1, *pos2;
 	char *server_response = NULL;
 	char *stripped_header  = NULL;
+	char *data_cln;
+	int data_cln_len;
 
 	/* check for NULL parameters */
 	if (data == NULL)
@@ -452,6 +466,7 @@ int SendText(char *RPath, char *Subject, char *mailTo, char *mailCc, char *mailB
 		token = strtok(tempMailTo, ",");
 		while(token != NULL)
 		{
+			SMTP_SKIP_SPACE(token);
 			sprintf(Buffer, "RCPT TO:<%s>\r\n", token);
 			if ((res = Post(Buffer)) != SUCCESS)
 				return (res);
@@ -473,6 +488,7 @@ int SendText(char *RPath, char *Subject, char *mailTo, char *mailCc, char *mailB
 		token = strtok(tempMailTo, ",");
 		while(token != NULL)
 		{
+			SMTP_SKIP_SPACE(token);
 			snprintf(Buffer, MAIL_BUFFER_SIZE, "RCPT TO:<%s>\r\n", token);
 			if ((res = Post(Buffer)) != SUCCESS) {
 				efree(tempMailTo);
@@ -506,6 +522,7 @@ int SendText(char *RPath, char *Subject, char *mailTo, char *mailCc, char *mailB
 			token = strtok(tempMailTo, ",");
 			while(token != NULL)
 			{
+				SMTP_SKIP_SPACE(token);
 				sprintf(Buffer, "RCPT TO:<%s>\r\n", token);
 				if ((res = Post(Buffer)) != SUCCESS) {
 					return (res);
@@ -574,30 +591,39 @@ int SendText(char *RPath, char *Subject, char *mailTo, char *mailCc, char *mailB
 		return (res);
 	}
 
+	/* Escape \n. sequences
+	 * We use php_str_to_str() and not php_str_replace_in_subject(), since the latter
+	 * uses ZVAL as it's parameters */
+	data_cln = php_str_to_str(data, strlen(data), PHP_WIN32_MAIL_DOT_PATTERN, sizeof(PHP_WIN32_MAIL_DOT_PATTERN) - 1,
+					PHP_WIN32_MAIL_DOT_REPLACE, sizeof(PHP_WIN32_MAIL_DOT_REPLACE) - 1, &data_cln_len);
+	if (!data_cln) {
+		data_cln = estrdup("");
+		data_cln_len = 1;		
+	}
+
 	/* send message contents in 1024 chunks */
-	if (strlen(data) <= 1024) {
-		if ((res = Post(data)) != SUCCESS)
-			return (res);
-	} else {
-		p = data;
-		while (1) {
-			if (*p == '\0')
-				break;
-			if (strlen(p) >= 1024)
-				i = 1024;
-			else
-				i = strlen(p);
+	{
+		char c, *e2, *e = data_cln + data_cln_len;
+		p = data_cln;
 
-			/* put next chunk in buffer */
-			strncpy(Buffer, p, i);
-			Buffer[i] = '\0';
-			p += i;
-
-			/* send chunk */
-			if ((res = Post(Buffer)) != SUCCESS)
-				return (res);
+		while (e - p > 1024) {
+			e2 = p + 1024;
+			c = *e2;
+			*e2 = '\0';
+			if ((res = Post(p)) != SUCCESS) {
+				efree(data_cln);
+				return(res);
+			}
+			*e2 = c;
+			p = e2;
+		}
+		if ((res = Post(p)) != SUCCESS) {
+			efree(data_cln);
+			return(res);
 		}
 	}
+
+	efree(data_cln);
 
 	/*send termination dot */
 	if ((res = Post("\r\n.\r\n")) != SUCCESS)
@@ -825,11 +851,11 @@ int Ack(char **server_response)
 	/* Check for newline */
 	Index += rlen;
 	
-	if ((buf[Received - 4] == ' ' && buf[Received - 3] == '-') ||
-	    (buf[Received - 2] != '\r') || (buf[Received - 1] != '\n'))
-		/* err_msg          fprintf(stderr,"Incomplete server message. Awaiting CRLF\n"); */
-		goto again;				/* Incomplete data. Line must be terminated by CRLF
-		                           And not contain a space followed by a '-' */
+	/* SMPT RFC says \r\n is the only valid line ending, who are we to argue ;)
+	 * The response code must contain at least 5 characters ex. 220\r\n */
+	if (Received < 5 || buf[Received - 1] != '\n' || buf[Received - 2] != '\r') {
+		goto again;
+	}
 
 	if (buf[0] > '3') {
 		/* If we've a valid pointer, return the SMTP server response so the error message contains more information */

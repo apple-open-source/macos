@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: output.c,v 1.1.1.4 2003/07/18 18:07:48 zarzycki Exp $ */
+/* $Id: output.c,v 1.142.2.16 2004/10/20 15:27:25 stas Exp $ */
 
 #include "php.h"
 #include "ext/standard/head.h"
@@ -247,7 +247,9 @@ PHPAPI void php_end_ob_buffer(zend_bool send_buffer, zend_bool just_flush TSRMLS
 			}
 		}
 		OG(ob_lock) = 0;
-		zval_ptr_dtor(&OG(active_ob_buffer).output_handler);
+		if (!just_flush) {
+			zval_ptr_dtor(&OG(active_ob_buffer).output_handler);
+		}
 		orig_buffer->refcount -=2;
 		if (orig_buffer->refcount <= 0) { /* free the zval */
 			zval_dtor(orig_buffer);
@@ -379,15 +381,20 @@ PHPAPI void php_ob_set_internal_handler(php_output_handler_func_t internal_outpu
 
 /* {{{ php_ob_allocate
  */
-static inline void php_ob_allocate(TSRMLS_D)
+static inline void php_ob_allocate(uint text_length TSRMLS_DC)
 {
-	if (OG(active_ob_buffer).size<OG(active_ob_buffer).text_length) {
-		while (OG(active_ob_buffer).size <= OG(active_ob_buffer).text_length) {
-			OG(active_ob_buffer).size+=OG(active_ob_buffer).block_size;
+	uint new_len = OG(active_ob_buffer).text_length + text_length;
+
+	if (OG(active_ob_buffer).size < new_len) {
+		uint buf_size = OG(active_ob_buffer).size;
+		while (buf_size <= new_len) {
+			buf_size += OG(active_ob_buffer).block_size;
 		}
-			
-		OG(active_ob_buffer).buffer = (char *) erealloc(OG(active_ob_buffer).buffer, OG(active_ob_buffer).size+1);
+
+		OG(active_ob_buffer).buffer = (char *) erealloc(OG(active_ob_buffer).buffer, buf_size+1);
+		OG(active_ob_buffer).size = buf_size;
 	}
+	OG(active_ob_buffer).text_length = new_len;
 }
 /* }}} */
 
@@ -441,13 +448,13 @@ static int php_ob_init_named(uint initial_size, uint block_size, char *handler_n
 /* {{{ php_ob_handler_from_string
  * Create zval output handler from string 
  */
-static zval* php_ob_handler_from_string(const char *handler_name TSRMLS_DC)
+static zval* php_ob_handler_from_string(const char *handler_name, int len TSRMLS_DC)
 {
 	zval *output_handler;
 
 	ALLOC_INIT_ZVAL(output_handler);
-	Z_STRLEN_P(output_handler) = strlen(handler_name);	/* this can be optimized */
-	Z_STRVAL_P(output_handler) = estrndup(handler_name, Z_STRLEN_P(output_handler));
+	Z_STRLEN_P(output_handler) = len;
+	Z_STRVAL_P(output_handler) = estrndup(handler_name, len);
 	Z_TYPE_P(output_handler) = IS_STRING;
 	return output_handler;
 }
@@ -457,7 +464,7 @@ static zval* php_ob_handler_from_string(const char *handler_name TSRMLS_DC)
  */
 static int php_ob_init(uint initial_size, uint block_size, zval *output_handler, uint chunk_size, zend_bool erase TSRMLS_DC)
 {
-	int result = FAILURE, len;
+	int result = FAILURE, handler_len, len;
 	char *handler_name, *next_handler_name;
 	HashPosition pos;
 	zval **tmp;
@@ -465,22 +472,26 @@ static int php_ob_init(uint initial_size, uint block_size, zval *output_handler,
 
 	if (output_handler && output_handler->type == IS_STRING) {
 		handler_name = Z_STRVAL_P(output_handler);
+		handler_len  = Z_STRLEN_P(output_handler);
 
 		result = SUCCESS;
-		while ((next_handler_name=strchr(handler_name, ',')) != NULL) {
-			len = next_handler_name-handler_name;
-			next_handler_name = estrndup(handler_name, len);
-			handler_zval = php_ob_handler_from_string(next_handler_name TSRMLS_CC);
-			result = php_ob_init_named(initial_size, block_size, next_handler_name, handler_zval, chunk_size, erase TSRMLS_CC);
-			if (result != SUCCESS) {
-				zval_dtor(handler_zval);
-				FREE_ZVAL(handler_zval);
+		if (handler_len && handler_name[0] != '\0') {
+			while ((next_handler_name=strchr(handler_name, ',')) != NULL) {
+				len = next_handler_name-handler_name;
+				next_handler_name = estrndup(handler_name, len);
+				handler_zval = php_ob_handler_from_string(next_handler_name, len TSRMLS_CC);
+				result = php_ob_init_named(initial_size, block_size, next_handler_name, handler_zval, chunk_size, erase TSRMLS_CC);
+				if (result != SUCCESS) {
+					zval_dtor(handler_zval);
+					FREE_ZVAL(handler_zval);
+				}
+				handler_name += len+1;
+				handler_len -= len+1;
+				efree(next_handler_name);
 			}
-			handler_name += len+1;
-			efree(next_handler_name);
 		}
 		if (result == SUCCESS) {
-			handler_zval = php_ob_handler_from_string(handler_name TSRMLS_CC);
+			handler_zval = php_ob_handler_from_string(handler_name, handler_len TSRMLS_CC);
 			result = php_ob_init_named(initial_size, block_size, handler_name, handler_zval, chunk_size, erase TSRMLS_CC);
 			if (result != SUCCESS) {
 				zval_dtor(handler_zval);
@@ -588,9 +599,8 @@ static inline void php_ob_append(const char *text, uint text_length TSRMLS_DC)
 	int original_ob_text_length;
 
 	original_ob_text_length=OG(active_ob_buffer).text_length;
-	OG(active_ob_buffer).text_length = OG(active_ob_buffer).text_length + text_length;
 
-	php_ob_allocate(TSRMLS_C);
+	php_ob_allocate(text_length TSRMLS_CC);
 	target = OG(active_ob_buffer).buffer+original_ob_text_length;
 	memcpy(target, text, text_length);
 	target[text_length]=0;
@@ -615,8 +625,7 @@ static inline void php_ob_prepend(const char *text, uint text_length)
 	char *p, *start;
 	TSRMLS_FETCH();
 
-	OG(active_ob_buffer).text_length += text_length;
-	php_ob_allocate(TSRMLS_C);
+	php_ob_allocate(text_length TSRMLS_CC);
 
 	/* php_ob_allocate() may change OG(ob_buffer), so we can't initialize p&start earlier */
 	p = OG(ob_buffer)+OG(ob_text_length);
@@ -694,6 +703,9 @@ static int php_ub_body_write(const char *str, uint str_length TSRMLS_DC)
 	int result = 0;
 
 	if (SG(request_info).headers_only) {
+		if(SG(headers_sent)) {
+			return 0;
+		}
 		php_header();
 		zend_bailout();
 	}

@@ -20,7 +20,7 @@
    | Based on code from: Shawn Cokus <Cokus@math.washington.edu>          |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_rand.h,v 1.1.1.6 2003/07/18 18:07:44 zarzycki Exp $ */
+/* $Id: php_rand.h,v 1.19.4.5 2004/01/19 02:31:19 sniper Exp $ */
 
 #ifndef PHP_RAND_H
 #define	PHP_RAND_H
@@ -33,7 +33,8 @@
 #define RAND_MAX (1<<15)
 #endif
 
-#if HAVE_LRAND48
+/* In ZTS mode we rely on rand_r() so we must use RAND_MAX. */
+#if !defined(ZTS) && (defined(HAVE_LRAND48) || defined(HAVE_RANDOM))
 #define PHP_RAND_MAX 2147483647
 #else
 #define PHP_RAND_MAX RAND_MAX
@@ -44,6 +45,12 @@
 
 /* MT Rand */
 #define PHP_MT_RAND_MAX ((long) (0x7FFFFFFF)) /* (1<<31) - 1 */ 
+
+#ifdef PHP_WIN32
+#define GENERATE_SEED() ((long) (time(0) * GetCurrentProcessId() * 1000000 * php_combined_lcg(TSRMLS_C)))
+#else
+#define GENERATE_SEED() ((long) (time(0) * getpid() * 1000000 * php_combined_lcg(TSRMLS_C)))
+#endif
 
 PHPAPI void php_srand(long seed TSRMLS_DC);
 PHPAPI long php_rand(TSRMLS_D);

@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sockets.c,v 1.1.1.7 2003/07/18 18:07:42 zarzycki Exp $ */
+/* $Id: sockets.c,v 1.125.2.24 2004/06/07 04:42:40 pollita Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -82,6 +82,7 @@ ZEND_DECLARE_MODULE_GLOBALS(sockets)
 #define PF_INET AF_INET
 #endif
 
+static char *php_strerror(int error TSRMLS_DC);
 
 #define PHP_NORMAL_READ 0x0001
 #define PHP_BINARY_READ 0x0002
@@ -293,6 +294,7 @@ static int php_read(int bsd_socket, void *buf, size_t maxlen, int flags)
 
 	set_errno(0);
 
+	*t = '\0';
 	while (*t != '\n' && *t != '\r' && n < maxlen) {
 		if (m > 0) {
 			t++;
@@ -348,7 +350,7 @@ static char *php_strerror(int error TSRMLS_DC)
 		buf = hstrerror(error);
 #else
 		{
-			sprintf(SOCKETS_G(strerror_buf), "Host lookup error %d", error);
+			spprintf(&(SOCKETS_G(strerror_buf)), 0, "Host lookup error %d", error);
 			buf = SOCKETS_G(strerror_buf);
 		}
 #endif
@@ -362,7 +364,7 @@ static char *php_strerror(int error TSRMLS_DC)
 
 		if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |	FORMAT_MESSAGE_IGNORE_INSERTS,
 				  NULL, error, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPTSTR) &tmp, 0, NULL)) {
-			strlcpy(SOCKETS_G(strerror_buf), (char *) tmp, 10000);
+			SOCKETS_G(strerror_buf) = estrdup(tmp);
 			LocalFree(tmp);
 		
 			buf = SOCKETS_G(strerror_buf);
@@ -481,18 +483,18 @@ PHP_MINFO_FUNCTION(sockets)
 /* {{{ PHP_RINIT_FUNCTION */
 PHP_RINIT_FUNCTION(sockets)
 {
-	if ((SOCKETS_G(strerror_buf) = emalloc(16384))) 
-		return SUCCESS;
-	
-	return FAILURE;
+	return SUCCESS;
 }
 /* }}} */
 
 /* {{{ PHP_RSHUTDOWN_FUNCTION */
 PHP_RSHUTDOWN_FUNCTION(sockets)
 {
-	efree(SOCKETS_G(strerror_buf));
-	
+	if (SOCKETS_G(strerror_buf)) {
+		efree(SOCKETS_G(strerror_buf));
+		SOCKETS_G(strerror_buf) = NULL;
+	}
+
 	return SUCCESS;
 }
 /* }}} */
@@ -591,8 +593,16 @@ PHP_FUNCTION(socket_select)
 			convert_to_long(&tmp);
 			sec = &tmp;
 		}
-		tv.tv_sec = Z_LVAL_P(sec);
-		tv.tv_usec = usec;
+
+		/* Solaris + BSD do not like microsecond values which are >= 1 sec */ 
+		if (usec > 999999) {
+			tv.tv_sec = Z_LVAL_P(sec) + (usec / 1000000);
+			tv.tv_usec = usec % 1000000;
+		} else {
+			tv.tv_sec = Z_LVAL_P(sec);
+			tv.tv_usec = usec;
+		}		
+
 		tv_p = &tv;
 
 		if (sec == &tmp) {
@@ -799,7 +809,10 @@ PHP_FUNCTION(socket_read)
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rl|l", &arg1, &length, &type) == FAILURE)
 		return;
 
-	if(length<0) RETURN_FALSE;
+	/* overflow check */
+	if((length + 1) < 2) {
+		RETURN_FALSE;
+	}
 	tmpbuf = emalloc(length + 1);
 	
 	ZEND_FETCH_RESOURCE(php_sock, php_socket *, &arg1, -1, le_socket_name, le_socket);
@@ -951,12 +964,12 @@ PHP_FUNCTION(socket_create)
     }
 
 	if (arg1 != AF_UNIX && arg1 != AF_INET) {
-		php_error(E_WARNING, "%s() invalid socket domain [%d] specified for argument 1, assuming AF_INET", get_active_function_name(TSRMLS_C), arg1);
+		php_error(E_WARNING, "%s() invalid socket domain [%ld] specified for argument 1, assuming AF_INET", get_active_function_name(TSRMLS_C), arg1);
 		arg1 = AF_INET;
 	}
 
 	if (arg2 > 10) {
-		php_error(E_WARNING, "%s() invalid socket type [%d] specified for argument 2, assuming SOCK_STREAM", get_active_function_name(TSRMLS_C), arg2);
+		php_error(E_WARNING, "%s() invalid socket type [%ld] specified for argument 2, assuming SOCK_STREAM", get_active_function_name(TSRMLS_C), arg2);
 		arg2 = SOCK_STREAM;
 	}
 	
@@ -1363,6 +1376,11 @@ PHP_FUNCTION(socket_recv)
 
 	ZEND_FETCH_RESOURCE(php_sock, php_socket *, &php_sock_res, -1, le_socket_name, le_socket);
 
+	/* overflow check */
+	if ((len + 1) < 2) {
+		RETURN_FALSE;
+	}
+
 	recv_buf = emalloc(len + 1);
 	memset(recv_buf, 0, len + 1);
 
@@ -1436,6 +1454,11 @@ PHP_FUNCTION(socket_recvfrom)
 	ZEND_FETCH_RESOURCE(php_sock, php_socket *, &arg1, -1, le_socket_name, le_socket);
 
 	if(arg3<0) RETURN_FALSE;
+
+	/* overflow check */
+	if ((arg3 + 2) < 3) {
+		RETURN_FALSE;
+	}
 
 	recv_buf = emalloc(arg3 + 2);
 	memset(recv_buf, 0, arg3 + 2);
@@ -1970,12 +1993,12 @@ PHP_FUNCTION(socket_create_pair)
 	php_sock[1] = (php_socket*)emalloc(sizeof(php_socket));
 
 	if (domain != AF_INET && domain != AF_UNIX) {
-		php_error(E_WARNING, "%s() invalid socket domain [%d] specified for argument 1, assuming AF_INET", get_active_function_name(TSRMLS_C), domain);
+		php_error(E_WARNING, "%s() invalid socket domain [%ld] specified for argument 1, assuming AF_INET", get_active_function_name(TSRMLS_C), domain);
 		domain = AF_INET;
 	}
 	
 	if (type > 10) {
-		php_error(E_WARNING, "%s() invalid socket type [%d] specified for argument 2, assuming SOCK_STREAM", get_active_function_name(TSRMLS_C), type);
+		php_error(E_WARNING, "%s() invalid socket type [%ld] specified for argument 2, assuming SOCK_STREAM", get_active_function_name(TSRMLS_C), type);
 		type = SOCK_STREAM;
 	}
 	

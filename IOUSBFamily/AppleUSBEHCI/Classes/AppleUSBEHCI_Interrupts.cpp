@@ -25,7 +25,7 @@
 #include "AppleUSBEHCI.h"
 #include <libkern/OSByteOrder.h>
 #include <IOKit/usb/IOUSBLog.h>
-#define nil (0)
+#include <IOKit/usb/IOUSBRootHubDevice.h>
 
 #define super IOUSBControllerV2
 #define self this
@@ -43,9 +43,42 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
     {
         _hostErrorInterrupt = 0;
         
-	// Host System Error - this is a serious error on the PCI bus
-	_errors.hostSystemError++;
-	USBError(1, "%s[%p]::PollInterrupts - Host System Error Occurred - not restarted", getName(), this);
+		// Host System Error - this is a serious error on the PCI bus
+		_errors.hostSystemError++;
+		USBLog(1, "%s[%p]::PollInterrupts - Host System Error Occurred - not restarted", getName(), this);
+		if ( !_onCardBus)
+		{
+			if ( _rootHubDevice )
+			{
+				_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
+				_rootHubDevice->detachAll(gIOUSBPlane);
+				_rootHubDevice->release();
+				_rootHubDevice = NULL;
+			}
+			SuspendUSBBus();
+			UIMFinalizeForPowerDown();
+			_ehciAvailable = false;					// tell the interrupt filter routine that we are off
+			IOSleep(100);
+			
+			// Initialize our hardware
+			//
+			UIMInitializeForPowerUp();
+			
+			_ehciBusState = kEHCIBusStateRunning;
+			_ehciAvailable = true;										// tell the interrupt filter routine that we are on
+			if ( _rootHubDevice == NULL )
+			{
+				IOReturn err = CreateRootHubDevice( _device, &_rootHubDevice );
+				if ( err != kIOReturnSuccess )
+				{
+					USBError(1,"%s[%p] Could not create root hub device upon wakeup (%x)!",getName(), this, err);
+				}
+				else
+				{
+					_rootHubDevice->registerService(kIOServiceRequired | kIOServiceSynchronous);
+				}
+			}
+		} 
     }
 
     if (_errorInterrupt & kEHCIErrorIntBit)
@@ -159,6 +192,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
     register UInt32			activeInterrupts;
     register UInt32			enabledInterrupts;
     Boolean				needSignal = false;
+    AbsoluteTime			timeStamp;
     
     enabledInterrupts = USBToHostLong(_pEHCIRegisters->USBIntr);
     activeInterrupts = enabledInterrupts & USBToHostLong(_pEHCIRegisters->USBSTS);
@@ -210,6 +244,10 @@ AppleUSBEHCI::FilterInterrupt(int index)
 	}
         if (activeInterrupts & kEHCICompleteIntBit)
 	{
+            // Now that we have the beginning of the queue, walk it looking for low latency isoch TD's
+            // Use this time as the time stamp time for all the TD's that we processed.  
+            //
+            clock_get_uptime(&timeStamp);
 	    _completeInterrupt = kEHCICompleteIntBit;
 	    _pEHCIRegisters->USBSTS = HostToUSBLong(kEHCICompleteIntBit);			// clear the interrupt
             IOSync();
@@ -248,7 +286,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
 			    _logicalPeriodicList[_outSlot] = nextThing;
 			    _periodicList[_outSlot] = thing->GetPhysicalLink();
 			    if (isochEl->lowLatency)
-				isochEl->UpdateFrameList();
+				isochEl->UpdateFrameList(timeStamp);
 			    // place this guy on the backward done queue
 			    // the reason that we do not use the _logicalNext link is that the done queue is not a null terminated list
 			    // and the element linked "last" in the list might not be a true link - trust me

@@ -3,12 +3,12 @@
   +----------------------------------------------------------------------+
   | PHP Version 4                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2003 The PHP Group                                |
+  | Copyright (c) 1997-2004 The PHP Group                                |
   +----------------------------------------------------------------------+
-  | This source file is subject to version 2.02 of the PHP license,      |
+  | This source file is subject to version 3.0 of the PHP license,       |
   | that is bundled with this package in the file LICENSE, and is        |
-  | available at through the world-wide-web at                           |
-  | http://www.php.net/license/2_02.txt.                                 |
+  | available through the world-wide-web at the following url:           |
+  | http://www.php.net/license/3_0.txt.                                  |
   | If you did not receive a copy of the PHP license and are unable to   |
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
@@ -16,7 +16,7 @@
   | Author: Stig Sæther Bakken <ssb@php.net>                             |
   +----------------------------------------------------------------------+
 
-  $Id: CLI.php,v 1.1.1.3 2003/07/18 18:07:50 zarzycki Exp $
+  $Id: CLI.php,v 1.25.2.15 2004/01/26 01:26:47 pajoye Exp $
 */
 
 require_once "PEAR.php";
@@ -91,6 +91,9 @@ class PEAR_Frontend_CLI extends PEAR
     // }}}
     // {{{ displayError(eobj)
 
+    /**
+     * @param object PEAR_Error object
+     */
     function displayError($eobj)
     {
         return $this->_displayLine($eobj->getMessage());
@@ -99,6 +102,9 @@ class PEAR_Frontend_CLI extends PEAR
     // }}}
     // {{{ displayFatalError(eobj)
 
+    /**
+     * @param object PEAR_Error object
+     */
     function displayFatalError($eobj)
     {
         $this->displayError($eobj);
@@ -298,6 +304,12 @@ class PEAR_Frontend_CLI extends PEAR
         }
         for ($i = 0; $i < sizeof($table_data); $i++) {
             extract($table_data[$i]);
+            if (!is_array($rowparams)) {
+                $rowparams = array();
+            }
+            if (!is_array($colparams)) {
+                $colparams = array();
+            }
             $rowlines = array();
             if ($height > 1) {
                 for ($c = 0; $c < sizeof($data); $c++) {
@@ -351,8 +363,7 @@ class PEAR_Frontend_CLI extends PEAR
 
     function outputData($data, $command = '_default')
     {
-        switch ($command)
-        {
+        switch ($command) {
             case 'install':
             case 'upgrade':
             case 'upgrade-all':
@@ -365,13 +376,14 @@ class PEAR_Frontend_CLI extends PEAR
                     $this->_tableRow(array($data['release_warnings']), null, array(1 => array('wrap' => 55)));
                     $this->_endTable();
                     $this->_displayLine('');
-                };
+                }
                 $this->_displayLine($data['data']);
                 break;
             case 'search':
                 $this->_startTable($data);
-                if (isset($data['headline']) && is_array($data['headline']))
+                if (isset($data['headline']) && is_array($data['headline'])) {
                     $this->_tableRow($data['headline'], array('bold' => true), array(1 => array('wrap' => 55)));
+                }
 
                 foreach($data['data'] as $category) {
                     foreach($category as $pkg) {
@@ -382,8 +394,9 @@ class PEAR_Frontend_CLI extends PEAR
                 break;
             case 'list-all':
                 $this->_startTable($data);
-                if (isset($data['headline']) && is_array($data['headline']))
+                if (isset($data['headline']) && is_array($data['headline'])) {
                     $this->_tableRow($data['headline'], array('bold' => true), array(1 => array('wrap' => 55)));
+                }
 
                 foreach($data['data'] as $category) {
                     foreach($category as $pkg) {
@@ -430,8 +443,7 @@ class PEAR_Frontend_CLI extends PEAR
                         ),
                     );
             default: {
-                if (is_array($data))
-                {
+                if (is_array($data)) {
                     $this->_startTable($data);
                     $count = count($data['data'][0]);
                     if ($count == 2) {
@@ -439,10 +451,12 @@ class PEAR_Frontend_CLI extends PEAR
                                       1 => array('wrap' => 48)
                         );
                     } elseif ($count == 3) {
-                        $opts = array(0 => array('wrap' => 20),
+                        $opts = array(0 => array('wrap' => 30),
                                       1 => array('wrap' => 20),
                                       2 => array('wrap' => 35)
                         );
+                    } else {
+                        $opts = null;
                     }
                     if (isset($data['headline']) && is_array($data['headline'])) {
                         $this->_tableRow($data['headline'],
@@ -464,9 +478,12 @@ class PEAR_Frontend_CLI extends PEAR
     // {{{ log(text)
 
 
-    function log($text)
+    function log($text, $append_crlf = true)
     {
-        return $this->_displayLine($text);
+        if ($append_crlf) {
+            return $this->_displayLine($text);
+        }
+        return $this->_display($text);
     }
 
 

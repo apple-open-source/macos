@@ -377,9 +377,9 @@ typedef	union {
         SInt16  deltaAxis2;
         SInt16  deltaAxis3;
         SInt16  reserved1;
-        SInt32  reserved2;
-        SInt32  reserved3;
-        SInt32  reserved4;
+        SInt32  fixedDeltaAxis1;
+        SInt32  fixedDeltaAxis2;
+        SInt32  fixedDeltaAxis3;
         SInt32  reserved5;
         SInt32  reserved6;
         SInt32  reserved7;

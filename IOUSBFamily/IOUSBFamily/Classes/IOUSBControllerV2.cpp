@@ -325,12 +325,15 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
             break;
 
         case kUSBIsoc:
+	    USBLog(4, "%s[%p]::DoCreateEP - Creating Isoch EP with interval %d [raw %d]", me->getName(), me, (endpoint->interval == 4) ? 8 : 1, endpoint->interval);
+	    // only support intervals of 1 and 8
             err = me->UIMCreateIsochEndpoint(address,
                                         endpoint->number,
                                         endpoint->maxPacketSize,
                                         endpoint->direction,
                                         me->_highSpeedHub[address],
-                                        me->_highSpeedPort[address]);
+                                        me->_highSpeedPort[address],
+					(endpoint->interval == 4) ? 8 : 1);
             break;
 
         default:
@@ -492,8 +495,26 @@ IOUSBControllerV2::GetMicroFrameNumber(void)
     return 0;			// not implemented
 }
 
-OSMetaClassDefineReservedUnused(IOUSBControllerV2,  7);
-OSMetaClassDefineReservedUnused(IOUSBControllerV2,  8);
+OSMetaClassDefineReservedUsed(IOUSBControllerV2,  7);
+IOReturn
+IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endpoint *endpoint, IOUSBCompletionWithTimeStamp *completion, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount)
+{
+    return (kIOReturnUnsupported);
+}
+
+
+
+
+OSMetaClassDefineReservedUsed(IOUSBControllerV2,  8);
+IOReturn
+IOUSBControllerV2::UIMCreateIsochEndpoint(short functionAddress, short endpointNumber, UInt32 maxPacketSize, UInt8 direction, USBDeviceAddress	highSpeedHub, int highSpeedPort, UInt8 interval)
+{
+	// this is the "default implementation of UIMCreateIsochEndpoint for UIMs which don't implement it.
+	// In those cases the interval parameter is ignored
+	return UIMCreateIsochEndpoint(functionAddress, endpointNumber, maxPacketSize, direction, highSpeedHub, highSpeedPort);
+}
+
+
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  9);
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  10);
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  11);

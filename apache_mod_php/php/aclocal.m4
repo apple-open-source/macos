@@ -1,16 +1,4 @@
-dnl aclocal.m4 generated automatically by aclocal 1.4-p5
-
-dnl Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
-dnl This file is free software; the Free Software Foundation
-dnl gives unlimited permission to copy and/or distribute it,
-dnl with or without modifications, as long as this notice is preserved.
-
-dnl This program is distributed in the hope that it will be useful,
-dnl but WITHOUT ANY WARRANTY, to the extent permitted by law; without
-dnl even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-dnl PARTICULAR PURPOSE.
-
-dnl $Id: aclocal.m4,v 1.4 2003/07/22 19:56:17 zarzycki Exp $
+dnl $Id: acinclude.m4,v 1.218.2.39 2004/12/11 11:17:21 derick Exp $ -*- autoconf -*-
 dnl
 dnl This file contains local autoconf functions.
 
@@ -28,13 +16,16 @@ AC_DEFUN([PHP_ADD_MAKEFILE_FRAGMENT],[
   sed -e "s#\$(srcdir)#$ac_srcdir#g" -e "s#\$(builddir)#$ac_builddir#g" $src  >> Makefile.fragments
 ])
 
+AC_DEFUN(PHP_PROG_RE2C,[
+  AC_CHECK_PROG(RE2C, re2c, re2c, [exit 0;])
+])
 
-dnl PHP_DEFINE(WHAT[, value])
+dnl PHP_DEFINE(WHAT[, value[, directory]])
 dnl
 dnl Creates builddir/include/what.h and in there #define WHAT value
 dnl
 AC_DEFUN([PHP_DEFINE],[
-  [echo "#define ]$1[]ifelse([$2],,[ 1],[ $2])[" > include/php_]translit($1,A-Z,a-z)[.h]
+  [echo "#define ]$1[]ifelse([$2],,[ 1],[ $2])[" > ]ifelse([$3],,[include],[$3])[/php_]translit($1,A-Z,a-z)[.h]
 ])
 
 dnl PHP_INIT_BUILD_SYSTEM
@@ -189,71 +180,11 @@ AC_DEFUN([PHP_REMOVE_USR_LIB],[
   unset ac_new_flags
   for i in [$]$1; do
     case [$]i in
-    -L/usr/lib|-L/usr/lib/) ;;
-    *) ac_new_flags="[$]ac_new_flags [$]i" ;;
+    -L/usr/lib|-L/usr/lib/[)] ;;
+    *[)] ac_new_flags="[$]ac_new_flags [$]i" ;;
     esac
   done
   $1=[$]ac_new_flags
-])
-
-AC_DEFUN([PHP_SETUP_OPENSSL],[
-  if test "$PHP_OPENSSL" = "yes"; then
-    PHP_OPENSSL="/usr/local/ssl /usr/local /usr /usr/local/openssl"
-  fi
-
-  for i in $PHP_OPENSSL; do
-    if test -r $i/include/openssl/evp.h; then
-      OPENSSL_INCDIR=$i/include
-    fi
-    if test -r $i/lib/libssl.a -o -r $i/lib/libssl.$SHLIB_SUFFIX_NAME; then
-      OPENSSL_LIBDIR=$i/lib
-    fi
-  done
-
-  if test -z "$OPENSSL_INCDIR"; then
-    AC_MSG_ERROR([Cannot find OpenSSL's <evp.h>])
-  fi
-
-  if test -z "$OPENSSL_LIBDIR"; then
-    AC_MSG_ERROR([Cannot find OpenSSL's libraries])
-  fi
-
-  old_CPPFLAGS=$CPPFLAGS
-  CPPFLAGS=-I$OPENSSL_INCDIR
-  AC_MSG_CHECKING([for OpenSSL version])
-  AC_EGREP_CPP(yes,[
-#include <openssl/opensslv.h>
-#if OPENSSL_VERSION_NUMBER >= 0x0090600fL
-  yes
-#endif
-  ],[
-    AC_MSG_RESULT([>= 0.9.6])
-  ],[
-    AC_MSG_ERROR([OpenSSL version 0.9.6 or greater required.])
-  ])
-  CPPFLAGS=$old_CPPFLAGS
-
-  PHP_ADD_INCLUDE($OPENSSL_INCDIR)
-  PHP_ADD_LIBPATH($OPENSSL_LIBDIR)
-
-  PHP_CHECK_LIBRARY(crypto, CRYPTO_free, [
-    PHP_ADD_LIBRARY(crypto)
-  ],[
-    AC_MSG_ERROR([libcrypto not found!])
-  ],[
-    -L$OPENSSL_LIBDIR
-  ])
-
-  PHP_CHECK_LIBRARY(ssl, SSL_CTX_set_ssl_version, [
-    PHP_ADD_LIBRARY(ssl)
-  ],[
-    AC_MSG_ERROR([libssl not found!])
-  ],[
-    -L$OPENSSL_LIBDIR
-  ])
-
-  OPENSSL_INCDIR_OPT=-I$OPENSSL_INCDIR
-  AC_SUBST(OPENSSL_INCDIR_OPT)
 ])
 
 dnl PHP_EVAL_LIBLINE(LINE, SHARED-LIBADD)
@@ -265,11 +196,11 @@ dnl
 AC_DEFUN([PHP_EVAL_LIBLINE],[
   for ac_i in $1; do
     case $ac_i in
-    -l*)
+    -l*[)]
       ac_ii=`echo $ac_i|cut -c 3-`
       PHP_ADD_LIBRARY($ac_ii,1,$2)
     ;;
-    -L*)
+    -L*[)]
       ac_ii=`echo $ac_i|cut -c 3-`
       PHP_ADD_LIBPATH($ac_ii,$2)
     ;;
@@ -285,7 +216,7 @@ dnl
 AC_DEFUN([PHP_EVAL_INCLINE],[
   for ac_i in $1; do
     case $ac_i in
-    -I*)
+    -I*[)]
       ac_ii=`echo $ac_i|cut -c 3-`
       PHP_ADD_INCLUDE($ac_ii)
     ;;
@@ -349,10 +280,10 @@ AC_DEFUN([PHP_SHLIB_SUFFIX_NAME],[
   PHP_SUBST(SHLIB_SUFFIX_NAME)
   SHLIB_SUFFIX_NAME=so
   case $host_alias in
-  *hpux*)
+  *hpux*[)]
 	SHLIB_SUFFIX_NAME=sl
 	;;
-  *darwin*)
+  *darwin*[)]
 	SHLIB_SUFFIX_NAME=dylib
 	;;
   esac
@@ -523,17 +454,17 @@ AC_DEFUN([PHP_ARG_ANALYZE_EX],[
 ext_output="yes, shared"
 ext_shared=yes
 case [$]$1 in
-shared,*)
+shared,*[)]
   $1=`echo "[$]$1"|sed 's/^shared,//'`
   ;;
-shared)
+shared[)]
   $1=yes
   ;;
-no)
+no[)]
   ext_output=no
   ext_shared=no
   ;;
-*)
+*[)]
   ext_output=yes
   ext_shared=no
   ;;
@@ -666,8 +597,8 @@ main() {
 ])
 ])
   case $ac_cv_time_r_type in
-  hpux) AC_DEFINE(PHP_HPUX_TIME_R,1,[Whether you have HP-UX 10.x]) ;;
-  irix) AC_DEFINE(PHP_IRIX_TIME_R,1,[Whether you have IRIX-style functions]) ;;
+  hpux[)] AC_DEFINE(PHP_HPUX_TIME_R,1,[Whether you have HP-UX 10.x]) ;;
+  irix[)] AC_DEFINE(PHP_IRIX_TIME_R,1,[Whether you have IRIX-style functions]) ;;
   esac
 ])
 
@@ -1136,6 +1067,7 @@ AC_DEFUN([PHP_CHECK_CC_OPTION],[
 	  AC_MSG_RESULT([no])
     fi
   fi
+  rm -rf conftest*
 ])
 
 AC_DEFUN([PHP_REGEX],[
@@ -1198,7 +1130,9 @@ main() {
 	int res = 0;
 	res = res || (snprintf(buf, 2, "marcus") != 6); 
 	res = res || (buf[1] != '\0');
-	res = res || (snprintf(buf, 0, "boerger") != 7);
+	/* Implementations may consider this as an encoding error */
+	snprintf(buf, 0, "boerger");
+	/* However, they MUST ignore the pointer */
 	res = res || (buf[0] != 'm');
 	res = res || (snprintf(NULL, 0, "boerger") != 7);
 	res = res || (snprintf(buf, sizeof(buf), "%f", 0.12345678) != 8);
@@ -1219,20 +1153,21 @@ main() {
   fi
 ])
 
-dnl PHP_SHARED_MODULE(module-name, object-var, build-dir)
+dnl PHP_SHARED_MODULE(module-name, object-var, build-dir, cxx)
 dnl
 dnl Basically sets up the link-stage for building module-name
 dnl from object_var in build-dir.
 dnl
 AC_DEFUN([PHP_SHARED_MODULE],[
+  install_modules="install-modules"
   PHP_MODULES="$PHP_MODULES \$(phplibdir)/$1.la"
   PHP_SUBST($2)
   cat >>Makefile.objects<<EOF
 \$(phplibdir)/$1.la: $3/$1.la
 	\$(LIBTOOL) --mode=install cp $3/$1.la \$(phplibdir)
 
-$3/$1.la: \$($2) \$(translit($1,a-z-,A-Z_)_SHARED_DEPENDENCIES)
-	\$(LIBTOOL) --mode=link \$(CC) \$(COMMON_FLAGS) \$(CFLAGS_CLEAN) \$(EXTRA_CFLAGS) \$(LDFLAGS) -o \[$]@ -export-dynamic -avoid-version -prefer-pic -module -rpath \$(phplibdir) \$(EXTRA_LDFLAGS) \$($2) \$(translit($1,a-z-,A-Z_)_SHARED_LIBADD)
+$3/$1.la: \$($2) \$(translit($1,a-z_-,A-Z__)_SHARED_DEPENDENCIES)
+	\$(LIBTOOL) --mode=link ifelse($4,,[\$(CC)],[\$(CXX)]) \$(COMMON_FLAGS) \$(CFLAGS_CLEAN) \$(EXTRA_CFLAGS) \$(LDFLAGS) -o \[$]@ -export-dynamic -avoid-version -prefer-pic -module -rpath \$(phplibdir) \$(EXTRA_LDFLAGS) \$($2) \$(translit($1,a-z_-,A-Z__)_SHARED_LIBADD)
 
 EOF
 ])
@@ -1248,10 +1183,10 @@ AC_DEFUN([PHP_SELECT_SAPI],[
   PHP_SAPI=$1
   
   case "$2" in
-  static) PHP_BUILD_STATIC;;
-  shared) PHP_BUILD_SHARED;;
-  bundle) PHP_BUILD_BUNDLE;;
-  program) PHP_BUILD_PROGRAM($5);;
+  static[)] PHP_BUILD_STATIC;;
+  shared[)] PHP_BUILD_SHARED;;
+  bundle[)] PHP_BUILD_BUNDLE;;
+  program[)] PHP_BUILD_PROGRAM($5);;
   esac
     
   ifelse($3,,,[PHP_ADD_SOURCES([sapi/$1],[$3],[$4],[sapi])])
@@ -1259,7 +1194,7 @@ AC_DEFUN([PHP_SELECT_SAPI],[
 
 dnl deprecated
 AC_DEFUN([PHP_EXTENSION],[
-  sources=`$AWK -f $abs_srcdir/scan_makefile_in.awk < []PHP_EXT_SRCDIR($1)[]/Makefile.in`
+  sources=`$AWK -f $abs_srcdir/build/scan_makefile_in.awk < []PHP_EXT_SRCDIR($1)[]/Makefile.in`
 
   PHP_NEW_EXTENSION($1, $sources, $2, $3)
 
@@ -1277,7 +1212,7 @@ AC_DEFUN([PHP_GEN_BUILD_DIRS],[
 ])
 
 dnl
-dnl PHP_NEW_EXTENSION(extname, sources [, shared [,sapi_class[, extra-cflags]]])
+dnl PHP_NEW_EXTENSION(extname, sources [, shared [,sapi_class[, extra-cflags[, cxx]]]])
 dnl
 dnl Includes an extension in the build.
 dnl
@@ -1307,7 +1242,7 @@ dnl ---------------------------------------------- Static module
     if test "$3" = "shared" || test "$3" = "yes"; then
 dnl ---------------------------------------------- Shared module
       PHP_ADD_SOURCES_X(PHP_EXT_DIR($1),$2,$ac_extra,shared_objects_$1,yes)
-      PHP_SHARED_MODULE($1,shared_objects_$1, $ext_builddir)
+      PHP_SHARED_MODULE($1,shared_objects_$1, $ext_builddir, $6)
       AC_DEFINE_UNQUOTED([COMPILE_DL_]translit($1,a-z_-,A-Z__), 1, Whether to build $1 as dynamic module)
     fi
   fi
@@ -1337,13 +1272,13 @@ AC_DEFUN([PHP_SOLARIS_PIC_WEIRDNESS],[
   if test -n "$EXT_SHARED"; then
     os=`uname -sr 2>/dev/null`
     case $os in
-        "SunOS 5.6"|"SunOS 5.7")
+        "SunOS 5.6"|"SunOS 5.7"[)]
           case $CC in
 	    gcc*|egcs*) CFLAGS="$CFLAGS -fPIC";;
-	    *) CFLAGS="$CFLAGS -fpic";;
+	    *[)] CFLAGS="$CFLAGS -fpic";;
 	  esac
 	  AC_MSG_RESULT([yes]);;
-	*)
+	*[)]
 	  AC_MSG_RESULT([no]);;
     esac
   else
@@ -1381,8 +1316,8 @@ AC_DEFUN([PHP_SYS_LFS],
   ac_shellvars='CPPFLAGS LDFLAGS LIBS'
   for ac_shellvar in $ac_shellvars; do
     case $ac_shellvar in
-      CPPFLAGS) ac_lfsvar=LFS_CFLAGS ;;
-      *) ac_lfsvar=LFS_$ac_shellvar ;;
+      CPPFLAGS[)] ac_lfsvar=LFS_CFLAGS ;;
+      *[)] ac_lfsvar=LFS_$ac_shellvar ;;
     esac
     eval test '"${'$ac_shellvar'+set}"' = set && ac_set=$ac_shellvar
     (getconf $ac_lfsvar) >/dev/null 2>&1 || { ac_result=no; break; }
@@ -1391,14 +1326,14 @@ AC_DEFUN([PHP_SYS_LFS],
     eval ac_test_$ac_shellvar=\$ac_getconf
   done
   case "$ac_result$ac_getconfs" in
-    yes) ac_result=no ;;
+    yes[)] ac_result=no ;;
   esac
   case "$ac_result$ac_set" in
-    yes?*) ac_result="yes, but $ac_set is already set, so use its settings"
+    yes?*[)] ac_result="yes, but $ac_set is already set, so use its settings"
   esac
   AC_MSG_RESULT([$ac_result])
   case $ac_result in
-    yes)
+    yes[)]
       for ac_shellvar in $ac_shellvars; do
         eval $ac_shellvar=\$ac_test_$ac_shellvar
       done ;;
@@ -1468,10 +1403,10 @@ AC_DEFUN([PHP_BROKEN_GETCWD],[
   AC_MSG_CHECKING([for broken getcwd])
   os=`uname -sr 2>/dev/null`
   case $os in
-    SunOS*)
+    SunOS*[)]
 	  AC_DEFINE(HAVE_BROKEN_GETCWD,1, [Define if system has broken getcwd])
 	  AC_MSG_RESULT([yes]);;
-	*)
+	*[)]
 	  AC_MSG_RESULT([no]);;
   esac
 ])
@@ -1612,12 +1547,18 @@ dnl Wrapper for AC_CHECK_LIB
 dnl
 AC_DEFUN([PHP_CHECK_LIBRARY], [
   save_old_LDFLAGS=$LDFLAGS
-  LDFLAGS="$5 $LDFLAGS"
+  ac_stuff="$5"
+  
+  save_ext_shared=$ext_shared
+  ext_shared=yes
+  PHP_EVAL_LIBLINE([$]ac_stuff, LDFLAGS)
   AC_CHECK_LIB([$1],[$2],[
     LDFLAGS=$save_old_LDFLAGS
+    ext_shared=$save_ext_shared
     $3
   ],[
     LDFLAGS=$save_old_LDFLAGS
+    ext_shared=$save_ext_shared
     unset ac_cv_func_$1
     $4
   ])dnl
@@ -1644,6 +1585,112 @@ AC_DEFUN([PHP_CHECK_FRAMEWORK], [
 ])
 
 dnl 
+dnl PHP_SETUP_OPENSSL(shared-add [, action-found [, action-not-found]])
+dnl
+dnl Common setup macro for openssl
+dnl
+AC_DEFUN([PHP_SETUP_OPENSSL],[
+  found_openssl=no
+  unset OPENSSL_INCDIR
+  unset OPENSSL_LIBDIR
+
+  dnl First try to find pkg-config
+  if test -z "$PKG_CONFIG"; then
+    AC_PATH_PROG(PKG_CONFIG, pkg-config, no)
+  fi
+
+  dnl If pkg-config is found try using it
+  if test "$PHP_OPENSSL" = "yes" && test -x "$PKG_CONFIG" && $PKG_CONFIG --exists openssl; then
+    if $PKG_CONFIG --atleast-version=0.9.6 openssl; then
+      found_openssl=yes
+      OPENSSL_LIBS=`$PKG_CONFIG --libs openssl`
+      OPENSSL_INCS=`$PKG_CONFIG --cflags-only-I openssl`
+      OPENSSL_INCDIR=`$PKG_CONFIG --variable=includedir openssl`
+    else
+      AC_MSG_ERROR([OpenSSL version 0.9.6 or greater required.])
+    fi
+
+    if test -n "$OPENSSL_LIBS" && test -n "$OPENSSL_INCS"; then
+      PHP_EVAL_LIBLINE($OPENSSL_LIBS, $1)
+      PHP_EVAL_INCLINE($OPENSSL_INCS)
+    fi
+
+  else 
+
+    dnl If pkg-config fails for some reason, revert to the old method
+    if test "$PHP_OPENSSL" = "yes"; then
+      PHP_OPENSSL="/usr/local/ssl /usr/local /usr /usr/local/openssl"
+    fi
+
+    for i in $PHP_OPENSSL; do
+      if test -r $i/include/openssl/evp.h; then
+        OPENSSL_INCDIR=$i/include
+      fi
+      if test -r $i/lib/libssl.a -o -r $i/lib/libssl.$SHLIB_SUFFIX_NAME; then
+        OPENSSL_LIBDIR=$i/lib
+      fi
+      test -n "$OPENSSL_INCDIR" && test -n "$OPENSSL_LIBDIR" && break
+    done
+
+    if test -z "$OPENSSL_INCDIR"; then
+      AC_MSG_ERROR([Cannot find OpenSSL's <evp.h>])
+    fi
+
+    if test -z "$OPENSSL_LIBDIR"; then
+      AC_MSG_ERROR([Cannot find OpenSSL's libraries])
+    fi
+
+    old_CPPFLAGS=$CPPFLAGS
+    CPPFLAGS=-I$OPENSSL_INCDIR
+    AC_MSG_CHECKING([for OpenSSL version])
+    AC_EGREP_CPP(yes,[
+#include <openssl/opensslv.h>
+#if OPENSSL_VERSION_NUMBER >= 0x0090600fL
+  yes
+#endif
+    ],[
+      AC_MSG_RESULT([>= 0.9.6])
+    ],[
+      AC_MSG_ERROR([OpenSSL version 0.9.6 or greater required.])
+    ])
+    CPPFLAGS=$old_CPPFLAGS
+
+    PHP_ADD_INCLUDE($OPENSSL_INCDIR)
+  
+    PHP_CHECK_LIBRARY(crypto, CRYPTO_free, [
+      PHP_ADD_LIBRARY(crypto,,$1)
+    ],[
+      AC_MSG_ERROR([libcrypto not found!])
+    ],[
+      -L$OPENSSL_LIBDIR
+    ])
+
+    old_LIBS=$LIBS
+    LIBS="$LIBS -lcrypto"
+    PHP_CHECK_LIBRARY(ssl, SSL_CTX_set_ssl_version, [
+      found_openssl=yes
+    ],[
+      AC_MSG_ERROR([libssl not found!])
+    ],[
+      -L$OPENSSL_LIBDIR
+    ])
+    LIBS=$old_LIBS
+    PHP_ADD_LIBRARY(ssl,,$1)
+
+    PHP_ADD_LIBPATH($OPENSSL_LIBDIR, $1)
+  fi
+
+  dnl For apache 1.3.x static build
+  OPENSSL_INCDIR_OPT=-I$OPENSSL_INCDIR
+  AC_SUBST(OPENSSL_INCDIR_OPT)
+
+  if test "$found_openssl" = "yes"; then
+ifelse([$2],[],:,[$2])
+ifelse([$3],[],,[else $3])
+  fi
+])
+
+dnl 
 dnl PHP_SETUP_ICONV(shared-add [, action-found [, action-not-found]])
 dnl
 dnl Common setup macro for iconv
@@ -1652,16 +1699,28 @@ AC_DEFUN([PHP_SETUP_ICONV], [
   found_iconv=no
   unset ICONV_DIR
 
+  # Create the directories for a VPATH build:
+  test -d ext || mkdir ext
+  test -d ext/iconv || mkdir ext/iconv
+
+  echo > ext/iconv/php_have_bsd_iconv.h
+  echo > ext/iconv/php_have_glibc_iconv.h
+  echo > ext/iconv/php_have_libiconv.h
+  echo > ext/iconv/php_have_iconv.h
+  echo > ext/iconv/php_php_iconv_impl.h
+  echo > ext/iconv/php_php_iconv_h_path.h
+  echo > ext/iconv/php_iconv_supports_errno.h
+
   dnl
   dnl Check libc first if no path is provided in --with-iconv
   dnl
   if test "$PHP_ICONV" = "yes"; then
     AC_CHECK_FUNC(iconv, [
-      PHP_DEFINE(HAVE_ICONV)
+      PHP_DEFINE(HAVE_ICONV,1,[ext/iconv])
       found_iconv=yes
     ],[
       AC_CHECK_FUNC(libiconv,[
-        PHP_DEFINE(HAVE_LIBICONV)
+        PHP_DEFINE(HAVE_LIBICONV,1,[ext/iconv])
         found_iconv=yes
       ])
     ])
@@ -1694,11 +1753,11 @@ AC_DEFUN([PHP_SETUP_ICONV], [
     then
       PHP_CHECK_LIBRARY($iconv_lib_name, libiconv, [
         found_iconv=yes
-        PHP_DEFINE(HAVE_LIBICONV)
+        PHP_DEFINE(HAVE_LIBICONV,1,[ext/iconv])
       ], [
         PHP_CHECK_LIBRARY($iconv_lib_name, iconv, [
           found_iconv=yes
-          PHP_DEFINE(HAVE_ICONV)
+          PHP_DEFINE(HAVE_ICONV,1,[ext/iconv])
         ], [], [
           -L$ICONV_DIR/lib
         ])
@@ -1777,12 +1836,12 @@ AC_DEFUN([PHP_CHECK_FUNC],[
   AC_CHECK_FUNC($1, [found=yes],[ AC_CHECK_FUNC(__$1,[found=yes],[found=no]) ])
 
   case $found in
-  yes) 
+  yes[)] 
     PHP_DEF_HAVE($1)
     ac_cv_func_$1=yes
   ;;
   ifelse($#,1,,[
-    *) PHP_CHECK_FUNC_LIB($@) ;;
+    *[)] PHP_CHECK_FUNC_LIB($@) ;;
   ])
   esac
 ])
@@ -1803,8 +1862,29 @@ IFS="- /.
   APACHE_VERSION=`expr [$]4 \* 1000000 + [$]5 \* 1000 + [$]6`
 ])
 
-
 # libtool.m4 - Configure libtool for the host system. -*-Shell-script-*-
+## Copyright 1996, 1997, 1998, 1999, 2000, 2001
+## Free Software Foundation, Inc.
+## Originally by Gordon Matzigkeit <gord@gnu.ai.mit.edu>, 1996
+##
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program; if not, write to the Free Software
+## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+##
+## As a special exception to the GNU General Public License, if you
+## distribute this file as part of a program that contains a
+## configuration script generated by Autoconf, you may include it under
+## the same distribution terms that you use for the rest of that program.
 
 # serial 46 AC_PROG_LIBTOOL
 
@@ -2598,6 +2678,8 @@ fi
 set dummy $CC
 compiler="[$]2"
 
+## FIXME: this should be a separate macro
+##
 AC_MSG_CHECKING([for objdir])
 rm -f .libs 2>/dev/null
 mkdir .libs 2>/dev/null
@@ -2609,8 +2691,12 @@ else
 fi
 rmdir .libs 2>/dev/null
 AC_MSG_RESULT($objdir)
+##
+## END FIXME
 
 
+## FIXME: this should be a separate macro
+##
 AC_ARG_WITH(pic,
 [  --with-pic              try to use only PIC/non-PIC objects [default=use both]],
 pic_mode="$withval", pic_mode=default)
@@ -2797,6 +2883,8 @@ else
 
   AC_MSG_RESULT([$lt_cv_prog_cc_pic_works])
 fi
+##
+## END FIXME
 
 # Check for any special shared library compilation flags.
 if test -n "$lt_cv_prog_cc_shlib"; then
@@ -2808,6 +2896,8 @@ if test -n "$lt_cv_prog_cc_shlib"; then
   fi
 fi
 
+## FIXME: this should be a separate macro
+##
 AC_MSG_CHECKING([if $compiler static flag $lt_cv_prog_cc_static works])
 AC_CACHE_VAL([lt_cv_prog_cc_static_works], [dnl
   lt_cv_prog_cc_static_works=no
@@ -2827,8 +2917,12 @@ wl="$lt_cv_prog_cc_wl"
 link_static_flag="$lt_cv_prog_cc_static"
 no_builtin_flag="$lt_cv_prog_cc_no_builtin"
 can_build_shared="$lt_cv_prog_cc_can_build_shared"
+##
+## END FIXME
 
 
+## FIXME: this should be a separate macro
+##
 # Check to see if options -o and -c are simultaneously supported by compiler
 AC_MSG_CHECKING([if $compiler supports -c -o file.$ac_objext])
 AC_CACHE_VAL([lt_cv_compiler_c_o], [
@@ -2896,7 +2990,11 @@ if test x"$compiler_c_o" = x"yes"; then
 else
   compiler_o_lo=no
 fi
+##
+## END FIXME
 
+## FIXME: this should be a separate macro
+##
 # Check to see if we can do hard links to lock some files if needed
 hard_links="nottested"
 if test "$compiler_c_o" = no && test "$need_locks" != no; then
@@ -2916,7 +3014,11 @@ if test "$compiler_c_o" = no && test "$need_locks" != no; then
 else
   need_locks=no
 fi
+##
+## END FIXME
 
+## FIXME: this should be a separate macro
+##
 if test "$GCC" = yes; then
   # Check to see if options -fno-rtti -fno-exceptions are supported by compiler
   AC_MSG_CHECKING([if $compiler supports -fno-rtti -fno-exceptions])
@@ -2942,7 +3044,11 @@ if test "$GCC" = yes; then
     no_builtin_flag=' -fno-builtin'
   fi
 fi
+##
+## END FIXME
 
+## FIXME: this should be a separate macro
+##
 # See if the linker supports building shared libraries.
 AC_MSG_CHECKING([whether the linker ($LD) supports shared libraries])
 
@@ -3628,7 +3734,11 @@ EOF
 fi
 AC_MSG_RESULT([$ld_shlibs])
 test "$ld_shlibs" = no && can_build_shared=no
+##
+## END FIXME
 
+## FIXME: this should be a separate macro
+##
 # Check hardcoding attributes.
 AC_MSG_CHECKING([how to hardcode library paths into programs])
 hardcode_action=
@@ -3654,7 +3764,11 @@ else
   hardcode_action=unsupported
 fi
 AC_MSG_RESULT([$hardcode_action])
+##
+## END FIXME
 
+## FIXME: this should be a separate macro
+##
 striplib=
 old_striplib=
 AC_MSG_CHECKING([whether stripping libraries is possible])
@@ -3665,10 +3779,14 @@ if test -n "$STRIP" && $STRIP -V 2>&1 | grep "GNU strip" >/dev/null; then
 else
   AC_MSG_RESULT([no])
 fi
+##
+## END FIXME
 
 reload_cmds='$LD$reload_flag -o $output$reload_objs'
 test -z "$deplibs_check_method" && deplibs_check_method=unknown
 
+## FIXME: this should be a separate macro
+##
 # PORTME Fill in your ld.so characteristics
 AC_MSG_CHECKING([dynamic linker characteristics])
 library_names_spec=
@@ -4078,11 +4196,19 @@ sysv4*MP*)
 esac
 AC_MSG_RESULT([$dynamic_linker])
 test "$dynamic_linker" = no && can_build_shared=no
+##
+## END FIXME
 
+## FIXME: this should be a separate macro
+##
 # Report the final consequences.
 AC_MSG_CHECKING([if libtool supports shared libraries])
 AC_MSG_RESULT([$can_build_shared])
+##
+## END FIXME
 
+## FIXME: this should be a separate macro
+##
 AC_MSG_CHECKING([whether to build shared libraries])
 test "$can_build_shared" = "no" && enable_shared=no
 
@@ -4104,11 +4230,17 @@ aix4*)
   ;;
 esac
 AC_MSG_RESULT([$enable_shared])
+##
+## END FIXME
 
+## FIXME: this should be a separate macro
+##
 AC_MSG_CHECKING([whether to build static libraries])
 # Make sure either enable_shared or enable_static is yes.
 test "$enable_shared" = yes || enable_static=yes
 AC_MSG_RESULT([$enable_static])
+##
+## END FIXME
 
 if test "$hardcode_action" = relink; then
   # Fast installation is not supported
@@ -4126,6 +4258,8 @@ fi
 
 AC_LIBTOOL_DLOPEN_SELF
 
+## FIXME: this should be a separate macro
+##
 if test "$enable_shared" = yes && test "$GCC" = yes; then
   case $archive_cmds in
   *'~'*)
@@ -4168,7 +4302,11 @@ if test "$enable_shared" = yes && test "$GCC" = yes; then
   esac
 fi
 need_lc=${lt_cv_archive_cmds_need_lc-yes}
+##
+## END FIXME
 
+## FIXME: this should be a separate macro
+##
 # The second clause should only fire when bootstrapping the
 # libtool distribution, otherwise you forgot to ship ltmain.sh
 # with your package, and you will get complaints that there are
@@ -4721,6 +4859,8 @@ EOF
     (rm -f "$ofile" && cp "${ofile}T" "$ofile" && rm -f "${ofile}T")
   chmod +x "$ofile"
 fi
+##
+## END FIXME
 
 ])# _LT_AC_LTCONFIG_HACK
 
@@ -5325,10 +5465,12 @@ AC_DEFUN([AM_PROG_NM],        [AC_PROG_NM])
 # This is just to silence aclocal about the macro not being used
 ifelse([AC_DISABLE_FAST_INSTALL])
 
+############################################################
 # NOTE: This macro has been submitted for inclusion into   #
 #  GNU Autoconf as AC_PROG_SED.  When it is available in   #
 #  a released version of Autoconf we should remove this    #
 #  macro and use it instead.                               #
+############################################################
 # LT_AC_PROG_SED
 # --------------
 # Check for a fully-functional sed program, that truncates
@@ -5413,4 +5555,3 @@ else
 fi
 AC_MSG_RESULT([$SED])
 ])
-

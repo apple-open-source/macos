@@ -1,12 +1,12 @@
 dnl
-dnl $Id: config.m4,v 1.4 2003/03/11 17:04:45 zarzycki Exp $
+dnl $Id: config.m4,v 1.8.2.1 2003/10/03 05:25:47 sniper Exp $
 dnl
 
 RESULT=no
 AC_MSG_CHECKING(for Pi3Web support)
 
 AC_ARG_WITH(pi3web,
-[  --with-pi3web=DIR       Build PHP as Pi3Web module],
+[  --with-pi3web[=DIR]     Build PHP as Pi3Web module],
 [
 if test "$withval" != "no"; then
 	if test "$withval" = "yes"; then

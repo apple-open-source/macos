@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: file.h,v 1.1.1.8 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: file.h,v 1.70.2.6 2004/06/21 19:33:47 pollita Exp $ */
 
 /* Synced with php 3.0 revision 1.30 1999-06-16 [ssb] */
 
@@ -63,8 +63,10 @@ PHP_FUNCTION(get_meta_tags);
 PHP_FUNCTION(flock);
 PHP_FUNCTION(fd_set);
 PHP_FUNCTION(fd_isset);
-#if (!defined(PHP_WIN32) && !defined(__BEOS__) && HAVE_REALPATH) || defined(ZTS)
+#if (!defined(__BEOS__) && !defined(NETWARE) && HAVE_REALPATH) || defined(ZTS)
 PHP_FUNCTION(realpath);
+#endif
+#ifdef HAVE_FNMATCH
 PHP_FUNCTION(fnmatch);
 #endif
 PHP_NAMED_FUNCTION(php_if_ftruncate);
@@ -116,11 +118,12 @@ typedef struct {
 	long default_socket_timeout;
 	char *user_agent;
 	char *user_stream_current_filename; /* for simple recursion protection */
+	HashTable *stream_wrappers;			/* per-request copy of url_stream_wrappers_hash */
 } php_file_globals;
 
 #ifdef ZTS
 #define FG(v) TSRMG(file_globals_id, php_file_globals *, v)
-extern int file_globals_id;
+extern PHPAPI int file_globals_id;
 #else
 #define FG(v) (file_globals.v)
 extern php_file_globals file_globals;

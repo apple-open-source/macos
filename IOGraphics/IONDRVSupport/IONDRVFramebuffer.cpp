@@ -1127,6 +1127,9 @@ IOReturn IONDRVFramebuffer::checkDriver( void )
             err = _doStatus( this, cscGetScalerInfo, &scalerRec );
             if (kIOReturnSuccess == err)
                 setProperty( kIOFBScalerInfoKey, &scalerRec, sizeof( scalerRec));
+
+            nub->setProperty(kIONDRVDisplayConnectFlagsKey, 
+                &__private->displayConnectFlags, sizeof(__private->displayConnectFlags));
         }
         while (false);
 
@@ -2892,6 +2895,8 @@ IOReturn IONDRVFramebuffer::setAttributeForConnection( IOIndex connectIndex,
 
         case kConnectionFlags:
             __private->displayConnectFlags |= value;
+            nub->setProperty(kIONDRVDisplayConnectFlagsKey, 
+                &__private->displayConnectFlags, sizeof(__private->displayConnectFlags));
             err = setConnectionFlags();
             break;
 
@@ -2971,6 +2976,9 @@ IOReturn IONDRVFramebuffer::processConnectChange( UInt32 * value )
 	ret = _doStatus( this, cscGetScalerInfo, &scalerRec );
 	if (kIOReturnSuccess == ret)
 	    setProperty( kIOFBScalerInfoKey, &scalerRec, sizeof( scalerRec));
+
+        nub->setProperty(kIONDRVDisplayConnectFlagsKey, 
+            &__private->displayConnectFlags, sizeof(__private->displayConnectFlags));
     }
     while (false);
 
@@ -3638,9 +3646,9 @@ IOReturn IONDRVFramebuffer::ndrvSetPowerState( UInt32 newState )
             sleep = 1;
 
         supportsReducedPower = (kIOReturnSuccess == err) && (0 != 
-		    ( kPowerStateSupportsReducedPower1BitMask
+                    (( kPowerStateSupportsReducedPower1BitMask
                     | kPowerStateSupportsReducedPower2BitMask
-                    | kPowerStateSupportsReducedPower3BitMask) & sleepInfo.powerFlags);
+                    | kPowerStateSupportsReducedPower3BitMask) & sleepInfo.powerFlags));
 
         ndrvPowerState = states[sleep][oldState][newState];
 
@@ -3650,10 +3658,7 @@ IOReturn IONDRVFramebuffer::ndrvSetPowerState( UInt32 newState )
 
         else if (kAVPowerSuspend == ndrvPowerState)
         {
-            if (supportsReducedPower)
-                ndrvPowerState = kAVPowerOff;
-
-            else if (false == getPlatform()->hasPMFeature(kPMHasDimSuspendSupportMask))
+            if (false == getPlatform()->hasPMFeature(kPMHasDimSuspendSupportMask))
                 ndrvPowerState = kAVPowerStandby;
         }
 
@@ -3678,8 +3683,8 @@ IOReturn IONDRVFramebuffer::ndrvSetPowerState( UInt32 newState )
 
             DEBG(thisIndex, " done powerFlags %08lx\n", sleepInfo.powerFlags);
 
-            __private->postWakeProbe = (kNDRVFramebufferSleepState == oldState)
-				    && (0 != (kPowerStateSleepWakeNeedsProbeMask & sleepInfo.powerFlags));
+            if (kNDRVFramebufferSleepState == oldState)
+		__private->postWakeProbe = (0 != (kPowerStateSleepWakeNeedsProbeMask & sleepInfo.powerFlags));
         }
     }
 

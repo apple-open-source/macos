@@ -160,12 +160,12 @@
         if (item == nil) {
             return [_rootNode childAtIndex:index];
         }
-        return [item childAtIndex:index];
+        return [(OutlineViewNode *)item childAtIndex:index];
     } else if (ov = IORegDetailedOutput) {
         if (item == nil) {
             return [_detailRootNode childAtIndex:index];
         }
-        return [item childAtIndex:index];
+        return [(OutlineViewNode *)item childAtIndex:index];
     }
     
     return nil;
@@ -273,6 +273,14 @@
         aNewNode = [[IORegDetailOutlineViewNode alloc] initWithName:(NSString *)key value:@""];
         [aNewNode setType:@"Array"];
         [self populateNode:aNewNode withContentsOfArray:value];
+        [node addChild:aNewNode];
+        [aNewNode release];
+    } else if (CFGetTypeID(value) == CFBooleanGetTypeID()) {
+        if ( CFBooleanGetValue( (CFBooleanRef) value) )
+            aNewNode = [[IORegDetailOutlineViewNode alloc] initWithName:(NSString *)key value:@"Yes"];
+        else
+            aNewNode = [[IORegDetailOutlineViewNode alloc] initWithName:(NSString *)key value:@"No"];
+        [aNewNode setType:@"Boolean"];
         [node addChild:aNewNode];
         [aNewNode release];
     }

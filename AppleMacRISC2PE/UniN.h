@@ -56,6 +56,7 @@
 #define kUniNNormal                (0x00)
 #define kUniNIdle2                 (0x01)
 #define kUniNSleep                 (0x02)
+#define kUniNSave                  (0x03)
 
 #define kUniNArbCtrl               (0x0040)
 #define kUniNArbCtrlQAckDelayShift (15)
@@ -118,6 +119,8 @@
 #define kUniNIsStoppedCPUDel		(1 << (31 - 13))
 #define kUniNIsStoppedPLL4Ref		(1 << (31 - 12))
 
+#define kUniNVSPSoftReset			(0x170)
+
 #define kUniNMPCIMemTimeout			(0x2160)
 #define kUniNMPCIMemTimeoutMask		(0xFF000000)
 #define kUniNMPCIMemGrantTime		(0x0 << 28)
@@ -170,6 +173,7 @@ private:
     IOMemoryMap				*uATABaseAddressMap;
 	volatile UInt32			*uATABaseAddress;
     UInt32					uATAFCR;
+    UInt32					saveVSPSoftReset;
 	bool					hostIsMobile;
 	const OSSymbol			*symReadIntrepidClockStopStatus;
 

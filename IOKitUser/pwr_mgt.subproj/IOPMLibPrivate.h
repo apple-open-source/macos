@@ -70,7 +70,8 @@ extern "C" {
 #define kIOPMSleepOnPowerButtonKey                      "Sleep On Power Button"
 // units - CFNumber 0/1
 #define kIOPMWakeOnClamshellKey                         "Wake On Clamshell Open"
-
+// units - CFNumber 0/1
+#define kIOPMMobileMotionModuleKey                      "Mobile Motion Module"
 
 typedef void (*IOPMPrefsCallbackType)(void *context);
 

@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config9.m4,v 1.1.1.2 2003/07/18 18:07:50 zarzycki Exp $
+dnl $Id: config9.m4,v 1.1.2.12 2003/12/01 16:12:38 sniper Exp $
 dnl
 
 AC_ARG_ENABLE(cgi,
@@ -12,9 +12,9 @@ AC_ARG_ENABLE(cgi,
 
 AC_ARG_ENABLE(force-cgi-redirect,
 [  --enable-force-cgi-redirect
-                           Enable the security check for internal server
-                           redirects.  You should use this if you are
-                           running the CGI version with Apache.],
+                          Enable the security check for internal server
+                          redirects.  You should use this if you are
+                          running the CGI version with Apache.],
 [
   PHP_FORCE_CGI_REDIRECT=$enableval
 ],[
@@ -42,7 +42,8 @@ AC_ARG_ENABLE(fastcgi,
 ])
 
 AC_ARG_ENABLE(path-info-check,
-[  --disable-path-info-check  If this is disabled, paths such as
+[  --disable-path-info-check  
+                          If this is disabled, paths such as
                           /info.php/test?a=b will fail to work.],
 [
   PHP_ENABLE_PATHINFO_CHECK=$enableval
@@ -133,6 +134,7 @@ if test "$PHP_SAPI" = "default"; then
       exit 1
     fi
     if test "$PHP_ENABLE_FASTCGI" = "yes"; then
+      PHP_ADD_BUILD_DIR($abs_builddir/sapi/cgi/libfcgi)
       PHP_FASTCGI=1
       PHP_FCGI_FILES="libfcgi/fcgi_stdio.c libfcgi/fcgiapp.c libfcgi/os_unix.c"
       PHP_FCGI_INCLUDE="-I$PHP_LIBFCGI_DIR/include"
@@ -147,15 +149,15 @@ if test "$PHP_SAPI" = "default"; then
     AC_DEFINE_UNQUOTED(PHP_FCGI_STATIC, $PHP_FCGI_STATIC, [ ])
     AC_MSG_RESULT($PHP_ENABLE_FASTCGI)
 
-    INSTALL_IT="\$(INSTALL) -m 0755 \$(SAPI_CGI_PATH) \$(INSTALL_ROOT)\$(bindir)/php"
+    INSTALL_IT="@echo \"Installing PHP CGI into: \$(INSTALL_ROOT)\$(bindir)/\"; \$(INSTALL) -m 0755 \$(SAPI_CGI_PATH) \$(INSTALL_ROOT)\$(bindir)/\$(program_prefix)php\$(program_suffix)"
     PHP_SELECT_SAPI(cgi, program, $PHP_FCGI_FILES cgi_main.c getopt.c, $PHP_FCGI_INCLUDE, '$(SAPI_CGI_PATH)')
 
     case $host_alias in
       *darwin*)
-        BUILD_CGI="\$(CC) \$(CFLAGS_CLEAN) \$(EXTRA_CFLAGS) \$(EXTRA_LDFLAGS) \$(LDFLAGS) \$(NATIVE_RPATHS) \$(PHP_GLOBAL_OBJS:.lo=.o) \$(PHP_SAPI_OBJS:.lo=.o) \$(PHP_FRAMEWORKS) \$(EXTRA_LIBS) \$(ZEND_EXTRA_LIBS) -o \$(SAPI_CGI_PATH)"
+        BUILD_CGI="\$(CC) \$(CFLAGS_CLEAN) \$(EXTRA_CFLAGS) \$(EXTRA_LDFLAGS_PROGRAM) \$(LDFLAGS) \$(NATIVE_RPATHS) \$(PHP_GLOBAL_OBJS:.lo=.o) \$(PHP_SAPI_OBJS:.lo=.o) \$(PHP_FRAMEWORKS) \$(EXTRA_LIBS) \$(ZEND_EXTRA_LIBS) -o \$(SAPI_CGI_PATH)"
       ;;
       *)
-        BUILD_CGI="\$(LIBTOOL) --mode=link \$(CC) -export-dynamic \$(CFLAGS_CLEAN) \$(EXTRA_CFLAGS) \$(EXTRA_LDFLAGS) \$(LDFLAGS) \$(PHP_RPATHS) \$(PHP_GLOBAL_OBJS) \$(PHP_SAPI_OBJS) \$(EXTRA_LIBS) \$(ZEND_EXTRA_LIBS) -o \$(SAPI_CGI_PATH)"
+        BUILD_CGI="\$(LIBTOOL) --mode=link \$(CC) -export-dynamic \$(CFLAGS_CLEAN) \$(EXTRA_CFLAGS) \$(EXTRA_LDFLAGS_PROGRAM) \$(LDFLAGS) \$(PHP_RPATHS) \$(PHP_GLOBAL_OBJS) \$(PHP_SAPI_OBJS) \$(EXTRA_LIBS) \$(ZEND_EXTRA_LIBS) -o \$(SAPI_CGI_PATH)"
       ;;
     esac
 

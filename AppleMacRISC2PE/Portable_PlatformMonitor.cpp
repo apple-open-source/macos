@@ -76,6 +76,27 @@ IORecursiveLock		*setSpeedLock;
  *	will pretty much hold all the data that 
  */
 
+// PowerBook6,7 values ( Q72B / Q73B )
+static LimitsInfo limits_Q72B[5] = 
+{		//Sensor	//templimit		//hysteresis	//effect		// special state 
+	{		0,			63,				1, 			kThrottleCPU,	kNoSpecialState,		},		// Sensor 0 - Pwr/Memory Bottomside
+	{		1,			83,				1, 			kThrottleCPU,	kNoSpecialState,		},		// Sensor 1 - CPU Bottomside
+	{		2,			92,				1, 			kThrottleCPU,	kNoSpecialState,		},		// Sensor 2 - GPU on Die
+	{		3,			73,				5, 			kThrottleCPU,	kNoSpecialState,		},		// Sensor 3 - Battery
+    {	   -1, 			 0,				0,			0,				0,						}		// No more sensors
+};
+
+// PowerBook6,8 values	( Q54B )
+static LimitsInfo limits_Q54B[6] = 
+{		//Sensor	//templimit		//hysteresis	//effect		// special state 
+	{		0,			54,				2, 			kThrottleCPU,	kNoSpecialState,		},		// Sensor 0 - HDD Bottomside
+	{		0,			59,				2, 			kThrottleCPU,	kClamshellClosedState,	},		// Sensor 0 - HDD Bottomside
+	{		1,			79,				4, 			kThrottleCPU,	kNoSpecialState,		},		// Sensor 1 - CPU Topside
+	{		2,			103,			4, 			kThrottleCPU,	kNoSpecialState,		},		// Sensor 2 - GPU on Die
+	{		3,			42,				2, 			kThrottleCPU,	kNoSpecialState,		},		// Sensor 3 - Battery
+    {	   -1, 			 0,				0,			0,				0,						}		// No more sensors
+};
+
 // PowerBook6,5 values ( Q72 / Q73 )
 static LimitsInfo limits_Q72[5] = 
 {		//Sensor	//templimit		//hysteresis	//effect		// special state 
@@ -236,11 +257,14 @@ bool Portable_PlatformMonitor::start ( IOService * nub )
         case kPB63MachineModel:		thermalLimits = limits_P72D;	break;
 
         case kPB64MachineModel:		thermalLimits = limits_Q54A;	break;
-        case kPB65MachineModel:		thermalLimits = limits_Q72;		break;
+        case kPB65MachineModel:		thermalLimits = limits_Q72;		break;		// Also covers Q72A
         case kPB54MachineModel:		thermalLimits = limits_Q16A;	break;
         case kPB55MachineModel:		thermalLimits = limits_Q41A;	break;
         case kPB66MachineModel:		thermalLimits = limits_Q79;		break;
         
+        case kPB67MachineModel:		thermalLimits = limits_Q72B;	break;
+        case kPB68MachineModel:		thermalLimits = limits_Q54B;	break;
+
         case kPB56MachineModel:		thermalLimits = limits_Q16A;	break;		// For now, same values as Q16A
         case kPB57MachineModel:		thermalLimits = limits_Q41A;	break;		// For now, same values as Q41A
 
@@ -262,7 +286,10 @@ bool Portable_PlatformMonitor::start ( IOService * nub )
     //	Powerbook5,4 ( Q16A )					YES										   YES
     //  Powerbook5,5 ( Q41A )					YES										   YES
     //  Powerbook6,4 ( Q54A )					YES										    NO
-    //  Powerbook6,5 ( Q72  )					 NO										    NO
+    //  Powerbook6,5 ( Q72/A )					 NO										    NO
+
+    //  Powerbook6,8 ( Q54B )					 NO										    NO
+    //  Powerbook6,7 ( Q72B )					 NO										    NO
 
     //	Powerbook5,2 ( Q16  )					YES										   YES
     //  Powerbook5,3 ( Q41  )					YES										   YES
@@ -280,7 +307,7 @@ bool Portable_PlatformMonitor::start ( IOService * nub )
 	machineReducesOnNoBattery = (( machineModel == kPB51MachineModel ) || ( machineModel == kPB52MachineModel ) || 		// P84, Q16
                                  ( machineModel == kPB53MachineModel ) || ( machineModel == kPB54MachineModel ) ||		// Q41, Q16A
                                  ( machineModel == kPB55MachineModel ) || ( machineModel == kPB56MachineModel ) ||		// Q41, Q16B
-                                 ( machineModel == kPB57MachineModel ) || ( machineModel == kPB61MachineModel ) ||
+                                 ( machineModel == kPB57MachineModel ) || ( machineModel == kPB61MachineModel ) ||		// Q41B, P99
                                  ( machineModel == kPB62MachineModel ) || ( machineModel == kPB64MachineModel ));		// Q54, Q54A
 
     needs2003Fixes = (( machineModel == kPB52MachineModel ) || ( machineModel == kPB53MachineModel ) || 				// Q16, Q41
@@ -424,7 +451,7 @@ bool Portable_PlatformMonitor::start ( IOService * nub )
     
 	lastPowerState = kMaxPowerStates;
 	lastClamshellState = kNumClamshellStates;
-    
+	
     setSpeedLock = IORecursiveLockAlloc();
 	
 	// Put initial state and action info into the IORegistry
@@ -504,7 +531,7 @@ IOReturn Portable_PlatformMonitor::powerStateWillChangeTo (IOPMPowerFlags theFla
     if ( ! (theFlags & IOPMPowerOn) )			// Machine is going to sleep
     {
         IORecursiveLockLock(setSpeedLock);
-        
+                
         setCPUSpeed(true);						// Before going to sleep, 2003 and on portables must step/slew high
         goingToSleep = true;			
         
@@ -549,13 +576,15 @@ IOReturn Portable_PlatformMonitor::powerStateDidChangeTo (IOPMPowerFlags theFlag
 IOReturn Portable_PlatformMonitor::setAggressiveness(unsigned long selector, unsigned long newLevel)
 {
 	IOPMonEventData 	event;
-	IOReturn		result;
+	IOReturn			result;
         	    
     if (goingToSleep) 
         return kIOReturnError;
 
     result = super::setAggressiveness(selector, newLevel);
 
+    newLevel &= 0x7FFFFFFF;		// mask off high bit... upcoming kernel change will use the high bit to indicate whether setAggressiveness call
+                                // was user induced (Energy Saver) or not.  Currently not using this info so mask it off.
 	if (selector == kPMSetProcessorSpeed)
     {
         if ((newLevel != currentPowerState) && (newLevel < 2))			// This only works if we have two power states
@@ -588,7 +617,7 @@ bool Portable_PlatformMonitor::setCPUSpeed( bool setPowerHigh )
         IORecursiveLockUnlock(setSpeedLock);		// Leaving early, be sure to free the key
         return false;								// CPU speed can not change while a sleep is occuring
     }
-    
+        
     if ( setPowerHigh )
     {
         newSpeed = kCPUPowerState0;
@@ -606,7 +635,7 @@ bool Portable_PlatformMonitor::setCPUSpeed( bool setPowerHigh )
         IORecursiveLockUnlock(setSpeedLock);		// Leaving early, be sure to free the key
     	return false;
 	}
-	
+    
     if ((conSensorArray[whichCPUSpeedController].state != newSpeed) && (serv = conSensorArray[whichCPUSpeedController].conSensor))
     {	
         if ( whichCPUSpeedController == kSlewController )
@@ -618,7 +647,7 @@ bool Portable_PlatformMonitor::setCPUSpeed( bool setPowerHigh )
         
         provider->setProperty (gIOPMonCPUActionKey, newProperty);
     }
-    
+
     IORecursiveLockUnlock(setSpeedLock);
 
 	return true;

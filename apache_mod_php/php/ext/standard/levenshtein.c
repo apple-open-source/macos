@@ -15,7 +15,7 @@
    | Author: Hartmut Holzgraefe <hholzgra@php.net>                        |
    +----------------------------------------------------------------------+
  */
-/* $Id: levenshtein.c,v 1.1.1.8 2003/07/18 18:07:43 zarzycki Exp $ */
+/* $Id: levenshtein.c,v 1.25.4.2 2002/12/31 16:35:31 sebastian Exp $ */
 
 #include "php.h"
 #include <stdlib.h>

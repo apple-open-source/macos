@@ -137,6 +137,7 @@ struct AppleEHCIIsochEndpointStruct {
     USBDeviceAddress				highSpeedHub;
     int						highSpeedPort;
     UInt8					direction;
+	UInt8								interval;					// this is the processed interval value for HS endpoints
 };
 
 
@@ -358,21 +359,9 @@ protected:
 							IOMemoryDescriptor 		*pBuffer,
 							UInt32 				frameCount,
 							IOUSBLowLatencyIsocFrame	*pFrames,
-							UInt32 				updateFrequency,
-							Boolean lowLatency);
-    IOReturn 		CreateHSIsochTransfer(	AppleEHCIIsochEndpointPtr	pEP,
-						    IOUSBIsocCompletion		completion,
-						    UInt64 			frameNumberStart,
-						    IOMemoryDescriptor 		*pBuffer,
-						    UInt32 			frameCount,
-						    IOUSBLowLatencyIsocFrame	*pFrames,
-						    UInt32 			updateFrequency);
-    IOReturn 		CreateHSIsochTransfer(	AppleEHCIIsochEndpointPtr	pEP,
-						    IOUSBIsocCompletion		completion,
-						    UInt64 			frameNumberStart,
-						    IOMemoryDescriptor 		*pBuffer,
-						    UInt32 			frameCount,
-						    IOUSBIsocFrame	*pFrames);
+											UInt32						updateFrequency = 0,
+											Boolean						lowLatency = false);
+
     IOReturn 		CreateSplitIsochTransfer(AppleEHCIIsochEndpointPtr	pEP,
 						    IOUSBIsocCompletion		completion,
 						    UInt64 			frameNumberStart,
@@ -382,8 +371,7 @@ protected:
 						    UInt32 			updateFrequency = 0,
 						    bool 			lowLatency = false);
 
-	void  ReturnOneTransaction(
-            EHCIGeneralTransferDescriptor 	*transaction,
+	void  ReturnOneTransaction(EHCIGeneralTransferDescriptor 	*transaction,
             AppleEHCIQueueHead   	*pED,
             AppleEHCIQueueHead   	*pEDBack,
 			IOReturn				err);
@@ -407,80 +395,74 @@ public:
     IOReturn DeallocateSITD (AppleEHCISplitIsochTransferDescriptor *pTD);
 
    // Control
-    virtual IOReturn UIMCreateControlEndpoint(
-            UInt8				functionNumber,
+    virtual IOReturn UIMCreateControlEndpoint(UInt8				functionNumber,
             UInt8				endpointNumber,
             UInt16				maxPacketSize,
             UInt8				speed);
-    virtual IOReturn UIMCreateControlEndpoint(
-            UInt8				functionNumber,
-            UInt8				endpointNumber,
-            UInt16				maxPacketSize,
-            UInt8				speed,
-            USBDeviceAddress    		highSpeedHub,
-            int			                highSpeedPort);
-            
-   // method in 1.8 and 1.8.1
-   virtual IOReturn UIMCreateControlTransfer(
-            short				functionNumber,
-            short				endpointNumber,
-            IOUSBCompletion			completion,
-            void *				CBP,
+	
+    virtual IOReturn UIMCreateControlEndpoint(UInt8				functionNumber,
+											  UInt8				endpointNumber,
+											  UInt16			maxPacketSize,
+											  UInt8				speed,
+											  USBDeviceAddress  highSpeedHub,
+											  int			    highSpeedPort);
+	
+	// method in 1.8 and 1.8.1
+	virtual IOReturn UIMCreateControlTransfer(short				functionNumber,
+											  short				endpointNumber,
+											  IOUSBCompletion	completion,
+											  void				*CBP,
             bool				bufferRounding,
             UInt32				bufferSize,
             short				direction);
     //same method in 1.8.2
-    virtual IOReturn UIMCreateControlTransfer(
-            short				functionNumber,
-            short				endpointNumber,
-            IOUSBCommand*			command,
-            IOMemoryDescriptor *		CBP,
-            bool				bufferRounding,
-            UInt32				bufferSize,
-            short				direction);
+    virtual IOReturn UIMCreateControlTransfer(short					functionNumber,
+											  short					endpointNumber,
+											  IOUSBCommand*			command,
+											  IOMemoryDescriptor	*CBP,
+											  bool					bufferRounding,
+											  UInt32				bufferSize,
+											  short					direction);
     // method in 1.8 and 1.8.1
-    virtual IOReturn UIMCreateControlTransfer(
-            short				functionNumber,
-            short				endpointNumber,
-            IOUSBCompletion			completion,
-            IOMemoryDescriptor *		CBP,
-            bool				bufferRounding,
-            UInt32				bufferSize,
-            short				direction);
-   virtual IOReturn UIMCreateControlTransfer(
-            short				functionNumber,
-            short				endpointNumber,
-            IOUSBCommand*			command,
-            void *				CBP,
+    virtual IOReturn UIMCreateControlTransfer(short					functionNumber,
+											  short					endpointNumber,
+											  IOUSBCompletion		completion,
+											  IOMemoryDescriptor	*CBP,
+											  bool					bufferRounding,
+											  UInt32				bufferSize,
+											  short					direction);
+	
+	virtual IOReturn UIMCreateControlTransfer(short				functionNumber,
+											  short				endpointNumber,
+											  IOUSBCommand		*command,
+											  void				*CBP,
             bool				bufferRounding,
             UInt32				bufferSize,
             short				direction);
 
 
     // Bulk
-    virtual IOReturn UIMCreateBulkEndpoint(
-            UInt8				functionNumber,
+    virtual IOReturn UIMCreateBulkEndpoint(UInt8				functionNumber,
             UInt8				endpointNumber,
             UInt8				direction,
             UInt8				speed,
             UInt8				maxPacketSize);
-    virtual IOReturn UIMCreateBulkEndpoint(
-            UInt8				functionNumber,
-            UInt8				endpointNumber,
-            UInt8				direction,
-            UInt8				speed,
-            UInt16				maxPacketSize,
-            USBDeviceAddress    		highSpeedHub,
-            int			                highSpeedPort);
-
-
-
+	
+    virtual IOReturn UIMCreateBulkEndpoint(UInt8				functionNumber,
+										   UInt8				endpointNumber,
+										   UInt8				direction,
+										   UInt8				speed,
+										   UInt16				maxPacketSize,
+										   USBDeviceAddress    	highSpeedHub,
+										   int					highSpeedPort);
+	
+	
+	
     // method in 1.8 and 1.8.1
-    virtual IOReturn UIMCreateBulkTransfer(
-            short				functionNumber,
-            short				endpointNumber,
-            IOUSBCompletion			completion,
-            IOMemoryDescriptor *		CBP,
+    virtual IOReturn UIMCreateBulkTransfer(short				functionNumber,
+										   short				endpointNumber,
+										   IOUSBCompletion		completion,
+										   IOMemoryDescriptor   *CBP,
             bool				bufferRounding,
             UInt32				bufferSize,
             short				direction);
@@ -489,15 +471,14 @@ public:
     virtual IOReturn UIMCreateBulkTransfer(IOUSBCommand* command);
 
     // Interrupt
-    virtual IOReturn UIMCreateInterruptEndpoint(
-            short				functionAddress,
+    virtual IOReturn UIMCreateInterruptEndpoint(short				functionAddress,
             short				endpointNumber,
             UInt8				direction,
             short				speed,
             UInt16				maxPacketSize,
             short				pollingRate);
-    virtual IOReturn UIMCreateInterruptEndpoint(
-            short				functionAddress,
+	
+    virtual IOReturn UIMCreateInterruptEndpoint(short				functionAddress,
             short				endpointNumber,
             UInt8				direction,
             short				speed,
@@ -507,11 +488,10 @@ public:
             int                 		highSpeedPort);
 
     // method in 1.8 and 1.8.1
-    virtual IOReturn UIMCreateInterruptTransfer(
-            short				functionNumber,
-            short				endpointNumber,
-            IOUSBCompletion			completion,
-            IOMemoryDescriptor *		CBP,
+    virtual IOReturn UIMCreateInterruptTransfer(short				functionNumber,
+												short				endpointNumber,
+												IOUSBCompletion		completion,
+												IOMemoryDescriptor  *CBP,
             bool				bufferRounding,
             UInt32				bufferSize,
             short				direction);
@@ -521,39 +501,44 @@ public:
     virtual IOReturn UIMCreateInterruptTransfer(IOUSBCommand* command);
 
     // Isoch
-    virtual IOReturn UIMCreateIsochEndpoint(
-            short				functionAddress,
-            short				endpointNumber,
-            UInt32				maxPacketSize,
-            UInt8				direction);
-    virtual IOReturn UIMCreateIsochEndpoint(
-            short				functionAddress,
-            short				endpointNumber,
-            UInt32				maxPacketSize,
-            UInt8				direction,
-            USBDeviceAddress    		highSpeedHub,
-            int                 		highSpeedPort);
-
-    virtual IOReturn UIMCreateIsochTransfer(
-	short				functionAddress,
-	short				endpointNumber,
-	IOUSBIsocCompletion		completion,
-	UInt8				direction,
-	UInt64				frameStart,
-	IOMemoryDescriptor *		pBuffer,
-	UInt32				frameCount,
-	IOUSBIsocFrame			*pFrames);
-
-    virtual IOReturn UIMAbortEndpoint(
-            short				functionNumber,
-            short				endpointNumber,
-            short				direction);
-    virtual IOReturn UIMDeleteEndpoint(
-            short				functionNumber,
-            short				endpointNumber,
-            short				direction);
-    virtual IOReturn UIMClearEndpointStall(
-            short				functionNumber,
+    virtual IOReturn UIMCreateIsochEndpoint(short				functionAddress,
+											short				endpointNumber,
+											UInt32				maxPacketSize,
+											UInt8				direction);
+	
+    virtual IOReturn UIMCreateIsochEndpoint(short				functionAddress,
+											short				endpointNumber,
+											UInt32				maxPacketSize,
+											UInt8				direction,
+											USBDeviceAddress    highSpeedHub,
+											int                 highSpeedPort);
+	
+    virtual IOReturn UIMCreateIsochEndpoint(short				functionAddress,
+											short				endpointNumber,
+											UInt32				maxPacketSize,
+											UInt8				direction,
+											USBDeviceAddress    highSpeedHub,
+											int					highSpeedPort,
+											UInt8				interval);
+	
+    virtual IOReturn UIMCreateIsochTransfer(short					functionAddress,
+											short					endpointNumber,
+											IOUSBIsocCompletion		completion,
+											UInt8					direction,
+											UInt64					frameStart,
+											IOMemoryDescriptor		*pBuffer,
+											UInt32					frameCount,
+											IOUSBIsocFrame			*pFrames);
+	
+    virtual IOReturn UIMAbortEndpoint(short				functionNumber,
+									  short				endpointNumber,
+									  short				direction);
+	
+    virtual IOReturn UIMDeleteEndpoint(short				functionNumber,
+									   short				endpointNumber,
+									   short				direction);
+	
+    virtual IOReturn UIMClearEndpointStall(short				functionNumber,
             short				endpointNumber,
             short				direction);
 
@@ -601,8 +586,7 @@ public:
     IOReturn GetRootHubStringDescriptor(UInt8	index, OSData *desc);
     AbsoluteTime	LastRootHubPortStatusChanged( bool reset );
  
-    virtual IOReturn 		UIMCreateIsochTransfer(
-                                                        short			functionAddress,
+    virtual IOReturn 		UIMCreateIsochTransfer(short					functionAddress,
                                                         short			endpointNumber,
                                                         IOUSBIsocCompletion	completion,
                                                         UInt8			direction,

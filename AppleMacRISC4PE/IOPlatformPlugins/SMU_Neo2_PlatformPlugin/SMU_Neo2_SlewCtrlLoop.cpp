@@ -22,13 +22,13 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: SMU_Neo2_SlewCtrlLoop.cpp,v 1.10.2.1 2004/07/23 21:02:37 eem Exp $
+ *  File: $Id: SMU_Neo2_SlewCtrlLoop.cpp,v 1.15 2004/12/03 23:19:46 raddog Exp $
  *
  */
 
 
 #include <IOKit/IOLib.h>
-#include <ppc/machine_routines.h>
+#include <machine/machine_routines.h>
 
 #include "IOPlatformPluginSymbols.h"
 #include "IOPlatformPlugin.h"
@@ -526,7 +526,9 @@ bool SMU_Neo2_SlewCtrlLoop::setProcessorStepIndex( unsigned int stepIndex )
 		stepIndex = _stepIndexLimit;
 		}
 
+#if defined( __ppc__ )
 	ml_set_processor_speed( stepIndex );
+#endif
 	_stepIndex = stepIndex;
 
 	return( true );
@@ -684,7 +686,7 @@ void SMU_Neo2_SlewCtrlLoop::adjustControls( void )
 	dpsTarget = tmpNumber ? tmpNumber->unsigned32BitValue() : 0;
 
 	// fetch the current temperature
-	if ( _cpu0TempSensor && _cpu0TempSensor->isRegistered() )
+	if ( _cpu0TempSensor && ( _cpu0TempSensor->isRegistered() == kOSBooleanTrue ) )
 	{
 		currentTemp = _cpu0TempSensor->getCurrentValue();
 		currentTempValid = true;
@@ -1117,6 +1119,8 @@ void SMU_Neo2_SlewCtrlLoop::checkThermalFailsafes( bool currentTempValid, Sensor
 				IOLog( "Thermal Manager: max temperature exceeded for 30 seconds, forcing system sleep\n" );
 				CTRLLOOP_DLOG( "SMU_Neo2_SlewCtrlLoop::checkThermalFailsafes exceeded Tmax @ max cooling for 30s, sleeping system\n" );
 	
+				platformPlugin->coreDump();
+
 				// send the sleep demand
 				platformPlugin->sleepSystem();
 			}

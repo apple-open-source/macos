@@ -11,11 +11,22 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <syslog.h>
 
-io_registry_entry_t gControlReference;
-io_registry_entry_t mHeadphoneExclusiveControl;
-io_connect_t	    gConnectionReference;
-io_object_t			ioAudioEngine;
-io_object_t			ioAudioDevice;
+typedef struct {
+	io_object_t			ioAudioEngine;
+	io_object_t			ioAudioDevice;
+	UInt32				deviceID;
+} PluginInfo, *PluginInfoPtr;
+
+static io_registry_entry_t		gControlReference;
+static io_registry_entry_t		mHeadphoneExclusiveControl;
+static io_connect_t				gConnectionReference;
+static CFMutableArrayRef		gPluginInfoArray = NULL;
+static UInt32					sPluginInstance = 0;
+
+static PluginInfoPtr AudioDriverPlugInGetPlugInInfoForDeviceID (UInt32 inDeviceID);
+static io_object_t AudioDriverPlugInGetEngineForDeviceID (UInt32 inDeviceID);
+static io_object_t AudioDriverPlugInGetDeviceForDeviceID (UInt32 inDeviceID);
+static void ReleasePluginInfo(UInt32 inDeviceID);
 
 static void convertDecTo4cc (UInt32 input, char * output);
 
@@ -25,11 +36,35 @@ OSStatus AudioDriverPlugInOpen (AudioDriverPlugInHostInfo * inHostInfo) {
 	UInt32						theIntVal;
 	io_iterator_t				theIterator;
 	kern_return_t				theKernelError;
+	CFStringRef					theString;
+	char						cString[256];
+	PluginInfoPtr				thePluginInfo;
+		
+	//syslog (LOG_ALERT, "+ HAL Plugin : AudioDriverPlugInOpen[%ld] ", sPluginInstance);
 
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInOpen ");
 	theResult = noErr;
-	ioAudioEngine = inHostInfo->mIOAudioEngine;
-	ioAudioDevice = inHostInfo->mIOAudioDevice;
+	
+	if (NULL == gPluginInfoArray) {
+		gPluginInfoArray = CFArrayCreateMutable(NULL, 0, NULL);
+		//syslog (LOG_ALERT, "creating new gPluginInfoArray = %p", gPluginInfoArray);
+	}
+	FailIf(NULL == gPluginInfoArray, Exit);
+	
+	thePluginInfo = (PluginInfoPtr)(malloc(sizeof(PluginInfo))); 
+	//syslog (LOG_ALERT, " thePluginInfo = %p, size %d", thePluginInfo, sizeof(PluginInfo));
+	FailIf(NULL == thePluginInfo, Exit);
+	
+	thePluginInfo->ioAudioEngine = inHostInfo->mIOAudioEngine;
+	thePluginInfo->ioAudioDevice = inHostInfo->mIOAudioDevice;
+	thePluginInfo->deviceID = inHostInfo->mDeviceID;
+
+	CFArrayAppendValue(gPluginInfoArray, thePluginInfo); 
+
+	//syslog (LOG_ALERT, " ioAudioEngine[%ld] = %p", sPluginInstance, thePluginInfo->ioAudioEngine);
+	//syslog (LOG_ALERT, " ioAudioDevice[%ld] = %p", sPluginInstance, thePluginInfo->ioAudioDevice);
+	//syslog (LOG_ALERT, " ioAudioDeviceID[%ld] = 0x%lX", sPluginInstance, thePluginInfo->deviceID);
+
+	sPluginInstance++;
 
 	theKernelError = IORegistryEntryCreateIterator (inHostInfo->mIOAudioDevice, kIOServicePlane, kIORegistryIterateRecursively, &theIterator);
 
@@ -56,36 +91,62 @@ OSStatus AudioDriverPlugInOpen (AudioDriverPlugInHostInfo * inHostInfo) {
 		}
 	}
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInOpen");
+	theString = IORegistryEntryCreateCFProperty (inHostInfo->mIOAudioEngine, CFSTR ("IOAudioEngineGlobalUniqueID"), kCFAllocatorDefault, 0);
+	CFStringGetCString(theString, cString, 256, 0);
+	//syslog (LOG_ALERT, " IOAudioEngine[%p] guid = %s", inHostInfo->mIOAudioEngine, cString);
+
 	if (theIterator)
 		IOObjectRelease (theIterator);
 
+Exit:
+	//syslog (LOG_ALERT, "- HAL Plugin :  AudioDriverPlugInOpen return %ld", theResult);
 	return theResult;
 }
 
-OSStatus AudioDriverPlugInClose (AudioDeviceID inDevice) {
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInClose ");
+OSStatus AudioDriverPlugInClose (AudioDeviceID inDeviceID) {
+	CFIndex count;
+	
+	//syslog (LOG_ALERT, "+ HAL Plugin : AudioDriverPlugInClose ");
 
 	if (gConnectionReference)
 		IOServiceClose (gConnectionReference);
 	if (gControlReference)
 		IOObjectRelease (gControlReference);
+		
+	ReleasePluginInfo(inDeviceID);	
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInClose");
-	return 0;
+	if (gPluginInfoArray) {
+		count = CFArrayGetCount(gPluginInfoArray);
+		//syslog (LOG_ALERT, "count = %ld", count);
+		if (0 == count) {
+			CFRelease(gPluginInfoArray);
+			gPluginInfoArray = NULL;
+			//syslog (LOG_ALERT, "gPluginInfoArray released");
+		}
+	}
+	
+	//syslog (LOG_ALERT, "- HAL Plugin :  AudioDriverPlugInClose");
+	return noErr;
 }
 
-OSStatus AudioDriverPlugInDeviceGetPropertyInfo (AudioDeviceID inDevice, UInt32 inLine, Boolean isInput, AudioDevicePropertyID inPropertyID, UInt32 * outSize, Boolean * outWritable) {
+OSStatus AudioDriverPlugInDeviceGetPropertyInfo (AudioDeviceID inDeviceID, UInt32 inLine, Boolean isInput, AudioDevicePropertyID inPropertyID, UInt32 * outSize, Boolean * outWritable) {
 	char						theProp[5];
 	OSStatus					theResult;
 	CFDictionaryRef				theDict;
 	CFNumberRef					theNumber;
+	CFStringRef					theString;
+	char						cString[256];
+	io_object_t					theEngine;
 
 	convertDecTo4cc (inPropertyID, theProp);
 
 	theResult = kAudioHardwareUnknownPropertyError;
 
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInDeviceGetPropertyInfo %s", theProp);
+	//syslog (LOG_ALERT, "+ HAL Plugin : AudioDriverPlugInDeviceGetPropertyInfo (0x%lX, %ld, %d, %s, %p, %p)", inDeviceID, inLine, isInput, theProp, outSize, outWritable);
+
+	theEngine = AudioDriverPlugInGetEngineForDeviceID(inDeviceID);
+
+	FailIf (NULL == theEngine, Exit);
 
 	switch (inPropertyID) {
 		case kAOAPropertyPowerState:
@@ -94,7 +155,15 @@ OSStatus AudioDriverPlugInDeviceGetPropertyInfo (AudioDeviceID inDevice, UInt32 
 			theResult = noErr;
 			break;
 		case kAOAPropertySelectionsReference:
-			theDict = IORegistryEntryCreateCFProperty (ioAudioEngine, CFSTR ("MappingDictionary"), kCFAllocatorDefault, 0);
+			//syslog (LOG_ALERT, "getPropertyInfo for kAOAPropertySelectionsReference");
+			//syslog (LOG_ALERT, "   ioAudioEngine %p)", theEngine);	
+			
+			theDict = IORegistryEntryCreateCFProperty (theEngine, CFSTR ("MappingDictionary"), kCFAllocatorDefault, 0);
+			//syslog (LOG_ALERT, "   theDict %p", theDict);
+			theString = IORegistryEntryCreateCFProperty (theEngine, CFSTR ("IOAudioEngineGlobalUniqueID"), kCFAllocatorDefault, 0);
+			//syslog (LOG_ALERT, "   theString %p", theString);
+			CFStringGetCString(theString, cString, 256, 0);
+			//syslog (LOG_ALERT, "   guid %s", cString);
 			if (theDict) {
 				CFRelease (theDict);
 				if (outWritable) *outWritable = FALSE;
@@ -103,7 +172,7 @@ OSStatus AudioDriverPlugInDeviceGetPropertyInfo (AudioDeviceID inDevice, UInt32 
 			}
 			break;
 		case kAOAPropertyAvailableInputsBitmap:
-			theNumber = IORegistryEntryCreateCFProperty (ioAudioEngine, CFSTR ("InputsBitmap"), kCFAllocatorDefault, 0);
+			theNumber = IORegistryEntryCreateCFProperty (theEngine, CFSTR ("InputsBitmap"), kCFAllocatorDefault, 0);
 			if (theNumber) {
 				CFRelease (theNumber);
 				if (outWritable) *outWritable = FALSE;
@@ -112,7 +181,7 @@ OSStatus AudioDriverPlugInDeviceGetPropertyInfo (AudioDeviceID inDevice, UInt32 
 			}
 			break;
 		case kAOAPropertyAvailableOutputsBitmap:
-			theNumber = IORegistryEntryCreateCFProperty (ioAudioEngine, CFSTR ("OutputsBitmap"), kCFAllocatorDefault, 0);
+			theNumber = IORegistryEntryCreateCFProperty (theEngine, CFSTR ("OutputsBitmap"), kCFAllocatorDefault, 0);
 			if (theNumber) {
 				CFRelease (theNumber);
 				if (outWritable) *outWritable = FALSE;
@@ -124,8 +193,8 @@ OSStatus AudioDriverPlugInDeviceGetPropertyInfo (AudioDeviceID inDevice, UInt32 
 			break;
 	}
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInDeviceGetPropertyInfo");
-
+	//syslog (LOG_ALERT, "- HAL Plugin :  AudioDriverPlugInDeviceGetPropertyInfo");
+Exit:
 	return theResult;
 }
 
@@ -146,27 +215,36 @@ OSStatus GetIntPropertyData (io_registry_entry_t theEntry, CFStringRef theKey, v
 	return theResult;
 }
 
-OSStatus AudioDriverPlugInDeviceGetProperty (AudioDeviceID inDevice, UInt32 inLine, Boolean isInput, AudioDevicePropertyID inPropertyID, UInt32 * ioPropertyDataSize, void * outPropertyData) {
+OSStatus AudioDriverPlugInDeviceGetProperty (AudioDeviceID inDeviceID, UInt32 inLine, Boolean isInput, AudioDevicePropertyID inPropertyID, UInt32 * ioPropertyDataSize, void * outPropertyData) {
 	char						theProp[5];
 	OSStatus					theResult;
 	CFDictionaryRef				theDict;
 	CFNumberRef					theNumber;
 	CFStringRef					entryname;
+	io_object_t					theEngine;
+	io_object_t					theDevice;
 
 	theResult = kAudioHardwareUnknownPropertyError;
 
 	convertDecTo4cc (inPropertyID, theProp);
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInDeviceGetProperty %s", theProp);
+	//syslog (LOG_ALERT, "+ HAL Plugin : AudioDriverPlugInDeviceGetProperty %s", theProp);
+
+	theEngine = AudioDriverPlugInGetEngineForDeviceID(inDeviceID);
+	theDevice = AudioDriverPlugInGetDeviceForDeviceID(inDeviceID);
+
+	FailIf (NULL == theEngine, Exit);
+	FailIf (NULL == theDevice, Exit);
 
 	switch (inPropertyID) {
 		case kAOAPropertyPowerState:
-			theResult = GetIntPropertyData (ioAudioDevice, CFSTR ("IOAudioPowerState"), outPropertyData);
+			theResult = GetIntPropertyData (theDevice, CFSTR ("IOAudioPowerState"), outPropertyData);
 			if (!theResult) {
 				if (ioPropertyDataSize) *ioPropertyDataSize = sizeof (UInt32);
 			}
 			break;
 		case kAOAPropertySelectionsReference:
-			theDict = IORegistryEntryCreateCFProperty (ioAudioEngine, CFSTR ("MappingDictionary"), kCFAllocatorDefault, 0);
+			theDict = IORegistryEntryCreateCFProperty (theEngine, CFSTR ("MappingDictionary"), kCFAllocatorDefault, 0);
+			//syslog (LOG_ALERT, "   getProperty: kAOAPropertySelectionsReference theDict %p", theDict);
 			if (theDict) {
 				if (outPropertyData) *(CFDictionaryRef *)outPropertyData = theDict;
 				else CFRelease (theDict);
@@ -179,7 +257,7 @@ OSStatus AudioDriverPlugInDeviceGetProperty (AudioDeviceID inDevice, UInt32 inLi
 		case kAOAPropertyAvailableOutputsBitmap:
 			entryname = ( inPropertyID == kAOAPropertyAvailableInputsBitmap) ? CFSTR ("InputsBitmap") : CFSTR ("OutputsBitmap");
 		
-			theNumber = IORegistryEntryCreateCFProperty (ioAudioEngine, entryname, kCFAllocatorDefault, 0);
+			theNumber = IORegistryEntryCreateCFProperty (theEngine, entryname, kCFAllocatorDefault, 0);
 			if (theNumber) {
 				if (outPropertyData)
 				{
@@ -205,19 +283,19 @@ OSStatus AudioDriverPlugInDeviceGetProperty (AudioDeviceID inDevice, UInt32 inLi
 			break;
 	}
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInDeviceGetProperty");
-
+	//syslog (LOG_ALERT, "- HAL Plugin :  AudioDriverPlugInDeviceGetProperty returns %ld", theResult);
+Exit:
 	return theResult;
 }
 
-OSStatus AudioDriverPlugInDeviceSetProperty (AudioDeviceID inDevice, const AudioTimeStamp * inWhen, UInt32 inLine, Boolean isInput, AudioDevicePropertyID inPropertyID, UInt32 inPropertyDataSize, const void * inPropertyData) {
+OSStatus AudioDriverPlugInDeviceSetProperty (AudioDeviceID inDeviceID, const AudioTimeStamp * inWhen, UInt32 inLine, Boolean isInput, AudioDevicePropertyID inPropertyID, UInt32 inPropertyDataSize, const void * inPropertyData) {
 	char					theProp[5];
 	OSStatus				theResult;
 
 	convertDecTo4cc (inPropertyID, theProp);
 	theResult = kAudioHardwareUnknownPropertyError;
 
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInDeviceSetProperty %s", theProp);
+	//syslog (LOG_ALERT, "+ HAL Plugin : AudioDriverPlugInDeviceSetProperty %s", theProp);
 
 	switch (inPropertyID) {
 		case kAOAPropertyPowerState:
@@ -230,47 +308,117 @@ OSStatus AudioDriverPlugInDeviceSetProperty (AudioDeviceID inDevice, const Audio
 			break;
 	}
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInDeviceSetProperty");
+	//syslog (LOG_ALERT, "- HAL Plugin :  AudioDriverPlugInDeviceSetProperty");
 	return theResult;                                    
 }                                
 
-OSStatus AudioDriverPlugInStreamGetPropertyInfo (AudioDeviceID inDevice, io_object_t inIOAudioStream, UInt32 inChannel, AudioDevicePropertyID inPropertyID, UInt32 * outSize, Boolean * outWritable) {
+OSStatus AudioDriverPlugInStreamGetPropertyInfo (AudioDeviceID inDeviceID, io_object_t inIOAudioStream, UInt32 inChannel, AudioDevicePropertyID inPropertyID, UInt32 * outSize, Boolean * outWritable) {
 	char						theProp[5];
 	OSStatus					theResult;
 
 	convertDecTo4cc (inPropertyID, theProp);
 	theResult = kAudioHardwareUnknownPropertyError;
 
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInStreamGetPropertyInfo  %s", theProp);
+//	syslog (LOG_ALERT, "+ HAL Plugin : AudioDriverPlugInStreamGetPropertyInfo  %s", theProp);
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInStreamGetPropertyInfo");
+//	syslog (LOG_ALERT, "- HAL Plugin :  AudioDriverPlugInStreamGetPropertyInfo");
 	return theResult;                                    
 }
 
-OSStatus AudioDriverPlugInStreamGetProperty (AudioDeviceID inDevice, io_object_t inIOAudioStream, UInt32 inChannel, AudioDevicePropertyID inPropertyID, UInt32 * ioPropertyDataSize, void * outPropertyData) {
+OSStatus AudioDriverPlugInStreamGetProperty (AudioDeviceID inDeviceID, io_object_t inIOAudioStream, UInt32 inChannel, AudioDevicePropertyID inPropertyID, UInt32 * ioPropertyDataSize, void * outPropertyData) {
 	char						theProp[5];
 	OSStatus					theResult;
 
 	convertDecTo4cc (inPropertyID, theProp);
 	theResult = kAudioHardwareUnknownPropertyError;
 
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInStreamGetProperty  %s", theProp);
+//	syslog (LOG_ALERT, "+ HAL Plugin : AudioDriverPlugInStreamGetProperty  %s", theProp);
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInStreamGetProperty");
+//	syslog (LOG_ALERT, "- HAL Plugin :  AudioDriverPlugInStreamGetProperty");
 	return theResult;                                    
 }
 
-OSStatus AudioDriverPlugInStreamSetProperty (AudioDeviceID inDevice, io_object_t inIOAudioStream, const AudioTimeStamp * inWhen, UInt32 inChannel, AudioDevicePropertyID inPropertyID, UInt32 inPropertyDataSize, const void * inPropertyData) {
+OSStatus AudioDriverPlugInStreamSetProperty (AudioDeviceID inDeviceID, io_object_t inIOAudioStream, const AudioTimeStamp * inWhen, UInt32 inChannel, AudioDevicePropertyID inPropertyID, UInt32 inPropertyDataSize, const void * inPropertyData) {
 	char					theProp[5];
 	OSStatus				theResult;
 
 	convertDecTo4cc (inPropertyID, theProp);
 	theResult = kAudioHardwareUnknownPropertyError;
 
-//	syslog (LOG_INFO, "+ HAL Plugin : AudioDriverPlugInStreamSetProperty  %s", theProp);
+//	syslog (LOG_ALERT, "+ HAL Plugin : AudioDriverPlugInStreamSetProperty  %s", theProp);
 
-//	syslog (LOG_INFO, "- HAL Plugin :  AudioDriverPlugInStreamSetProperty");    
+//	syslog (LOG_ALERT, "- HAL Plugin :  AudioDriverPlugInStreamSetProperty");    
 	return theResult;                                    
+}
+
+PluginInfoPtr AudioDriverPlugInGetPlugInInfoForDeviceID (UInt32 inDeviceID) {
+	CFIndex count;
+	CFIndex index;
+	PluginInfoPtr thePluginInfo = NULL;
+
+	FailIf(NULL == gPluginInfoArray, Exit);
+	
+	count = CFArrayGetCount(gPluginInfoArray);
+
+	for (index = 0; index < count; index++) {
+		thePluginInfo = (PluginInfoPtr)CFArrayGetValueAtIndex(gPluginInfoArray, index);
+		if (thePluginInfo) {
+			if (thePluginInfo->deviceID == inDeviceID) {
+				break;
+			}
+		}
+	}
+	
+Exit:
+	return thePluginInfo;
+}
+
+io_object_t AudioDriverPlugInGetEngineForDeviceID (UInt32 inDeviceID) {
+	io_object_t theEngine = NULL;
+	PluginInfoPtr thePluginInfo = NULL;
+
+	thePluginInfo = AudioDriverPlugInGetPlugInInfoForDeviceID(inDeviceID);	
+	if (thePluginInfo) {
+		theEngine = thePluginInfo->ioAudioEngine;
+	}
+
+	return theEngine;
+}
+
+io_object_t AudioDriverPlugInGetDeviceForDeviceID (UInt32 inDeviceID) {
+	io_object_t theDevice = NULL;
+	PluginInfoPtr thePluginInfo = NULL;
+
+	thePluginInfo = AudioDriverPlugInGetPlugInInfoForDeviceID(inDeviceID);
+	if (thePluginInfo) {
+		theDevice = thePluginInfo->ioAudioDevice;
+	}
+
+	return theDevice;
+}
+
+void ReleasePluginInfo(UInt32 inDeviceID) {
+	CFIndex count;
+	CFIndex index;
+	PluginInfoPtr thePluginInfo = NULL;
+
+	FailIf(NULL == gPluginInfoArray, Exit);
+
+	count = CFArrayGetCount(gPluginInfoArray);
+
+	for (index = 0; index < count; index++) {
+		thePluginInfo = (PluginInfoPtr)CFArrayGetValueAtIndex(gPluginInfoArray, index);
+		if (thePluginInfo) {
+			if (thePluginInfo->deviceID == inDeviceID) {
+				CFArrayRemoveValueAtIndex(gPluginInfoArray, index);
+				free (thePluginInfo);
+				break;
+			}
+		}
+	}
+
+Exit:
+	return;
 }
 
 static void convertDecTo4cc (UInt32 input, char * output) {

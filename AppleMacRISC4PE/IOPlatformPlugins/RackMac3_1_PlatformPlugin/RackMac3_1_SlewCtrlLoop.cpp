@@ -22,14 +22,14 @@
 /*
  * Copyright (c) 2003-2004 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: RackMac3_1_SlewCtrlLoop.cpp,v 1.5 2004/03/18 02:18:52 eem Exp $
+ *  File: $Id: RackMac3_1_SlewCtrlLoop.cpp,v 1.8 2004/12/03 23:19:46 raddog Exp $
  */
 
 
 #include <IOKit/IOLib.h>
 #include "IOPlatformPluginSymbols.h"
 #include "IOPlatformPlugin.h"
-#include <ppc/machine_routines.h>
+#include <machine/machine_routines.h>
 #include "RackMac3_1_SlewCtrlLoop.h"
 
 #define super IOPlatformCtrlLoop

@@ -13,10 +13,10 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Sascha Schumann <sascha@schumann.cx>                        |
-   |          Derick Rethans <d.rethans@jdimedia.nl>                      |
+   |          Derick Rethans <derick@derickrethans.nl>                    |
    +----------------------------------------------------------------------+
  */
-/* $Id: mcrypt.c,v 1.1.1.9 2003/07/18 18:07:36 zarzycki Exp $ */
+/* $Id: mcrypt.c,v 1.77.4.7 2003/11/04 01:32:40 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -251,6 +251,7 @@ static void php_mcrypt_module_dtor(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 #if HAVE_LIBMCRYPT24
 	MCRYPT td = (MCRYPT) rsrc->ptr;
+	mcrypt_generic_deinit(td);
 	mcrypt_module_close (td);
 #endif
 }
@@ -499,6 +500,7 @@ PHP_FUNCTION(mcrypt_generic_init)
 	}
 	memcpy (iv_s, Z_STRVAL_PP(iv), iv_size);
 
+	mcrypt_generic_deinit(td);
 	result = mcrypt_generic_init (td, key_s, key_size, iv_s);
 
 	/* If this function fails, close the mcrypt module to prevent crashes
@@ -607,7 +609,7 @@ PHP_FUNCTION(mdecrypt_generic)
 /* }}} */
 
 
-/* {{{ proto int mcrypt_enc_get_supported_key_sizes(resource td)
+/* {{{ proto array mcrypt_enc_get_supported_key_sizes(resource td)
    This function decrypts the crypttext */
 PHP_FUNCTION(mcrypt_enc_get_supported_key_sizes)
 {
@@ -917,7 +919,7 @@ PHP_FUNCTION(mcrypt_module_get_algo_key_size)
 /* }}} */
 
 
-/* {{{ proto int mcrypt_module_get_supported_key_sizes(string algorithm [, string lib_dir])
+/* {{{ proto array mcrypt_module_get_supported_key_sizes(string algorithm [, string lib_dir])
    This function decrypts the crypttext */
 PHP_FUNCTION(mcrypt_module_get_supported_key_sizes)
 {

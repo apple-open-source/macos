@@ -22,7 +22,7 @@
    +----------------------------------------------------------------------+
  */
  
-/* $Id: ldap.c,v 1.1.1.8 2003/07/18 18:07:35 zarzycki Exp $ */
+/* $Id: ldap.c,v 1.130.2.10 2004/06/01 21:05:33 iliaa Exp $ */
 #define IS_EXT_MODULE
 
 #ifdef HAVE_CONFIG_H
@@ -286,19 +286,17 @@ PHP_MINFO_FUNCTION(ldap)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "LDAP Support", "enabled" );
-	php_info_print_table_row(2, "RCS Version", "$Id: ldap.c,v 1.1.1.8 2003/07/18 18:07:35 zarzycki Exp $" );
+	php_info_print_table_row(2, "RCS Version", "$Id: ldap.c,v 1.130.2.10 2004/06/01 21:05:33 iliaa Exp $" );
 
 	if (LDAPG(max_links) == -1) {
 		snprintf(tmp, 31, "%ld/unlimited", LDAPG(num_links));
 	} else {
 		snprintf(tmp, 31, "%ld/%ld", LDAPG(num_links), LDAPG(max_links));
 	}
-	tmp[31] = '\0';
 	php_info_print_table_row(2, "Total Links", tmp);
 
 #ifdef LDAP_API_VERSION
 	snprintf(tmp, 31, "%d", LDAP_API_VERSION);
-	tmp[31] = '\0';
 	php_info_print_table_row(2, "API Version", tmp);
 #endif
 
@@ -308,27 +306,22 @@ PHP_MINFO_FUNCTION(ldap)
 
 #ifdef LDAP_VENDOR_VERSION
 	snprintf(tmp, 31, "%d", LDAP_VENDOR_VERSION);
-	tmp[31] = '\0';
 	php_info_print_table_row(2, "Vendor Version", tmp);
 #endif
 
 #if HAVE_NSLDAP
 	SDKVersion = ldap_version( &ver );
 	snprintf(tmp, 31, "%f", SDKVersion/100.0 );
-	tmp[31] = '\0';
 	php_info_print_table_row(2, "SDK Version", tmp );
 
 	snprintf(tmp, 31, "%f", ver.protocol_version/100.0 );
-	tmp[31] = '\0';
 	php_info_print_table_row(2, "Highest LDAP Protocol Supported", tmp );
 
 	snprintf(tmp, 31, "%f", ver.SSL_version/100.0 );
-	tmp[31] = '\0';
 	php_info_print_table_row(2, "SSL Level Supported", tmp );
 
 	if ( ver.security_level != LDAP_SECURITY_NONE ) {
 		snprintf(tmp, 31, "%d", ver.security_level );
-		tmp[31] = '\0';
 	} else {
 		strcpy(tmp, "SSL not enabled" );
 	}
@@ -374,7 +367,7 @@ PHP_FUNCTION(ldap_connect)
 #endif
 
 	if (LDAPG(max_links) != -1 && LDAPG(num_links) >= LDAPG(max_links)) {
-		php_error(E_WARNING, "%s(): Too many open links (%d)", get_active_function_name(TSRMLS_C), LDAPG(num_links));
+		php_error(E_WARNING, "%s(): Too many open links (%ld)", get_active_function_name(TSRMLS_C), LDAPG(num_links));
 		RETURN_FALSE;
 	}
 
@@ -1208,7 +1201,10 @@ PHP_FUNCTION(ldap_explode_dn)
 	convert_to_string_ex(dn);
 	convert_to_long_ex(with_attrib);
 
-	ldap_value = ldap_explode_dn(Z_STRVAL_PP(dn), Z_LVAL_PP(with_attrib));
+	if (!(ldap_value = ldap_explode_dn(Z_STRVAL_PP(dn), Z_LVAL_PP(with_attrib)))) {
+		/* Invalid parameters were passed to ldap_explode_dn */
+		RETURN_FALSE;
+	}
 
 	i=0;
 	while(ldap_value[i] != NULL) i++;
@@ -1601,7 +1597,7 @@ PHP_FUNCTION(ldap_get_option)
 				RETURN_FALSE;
 			}
 			zval_dtor(*retval);
-                        ZVAL_LONG(*retval, val);
+			ZVAL_LONG(*retval, val);
 		} break;
 		/* options with string value */
 	case LDAP_OPT_HOST_NAME:
@@ -1609,9 +1605,13 @@ PHP_FUNCTION(ldap_get_option)
 #ifdef LDAP_OPT_MATCHED_DN
 	case LDAP_OPT_MATCHED_DN:
 #endif
-	        {
-			char *val;
-			if (ldap_get_option(ld->link, opt, &val)) {
+		{
+			char *val = NULL;
+
+			if (ldap_get_option(ld->link, opt, &val) || val == NULL || *val == '\0') {
+				if (val) {
+					ldap_memfree(val);
+				}
 				RETURN_FALSE;
 			}
 			zval_dtor(*retval);

@@ -256,7 +256,6 @@ public:
 	virtual void			setRunMode ( UInt8 mode );
 	virtual UInt8			setStopMode ( void );
 	virtual UInt32			getClockLock ( void ) { return 1; }
-	virtual IOReturn		getCodecErrorStatus ( UInt32 * dataPtr );
 	virtual void			disableReceiverError ( void );
 
 	virtual void			useExternalCLK ( void );

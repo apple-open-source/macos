@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.1.1.5 2003/03/11 01:09:30 zarzycki Exp $
+dnl $Id: config.m4,v 1.35.2.6 2004/11/29 09:13:39 derick Exp $
 dnl
 
 PHP_ARG_WITH(pdflib,for PDFlib support,
@@ -90,6 +90,14 @@ if test "$PHP_PDFLIB" != "no"; then
   dnl #
   dnl # The main PDFlib configure
   dnl #
+
+  dnl # MacOSX requires this
+  case $host_alias in
+    *darwin*)
+      PHP_ADD_FRAMEWORK(CoreServices)
+      PHP_ADD_FRAMEWORK(ApplicationServices)
+      ;;
+  esac
 
   case $PHP_PDFLIB in
     yes)
